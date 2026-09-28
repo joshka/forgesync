@@ -17,6 +17,7 @@ forgesync-store = { path = "../forgesync-store" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+toml.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 url.workspace = true

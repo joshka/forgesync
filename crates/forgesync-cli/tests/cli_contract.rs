@@ -52,6 +52,41 @@ fn json_does_not_change_clap_usage_errors() {
 }
 
 #[test]
+fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {
+    let archive_path = temporary_archive_path();
+    let config_path = archive_path.with_extension("toml");
+    std::fs::write(&config_path, "[documents]\nrecipe = 'original_body'\n")
+        .expect("write valid config");
+
+    let valid = forgesync()
+        .args(["archive", "init", "--archive"])
+        .arg(&archive_path)
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--json")
+        .output()
+        .expect("run with explicit config");
+    assert!(valid.status.success());
+
+    std::fs::write(&config_path, "[documents]\nrecipe = 'unknown'\n")
+        .expect("write invalid config");
+    let invalid = forgesync()
+        .args(["archive", "status", "--archive"])
+        .arg(&archive_path)
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--json")
+        .output()
+        .expect("run with invalid config");
+    assert_eq!(invalid.status.code(), Some(1));
+    let error: serde_json::Value = serde_json::from_slice(&invalid.stdout).expect("error JSON");
+    assert_eq!(error["error"]["code"], "config_invalid");
+
+    remove_archive(&archive_path);
+    let _ = std::fs::remove_file(config_path);
+}
+
+#[test]
 fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let path = temporary_archive_path();
 
@@ -69,7 +104,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let init_json: serde_json::Value = serde_json::from_slice(&init.stdout).expect("init JSON");
     assert_eq!(init_json["command"], "archive init");
     assert_eq!(init_json["schema_version"], 1);
-    assert_eq!(init_json["data"]["schema_version"], 7);
+    assert_eq!(init_json["data"]["schema_version"], 8);
     let archive_id = init_json["data"]["archive_id"]
         .as_str()
         .expect("archive ID");

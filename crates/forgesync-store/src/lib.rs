@@ -5,6 +5,7 @@
 mod archive;
 mod checkpoints;
 mod diagnostics;
+mod documents;
 mod enumeration;
 mod error;
 mod families;
@@ -21,6 +22,7 @@ pub use diagnostics::{
     ArchiveDiagnostics, ArchiveLeaseStatus, FamilyFailureCount, PendingMigration,
     SchemaDiagnostics, WorkDiagnostics,
 };
+pub use documents::DocumentWrite;
 pub use enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
 pub use error::StoreError;
 pub use families::ChildFamilyObservation;

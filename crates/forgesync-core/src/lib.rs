@@ -4,6 +4,7 @@
 
 mod content;
 mod coverage;
+mod document;
 mod identity;
 mod observation;
 mod outcome;
@@ -18,6 +19,7 @@ pub use coverage::{
     Coverage, CoverageState, DeferredReason, EvidenceFamily, Failure, FailureKind,
     UnavailableReason,
 };
+pub use document::{Document, DocumentRecipe};
 pub use identity::{
     CommentId, CommitSha, GitHubHost, IdentityError, ObservationSequence, ProviderId, RepositoryId,
     ReviewId, ReviewThreadId, RunId, ThreadId, ThreadNumber, ThreadReference,

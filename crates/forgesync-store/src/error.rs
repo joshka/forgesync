@@ -125,6 +125,9 @@ pub enum StoreError {
     /// A stored run, job, or outcome state is invalid.
     #[error("archive contains invalid sync run data")]
     InvalidRunData,
+    /// A derived retrieval document has an unsupported recipe or invalid content hash.
+    #[error("retrieval document data is invalid")]
+    InvalidDocument,
     /// The requested run is not present in this archive.
     #[error("sync run is not present in this archive")]
     RunMissing,
@@ -216,6 +219,7 @@ impl StoreError {
             Self::ArchiveLeaseLost => "archive_lease_lost",
             Self::InvalidArchiveLeaseDuration => "archive_lease_duration_invalid",
             Self::InvalidRunData => "sync_run_invalid",
+            Self::InvalidDocument => "document_invalid",
             Self::RunMissing => "sync_run_missing",
             Self::InvalidSyncCount => "sync_count_invalid",
             Self::MissingRequestScope => "observation_scope_missing",

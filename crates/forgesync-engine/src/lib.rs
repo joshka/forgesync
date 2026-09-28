@@ -2,6 +2,7 @@
 
 //! Reusable local archive operations shared by frontends.
 
+mod documents;
 mod enumeration;
 mod error;
 mod inspect;
@@ -10,6 +11,9 @@ mod runs;
 mod search;
 mod sync;
 
+pub use documents::{
+    DocumentBuildReport, build_document, build_thread_document, materialize_thread_document,
+};
 pub use enumeration::{
     ThreadEnumerationReport, enumerate_repository_threads, enumerate_repository_threads_in_scope,
 };

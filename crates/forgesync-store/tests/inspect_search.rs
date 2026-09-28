@@ -325,6 +325,10 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("drop v7 family head context");
+    sqlx::query("DROP TABLE documents")
+        .execute(&pool)
+        .await
+        .expect("drop v8 documents");
     sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 3")
         .execute(&pool)
         .await
@@ -345,17 +349,21 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("mark archive at schema v2");
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 8")
+        .execute(&pool)
+        .await
+        .expect("mark archive at schema v2");
     pool.close().await;
 
     assert!(matches!(
         Archive::open_read_only(&path).await,
         Err(StoreError::MigrationRequired {
             current: 2,
-            supported: 7
+            supported: 8
         })
     ));
     let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.applied_migrations.len(), 5);
+    assert_eq!(migration.applied_migrations.len(), 6);
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");

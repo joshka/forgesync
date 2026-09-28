@@ -3,6 +3,7 @@
 //! Process interface for the Forgesync application.
 
 pub mod args;
+pub mod config;
 pub mod credentials;
 pub mod output;
 
@@ -16,6 +17,7 @@ use args::{
     SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
+use config::ForgesyncConfig;
 use forgesync_core::{
     CoverageState, GitHubHost, OperationOutcome, ReviewState, RunId, SourceState, ThreadKind,
     ThreadKind as DiscussionKind, UtcTimestamp,
@@ -50,6 +52,13 @@ where
         }
     };
 
+    let config = match ForgesyncConfig::load(args.config.as_deref()) {
+        Ok(config) => config,
+        Err(error) => {
+            return render_error(args.json, "configuration", error.code(), &error.to_string());
+        }
+    };
+
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_time()
         .build()
@@ -64,10 +73,10 @@ where
             );
         }
     };
-    runtime.block_on(dispatch(args))
+    runtime.block_on(dispatch(args, config))
 }
 
-async fn dispatch(args: CliArgs) -> ExitCode {
+async fn dispatch(args: CliArgs, _config: ForgesyncConfig) -> ExitCode {
     let Some(path) = args.archive else {
         return usage_error("--archive PATH is required for local archive commands");
     };

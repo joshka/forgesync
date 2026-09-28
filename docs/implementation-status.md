@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P4.1 — Versioned documents**.
+- Next task: **P4.2 — Embeddings**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -17,6 +17,7 @@
 - Complete: **P3.1 — PR metadata and reviews**.
 - Complete: **P3.2 — Review threads**.
 - Complete: **P3.4 — Health and explicit retry**.
+- Complete: **P4.1 — Versioned documents**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -417,6 +418,32 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
   docs/implementation-status.md`: passed, 0 issues.
 
+## P4.1 evidence
+
+Added two deterministic document recipes: `original_body` and `discussion_enriched`. The enriched
+recipe adds current non-bot comments, submitted reviews, and review-thread state and comments.
+Documents carry a recipe version, host-qualified source identity, SHA-256 content hash, normalized
+deduplication text, and source update timestamp. Retrieval timestamps are stored separately from
+the content hash. The store validates the recipe version and recomputes the hash before persistence;
+document writes run under the archive writer fence.
+
+The CLI loads optional TOML configuration from `--config PATH` or `FORGESYNC_CONFIG`. The
+`[documents].recipe` setting defaults to `discussion_enriched`; unknown fields and recipe names
+are rejected. See [configuration.md](configuration.md).
+
+Tests cover stable hashes for identical normalized evidence, recipe and text invalidation, document
+round trips, and persistence behavior across repeated builds, a source timestamp-only change, and an
+edited comment.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 102 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- Markdownlint on changed documentation: passed.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -436,7 +463,11 @@ Validation:
 | P3.2 — Review threads | Complete | Typed GraphQL pagination, nested completeness, head-bound state and rollback |
 | P3.3 — Legacy import | Deferred | Reserved task; keep the Go archive intact |
 | P3.4 — Health and explicit retry | Complete | Read-only diagnostics and selected failed-family retry |
-| P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
+| P4.1 — Versioned documents | Complete | Two recipes, timestamp-independent hashes, fenced document persistence |
+| P4.2 — Embeddings | Not started | Provider config, deterministic chunks, validated vectors |
+| P4.3 — Semantic and hybrid search | Not started | Exact cosine, reciprocal rank fusion, compatible-vector filtering |
+| P4.4 — Clustering and maintainer decisions | Not started | Deterministic candidate graph, stable IDs, persisted decisions |
+| P4.5 — Refresh composition | Not started | Explicit optional analysis stages and per-stage outcomes |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |
 
