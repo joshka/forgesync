@@ -363,6 +363,7 @@ pub(super) fn github_failure(error: &GitHubError) -> Failure {
         | GitHubError::RedirectRejected
         | GitHubError::ResponseTooLarge
         | GitHubError::InvalidJson
+        | GitHubError::GraphqlErrors { .. }
         | GitHubError::ConcurrencyUnavailable
         | GitHubError::InvalidApiBaseUrl
         | GitHubError::InvalidConfiguration

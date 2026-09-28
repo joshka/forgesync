@@ -4,12 +4,13 @@ use std::time::Duration;
 
 use forgesync_core::{
     CollectionCompleteness, Comment, DeferredReason, EvidenceFamily, Failure, FailureKind,
-    GitHubHost, IncompleteReason, OperationOutcome, PullRequestMetadata, Review, RunId,
-    SourceClock, ThreadId, ThreadKind, UtcTimestamp,
+    GitHubHost, IncompleteReason, OperationOutcome, PullRequestMetadata, Review, ReviewThread,
+    RunId, SourceClock, ThreadId, ThreadKind, UtcTimestamp,
 };
 use forgesync_github::{
-    GitHubClient, GitHubError, ThreadListState, fetch_issue_comment_page,
+    GitHubClient, GitHubError, GraphqlCursor, ThreadListState, fetch_issue_comment_page,
     fetch_pull_request_metadata, fetch_pull_request_review_page, fetch_repository,
+    fetch_review_thread_page,
 };
 use forgesync_store::{
     Archive, ArchiveLeaseToken, ChildFamilyFailureScope, ChildFamilyObservation,
@@ -60,6 +61,8 @@ pub struct SyncRequest {
     pub include_comments: bool,
     /// Acquire pull-request reviews.
     pub include_reviews: bool,
+    /// Acquire current pull-request review threads and nested comments.
+    pub include_review_threads: bool,
 }
 
 /// Progress snapshot sent opportunistically through a bounded channel.
@@ -79,6 +82,8 @@ pub struct SyncProgress {
     pub pull_request_metadata_seen: u64,
     /// Number of reviews returned by committed provider pages.
     pub reviews_seen: u64,
+    /// Number of review threads returned by fully acquired GraphQL pages.
+    pub review_threads_seen: u64,
     /// Current repository URL, when one is being processed.
     pub repository: Option<String>,
     /// State of the latest progress update.
@@ -120,7 +125,7 @@ pub struct SyncReport {
     pub failed_jobs: u64,
     /// Number of deferred jobs.
     pub deferred_jobs: u64,
-    /// Number of fully committed REST pages.
+    /// Number of fully committed provider pages across REST and GraphQL families.
     pub pages_completed: u64,
     /// Number of discussion rows returned by committed pages.
     pub threads_seen: u64,
@@ -130,6 +135,8 @@ pub struct SyncReport {
     pub pull_request_metadata_seen: u64,
     /// Number of reviews returned by committed pages.
     pub reviews_seen: u64,
+    /// Number of review threads returned by fully acquired GraphQL pages.
+    pub review_threads_seen: u64,
     /// Terminal outcome persisted on the run.
     pub outcome: OperationOutcome,
 }
@@ -151,6 +158,7 @@ struct WorkSummary {
     comments_seen: u64,
     pull_request_metadata_seen: u64,
     reviews_seen: u64,
+    review_threads_seen: u64,
     interrupted: bool,
     interrupted_jobs: u64,
     pending_jobs: u64,
@@ -161,6 +169,7 @@ struct SyncRunContext<'a> {
     total_jobs: u64,
     include_comments: bool,
     include_reviews: bool,
+    include_review_threads: bool,
     run_id: RunId,
     lease: &'a ArchiveLeaseToken,
     cancellation: &'a CancellationToken,
@@ -249,6 +258,7 @@ pub async fn sync_repositories(
         "thread_scope": request.scope,
         "include_comments": request.include_comments,
         "include_reviews": request.include_reviews,
+        "include_review_threads": request.include_review_threads,
     });
     let run_id = match archive
         .create_run(&lease, None, started_at, &run_scope)
@@ -271,6 +281,7 @@ pub async fn sync_repositories(
             total_jobs,
             include_comments: request.include_comments,
             include_reviews: request.include_reviews,
+            include_review_threads: request.include_review_threads,
             run_id,
             lease: &lease,
             cancellation: &operation_cancellation,
@@ -353,6 +364,7 @@ async fn execute_and_finalize(
         comments_seen: work.comments_seen,
         pull_request_metadata_seen: work.pull_request_metadata_seen,
         reviews_seen: work.reviews_seen,
+        review_threads_seen: work.review_threads_seen,
         outcome,
     })
 }
@@ -374,6 +386,7 @@ async fn run_jobs(
         comments_seen: 0,
         pull_request_metadata_seen: 0,
         reviews_seen: 0,
+        review_threads_seen: 0,
         interrupted: false,
         interrupted_jobs: 0,
         pending_jobs: 0,
@@ -657,7 +670,8 @@ async fn run_pull_request_jobs(
     if targets.is_empty() {
         return Ok(());
     }
-    let added_jobs = 1 + u64::from(context.include_reviews);
+    let added_jobs =
+        1 + u64::from(context.include_reviews) + u64::from(context.include_review_threads);
     summary.total_jobs = summary
         .total_jobs
         .checked_add(added_jobs)
@@ -690,6 +704,22 @@ async fn run_pull_request_jobs(
     } else {
         None
     };
+    let review_threads_job_id = if context.include_review_threads {
+        Some(
+            archive
+                .start_sync_job(
+                    context.lease,
+                    context.run_id,
+                    &repository.id,
+                    EvidenceFamily::ReviewThreads,
+                    unit.key,
+                    started_at,
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
     let progress_repository = RepositorySelector::from_repository(repository).as_url();
     send_progress(
         &context.progress,
@@ -702,10 +732,12 @@ async fn run_pull_request_jobs(
 
     let mut metadata_job = FamilyJobAccumulator::default();
     let mut reviews_job = FamilyJobAccumulator::default();
+    let mut review_threads_job = FamilyJobAccumulator::default();
     for target in targets {
         if context.cancellation.is_cancelled() {
             metadata_job.interrupted = true;
             reviews_job.interrupted = context.include_reviews;
+            review_threads_job.interrupted = context.include_review_threads;
             break;
         }
         let family_scope = ThreadFamilyScope {
@@ -725,6 +757,7 @@ async fn run_pull_request_jobs(
         if metadata_result.interrupted {
             metadata_job.interrupted = true;
             reviews_job.interrupted = context.include_reviews;
+            review_threads_job.interrupted = context.include_review_threads;
             break;
         }
         if context.include_reviews {
@@ -745,6 +778,28 @@ async fn run_pull_request_jobs(
             if reviews_result.interrupted {
                 metadata_job.interrupted = true;
                 reviews_job.interrupted = true;
+                review_threads_job.interrupted = context.include_review_threads;
+                break;
+            }
+        }
+        if context.include_review_threads {
+            let review_threads_result = sync_thread_review_threads(
+                archive,
+                client,
+                &family_scope,
+                metadata_result.value.as_ref(),
+                metadata_result.failure.as_ref(),
+                context,
+            )
+            .await?;
+            accumulate_thread_result(&mut review_threads_job, &review_threads_result)?;
+            summary.review_threads_seen = summary
+                .review_threads_seen
+                .checked_add(review_threads_result.items_received)
+                .ok_or(StoreError::IntegerOutOfRange)?;
+            if review_threads_result.interrupted {
+                metadata_job.interrupted = true;
+                review_threads_job.interrupted = true;
                 break;
             }
         }
@@ -754,6 +809,7 @@ async fn run_pull_request_jobs(
         .pages_completed
         .checked_add(metadata_job.pages_completed)
         .and_then(|count| count.checked_add(reviews_job.pages_completed))
+        .and_then(|count| count.checked_add(review_threads_job.pages_completed))
         .ok_or(StoreError::IntegerOutOfRange)?;
     finish_family_sync_job(
         archive,
@@ -772,6 +828,17 @@ async fn run_pull_request_jobs(
             &progress_repository,
             reviews_job_id,
             reviews_job,
+        )
+        .await?;
+    }
+    if let Some(review_threads_job_id) = review_threads_job_id {
+        finish_family_sync_job(
+            archive,
+            context,
+            summary,
+            &progress_repository,
+            review_threads_job_id,
+            review_threads_job,
         )
         .await?;
     }
@@ -1203,7 +1270,12 @@ async fn sync_thread_reviews(
     let source_clock = SourceClock::Valid(scope.updated_at);
     if let Some(metadata) = metadata
         && archive
-            .review_family_is_current_for_head(scope.thread, &source_clock, &metadata.head.sha)
+            .pull_request_family_is_current_for_head(
+                scope.thread,
+                family,
+                &source_clock,
+                &metadata.head.sha,
+            )
             .await?
     {
         archive
@@ -1345,6 +1417,247 @@ async fn sync_thread_reviews(
             .checked_add(1)
             .ok_or(StoreError::IntegerOutOfRange)?;
         next_page = page.next_page;
+        if next_page.is_none() {
+            break;
+        }
+    }
+
+    let observation = archive
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: scope.thread,
+                family,
+                sequence: reservation.sequence,
+                observed_at: now_utc()?,
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(page_count),
+                head_sha: Some(&metadata.head.sha),
+            },
+            context.lease,
+        )
+        .await?;
+    result.pages_completed = u64::from(page_count);
+    if matches!(
+        observation.disposition,
+        ObservationDisposition::Applied | ObservationDisposition::Replayed
+    ) {
+        result.items_committed = observation.item_count;
+        archive
+            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
+            .await?;
+    } else {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    Ok(result)
+}
+
+async fn sync_thread_review_threads(
+    archive: &Archive,
+    client: &GitHubClient,
+    scope: &ThreadFamilyScope<'_>,
+    metadata: Option<&PullRequestMetadata>,
+    metadata_failure: Option<&Failure>,
+    context: &SyncRunContext<'_>,
+) -> Result<ThreadFamilyResult<()>, EngineError> {
+    let mut result = ThreadFamilyResult::default();
+    let family = EvidenceFamily::ReviewThreads;
+    let failure_scope = ChildFamilyFailureScope {
+        run_id: context.run_id,
+        repository: &scope.repository.id,
+        thread: scope.thread,
+        family,
+        scope_key: scope.key,
+    };
+    let source_clock = SourceClock::Valid(scope.updated_at);
+    if let Some(metadata) = metadata
+        && archive
+            .pull_request_family_is_current_for_head(
+                scope.thread,
+                family,
+                &source_clock,
+                &metadata.head.sha,
+            )
+            .await?
+    {
+        archive
+            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
+            .await?;
+        return Ok(result);
+    }
+
+    let request_scope = format!("run:{}:{}", context.run_id.get(), scope.key);
+    let reservation = archive
+        .reserve_child_family_observation_fenced(
+            scope.thread,
+            family,
+            &source_clock,
+            now_utc()?,
+            &request_scope,
+            context.lease,
+        )
+        .await?;
+    if !reservation.reserved {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    archive
+        .mark_child_family_failures_retried(context.lease, &failure_scope)
+        .await?;
+
+    let Some(metadata) = metadata else {
+        let failure = metadata_failure.cloned().unwrap_or(Failure {
+            kind: FailureKind::ProviderResponse,
+            message: "pull-request head metadata is unavailable".to_owned(),
+        });
+        archive
+            .finish_child_family_observation_fenced(
+                ChildFamilyObservation {
+                    thread: scope.thread,
+                    family,
+                    sequence: reservation.sequence,
+                    observed_at: now_utc()?,
+                    completeness: &CollectionCompleteness::Incomplete {
+                        reason: IncompleteReason::Unknown,
+                        received_items: 0,
+                    },
+                    expected_pages: None,
+                    head_sha: None,
+                },
+                context.lease,
+            )
+            .await?;
+        record_thread_family_failure(
+            archive,
+            context,
+            scope.repository,
+            scope.thread,
+            family,
+            scope.key,
+            &failure,
+        )
+        .await?;
+        result.failure = Some(failure);
+        return Ok(result);
+    };
+
+    let mut next_page: Option<GraphqlCursor> = None;
+    let mut seen_cursors = HashSet::new();
+    let mut page_count = 0_u32;
+    loop {
+        let page = match fetch_review_thread_page(
+            client,
+            scope.repository,
+            scope.thread,
+            &metadata.head.sha,
+            next_page.as_ref(),
+            context.cancellation,
+        )
+        .await
+        {
+            Ok(page) => page,
+            Err(error) => {
+                archive
+                    .finish_child_family_observation_fenced(
+                        ChildFamilyObservation {
+                            thread: scope.thread,
+                            family,
+                            sequence: reservation.sequence,
+                            observed_at: now_utc()?,
+                            completeness: &CollectionCompleteness::Incomplete {
+                                reason: incomplete_reason(&error, page_count),
+                                received_items: result.items_received,
+                            },
+                            expected_pages: None,
+                            head_sha: None,
+                        },
+                        context.lease,
+                    )
+                    .await?;
+                if matches!(error, GitHubError::Cancelled) {
+                    result.interrupted = true;
+                    return Ok(result);
+                }
+                let failure = github_failure(&error);
+                record_thread_family_failure(
+                    archive,
+                    context,
+                    scope.repository,
+                    scope.thread,
+                    family,
+                    scope.key,
+                    &failure,
+                )
+                .await?;
+                result.failure = Some(failure);
+                result.pages_completed = u64::from(page_count);
+                return Ok(result);
+            }
+        };
+
+        if let Some(cursor) = page.next_cursor.as_ref()
+            && !seen_cursors.insert(cursor.as_str().to_owned())
+        {
+            let error = GitHubError::InvalidPaginationLink;
+            archive
+                .finish_child_family_observation_fenced(
+                    ChildFamilyObservation {
+                        thread: scope.thread,
+                        family,
+                        sequence: reservation.sequence,
+                        observed_at: now_utc()?,
+                        completeness: &CollectionCompleteness::Incomplete {
+                            reason: incomplete_reason(&error, page_count),
+                            received_items: result.items_received,
+                        },
+                        expected_pages: None,
+                        head_sha: None,
+                    },
+                    context.lease,
+                )
+                .await?;
+            let failure = github_failure(&error);
+            record_thread_family_failure(
+                archive,
+                context,
+                scope.repository,
+                scope.thread,
+                family,
+                scope.key,
+                &failure,
+            )
+            .await?;
+            result.failure = Some(failure);
+            result.pages_completed = u64::from(page_count);
+            return Ok(result);
+        }
+
+        let page_items =
+            u64::try_from(page.review_threads.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
+        result.items_received = result
+            .items_received
+            .checked_add(page_items)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        let items = page
+            .review_threads
+            .into_iter()
+            .map(|review_thread| StagedItem {
+                id: review_thread.id.provider_id().clone(),
+                payload: review_thread,
+            })
+            .collect::<Vec<StagedItem<ReviewThread>>>();
+        archive
+            .stage_child_family_page_fenced(
+                scope.thread,
+                family,
+                reservation.sequence,
+                page_count,
+                &items,
+                context.lease,
+            )
+            .await?;
+        page_count = page_count
+            .checked_add(1)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        next_page = page.next_cursor;
         if next_page.is_none() {
             break;
         }
@@ -1733,6 +2046,7 @@ fn send_progress(
             comments_seen: summary.comments_seen,
             pull_request_metadata_seen: summary.pull_request_metadata_seen,
             reviews_seen: summary.reviews_seen,
+            review_threads_seen: summary.review_threads_seen,
             repository,
             status,
         };

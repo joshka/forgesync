@@ -1,7 +1,9 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use reqwest::header::{ACCEPT, AUTHORIZATION, LINK, LOCATION, RETRY_AFTER, USER_AGENT};
+use reqwest::header::{
+    ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION, RETRY_AFTER, USER_AGENT,
+};
 use reqwest::{Method, Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -173,9 +175,49 @@ impl GitHubClient {
         self.request_json(url, cancellation).await
     }
 
+    /// Sends a bounded JSON POST request to the configured API origin.
+    pub(crate) async fn post_json<T>(
+        &self,
+        url: &Url,
+        body: &[u8],
+        cancellation: &CancellationToken,
+    ) -> Result<T, GitHubError>
+    where
+        T: DeserializeOwned,
+    {
+        Ok(self
+            .request_json_with_body(url, Method::POST, Some(body), cancellation)
+            .await?
+            .value)
+    }
+
+    /// Builds GitHub's GraphQL endpoint from the configured REST API base URL.
+    pub(crate) fn graphql_endpoint_url(&self) -> Result<Url, GitHubError> {
+        let mut url = self.api_base_url.clone();
+        let path = url.path().trim_end_matches('/');
+        let api_path = path.strip_suffix("/v3").unwrap_or(path);
+        url.set_path(&format!("{api_path}/graphql"));
+        self.origin.validate(&url)?;
+        Ok(url)
+    }
+
     async fn request_json<T>(
         &self,
         url: &Url,
+        cancellation: &CancellationToken,
+    ) -> Result<GitHubResponse<T>, GitHubError>
+    where
+        T: DeserializeOwned,
+    {
+        self.request_json_with_body(url, Method::GET, None, cancellation)
+            .await
+    }
+
+    async fn request_json_with_body<T>(
+        &self,
+        url: &Url,
+        method: Method,
+        body: Option<&[u8]>,
         cancellation: &CancellationToken,
     ) -> Result<GitHubResponse<T>, GitHubError>
     where
@@ -206,10 +248,10 @@ impl GitHubClient {
             let span = tracing::debug_span!(
                 "github_http_request",
                 origin = %self.origin.display,
-                method = "GET",
+                method = %method,
                 attempt,
             );
-            let request = self.perform_once(url, permit, cancellation);
+            let request = self.perform_once(url, &method, body, permit, cancellation);
             let outcome = tokio::select! {
                 _ = cancellation.cancelled() => return Err(GitHubError::Cancelled),
                 result = tokio::time::timeout(remaining, request).instrument(span) => {
@@ -262,6 +304,8 @@ impl GitHubClient {
     async fn perform_once(
         &self,
         url: &Url,
+        method: &Method,
+        body: Option<&[u8]>,
         _permit: OwnedSemaphorePermit,
         cancellation: &CancellationToken,
     ) -> Result<ResponseBody, RequestFailure> {
@@ -276,9 +320,14 @@ impl GitHubClient {
                 .map_err(RequestFailure::terminal)?;
             let mut request = self
                 .http
-                .request(Method::GET, current_url.clone())
+                .request(method.clone(), current_url.clone())
                 .header(ACCEPT, "application/vnd.github+json")
                 .header(USER_AGENT, "forgesync");
+            if let Some(body) = body {
+                request = request
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(body.to_vec());
+            }
             if let Some(token) = &self.token {
                 request = request.header(AUTHORIZATION, format!("Bearer {}", token.expose()));
             }
@@ -924,6 +973,21 @@ mod tests {
             .endpoint_url(&["repos", "owner name", "repo"])
             .unwrap();
         assert_eq!(endpoint.path(), "/api/v3/repos/owner%20name/repo");
+        assert_eq!(
+            client.graphql_endpoint_url().unwrap().path(),
+            "/api/graphql"
+        );
+    }
+
+    #[tokio::test]
+    async fn public_graphql_endpoint_uses_the_configured_origin() {
+        let server = MockServer::start().await;
+        let base_url = Url::parse(&format!("{}/", server.uri())).unwrap();
+        let client = GitHubClient::new(ClientConfig::new(base_url), None).unwrap();
+
+        let graphql = client.graphql_endpoint_url().unwrap();
+        assert_eq!(graphql.origin().ascii_serialization(), server.uri());
+        assert_eq!(graphql.path(), "/graphql");
     }
 
     #[tokio::test]

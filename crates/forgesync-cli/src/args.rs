@@ -216,6 +216,8 @@ pub enum SyncIncludeArg {
     Comments,
     /// Acquire pull-request reviews and reviewer identities.
     Reviews,
+    /// Acquire current pull-request review threads and nested comments through GraphQL.
+    ReviewThreads,
 }
 
 /// Terminal color selection.
@@ -324,6 +326,22 @@ mod tests {
             args.command,
             Command::Sync { with, .. }
                 if with == vec![SyncIncludeArg::Comments, SyncIncludeArg::Reviews]
+        ));
+
+        let args = CliArgs::try_parse_from([
+            "forgesync",
+            "--archive",
+            "archive.db",
+            "sync",
+            "owner/repo",
+            "--with",
+            "review-threads",
+        ])
+        .expect("sync with review threads should parse");
+        assert!(matches!(
+            args.command,
+            Command::Sync { with, .. }
+                if with == vec![SyncIncludeArg::ReviewThreads]
         ));
     }
 }

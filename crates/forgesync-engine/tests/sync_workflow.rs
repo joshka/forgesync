@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use forgesync_core::{
     Comment, CoverageState, EvidenceFamily, FailureKind, GitHubHost, OperationOutcome, Review,
-    ReviewState, UtcTimestamp,
+    ReviewState, ReviewThread, UtcTimestamp,
 };
 use forgesync_engine::{
     EngineError, RepositorySelector, SyncRequest, SyncThreadScope, sync_repositories,
@@ -16,7 +16,7 @@ use forgesync_store::{Archive, SyncJobStatus, ThreadQuery, ThreadSort, ThreadSta
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
-use wiremock::matchers::{method, path, query_param};
+use wiremock::matchers::{body_string_contains, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
@@ -64,6 +64,7 @@ async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {
         scope: SyncThreadScope::Open,
         include_comments: false,
         include_reviews: false,
+        include_review_threads: false,
     };
     let sync_task = tokio::spawn(async move {
         let result =
@@ -519,6 +520,7 @@ async fn comment_failure_ledger_error_retains_the_provider_failure() {
             scope: SyncThreadScope::Open,
             include_comments: true,
             include_reviews: false,
+            include_review_threads: false,
         },
         &CancellationToken::new(),
         None,
@@ -573,6 +575,7 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
         SyncThreadScope::Open,
         true,
         true,
+        false,
     )
     .await;
     assert_eq!(initial.outcome, OperationOutcome::Complete);
@@ -595,6 +598,7 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
         SyncThreadScope::Open,
         false,
         true,
+        false,
     )
     .await;
     assert!(matches!(
@@ -638,6 +642,15 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         )],
     )
     .await;
+    mount_graphql_review_threads(
+        &server,
+        review_thread_page(
+            vec![review_thread("PRRT_reviewed_head", false)],
+            false,
+            None,
+        ),
+    )
+    .await;
 
     let archive_path = temporary_archive_path();
     let archive = Archive::create(&archive_path)
@@ -652,6 +665,7 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         selector.clone(),
         SyncThreadScope::Open,
         false,
+        true,
         true,
     )
     .await;
@@ -683,6 +697,7 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         SyncThreadScope::Open,
         false,
         false,
+        false,
     )
     .await;
     assert_eq!(metadata_only.outcome, OperationOutcome::Complete);
@@ -694,6 +709,11 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         CoverageState::Complete { item_count: 1, .. }
     ));
     assert!(review_coverage(&summary).is_stale());
+    assert!(matches!(
+        review_thread_coverage(&summary).state(),
+        CoverageState::Complete { item_count: 1, .. }
+    ));
+    assert!(review_thread_coverage(&summary).is_stale());
     assert_eq!(
         review_members(&archive, 18).await[0]
             .payload
@@ -719,6 +739,193 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
     remove_archive(&archive_path);
 }
 
+#[tokio::test]
+async fn complete_review_thread_snapshots_remove_and_restore_current_membership() {
+    let server = MockServer::start().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-20T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_graphql_review_threads(
+        &server,
+        review_thread_page(
+            vec![review_thread("PRRT_old", false)],
+            true,
+            Some("thread-cursor-1"),
+        ),
+    )
+    .await;
+    Mock::given(method("POST"))
+        .and(path("/api/graphql"))
+        .and(body_string_contains("reviewThreads(first: 100"))
+        .and(body_string_contains("thread-cursor-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(review_thread_page(
+            vec![review_thread("PRRT_page_two", false)],
+            false,
+            None,
+        )))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let archive_path = temporary_archive_path();
+    let archive = Archive::create(&archive_path)
+        .await
+        .expect("create archive");
+    let selector = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
+    let initial = sync_once_with_families(
+        &archive,
+        &server,
+        selector.clone(),
+        SyncThreadScope::Open,
+        false,
+        false,
+        true,
+    )
+    .await;
+    assert_eq!(initial.outcome, OperationOutcome::Complete);
+    assert_eq!(initial.review_threads_seen, 2);
+    assert_eq!(review_thread_members(&archive, 18).await.len(), 2);
+
+    server.reset().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_graphql_review_threads(&server, review_thread_page(Vec::new(), false, None)).await;
+    let removed = sync_once_with_families(
+        &archive,
+        &server,
+        selector.clone(),
+        SyncThreadScope::Open,
+        false,
+        false,
+        true,
+    )
+    .await;
+    assert_eq!(removed.outcome, OperationOutcome::Complete);
+    assert!(review_thread_members(&archive, 18).await.is_empty());
+    assert!(matches!(
+        review_thread_coverage(&thread_summary(&archive, 18).await).state(),
+        CoverageState::Complete { item_count: 0, .. }
+    ));
+
+    server.reset().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-22T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_graphql_review_threads(
+        &server,
+        review_thread_page(vec![review_thread("PRRT_restored", true)], false, None),
+    )
+    .await;
+    let restored = sync_once_with_families(
+        &archive,
+        &server,
+        selector,
+        SyncThreadScope::Open,
+        false,
+        false,
+        true,
+    )
+    .await;
+    assert_eq!(restored.outcome, OperationOutcome::Complete);
+    let members = review_thread_members(&archive, 18).await;
+    assert_eq!(members.len(), 1);
+    assert_eq!(
+        members[0].payload.id.provider_id().as_str(),
+        "PRRT_restored"
+    );
+    assert!(members[0].payload.is_resolved);
+
+    archive.close().await;
+    remove_archive(&archive_path);
+}
+
+#[tokio::test]
+async fn partial_graphql_review_thread_snapshot_keeps_last_complete_membership() {
+    let server = MockServer::start().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-20T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_graphql_review_threads(
+        &server,
+        review_thread_page(vec![review_thread("PRRT_old", false)], false, None),
+    )
+    .await;
+
+    let archive_path = temporary_archive_path();
+    let archive = Archive::create(&archive_path)
+        .await
+        .expect("create archive");
+    let selector = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
+    let initial = sync_once_with_families(
+        &archive,
+        &server,
+        selector.clone(),
+        SyncThreadScope::Open,
+        false,
+        false,
+        true,
+    )
+    .await;
+    assert_eq!(initial.outcome, OperationOutcome::Complete);
+    let original_members = review_thread_members(&archive, 18).await;
+
+    server.reset().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "cccccccccccccccccccccccccccccccccccccccc", false).await;
+    mount_graphql_review_threads(
+        &server,
+        review_thread_page(Vec::new(), true, Some("thread-cursor-1")),
+    )
+    .await;
+    Mock::given(method("POST"))
+        .and(path("/api/graphql"))
+        .and(body_string_contains("reviewThreads(first: 100"))
+        .and(body_string_contains("thread-cursor-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"repository": {"pullRequest": {"reviewThreads": {
+                "nodes": [review_thread("PRRT_partial", true)],
+                "pageInfo": {"hasNextPage": false, "endCursor": null}
+            }}}},
+            "errors": [{"message": "Synthetic partial second page"}]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let failed = sync_once_with_families(
+        &archive,
+        &server,
+        selector,
+        SyncThreadScope::Open,
+        false,
+        false,
+        true,
+    )
+    .await;
+    assert!(matches!(
+        failed.outcome,
+        OperationOutcome::Partial {
+            failed_items: 1,
+            ..
+        }
+    ));
+    assert_eq!(review_thread_members(&archive, 18).await, original_members);
+    let summary = thread_summary(&archive, 18).await;
+    assert!(matches!(
+        review_thread_coverage(&summary).state(),
+        CoverageState::Incomplete { .. }
+    ));
+    assert!(review_thread_coverage(&summary).is_stale());
+
+    archive.close().await;
+    remove_archive(&archive_path);
+}
+
 async fn sync_once(
     archive: &Archive,
     server: &MockServer,
@@ -735,7 +942,16 @@ async fn sync_once_with_comments(
     scope: SyncThreadScope,
     include_comments: bool,
 ) -> forgesync_engine::SyncReport {
-    sync_once_with_families(archive, server, selector, scope, include_comments, false).await
+    sync_once_with_families(
+        archive,
+        server,
+        selector,
+        scope,
+        include_comments,
+        false,
+        false,
+    )
+    .await
 }
 
 async fn sync_once_with_families(
@@ -745,6 +961,7 @@ async fn sync_once_with_families(
     scope: SyncThreadScope,
     include_comments: bool,
     include_reviews: bool,
+    include_review_threads: bool,
 ) -> forgesync_engine::SyncReport {
     let clients = clients_for(server, &selector);
     sync_repositories(
@@ -756,6 +973,7 @@ async fn sync_once_with_families(
             scope,
             include_comments,
             include_reviews,
+            include_review_threads,
         },
         &CancellationToken::new(),
         None,
@@ -826,6 +1044,45 @@ async fn mount_pull_reviews(server: &MockServer, status: u16, reviews: Vec<serde
         .await;
 }
 
+async fn mount_graphql_review_threads(server: &MockServer, response: serde_json::Value) {
+    Mock::given(method("POST"))
+        .and(path("/api/graphql"))
+        .and(body_string_contains("reviewThreads(first: 100"))
+        .and(body_string_contains("\"cursor\":null"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(response))
+        .mount(server)
+        .await;
+}
+
+fn review_thread(id: &str, is_resolved: bool) -> serde_json::Value {
+    json!({
+        "id": id,
+        "isResolved": is_resolved,
+        "isOutdated": false,
+        "path": "src/lib.rs",
+        "line": 42,
+        "startLine": null,
+        "viewerCanResolve": true,
+        "comments": {
+            "nodes": [],
+            "pageInfo": {"hasNextPage": false, "endCursor": null}
+        }
+    })
+}
+
+fn review_thread_page(
+    review_threads: Vec<serde_json::Value>,
+    has_next_page: bool,
+    end_cursor: Option<&str>,
+) -> serde_json::Value {
+    json!({
+        "data": {"repository": {"pullRequest": {"reviewThreads": {
+            "nodes": review_threads,
+            "pageInfo": {"hasNextPage": has_next_page, "endCursor": end_cursor}
+        }}}}
+    })
+}
+
 fn pull_review(id: u64, commit_sha: &str) -> serde_json::Value {
     json!({
         "id": id,
@@ -884,6 +1141,14 @@ fn review_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core:
         .expect("review coverage")
 }
 
+fn review_thread_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core::Coverage {
+    summary
+        .coverage
+        .iter()
+        .find(|coverage| coverage.family() == EvidenceFamily::ReviewThreads)
+        .expect("review-thread coverage")
+}
+
 async fn comment_bodies(archive: &Archive, number: u64) -> Vec<String> {
     let summary = thread_summary(archive, number).await;
     archive
@@ -904,6 +1169,17 @@ async fn review_members(
         .child_family_members::<Review>(&summary.discussion.id, EvidenceFamily::Reviews)
         .await
         .expect("read canonical reviews")
+}
+
+async fn review_thread_members(
+    archive: &Archive,
+    number: u64,
+) -> Vec<forgesync_store::StagedItem<ReviewThread>> {
+    let summary = thread_summary(archive, number).await;
+    archive
+        .child_family_members::<ReviewThread>(&summary.discussion.id, EvidenceFamily::ReviewThreads)
+        .await
+        .expect("read canonical review threads")
 }
 
 async fn mount_repository(server: &MockServer) {

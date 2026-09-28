@@ -393,13 +393,48 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
     );
     assert!(
         archive
-            .review_family_is_current_for_head(
+            .pull_request_family_is_current_for_head(
                 &thread_id,
+                EvidenceFamily::Reviews,
                 &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
                 &review_head,
             )
             .await
             .expect("read review snapshot context")
+    );
+
+    let review_threads = archive
+        .reserve_child_family_observation(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            timestamp("2026-09-20T10:00:06.1Z"),
+            "POST /graphql reviewThreads",
+        )
+        .await
+        .expect("reserve review threads independently");
+    archive
+        .finish_child_family_observation_with_context(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            sequence: review_threads.sequence,
+            observed_at: timestamp("2026-09-20T10:00:06.2Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(0),
+            head_sha: Some(&review_head),
+        })
+        .await
+        .expect("complete empty review-thread snapshot");
+    assert!(
+        archive
+            .pull_request_family_is_current_for_head(
+                &thread_id,
+                EvidenceFamily::ReviewThreads,
+                &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                &review_head,
+            )
+            .await
+            .expect("read review-thread snapshot context")
     );
 
     let stale_comments = archive
@@ -599,6 +634,124 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         vec![item("new", json!({"body":"new"}))]
     );
 
+    archive.close().await;
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_context() {
+    let path = temporary_archive_path();
+    let (archive, repository_id, thread_id) = create_archive_with_repository(&path).await;
+    let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
+    archive
+        .apply_thread_observation(&thread_observation(
+            discussion(&repository_id, &thread_id, "2026-09-20T10:00:00Z", "thread"),
+            "2026-09-20T10:00:00Z",
+            "2026-09-20T10:00:00Z",
+            thread_sequence,
+            CollectionCompleteness::Complete,
+        ))
+        .await
+        .expect("apply parent");
+
+    let head =
+        CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review-thread head SHA");
+    let first = archive
+        .reserve_child_family_observation(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            timestamp("2026-09-20T10:00:01Z"),
+            "review threads",
+        )
+        .await
+        .expect("reserve first review-thread snapshot");
+    archive
+        .stage_child_family_page(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            first.sequence,
+            0,
+            &[item("old", json!({"resolution":"open"}))],
+        )
+        .await
+        .expect("stage initial review thread");
+    archive
+        .finish_child_family_observation_with_context(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            sequence: first.sequence,
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: Some(&head),
+        })
+        .await
+        .expect("commit initial review-thread snapshot");
+
+    let next = archive
+        .reserve_child_family_observation(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            timestamp("2026-09-20T10:00:03Z"),
+            "review threads",
+        )
+        .await
+        .expect("reserve replacement review-thread snapshot");
+    archive
+        .stage_child_family_page(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            next.sequence,
+            0,
+            &[item("new", json!({"resolution":"resolved"}))],
+        )
+        .await
+        .expect("stage replacement review thread");
+
+    let trigger_pool = writable_pool(&path).await;
+    sqlx::query(
+        "CREATE TRIGGER reject_review_thread_coverage BEFORE UPDATE ON family_coverage WHEN NEW.family = 'review_threads' BEGIN SELECT RAISE(ABORT, 'forced coverage failure'); END",
+    )
+    .execute(&trigger_pool)
+    .await
+    .expect("install test trigger");
+    assert!(
+        archive
+            .finish_child_family_observation_with_context(ChildFamilyObservation {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                sequence: next.sequence,
+                observed_at: timestamp("2026-09-20T10:00:04Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: Some(&head),
+            })
+            .await
+            .is_err()
+    );
+
+    assert_eq!(
+        archive
+            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::ReviewThreads)
+            .await
+            .expect("old membership remains after failed transaction"),
+        vec![item("old", json!({"resolution":"open"}))]
+    );
+    assert!(
+        archive
+            .pull_request_family_is_current_for_head(
+                &thread_id,
+                EvidenceFamily::ReviewThreads,
+                &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                &head,
+            )
+            .await
+            .expect("old complete coverage and head context remain")
+    );
+
+    trigger_pool.close().await;
     archive.close().await;
     remove_archive(&path);
 }

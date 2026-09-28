@@ -35,7 +35,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | version command | redesign | Use Clap --version only | internal/cli/app.go |
 | metadata, check-update | defer | Control manifests and update checks do not support local acquisition or retrieval | internal/cli/control.go; internal/cli/releasecheck.go |
 | configure | redesign | CLI options resolve over documented env, TOML, and defaults; no edit wizard | internal/config/config.go; docs/configuration.md |
-| sync | redesign | One typed sync request with repositories or --all, state, and selected --with families | internal/cli/sync.go; docs/sync.md |
+| sync | redesign | One typed sync request with repositories or --all, state, and selected --with comments,reviews,review-threads families | internal/cli/sync.go; docs/sync.md |
 | sync-failures, coverage | redesign | archive status and run list/show expose durable failures and per-family coverage | internal/cli/inspect.go; internal/store/archive_coverage.go |
 | fill-pr-details | defer | Files, commits, checks, and workflow runs are outside selected v2 scope | internal/cli/sync.go; internal/syncer/pull_details.go |
 | capture | defer | Separate conversation export is not needed for the selected archive workflow | internal/cli/capture.go; docs/capture.md |

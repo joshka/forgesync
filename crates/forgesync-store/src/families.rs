@@ -638,24 +638,24 @@ impl Archive {
         .await
     }
 
-    /// Returns whether review membership is complete for the same source clock and pull-request
-    /// head. The stored count is checked against canonical membership because GitHub does not
-    /// expose a review count on the parent issue row.
-    pub async fn review_family_is_current_for_head(
+    /// Returns whether head-bound pull-request evidence is complete for the same source clock and
+    /// head. The stored count is checked against canonical membership because the parent issue row
+    /// does not expose these family counts.
+    pub async fn pull_request_family_is_current_for_head(
         &self,
         thread: &ThreadId,
+        family: EvidenceFamily,
         source_clock: &SourceClock,
         head_sha: &CommitSha,
     ) -> Result<bool, StoreError> {
-        self.child_family_is_current_inner(
-            thread,
-            EvidenceFamily::Reviews,
-            source_clock,
-            None,
-            Some(head_sha),
-            true,
-        )
-        .await
+        if !matches!(
+            family,
+            EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads
+        ) {
+            return Err(StoreError::UnexpectedPullRequestHeadContext);
+        }
+        self.child_family_is_current_inner(thread, family, source_clock, None, Some(head_sha), true)
+            .await
     }
 
     async fn child_family_is_current_inner(

@@ -627,7 +627,10 @@ fn is_stale(
     family: EvidenceFamily,
     stored: Option<&StoredCoverage>,
 ) -> bool {
-    if !matches!(family, EvidenceFamily::Comments | EvidenceFamily::Reviews) {
+    if !matches!(
+        family,
+        EvidenceFamily::Comments | EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads
+    ) {
         return false;
     }
     let Some(stored) = stored else {
@@ -649,7 +652,9 @@ fn is_stale(
             }
             _ => false,
         },
-        EvidenceFamily::Reviews => stored.snapshot_head_sha != stored.current_head_sha,
+        EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads => {
+            stored.snapshot_head_sha != stored.current_head_sha
+        }
         _ => false,
     }
 }

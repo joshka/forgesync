@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P3.2 — Review threads**.
+- Next task: **P3.4 — Health and explicit retry**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -357,6 +357,37 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
   passed, 0 issues.
 
+## P3.2 evidence
+
+Added an origin-validated GraphQL POST endpoint derived from the configured REST API base. Typed
+review-thread pages preserve GraphQL node IDs separately from numeric REST IDs, page every outer
+review-thread connection, and fully acquire each nested comment connection before returning a
+page. A page with a nested pagination gap is not representable as a complete page. GraphQL `errors`
+are checked even when HTTP succeeds and partial `data` is present; missing or repeated cursors fail
+the selected family observation.
+
+Added `sync --with review-threads` as an independently reported pull-request evidence family.
+Complete snapshots bind current resolution, outdated state, and nested comments to the currently
+observed PR head. Incomplete results retain last complete membership and head provenance. Complete
+empty results remove current membership, restoration re-adds it, and a changed head makes prior
+review-thread coverage stale. GraphQL family failures do not change comment or review membership.
+
+Local HTTP, sync, and archive tests cover enterprise GraphQL paths, typed outer pagination, nested
+comment pagination, partial errors on both connection levels, failed refresh preservation,
+complete removal and restoration, head staleness, and transaction rollback of membership, coverage,
+and head context. CLI parsing covers `--with review-threads`.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings`:
+  passed.
+- `cargo test --workspace --all-features --locked --offline`: passed, 90 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked --offline`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
+  docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -373,7 +404,7 @@ Validation:
 | P2.3 — Runs, leases, and basic sync | Complete | Fenced writes, run reports, cancellation/replay, closed-sweep overlap |
 | P2.4 — Comments and independent failures | Complete | Paginated comments, stale coverage, isolated failures, selective retry |
 | P3.1 — PR metadata and reviews | Complete | Head-bound review coverage, normalized reviewer identity, independent failure/retry |
-| P3.2 — Review threads | Not started | GraphQL thread membership, resolution, nested completeness and rollback |
+| P3.2 — Review threads | Complete | Typed GraphQL pagination, nested completeness, head-bound state and rollback |
 | P3.3 — Legacy import | Deferred | Reserved task; keep the Go archive intact |
 | P3.4 — Health and explicit retry | Not started | Read-only diagnostics and selected failed-family retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |

@@ -62,6 +62,12 @@ pub enum GitHubError {
     /// The API returned a successful response that was not valid JSON for the requested type.
     #[error("GitHub response was not valid JSON")]
     InvalidJson,
+    /// GitHub returned one or more GraphQL errors, possibly with partial data.
+    #[error("GitHub GraphQL response contained {count} error(s)")]
+    GraphqlErrors {
+        /// Number of errors in the GraphQL response.
+        count: u32,
+    },
     /// Provider data could not be normalized into the selected core model.
     #[error("GitHub response contains invalid provider data")]
     InvalidProviderData,

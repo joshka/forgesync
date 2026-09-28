@@ -92,6 +92,7 @@ impl EngineError {
                 GitHubError::RedirectRejected => "github_redirect_rejected",
                 GitHubError::ResponseTooLarge => "github_response_too_large",
                 GitHubError::InvalidJson => "github_response_invalid_json",
+                GitHubError::GraphqlErrors { .. } => "github_graphql_errors",
                 GitHubError::InvalidProviderData => "github_provider_data_invalid",
                 GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
                 GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
