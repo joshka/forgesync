@@ -12,10 +12,13 @@ path = "src/main.rs"
 clap.workspace = true
 forgesync-core = { path = "../forgesync-core" }
 forgesync-engine = { path = "../forgesync-engine" }
+forgesync-github = { path = "../forgesync-github" }
 forgesync-store = { path = "../forgesync-store" }
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 
 [dev-dependencies]
 assert_cmd = "2"

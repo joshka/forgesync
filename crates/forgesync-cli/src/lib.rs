@@ -3,6 +3,7 @@
 //! Process interface for the Forgesync application.
 
 pub mod args;
+pub mod credentials;
 pub mod output;
 
 use std::ffi::OsString;

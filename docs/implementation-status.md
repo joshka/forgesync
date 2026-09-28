@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P2.1 — HTTP transport and credentials**.
+- Next task: **P2.2 — Thread enumeration**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -193,6 +193,38 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
   docs/implementation-status.md`: passed, 0 issues.
 
+## P2.1 evidence
+
+Added the `forgesync-github` crate with a shared HTTPS-first Reqwest client, a four-request
+concurrency limit, 30-second request timeout, five-attempt limit, and bounded total retry budget.
+Requests use a redacted token type, bound JSON response bodies, and emit tracing spans with only
+the configured origin, method, attempt, and status. HTTP errors are typed without retaining raw
+provider payloads.
+
+The client attaches bearer credentials only to its configured origin. It validates absolute and
+relative pagination URLs, disables automatic redirects, and rejects redirects so callers must
+validate before following them. It retries network failures, 429, selected 5xx responses, and
+identified 403 rate limits; generic authentication and permission failures are not retried. Retry
+and reset hints are honored when they fit the retry budget; otherwise the operation is deferred.
+
+Added CLI-edge credential discovery in configured environment variable, `GITHUB_TOKEN`, then
+host-aware `gh auth token --hostname HOST` order. The `gh` subprocess uses argument arrays, suppresses
+stderr, and has timeout and cancellation handling. Local archive commands do not invoke credential
+discovery.
+
+Local HTTP tests cover transient server retry, primary rate-limit retry, generic 403 rejection,
+retry-budget deferral, cancellation, response and URL origin checks, and token redaction. Credential
+tests cover precedence, empty values, invalid environment names, subprocess timeout, and
+cancellation without using real credentials.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 60 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -204,8 +236,9 @@ Validation:
 | P1.2 — Explicit SQLite lifecycle | Complete | Exclusive create, explicit migration, read-only/write pools, health checks, CLI commands |
 | P1.3 — Observation transactions | Complete | Sequence, staging, comparator, membership, and coverage atomicity |
 | P1.4 — Offline inspect/search | Complete | Read-only queries, FTS5, stable ties and versioned JSON |
-| P2.1 — HTTP transport and credentials | Next | Retry, origin-safe auth, cancellation, credential discovery |
-| P2.2–P2.4 — GitHub acquisition/recovery | Not started | Complete pagination, leases, checkpoints, isolated failures |
+| P2.1 — HTTP transport and credentials | Complete | Retry, origin-safe auth, cancellation, credential discovery |
+| P2.2 — Thread enumeration | Next | Typed repository/thread REST pagination and normalization |
+| P2.3–P2.4 — Runs and child acquisition | Not started | Leases, checkpoints, comments, isolated failures |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |

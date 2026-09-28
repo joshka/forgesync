@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/forgesync-core",
+    "crates/forgesync-github",
     "crates/forgesync-store",
     "crates/forgesync-engine",
     "crates/forgesync-cli",
@@ -18,9 +19,15 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 thiserror = "2"
+httpdate = "1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 time = { version = "0.3", default-features = false, features = ["formatting", "parsing"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "process", "rt-multi-thread", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tracing = "0.1"
+url = "2"
 uuid = { version = "1", features = ["v4"] }
+wiremock = "0.6"
 
 [profile.release]
 lto = "thin"
