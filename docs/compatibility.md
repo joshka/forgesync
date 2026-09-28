@@ -2,190 +2,144 @@
 
 ## Baseline
 
-This ledger records behavior from the read-only Gitcrawl reference checkout at
-`/Users/joshka/local/gitcrawl/default`, change
-`ymmxytsluuktnvuwqqmrrsoqqmtyvpls`, commit
-`8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a`. The archive schema at that revision is version 13.
-The source checkout was not modified.
+This inventory uses the read-only Gitcrawl checkout at
+/Users/joshka/local/gitcrawl/default, change
+ymmxytsluuktnvuwqqmrrsoqqmtyvpls, commit
+8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a. Its archive schema is version 13. The Go checkout and
+production archives were not modified.
 
-The inventory uses `README.md`, `SPEC.md`, `docs/commands.md`, the feature documentation, the
-current CLI dispatch, store schema and behavior tests, and CrawlKit v0.16.5. CrawlKit's remote
-contract, auth, archive query/publication, config, SQLite, snapshot, progress, and vector packages
-were inspected as interfaces, not adopted as Rust dependencies.
+The reference review covered the repository instructions, README, SPEC, command and feature docs,
+CLI dispatch, store schema/migrations, selected sync/GitHub/store/capture/portable code, and
+regression tests. CrawlKit v0.16.5 remote contract, auth/query/publication, config, SQLite, snapshot,
+progress, and vector interfaces were inspected. They inform behavior only; Forgesync does not depend
+on CrawlKit.
 
-Statuses describe the Forgesync plan:
+This ledger follows the revised Forgesync v2 plan and implementation handoff in
+/Users/joshka/local/gitcrawl/.plans. The product is a focused local Rust v2, not full Gitcrawl
+parity. Statuses mean:
 
-- **Retained**: preserve the useful user-visible behavior, with the Rust interface in this plan.
-- **Different**: preserve the outcome with an intentional interface, schema, or ownership change.
-- **Deferred**: planned for a later phase; not part of earlier milestone acceptance.
-- **Unsupported**: not planned for the initial product; do not imply compatibility.
+- **retain**: preserve the selected user outcome and its correctness requirements.
+- **redesign**: preserve the user need through the single v2 interface or a new local model.
+- **defer**: omit code, dependencies, commands, and tables from v2; keep Gitcrawl usable separately.
 
-The compatibility target is behavior and evidence, not Go package structure, SQL layout, every flag,
-or OpenClaw-specific integration. Forgesync is a local GitHub archive and does not require
-OpenClaw, Octopool, a server, or a model provider for local reads.
+## CLI migration table
 
-## Command inventory
+Evidence paths are relative to the reference checkout. The proposed v2 command tree is in the
+selected plan's CLI review section. Commands appear only as implementation phases make them usable.
 
-References below are relative to the Gitcrawl checkout unless a CrawlKit path is named.
-
-### Setup, configuration, and diagnostics
-
-| Gitcrawl command or surface | Status | Forgesync destination | Evidence |
+| Gitcrawl surface | Status | Forgesync v2 destination and reason | Reference evidence |
 | --- | --- | --- | --- |
-| `init` | Different | `forgesync init --archive`; P1.2 | `internal/cli/init.go`, `docs/configuration.md` |
-| `doctor` | Retained | `forgesync doctor --json`; P3.4 | `internal/cli/doctor.go`, `docs/commands.md` |
-| `status` | Retained | `forgesync status`; P1.4, then P3.4 | `internal/cli/control.go`, `internal/store/store.go` |
-| `version`, global `--version` | Retained | Binary version and Clap help; P0.2 | `internal/cli/app.go`, `internal/cli/help.go` |
-| `metadata` | Unsupported | No CrawlKit control manifest in the local CLI | `internal/cli/control.go`, CrawlKit `control/` |
-| `configure` | Different | TOML config resolution; no config-edit wizard initially | `internal/config/config.go`, `docs/configuration.md` |
-| `check-update` | Unsupported | Release update checks are outside archive workflows | `internal/cli/releasecheck.go` |
-| `remote login`, `whoami`, `archives`, `status` | Deferred | Explicit remote client only after P6.3 contract review | `internal/cli/remote_commands.go`, CrawlKit `remote/` |
-| `cloud publish` | Deferred | Explicit remote publication only after P6.3 contract review | `internal/cli/cloud_commands.go`, `internal/cli/cloud_contract.go` |
-| `serve` | Unsupported | No local HTTP server is in scope | `SPEC.md`, `internal/cli/app.go` |
-| global JSON output | Different | Versioned `{schema_version, command, data, warnings, error}` envelope; P0.2 onward | `internal/cli/output.go`, `docs/automation.md` |
-| config/env resolution | Different | CLI > documented env > TOML > defaults; token values stay in referenced env vars | `internal/config/config.go`, `docs/configuration.md` |
+| init | redesign | archive init --archive creates only a new archive | internal/cli/init.go; docs/configuration.md |
+| migrate | redesign | archive migrate is explicit; open and read never migrate | internal/store/store.go |
+| status, doctor | redesign | archive status and archive doctor report local health and family coverage | internal/cli/control.go; internal/cli/doctor.go |
+| version command | redesign | Use Clap --version only | internal/cli/app.go |
+| metadata, check-update | defer | Control manifests and update checks do not support local acquisition or retrieval | internal/cli/control.go; internal/cli/releasecheck.go |
+| configure | redesign | CLI options resolve over documented env, TOML, and defaults; no edit wizard | internal/config/config.go; docs/configuration.md |
+| sync | redesign | One typed sync request with repositories or --all, state, and selected --with families | internal/cli/sync.go; docs/sync.md |
+| sync-failures, coverage | redesign | archive status and run list/show expose durable failures and per-family coverage | internal/cli/inspect.go; internal/store/archive_coverage.go |
+| fill-pr-details | defer | Files, commits, checks, and workflow runs are outside selected v2 scope | internal/cli/sync.go; internal/syncer/pull_details.go |
+| capture | defer | Separate conversation export is not needed for the selected archive workflow | internal/cli/capture.go; docs/capture.md |
+| refresh | redesign | Compose sync and explicitly selected analysis via --analyze; --plan performs no network work | internal/cli/refresh.go |
+| runs | redesign | run list, run show, and run retry operate on durable scoped work | internal/store/runs.go |
+| code index | defer | Source indexing is independent of discussion acquisition | internal/codeindex/; docs/code-index.md |
+| threads | redesign | thread list and thread show share one checked reference model | internal/cli/inspect.go |
+| direct search and issues/prs search shape | redesign | One search QUERY with typed repeatable repo/state/kind/mode filters; no hidden qualifier grammar | internal/cli/search.go; internal/cli/gh_search.go |
+| neighbors | redesign | thread related uses the shared retrieval and ranking policy | internal/cli/neighbors.go |
+| summarize, key-summaries | defer | Summary generation is explicitly outside v2 | internal/cli/summarize.go; internal/store/summary_tasks.go |
+| embed | retain | Optional embeddings are independent of keyword workflows | internal/cli/embed.go; internal/openai/client.go |
+| cluster, clusters, reports, durable views, detail/explain | redesign | One cluster namespace with stable public IDs and shared evidence queries | internal/cli/cluster.go; internal/cli/clusters.go |
+| close-thread, reopen-thread | redesign | thread dismiss/restore changes local triage state, not GitHub open/closed state | internal/cli/governance.go |
+| close-cluster, reopen-cluster | redesign | cluster dismiss/restore persists local decisions across regeneration | internal/cli/governance.go |
+| exclude/include cluster member, set canonical | redesign | cluster exclude/include/canonical retain selected local maintainer choices | internal/cli/governance.go |
+| tui and tui --json snapshot | redesign | tui launches only the interactive client; ordinary read commands provide data | internal/cli/tui_command.go; docs/tui.md |
+| portable refresh/export/prune | defer | No snapshot or Git transport dependency in v2 | internal/cli/portable_*.go; internal/portable/ |
+| remote login/status/archives/whoami and cloud publish | defer | No hosted archive, remote auth, or publication dependency in v2 | internal/cli/remote_commands.go; internal/cli/cloud_*.go; CrawlKit remote/ |
+| gh shim | defer | Forgesync has no OpenClaw or Octopool special case and performs no GitHub writes | internal/cli/gh_migrated.go; docs/gh-shim.md |
+| serve | defer | A local HTTP service is outside the local CLI/TUI product | SPEC.md |
+| merge/split clusters and other reserved commands | defer | No stubs or commands without selected behavior | internal/cli/app.go; docs/commands.md |
+| global JSON and result output | redesign | One versioned JSON envelope; stdout is results and stderr/file is diagnostics | internal/cli/output.go; docs/automation.md |
+| legacy argv reordering, gh-search parser, overloaded JSON, no-op flags | redesign | Standard Clap parsing; one search grammar and one boolean --json contract | internal/cli/args.go; internal/cli/gh_search.go |
 
-### Acquisition and archive operations
+## Selected feature disposition
 
-| Gitcrawl command | Status | Forgesync destination | Evidence |
+| Feature or data family | Status | Required v2 behavior | Reference evidence and fixture gate |
 | --- | --- | --- | --- |
-| `sync` | Retained | `sync`; metadata, closed sweep, explicit scopes, and child families; P2.1–P3.2 | `internal/syncer/`, `docs/sync.md` |
-| `sync-failures` | Retained | Failure and retry records; P2.4 | `internal/cli/inspect.go`, `internal/syncer/failure_isolation_test.go` |
-| `coverage` | Retained | Family-aware status and freshness; P1.3–P3.4 | `internal/store/archive_coverage.go`, `docs/commands.md` |
-| `fill-pr-details` | Different | PR detail family within `sync --with pr-details`; P3.1 | `internal/cli/sync.go`, `internal/syncer/pull_details.go` |
-| `capture` | Retained | Versioned code-free conversation JSON export; P3.4 | `internal/capture/`, `docs/capture.md` |
-| `refresh` | Retained | Compose existing sync/enrich/embed/cluster operations; P4.5 | `internal/cli/refresh.go`, `docs/refresh-and-embed.md` |
-| `runs` | Retained | Durable operation history; P2.3 onward | `internal/store/runs.go`, `docs/commands.md` |
-| `portable refresh` | Deferred | Explicit immutable Git snapshot fetch/install; P6.2 | `internal/cli/portable_refresh.go`, `docs/portable-stores.md` |
-| `portable export` | Different | Local `snapshot export`; P6.1 | `internal/portable/`, `docs/portable-stores.md` |
-| `portable prune` | Different | Export a staged consistent snapshot; never mutate the active archive; P6.1 | `internal/cli/portable_commands.go`, `internal/store/portable_schema.go` |
-| legacy `export-sync`, `import-sync`, `validate-sync` | Unsupported | Use the explicit Gitcrawl archive importer and snapshot format instead | `internal/cli/app.go`, `docs/commands.md` |
-| legacy `portable-size`, `sync-status`, `optimize` | Unsupported | No separate compatibility commands planned | `internal/cli/app.go`, `docs/commands.md` |
+| Multi-repository GitHub identity and metadata | retain | Host-qualified stable provider IDs; mutable owner/name is display and lookup data | internal/store/schema.go; internal/github/provider_ids_test.go; P0.3/P2.2 |
+| Issues, pull requests, and source state | retain | Normalize provider data; preserve unknown values; source open/closed stays separate from local triage | internal/store/schema.go; internal/store/threads_test.go; P0.3/P1.1 |
+| Comments and current membership | retain | Stage paginated results; only a complete response replaces membership; distinguish complete empty from missing | internal/store/comments_test.go; internal/syncer/partial_sync_test.go; P0.3/P2.4 |
+| PR base/head metadata and reviews | retain | Acquire independently with source/head context and per-family coverage | internal/syncer/pr_metadata_test.go; P3.1 |
+| Review threads and resolution | retain | Typed GraphQL pagination; inspect partial errors; incomplete results cannot tombstone membership | internal/store/review_threads_test.go; P3.2 |
+| Explicit thread references | retain | OWNER/REPO#NUMBER or GitHub URL; bare numbers need repository context; reject conflicting scope | internal/cli/references.go; P0.2/P1.1 |
+| Observation ordering and completeness | retain | Sequence, source time, family, request scope, and pagination completeness remain distinct | internal/store/observation_order_test.go; P0.3/P1.3 |
+| Runs, leases, checkpoints, retryable failures | retain | Recover committed work, fence stale writers, and retry only recorded failed/deferred families | internal/store/runs_test.go; internal/syncer/failure_isolation_test.go; P2.3/P2.4/P3.4 |
+| Offline inspect and FTS5 keyword search | retain | Read-only local queries, stable order/pagination, cross-repository filters, honest coverage | internal/store/search_test.go; P1.4 |
+| Documents and embeddings | retain | Versioned deterministic inputs; compatible vectors only; exact cosine ranking; no model for keyword use | internal/documents/; internal/vector/exact_test.go; P4.1–P4.3 |
+| Related threads and clustering | retain | Bounded deterministic graph; stable IDs; incomplete coverage cannot retire unseen clusters | internal/cluster/build_test.go; internal/cli/cluster_graph_scoring_test.go; P4.4 |
+| Local maintainer decisions | retain | Canonical, excluded-member, and dismissed state survives generated updates; no GitHub writes | internal/store/clusters_test.go; P4.4/P5.2 |
+| Ratatui browser and actions | retain | Background engine queries, bounded messages, stale-result suppression, reliable terminal restore | internal/cli/tui_*.go; P5.1/P5.2 |
+| Repository metrics and analytics | defer | No historical metrics schema or dashboard without a later scope decision | proposal PRs 206/216; not baseline requirements |
+| Owner-directed erasure | defer | Cluster member exclusion is selected; archive-wide purge and snapshot policy are not | proposal PR 217; no baseline table |
+| PR files, commits, checks, workflow runs | defer | No deep PR-detail tables or API requests in v2 | internal/store/pull_requests_test.go; selected plan P3.1 |
+| Full content/review revision history and raw blob archive | defer | Keep enough provenance for current selected evidence; do not copy event/revision machinery | internal/store/thread_enrichment_test.go; internal/store/review_threads_test.go |
+| Summaries and generated key summaries | defer | No summary model endpoint, prompt, tables, or CLI command | internal/openai/summaries.go; internal/store/summary_tasks.go |
+| Source code indexing and code search | defer | No filesystem walker, source tables, or mixed code/discussion search | internal/codeindex/; docs/code-index.md |
+| Gitcrawl database import and old schema migration | defer | Fresh sync is adoption path; old archive remains readable by Gitcrawl | internal/store/store.go; plan P3.3 |
+| Portable snapshots, Git distribution, and CrawlKit cloud | defer | No snapshot, Git transport, remote client, login, or cloud dependency | internal/portable/; internal/cli/cloud_*.go; CrawlKit remote/ |
+| GitHub write-back, generalized providers, OpenClaw integration | defer | GitHub is read-only acquisition; one explicit provider; local use needs no hosted service | SPEC.md; internal/github/ |
 
-Sync must retain committed successes when other resources fail, distinguish incomplete from complete
-empty collections, resolve a family failure only after that family commits, and resume without
-advancing a checkpoint past unobserved content. Default scope is open content plus a bounded closed
-sweep; `all` is historical backfill. Explicit number/date scopes cannot advance unrelated repository
-watermarks. See P2.3–P2.4 and P3.1–P3.2 acceptance gates.
+## Persistent table inventory
 
-### Queries, analysis, and code
+Gitcrawl's current schema is in internal/store/schema.go; migrations are in
+internal/store/store.go. This inventory accounts for every declared table family in that schema.
+Forgesync uses a new format and does not copy Gitcrawl primary keys or require legacy tables.
 
-| Gitcrawl command | Status | Forgesync destination | Evidence |
-| --- | --- | --- | --- |
-| `threads` | Retained | `inspect` and local thread listing; P1.4 | `internal/cli/inspect.go`, `internal/store/threads.go` |
-| direct `search` | Retained | Cross-repository keyword/semantic/hybrid query; P1.4 and P4.3 | `internal/cli/search.go`, `internal/store/search.go` |
-| `search issues` or `search prs` (`gh search` shape) | Different | Local cached query compatibility only if justified by fixtures; not live GitHub search | `internal/cli/gh_search.go`, `docs/search.md` |
-| `neighbors` | Retained | Similar-thread query; P4.3–P4.4 | `internal/cli/neighbors.go`, `docs/clustering.md` |
-| `summarize` | Retained | Versioned summary service; P4.5 | `internal/cli/summarize.go`, `internal/openai/summaries.go` |
-| `embed` | Retained | Optional compatible embedding service; P4.1–P4.3 | `internal/cli/embed.go`, `internal/openai/client.go` |
-| `cluster` | Retained | Deterministic graph building and durable results; P4.4 | `internal/cluster/build.go`, `docs/clustering.md` |
-| `clusters`, `clusters-report`, `durable-clusters`, `cluster-detail`, `cluster-explain` | Retained | Cluster queries/reports; P4.4 | `internal/cli/clusters.go`, `docs/clustering.md` |
-| `code index` | Deferred | Independent ignored-file-aware source index; P7.1 | `internal/codeindex/`, `docs/code-index.md` |
-| `key-summaries` | Deferred | Summary capability only if its distinct behavior is confirmed; P4.5 | `internal/cli/app.go`, `internal/store/summary_tasks.go` |
-| `cluster-experiment` | Unsupported | Experimental surface, no launch contract | `internal/cli/app.go`, `internal/cli/cluster_graph.go` |
-| `merge-clusters`, `split-cluster` | Unsupported | No merge/split command in the planned governance contract | `internal/cli/app.go`, `docs/governance.md` |
-| `completion` | Unsupported | Shell completion is not an archive behavior | `internal/cli/app.go`, `docs/commands.md` |
+| Gitcrawl tables | V2 disposition |
+| --- | --- |
+| repositories, threads | Retain concepts; redesign identities and typed domain values |
+| comments | Retain selected current discussion content |
+| pull_request_details, pull_request_files, pull_request_commits, pull_request_checks, github_workflow_runs | Defer deep PR detail families |
+| pull_request_review_threads | Retain current review-thread membership and resolution |
+| thread_observation_sequence, thread_child_observation_reservations, thread_child_observation_memberships, workflow_run_observation_reservations | Redesign selected observation ordering and per-family coverage; no workflow-run table |
+| thread_revisions, comment_revisions, pull_request_review_thread_revisions, pull_request_review_thread_syncs, blobs | Defer full revision/tombstone/raw-payload history |
+| thread_code_snapshots, thread_changed_files, thread_hunk_signatures, code_snapshots, code_documents, code_documents_fts | Defer source indexing and code context |
+| documents, documents_fts | Retain deterministic discussion documents and FTS5 as derived data |
+| document_embeddings, thread_vectors | Retain compatible optional embeddings; use a deliberate v2 representation |
+| document_summaries, thread_key_summaries | Defer summaries |
+| thread_fingerprints | Defer unless a selected cluster invariant demonstrates a direct need |
+| sync_runs, sync_attempt_failures, repo_sync_state | Redesign as runs, jobs, failures, checkpoints, and truthful coverage |
+| summary_runs, embedding_runs | Defer summary history; retain necessary operation/run provenance for embeddings |
+| cluster_runs, similarity_edges, clusters, cluster_members, cluster_groups, cluster_memberships | Retain cluster outputs with stable public IDs and deterministic membership |
+| cluster_overrides, cluster_events, cluster_aliases, cluster_closures | Redesign only the selected canonical, local dismiss/restore, and member exclusion decisions |
+| portable_metadata | Defer with all portable/snapshot distribution |
 
-Keyword search must work offline and without model credentials. Semantic search only uses compatible
-current vectors; unavailable providers are explicit errors unless keyword fallback was requested.
-Clustering keeps maintainer decisions separate from regenerated membership and never retires unseen
-clusters under incomplete coverage.
+Coverage and provenance describe absent, incomplete, failed, and successfully empty data separately.
+They are not inferred from row counts. Any source/head context that affects review interpretation is
+stored with the selected evidence. Local dismissal is not provider state. Local member exclusion is
+not owner-directed content erasure.
 
-### Governance and terminal interface
+## Selected regression matrix
 
-| Gitcrawl command | Status | Forgesync destination | Evidence |
-| --- | --- | --- | --- |
-| `close-thread`, `reopen-thread` | Retained | Local-only maintainer decisions; P4.4 | `internal/cli/governance.go`, `docs/governance.md` |
-| `close-cluster`, `reopen-cluster` | Retained | Local-only decision history; P4.4 | `internal/cli/governance.go`, `docs/governance.md` |
-| `exclude-cluster-member`, `include-cluster-member` | Retained | Local-only member decision; P4.4 | `internal/cli/governance.go`, `docs/governance.md` |
-| `set-cluster-canonical` | Retained | Local-only representative choice; P4.4 | `internal/cli/governance.go`, `docs/governance.md` |
-| `tui` | Retained | Ratatui browser and actions using engine APIs; P5.1–P5.2 | `internal/cli/tui_*.go`, `docs/tui.md` |
-| TUI `--json` snapshot | Different | Standard CLI JSON envelope and shared query output | `internal/cli/tui_command.go` |
+These tests are the entry points for selected behavior, not a requirement to translate Go test
+syntax. P0.3 turns sanitized scenarios into named Rust fixtures.
 
-All governance actions remain local and do not write to GitHub. The UI is a client of application
-services, not a second workflow implementation.
-
-### GitHub and portability compatibility surfaces
-
-| Gitcrawl surface | Status | Forgesync destination | Evidence |
-| --- | --- | --- | --- |
-| `gh` shim | Unsupported | No OpenClaw or Octopool special case; user may run `gh` separately | `internal/cli/gh_migrated.go`, `docs/gh-shim.md` |
-| GitHub REST and GraphQL acquisition | Retained | Typed GitHub provider; P2.1–P3.2 | `internal/github/`, `docs/sync.md` |
-| portable manifest and subscriber contract | Deferred | Versioned local format then explicit Git transport; P6.1–P6.2 | `internal/portable/`, `docs/portable-stores.md` |
-| CrawlKit remote query/auth contract | Deferred | Adapter only for a verified deployed contract; P6.3 | `internal/cli/remote_commands.go`, CrawlKit `remote/contract.go`, `docs/cloud-archives.md` |
-| CrawlKit staged snapshot publish contract | Deferred | Implement only if independent client use is confirmed; P6.3 | `internal/cli/cloud_contract.go`, CrawlKit `remote/` and `docs/remote-contract.md` |
-
-The inspected CrawlKit v0.16.5 interface has bearer-authenticated archive query and publication,
-contract discovery, login/token exchange, role and archive status, ingest, and chunked SQLite bundle
-upload routes. Gitcrawl requires advertised app capabilities, route auth, reader query arguments,
-ingest columns, snapshot provenance/staging/atomicity, and gzip-upload capabilities before publish.
-P6.3 must verify the deployed service contract and fixtures; the plan does not authorize building or
-deploying a replacement service.
-
-## Persistent data inventory
-
-The source schema is version 13 in `internal/store/schema.go`; migration logic is in
-`internal/store/store.go`. These data families are retained or deliberately rebuilt into the new
-format. Forgesync never copies Gitcrawl local primary keys as durable provider identities.
-
-| Family | Gitcrawl tables | Forgesync disposition |
+| Invariant | Reference tests | Rust gate |
 | --- | --- | --- |
-| Repository and thread identity | `repositories`, `threads` | Retain facts; host-qualified provider identity; P1.1–P2.2 |
-| Comments and revisions | `comments`, `comment_revisions`, `thread_revisions` | Retain current and historical evidence; P2.4–P3.2 |
-| Raw provenance and content blobs | `blobs`, raw JSON columns | Retain provenance selectively; not workflow API values; P1.3 onward |
-| Observation ordering and membership | `thread_observation_sequence`, `thread_child_observation_reservations`, `thread_child_observation_memberships`, `workflow_run_observation_reservations` | Redesign around monotonic scoped observations and family coverage; P1.3 |
-| Pull request evidence | `pull_request_details`, `pull_request_files`, `pull_request_commits`, `pull_request_checks`, `github_workflow_runs` | Retain; head/repository scoping and duplicate file paths are mandatory; P3.1 |
-| Review discussions | `pull_request_review_threads`, `pull_request_review_thread_revisions`, `pull_request_review_thread_syncs` | Retain resolution, tombstone, revision, and restoration evidence; P3.2 |
-| Source snapshots | `thread_code_snapshots`, `thread_changed_files`, `thread_hunk_signatures` | Retain the PR evidence semantics; source index is independent and later; P3.1, P7.1 |
-| Search documents | `documents`, `documents_fts`, `code_snapshots`, `code_documents`, `code_documents_fts` | Rebuild from canonical content; keyword indexes are derived; P1.4, P4.1, P7.1 |
-| Generated summaries | `document_summaries`, `thread_key_summaries`, `summary_runs` | Retain only with source/document/model provenance; P4.5 |
-| Vectors and fingerprints | `document_embeddings`, `thread_vectors`, `thread_fingerprints`, `embedding_runs` | Recompute if compatibility cannot be proven; P4.1–P4.3 |
-| Sync and failure history | `sync_runs`, `sync_attempt_failures`, `repo_sync_state` | Retain outcomes, failures, and valid checkpoints; redesign run/job records; P2.3–P2.4 |
-| Cluster output | `cluster_runs`, `similarity_edges`, `clusters`, `cluster_members`, `cluster_groups`, `cluster_memberships` | Retain semantics; deterministic graph and stable correspondence; P4.4 |
-| Maintainer decisions | `cluster_overrides`, `cluster_events`, `cluster_aliases`, `cluster_closures` | Import and preserve separately from generated state; P3.3–P4.4 |
-| Portable-only metadata | `portable_metadata` plus manifest fields | Replace with the versioned Forgesync snapshot manifest; P6.1 |
-| Owner exclusions | No baseline table | Planned as new durable policy, not claimed as existing Gitcrawl behavior; P7.2 |
+| Delayed observations cannot replace newer accepted evidence | internal/store/observation_order_test.go | P0.3, P1.3 |
+| Failure records do not roll back unrelated successful acquisition | internal/syncer/failure_isolation_test.go | P0.3, P2.4 |
+| Closed sweep covers offline intervals | internal/syncer/closed_sweep_test.go | P0.3, P2.3 |
+| Partial sync retains acquired work | internal/syncer/partial_sync_test.go | P0.3, P2.4 |
+| Unchanged comments can be reused safely | internal/syncer/comment_reuse_test.go | P0.3, P2.4 |
+| Current review membership and restoration remain truthful | internal/store/review_threads_test.go | P0.3, P3.2 |
+| Cluster graph scoring remains deterministic | internal/cli/cluster_graph_scoring_test.go | P0.3, P4.4 |
 
-Portable exports intentionally omit or transform data: FTS/documents, vectors, code index, run
-history, similarity edges, blobs, raw payloads, and usually sync failures. Exported coverage,
-capabilities, body truncation, and excluded tables are declared in metadata and a manifest. Forgesync
-snapshot manifests must state repository scope, included families, redaction/truncation, compression,
-size, and digest. Import reports all omissions and does not claim uncertain evidence is fresh.
-
-## Baseline invariants and regression entry points
-
-These behaviors are accepted operational requirements in the plan and have existing regression
-tests. P0.3 will convert the cases into sanitized named fixtures and a truth table.
-
-| Invariant | Reference evidence | Planned gate |
-| --- | --- | --- |
-| Delayed observations cannot replace newer accepted evidence | `internal/store/observation_order_test.go`, `internal/store/thread_enrichment_test.go` | P0.3, P1.3 |
-| Identical observations are idempotent; tied conflicting observations are rejected | `internal/store/observation_order_test.go` | P0.3, P1.3 |
-| Source time, fetch sequence, completeness, and family are independent | `internal/store/archive_source_test.go`, `internal/store/observation_order_test.go` | P0.3, P1.3 |
-| Complete empty child collections remove membership; incomplete ones preserve it | `internal/store/observation_order_test.go`, `internal/syncer/partial_sync_test.go` | P0.3, P2.4 |
-| Comment success does not make other child families current | `internal/store/observation_order_test.go` | P0.3, P1.3 |
-| Failure bookkeeping does not roll back unrelated completed work | `internal/syncer/failure_isolation_test.go` | P0.3, P2.4 |
-| Closed sweeps cover offline intervals and advance only after success | `internal/syncer/closed_sweep_test.go` | P0.3, P2.3 |
-| Duplicate PR file paths remain valid | `internal/store/pull_requests_test.go` | P0.3, P3.1 |
-| Check/workflow evidence is scoped to repository and head | `internal/store/pull_requests_test.go`, `internal/syncer/check_runs_test.go` | P0.3, P3.1 |
-| Review thread tombstones, revisions, and restores survive | `internal/store/review_threads_test.go` | P0.3, P3.2 |
-| Cluster graph scoring is deterministic | `internal/cli/cluster_graph_scoring_test.go` | P0.3, P4.4 |
-| Snapshot failure retains the source | `internal/portable/export_failure_paths_test.go` | P0.3, P6.1 |
-
-The simple comparator tests specify: valid source timestamps outrank malformed/missing ones; among
-valid timestamps, later source time wins; equivalent or both absent timestamps fall through to the
-observation sequence; equal malformed timestamps fall through to sequence; distinct malformed
-timestamps are ambiguous errors. Revision evidence uses positive fetch sequence first, then source
-clock when sequence is unavailable. Child reservations advance independently by family. Parent
-revision freshness additionally checks the accepted evidence generation and source-clock fence;
-the SQL consumers and migration tests remain required P1.3 discovery evidence.
+The observation comparator and revision consumers need more than a top-level timestamp rule. P0.3
+will extract the full selected truth table, including sequence fallback, equivalent and malformed
+clocks, incomplete generations, child-family reservations, parent freshness, and atomic rollback.
+No contradictory example was established in the initial bounded inspection.
 
 ## Proposal boundary
 
-The repository-metrics proposal [#206](https://github.com/openclaw/gitcrawl/pull/206), analytics and
-review-state proposal [#216](https://github.com/openclaw/gitcrawl/pull/216), and owner-directed
-exclusions proposal [#217](https://github.com/openclaw/gitcrawl/pull/217) were recorded by the plan
-as unmerged at investigation time. They are not evidence of baseline behavior. Metrics and analytics
-remain outside the initial scope. P7.2 explicitly adds exclusions as a Forgesync product decision;
-it is not described as a Gitcrawl compatibility feature. Recheck live status only if later work
-depends on one of these proposals.
+Repository metrics (#206), analytics and review state (#216), and owner-directed exclusions (#217)
+were proposals, recorded as unmerged in the design investigation. They are not baseline behavior.
+The revised v2 scope defers all three. Recheck proposal status only if later work explicitly depends
+on one.
