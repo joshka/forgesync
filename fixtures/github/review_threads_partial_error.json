@@ -1,0 +1,26 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_fixture_partial",
+              "isResolved": false,
+              "path": "src/engine.rs",
+              "line": 7,
+              "comments": {
+                "nodes": [],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+              }
+            }
+          ],
+          "pageInfo": { "hasNextPage": true, "endCursor": "thread-cursor-partial" }
+        }
+      }
+    }
+  },
+  "errors": [
+    { "message": "Synthetic continuation failed after a partial GraphQL result" }
+  ]
+}

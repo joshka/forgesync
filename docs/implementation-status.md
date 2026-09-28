@@ -2,9 +2,10 @@
 
 ## Current position
 
-- Next task: **P0.3 — Build the fixture catalog**.
+- Next task: **P1.1 — Core identities and outcomes**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
+- Complete: **P0.3 — Build the fixture catalog**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -26,10 +27,10 @@ regression matrix. It explicitly defers cloud/portable distribution, source inde
 metrics/analytics, owner erasure, full revision history, legacy import, deep PR details, and old CLI
 compatibility. It distinguishes local triage choices from GitHub state.
 
-The observation tests show that the top-level comparator is only part of the contract. P0.3 must
-fixture revision freshness, incomplete generations, independent family reservations, source clock
-equivalence/malformed cases, and transactional application before P1.3 implementation. No conflict
-has been established.
+The observation tests show that the top-level comparator is only part of the contract. The P0.3
+truth table records source-clock ordering, revision acquisition ordering, incomplete generations,
+independent family reservations, malformed clocks, idempotence, conflicts, and membership atomicity.
+No contradictory example was established.
 
 ## P0.2 evidence
 
@@ -54,14 +55,42 @@ Validation:
 - Offline cargo install to target/install-smoke and installed --version/--help smoke: passed.
 - Reference jj revision recorded without changing the checkout.
 
+## P0.3 evidence
+
+Added synthetic, credential-free provider fixtures for repositories, issues, ordinary PR base/head
+metadata, complete and empty comments, split comment pages, reviews, nested GraphQL review-thread
+pages/comments, partial GraphQL errors, rate limiting, and deterministic cluster scoring. Scenario
+fixtures cover interrupted acquisition and review-thread visibility, tombstone, and restore behavior.
+No real private discussion content or credentials are included.
+
+`fixtures/scenarios/observation_ordering.json` is the named truth table. It records canonical source
+clock ordering, revision acquisition ordering, missing and malformed clocks, incomplete generation
+high-water marks and later hydration, family-independent reservations, idempotent replay, conflict
+rejection, complete-empty versus incomplete membership, and atomic review refresh. Each selected
+regression invariant in the compatibility matrix maps to at least one named scenario. Changed-file
+fixtures and duplicate paths remain absent because deep PR file data is deferred.
+
+The loader parses every JSON file, verifies catalog paths and provider-fixture references, rejects
+credential-like values, checks unique scenario IDs, maps all selected invariants, and confirms that
+each named ordering case points to a reference test.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 8 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- Focused offline fixture loader run: passed, 2 tests.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
 | --- | --- | --- |
 | P0.1 — Capture the baseline | Complete | Ledger, command migration table, data families, selected matrix |
 | P0.2 — Bootstrap the workspace | Complete | Core/store/CLI, pinned toolchain, lockfile, CI, Clap envelope and process checks |
-| P0.3 — Build the fixture catalog | Next | Named, sanitized selected-family scenarios and observation truth table |
-| P1.1 — Core identities/outcomes | Not started | Checked host/repository/thread/run IDs and typed evidence states |
+| P0.3 — Build the fixture catalog | Complete | Named sanitized selected-family scenarios, truth table, loader validation |
+| P1.1 — Core identities/outcomes | Next | Checked host/repository/thread/run IDs and typed evidence states |
 | P1.2 — Explicit SQLite lifecycle | Not started | Separate create/open/migrate; no open-time creation or migration |
 | P1.3 — Observation transactions | Not started | Sequence, staging, comparator, membership, and coverage atomicity |
 | P1.4 — Offline inspect/search | Not started | Read-only queries, FTS5, stable ties and versioned JSON |

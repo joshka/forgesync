@@ -143,6 +143,9 @@ dependencies = [
 [[package]]
 name = "forgesync-core"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "forgesync-store"

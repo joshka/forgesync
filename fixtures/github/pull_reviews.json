@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1811,
+    "node_id": "PRR_fixture_1811",
+    "pull_request_url": "https://api.github.com/repos/fixture-lab/archive-demo/pulls/18",
+    "user": { "login": "sample-reviewer", "type": "User" },
+    "state": "CHANGES_REQUESTED",
+    "body": "Please clarify the archive migration boundary.",
+    "submitted_at": "2026-09-19T15:00:00Z",
+    "commit_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  {
+    "id": 1812,
+    "node_id": "PRR_fixture_1812",
+    "pull_request_url": "https://api.github.com/repos/fixture-lab/archive-demo/pulls/18",
+    "user": { "login": "sample-maintainer", "type": "User" },
+    "state": "APPROVED",
+    "body": "The selected behavior is clear.",
+    "submitted_at": "2026-09-20T11:00:00Z",
+    "commit_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+]

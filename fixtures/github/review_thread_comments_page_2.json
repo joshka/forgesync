@@ -1,0 +1,18 @@
+{
+  "data": {
+    "node": {
+      "comments": {
+        "nodes": [
+          {
+            "id": "PRRC_fixture_2",
+            "body": "Synthetic continuation comment.",
+            "createdAt": "2026-09-20T08:00:00Z",
+            "pullRequestReview": { "id": "PRR_fixture_1812" },
+            "author": { "login": "sample-maintainer", "__typename": "User" }
+          }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+      }
+    }
+  }
+}

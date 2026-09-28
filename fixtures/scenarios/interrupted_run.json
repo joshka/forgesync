@@ -1,0 +1,20 @@
+{
+  "run_id": "run-fixture-9",
+  "repository": "fixture-lab/archive-demo",
+  "state": "interrupted",
+  "started_at": "2026-09-20T12:00:00Z",
+  "interrupted_at": "2026-09-20T12:01:00Z",
+  "checkpoint_before": "2026-09-20T11:00:00Z",
+  "checkpoint_after": "2026-09-20T11:00:00Z",
+  "jobs": [
+    { "thread_number": 17, "family": "thread", "state": "committed" },
+    { "thread_number": 17, "family": "comments", "state": "committed" },
+    { "thread_number": 18, "family": "reviews", "state": "pending" },
+    { "thread_number": 18, "family": "review_threads", "state": "pending" }
+  ],
+  "expected_recovery": {
+    "keep_committed": [17],
+    "retry_pending": [18],
+    "advance_checkpoint": false
+  }
+}

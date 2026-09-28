@@ -1,0 +1,15 @@
+{
+  "review_thread_id": "PRRT_fixture_1",
+  "path": "src/archive.rs",
+  "sequence": [
+    { "event": "stored", "visible": true, "resolved": false },
+    { "event": "partial_refresh_error", "visible": true, "resolved": false },
+    { "event": "explicit_source_tombstone", "visible": false, "resolved": null },
+    { "event": "source_restore", "visible": true, "resolved": true }
+  ],
+  "expected_final": {
+    "visible": true,
+    "resolved": true,
+    "path": "src/archive.rs"
+  }
+}

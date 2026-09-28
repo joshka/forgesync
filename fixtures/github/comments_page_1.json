@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1711,
+    "node_id": "IC_fixture_1711",
+    "issue_url": "https://api.github.com/repos/fixture-lab/archive-demo/issues/17",
+    "user": { "login": "sample-contributor", "type": "User" },
+    "body": "A synthetic first comment.",
+    "created_at": "2026-09-19T08:00:00Z",
+    "updated_at": "2026-09-19T08:00:00Z"
+  }
+]

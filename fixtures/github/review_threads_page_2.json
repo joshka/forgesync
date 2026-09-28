@@ -1,0 +1,24 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_fixture_2",
+              "isResolved": true,
+              "isOutdated": true,
+              "path": "src/search.rs",
+              "line": 19,
+              "comments": {
+                "nodes": [],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+              }
+            }
+          ],
+          "pageInfo": { "hasNextPage": false, "endCursor": null }
+        }
+      }
+    }
+  }
+}
