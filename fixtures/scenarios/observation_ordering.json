@@ -196,6 +196,14 @@
       "source_test": "TestThreadChildObservationReservationsAdvanceIndependently"
     },
     {
+      "id": "new_parent_generation_does_not_promote_stale_child_coverage",
+      "operation": "coverage_freshness",
+      "parent": { "source_updated_at": "2026-09-02T00:00:00Z", "sequence": 2 },
+      "child_family": { "family": "comments", "source_updated_at": "2026-09-01T00:00:00Z", "sequence": 3 },
+      "expected": "stale",
+      "source_test": "TestArchiveChildObservations"
+    },
+    {
       "id": "complete_empty_comments_replace_membership",
       "operation": "replace_child_membership",
       "current": [1711, 1712],

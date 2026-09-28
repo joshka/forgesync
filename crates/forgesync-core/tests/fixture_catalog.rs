@@ -195,6 +195,7 @@ fn observation_truth_table_has_named_rows_for_each_ordering_case() {
     for source_test in [
         "TestCompareObservationOrder",
         "TestCompareRevisionObservationOrder",
+        "TestArchiveChildObservations",
         "TestThreadChildObservationReservationsAdvanceIndependently",
         "TestUpsertThreadObservationRejectsDelayedCanonicalOverwrite",
         "TestUpsertThreadObservationIsIdempotentButRejectsTiedConflicts",

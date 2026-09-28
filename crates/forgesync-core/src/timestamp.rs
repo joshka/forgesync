@@ -1,0 +1,137 @@
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
+
+/// Errors returned when parsing or storing an RFC 3339 timestamp.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum TimestampError {
+    /// The input was not a valid RFC 3339 timestamp.
+    #[error("invalid RFC 3339 timestamp")]
+    InvalidRfc3339,
+    /// The timestamp could not be represented in the archive's microsecond format.
+    #[error("timestamp is outside the supported Unix-microsecond range")]
+    OutOfRange,
+    /// The timestamp could not be formatted as RFC 3339.
+    #[error("timestamp cannot be formatted as RFC 3339")]
+    FormatFailure,
+}
+
+/// An absolute timestamp normalized to UTC at archive microsecond precision.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct UtcTimestamp(i64);
+
+impl UtcTimestamp {
+    /// Parses RFC 3339 and stores the instant in UTC microseconds.
+    ///
+    /// Sub-microsecond precision is truncated toward the Unix epoch. Preserve the original source
+    /// spelling in provider data when that additional precision is relevant.
+    pub fn parse(value: &str) -> Result<Self, TimestampError> {
+        let timestamp =
+            OffsetDateTime::parse(value, &Rfc3339).map_err(|_| TimestampError::InvalidRfc3339)?;
+        let microseconds = timestamp.unix_timestamp_nanos() / 1_000;
+        let microseconds = i64::try_from(microseconds).map_err(|_| TimestampError::OutOfRange)?;
+        Ok(Self(microseconds))
+    }
+
+    /// Converts archive UTC microseconds since the Unix epoch into a timestamp.
+    pub fn from_unix_microseconds(value: i64) -> Result<Self, TimestampError> {
+        let nanos = i128::from(value)
+            .checked_mul(1_000)
+            .ok_or(TimestampError::OutOfRange)?;
+        OffsetDateTime::from_unix_timestamp_nanos(nanos).map_err(|_| TimestampError::OutOfRange)?;
+        let timestamp = Self(value);
+        timestamp.format_rfc3339()?;
+        Ok(timestamp)
+    }
+
+    /// Returns the Unix timestamp at archive microsecond precision.
+    pub fn unix_microseconds(self) -> i64 {
+        self.0
+    }
+
+    /// Formats this timestamp as a normalized RFC 3339 UTC string.
+    pub fn format_rfc3339(self) -> Result<String, TimestampError> {
+        let nanos = i128::from(self.0)
+            .checked_mul(1_000)
+            .ok_or(TimestampError::OutOfRange)?;
+        OffsetDateTime::from_unix_timestamp_nanos(nanos)
+            .map_err(|_| TimestampError::OutOfRange)?
+            .format(&Rfc3339)
+            .map_err(|_| TimestampError::FormatFailure)
+    }
+}
+
+impl Serialize for UtcTimestamp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = self.format_rfc3339().map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(&value)
+    }
+}
+
+impl<'de> Deserialize<'de> for UtcTimestamp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::parse(&value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{TimestampError, UtcTimestamp};
+
+    #[test]
+    fn timestamps_compare_as_instants_and_serialize_as_utc() {
+        let local = UtcTimestamp::parse("2026-09-20T11:00:00+01:00").expect("valid timestamp");
+        let utc = UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp");
+        assert_eq!(local, utc);
+        assert_eq!(
+            local.format_rfc3339().expect("format"),
+            "2026-09-20T10:00:00Z"
+        );
+        assert_eq!(local.unix_microseconds(), utc.unix_microseconds());
+
+        let encoded = serde_json::to_value(local).expect("serialize timestamp");
+        assert_eq!(encoded, json!("2026-09-20T10:00:00Z"));
+        let decoded: UtcTimestamp = serde_json::from_value(encoded).expect("deserialize timestamp");
+        assert_eq!(decoded, utc);
+    }
+
+    #[test]
+    fn invalid_timestamp_inputs_fail_clearly() {
+        assert_eq!(
+            UtcTimestamp::parse("not-a-time"),
+            Err(TimestampError::InvalidRfc3339)
+        );
+        let decoded: Result<UtcTimestamp, _> =
+            serde_json::from_value(json!("2026-99-40T00:00:00Z"));
+        assert!(decoded.is_err(), "invalid serialized time must be rejected");
+    }
+
+    #[test]
+    fn archive_microseconds_round_trip() {
+        let timestamp = UtcTimestamp::parse("1969-12-31T23:59:59.123456Z").expect("valid time");
+        let micros = timestamp.unix_microseconds();
+        assert_eq!(UtcTimestamp::from_unix_microseconds(micros), Ok(timestamp));
+        assert_eq!(
+            UtcTimestamp::from_unix_microseconds(i64::MAX),
+            Err(TimestampError::OutOfRange)
+        );
+
+        let precise = UtcTimestamp::parse("2026-09-20T10:00:00.123456789Z").expect("timestamp");
+        let stored = UtcTimestamp::from_unix_microseconds(precise.unix_microseconds())
+            .expect("microsecond timestamp");
+        assert_eq!(
+            stored.format_rfc3339().expect("format"),
+            "2026-09-20T10:00:00.123456Z"
+        );
+    }
+}

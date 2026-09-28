@@ -2,10 +2,11 @@
 
 ## Current position
 
-- Next task: **P1.1 — Core identities and outcomes**.
+- Next task: **P1.2 — Explicit SQLite lifecycle**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
+- Complete: **P1.1 — Core identities and outcomes**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -29,8 +30,8 @@ compatibility. It distinguishes local triage choices from GitHub state.
 
 The observation tests show that the top-level comparator is only part of the contract. The P0.3
 truth table records source-clock ordering, revision acquisition ordering, incomplete generations,
-independent family reservations, malformed clocks, idempotence, conflicts, and membership atomicity.
-No contradictory example was established.
+independent family reservations, parent/child freshness, malformed clocks, idempotence, conflicts,
+and membership atomicity. No contradictory example was established.
 
 ## P0.2 evidence
 
@@ -65,10 +66,11 @@ No real private discussion content or credentials are included.
 
 `fixtures/scenarios/observation_ordering.json` is the named truth table. It records canonical source
 clock ordering, revision acquisition ordering, missing and malformed clocks, incomplete generation
-high-water marks and later hydration, family-independent reservations, idempotent replay, conflict
-rejection, complete-empty versus incomplete membership, and atomic review refresh. Each selected
-regression invariant in the compatibility matrix maps to at least one named scenario. Changed-file
-fixtures and duplicate paths remain absent because deep PR file data is deferred.
+high-water marks and later hydration, family-independent reservations, parent/child freshness,
+idempotent replay, conflict rejection, complete-empty versus incomplete membership, and atomic review
+refresh. Each selected regression invariant in the compatibility matrix maps to at least one named
+scenario. Changed-file fixtures and duplicate paths remain absent because deep PR file data is
+deferred.
 
 The loader parses every JSON file, verifies catalog paths and provider-fixture references, rejects
 credential-like values, checks unique scenario IDs, maps all selected invariants, and confirms that
@@ -83,6 +85,35 @@ Validation:
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 - Focused offline fixture loader run: passed, 2 tests.
 
+## P1.1 evidence
+
+Added core types for canonical GitHub host identity, opaque provider IDs, checked repository/thread/
+comment/review/review-thread/run IDs, positive thread numbers and observation sequences, and full
+SHA-1/SHA-256 commit IDs. UTC timestamps parse RFC 3339, normalize to integer microseconds, and
+serialize as normalized UTC strings. Source clocks retain missing, valid, and invalid states
+separately.
+
+Added normalized repository, discussion, pull request base/head, comment, review, and review-thread
+content; review evidence carries commit/head context. Unknown provider fields use a sorted JSON object
+that preserves nested values. Family coverage distinguishes missing, incomplete, complete (including
+empty), unavailable, failed, and deferred. Database-independent observations carry family, payload,
+source clock, acquisition time, sequence, and collection completeness. Operation outcomes have
+distinct complete, partial, deferred, failed, and interrupted states.
+
+The versioned CLI JSON envelope remains in `forgesync-cli`; core types do not depend on the CLI crate
+or its output DTOs. Tests cover rejected identity/time inputs, timezone normalization, archive-time
+precision, unknown provider-field round trips, and serialized coverage and outcome states.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 20 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
+  docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -90,8 +121,8 @@ Validation:
 | P0.1 — Capture the baseline | Complete | Ledger, command migration table, data families, selected matrix |
 | P0.2 — Bootstrap the workspace | Complete | Core/store/CLI, pinned toolchain, lockfile, CI, Clap envelope and process checks |
 | P0.3 — Build the fixture catalog | Complete | Named sanitized selected-family scenarios, truth table, loader validation |
-| P1.1 — Core identities/outcomes | Next | Checked host/repository/thread/run IDs and typed evidence states |
-| P1.2 — Explicit SQLite lifecycle | Not started | Separate create/open/migrate; no open-time creation or migration |
+| P1.1 — Core identities/outcomes | Complete | Checked identities, normalized content, timestamps, coverage, observations, outcomes |
+| P1.2 — Explicit SQLite lifecycle | Next | Separate create/open/migrate; no open-time creation or migration |
 | P1.3 — Observation transactions | Not started | Sequence, staging, comparator, membership, and coverage atomicity |
 | P1.4 — Offline inspect/search | Not started | Read-only queries, FTS5, stable ties and versioned JSON |
 | P2.1–P2.4 — GitHub acquisition/recovery | Not started | Typed transport, complete pagination, lease, checkpoints, isolated failures |

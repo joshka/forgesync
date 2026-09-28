@@ -132,10 +132,10 @@ syntax. P0.3 turns sanitized scenarios into named Rust fixtures.
 | Current review membership and restoration remain truthful | internal/store/review_threads_test.go | P0.3, P3.2 |
 | Cluster graph scoring remains deterministic | internal/cli/cluster_graph_scoring_test.go | P0.3, P4.4 |
 
-The observation comparator and revision consumers need more than a top-level timestamp rule. P0.3
-will extract the full selected truth table, including sequence fallback, equivalent and malformed
-clocks, incomplete generations, child-family reservations, parent freshness, and atomic rollback.
-No contradictory example was established in the initial bounded inspection.
+The observation comparator and revision consumers need more than a top-level timestamp rule. The
+P0.3 fixture catalog records the selected truth table, including sequence fallback, equivalent and
+malformed clocks, incomplete generations, child-family reservations and freshness, parent freshness,
+and atomic rollback. No contradictory example was established in the initial bounded inspection.
 
 ## Proposal boundary
 

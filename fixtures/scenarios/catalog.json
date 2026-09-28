@@ -75,7 +75,7 @@
     },
     {
       "id": "delayed_observations_and_incomplete_generations",
-      "reference_tests": ["TestCompareObservationOrder", "TestCompareRevisionObservationOrder", "TestUpsertThreadObservationTracksIncompleteEvidenceGeneration", "TestUpsertThreadObservationCompletesNewerSourceBelowEvidenceSequence"],
+      "reference_tests": ["TestCompareObservationOrder", "TestCompareRevisionObservationOrder", "TestArchiveChildObservations", "TestUpsertThreadObservationTracksIncompleteEvidenceGeneration", "TestUpsertThreadObservationCompletesNewerSourceBelowEvidenceSequence"],
       "invariants": ["delayed_observations"],
       "fixtures": ["fixtures/scenarios/observation_ordering.json"],
       "expected": "Source time, acquisition sequence, and completeness remain separate and delayed observations cannot replace newer accepted state."
