@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ObservationSequence, UtcTimestamp};
+use crate::{IncompleteReason, ObservationSequence, UtcTimestamp};
 
 /// A selected family of source evidence tracked independently in coverage.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -87,6 +87,8 @@ pub enum CoverageState {
         observed_at: UtcTimestamp,
         /// Acquisition sequence reserved before the request.
         sequence: ObservationSequence,
+        /// Why acquisition did not finish the requested collection.
+        reason: IncompleteReason,
         /// Number of items safely received before the incomplete result.
         received_items: u64,
         /// Failure that stopped collection, when known.

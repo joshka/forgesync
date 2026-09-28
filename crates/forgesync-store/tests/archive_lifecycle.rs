@@ -128,7 +128,8 @@ async fn incomplete_migrations_are_rejected_without_changing_the_archive() {
     ));
 
     let pool = read_only_pool(&path).await;
-    let success: i64 = sqlx::query_scalar("SELECT success FROM _sqlx_migrations")
+    let success: i64 = sqlx::query_scalar("SELECT success FROM _sqlx_migrations WHERE version = ?")
+        .bind(schema_version)
         .fetch_one(&pool)
         .await
         .expect("read migration status");
@@ -158,10 +159,12 @@ async fn migration_checksum_mismatch_is_rejected() {
     ));
 
     let pool = read_only_pool(&path).await;
-    let checksum: Vec<u8> = sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations")
-        .fetch_one(&pool)
-        .await
-        .expect("read migration checksum");
+    let checksum: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = ?")
+            .bind(schema_version)
+            .fetch_one(&pool)
+            .await
+            .expect("read migration checksum");
     assert_eq!(checksum, [0], "open must not change migration history");
     pool.close().await;
     remove_archive(&path);

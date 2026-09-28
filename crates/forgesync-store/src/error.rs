@@ -47,6 +47,66 @@ pub enum StoreError {
     /// The system clock could not produce a supported archive timestamp.
     #[error("system clock is before the Unix epoch or outside the supported range")]
     ClockOutOfRange,
+    /// A mutation was requested through a read-only archive handle.
+    #[error("archive is open read-only")]
+    ReadOnlyArchive,
+    /// A provider repository identity has not been stored in this archive.
+    #[error("repository is not present in the archive")]
+    RepositoryMissing,
+    /// A provider discussion identity has not been stored in this archive.
+    #[error("thread is not present in the archive")]
+    ThreadMissing,
+    /// The family is not supported by the selected observation operation.
+    #[error("unsupported observation family: {0}")]
+    UnsupportedObservationFamily(String),
+    /// The observation family does not match the operation being applied.
+    #[error("observation family does not match the operation")]
+    ObservationFamilyMismatch,
+    /// A provider identity or observation sequence does not fit SQLite's integer range.
+    #[error("observation identity or sequence is outside the SQLite integer range")]
+    IntegerOutOfRange,
+    /// A current row has an invalid or missing observation sequence.
+    #[error("archive observation sequence is invalid")]
+    InvalidStoredSequence,
+    /// The provider supplied a source clock inconsistent with its declared state.
+    #[error("source clock is invalid: {0}")]
+    InvalidSourceClock(String),
+    /// Distinct malformed source clocks cannot be ordered safely.
+    #[error("ambiguous malformed observation timestamps {incoming:?} and {current:?}")]
+    AmbiguousObservationClocks { incoming: String, current: String },
+    /// Two different payloads claim the same source generation and sequence.
+    #[error("conflicting observations share source generation and sequence")]
+    ConflictingObservation,
+    /// A collection generation was not reserved before staging or finalization.
+    #[error("observation generation is not reserved")]
+    ObservationGenerationMissing,
+    /// A delayed collection page belongs to a generation superseded by a newer reservation.
+    #[error("observation generation was superseded by a newer reservation")]
+    StaleObservationGeneration,
+    /// A repeated page number contained a different payload.
+    #[error("replayed observation page conflicts with its previously staged payload")]
+    StagedPageConflict,
+    /// The same provider item ID appeared with different payloads in one collection.
+    #[error("staged collection contains conflicting values for one provider ID")]
+    StagedItemConflict,
+    /// A completed collection did not stage the expected consecutive pages.
+    #[error("complete collection expected {expected} pages but found {found}")]
+    IncompletePageSet { expected: u32, found: u32 },
+    /// A completion result did not supply the page count required for atomic application.
+    #[error("complete collection requires an expected page count")]
+    MissingExpectedPageCount,
+    /// The collection completeness fields contradict the staged result.
+    #[error("collection completeness does not match staged items or page count")]
+    InvalidCollectionCompleteness,
+    /// The request scope is empty or contains only whitespace.
+    #[error("observation request scope is required")]
+    MissingRequestScope,
+    /// The supplied coverage state cannot be persisted by the current observation operation.
+    #[error("coverage state is not valid for this observation operation")]
+    InvalidCoverageState,
+    /// A coverage or staging result could not be encoded or decoded.
+    #[error("observation JSON is invalid: {0}")]
+    Json(#[from] serde_json::Error),
     /// An archive filesystem operation failed.
     #[error("archive filesystem operation failed for {path}: {source}")]
     Io {
@@ -82,6 +142,26 @@ impl StoreError {
             Self::InvalidArchiveId(_) => "archive_id_invalid",
             Self::InvalidCreatedAt(_) => "archive_timestamp_invalid",
             Self::ClockOutOfRange => "system_clock_out_of_range",
+            Self::ReadOnlyArchive => "archive_read_only",
+            Self::RepositoryMissing => "repository_missing",
+            Self::ThreadMissing => "thread_missing",
+            Self::UnsupportedObservationFamily(_) => "observation_family_unsupported",
+            Self::ObservationFamilyMismatch => "observation_family_mismatch",
+            Self::IntegerOutOfRange => "observation_integer_out_of_range",
+            Self::InvalidStoredSequence => "observation_sequence_invalid",
+            Self::InvalidSourceClock(_) => "observation_source_clock_invalid",
+            Self::AmbiguousObservationClocks { .. } => "observation_clock_ambiguous",
+            Self::ConflictingObservation => "observation_conflict",
+            Self::ObservationGenerationMissing => "observation_generation_missing",
+            Self::StaleObservationGeneration => "observation_generation_stale",
+            Self::StagedPageConflict => "observation_page_conflict",
+            Self::StagedItemConflict => "observation_item_conflict",
+            Self::IncompletePageSet { .. } => "observation_pages_incomplete",
+            Self::MissingExpectedPageCount => "observation_page_count_missing",
+            Self::InvalidCollectionCompleteness => "observation_completeness_invalid",
+            Self::MissingRequestScope => "observation_scope_missing",
+            Self::InvalidCoverageState => "coverage_state_invalid",
+            Self::Json(_) => "observation_json_error",
             Self::Io { .. } => "archive_io_error",
             Self::Database(_) => "archive_database_error",
             Self::Migration(_) => "archive_migration_error",

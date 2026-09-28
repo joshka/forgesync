@@ -2,12 +2,13 @@
 
 ## Current position
 
-- Next task: **P1.3 — Observation transactions**.
+- Next task: **P1.4 — Offline inspect, status, and keyword search**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
 - Complete: **P1.1 — Core identities and outcomes**.
 - Complete: **P1.2 — Explicit SQLite lifecycle**.
+- Complete: **P1.3 — Observation transactions**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -141,6 +142,28 @@ Validation:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
+## P1.3 evidence
+
+Added a durable archive-wide sequence and separate repository, thread, reservation, staged page,
+canonical membership, and per-family coverage records. Parent observations retain separate source
+high-water and complete-evidence provenance. Delayed observations cannot replace newer accepted
+state, tied conflicting payloads fail, and identical replays are idempotent.
+
+Child-family acquisition now reserves each family independently, stages typed provider items by
+page, and atomically applies complete membership with coverage. Incomplete results update coverage
+while retaining the last complete membership; complete empty results remove membership. Superseded
+generations are skipped, and failed membership/coverage writes roll back together. Added ordering
+helpers for valid, missing, malformed, and legacy revision clocks.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 37 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- Focused `cargo test -p forgesync-store --all-features --locked`: passed, 15 tests.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -150,8 +173,8 @@ Validation:
 | P0.3 — Build the fixture catalog | Complete | Named sanitized selected-family scenarios, truth table, loader validation |
 | P1.1 — Core identities/outcomes | Complete | Checked identities, normalized content, timestamps, coverage, observations, outcomes |
 | P1.2 — Explicit SQLite lifecycle | Complete | Exclusive create, explicit migration, read-only/write pools, health checks, CLI commands |
-| P1.3 — Observation transactions | Next | Sequence, staging, comparator, membership, and coverage atomicity |
-| P1.4 — Offline inspect/search | Not started | Read-only queries, FTS5, stable ties and versioned JSON |
+| P1.3 — Observation transactions | Complete | Sequence, staging, comparator, membership, and coverage atomicity |
+| P1.4 — Offline inspect/search | Next | Read-only queries, FTS5, stable ties and versioned JSON |
 | P2.1–P2.4 — GitHub acquisition/recovery | Not started | Typed transport, complete pagination, lease, checkpoints, isolated failures |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
