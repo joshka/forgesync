@@ -1,0 +1,13 @@
+[package]
+name = "forgesync-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+forgesync-core = { path = "../forgesync-core" }
+forgesync-store = { path = "../forgesync-store" }
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

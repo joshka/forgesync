@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P1.4 — Offline inspect, status, and keyword search**.
+- Next task: **P2.1 — HTTP transport and credentials**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -164,6 +164,35 @@ Validation:
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 - Focused `cargo test -p forgesync-store --all-features --locked`: passed, 15 tests.
 
+## P1.4 evidence
+
+Added a transactional FTS5 index for current thread titles and bodies, including insert, update,
+delete, and existing-row backfill triggers. Migration remains explicit; the v2-to-v3 test confirms
+read-only open rejects the old schema and that migration indexes existing discussion text.
+
+Added store and engine APIs for archive status, repository-scoped thread lists, keyword and advanced
+FTS search, current thread detail, chronological current-content timelines, and per-family coverage.
+Queries bind all values, use stable ordering ties and bounded pagination, and run through the
+read-only connection. Ordinary search quotes extracted text terms so punctuation and FTS operators
+remain text. Explicit advanced syntax reports malformed FTS as a query error. The CLI adds
+`search`, `thread list`, and `thread show`; JSON and human output share the same read-only engine
+operations.
+
+On-disk and process tests cover filtering, pagination, empty-result coverage, FTS updates and text
+removal, explicit migration backfill, typed thread evidence and timeline, malformed advanced query
+errors, usage errors, offline execution without GitHub credentials, and unchanged archive status
+across reads.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 46 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
+  docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -174,8 +203,9 @@ Validation:
 | P1.1 — Core identities/outcomes | Complete | Checked identities, normalized content, timestamps, coverage, observations, outcomes |
 | P1.2 — Explicit SQLite lifecycle | Complete | Exclusive create, explicit migration, read-only/write pools, health checks, CLI commands |
 | P1.3 — Observation transactions | Complete | Sequence, staging, comparator, membership, and coverage atomicity |
-| P1.4 — Offline inspect/search | Next | Read-only queries, FTS5, stable ties and versioned JSON |
-| P2.1–P2.4 — GitHub acquisition/recovery | Not started | Typed transport, complete pagination, lease, checkpoints, isolated failures |
+| P1.4 — Offline inspect/search | Complete | Read-only queries, FTS5, stable ties and versioned JSON |
+| P2.1 — HTTP transport and credentials | Next | Retry, origin-safe auth, cancellation, credential discovery |
+| P2.2–P2.4 — GitHub acquisition/recovery | Not started | Complete pagination, leases, checkpoints, isolated failures |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |

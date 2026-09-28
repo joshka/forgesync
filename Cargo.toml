@@ -2,6 +2,7 @@
 members = [
     "crates/forgesync-core",
     "crates/forgesync-store",
+    "crates/forgesync-engine",
     "crates/forgesync-cli",
 ]
 resolver = "3"

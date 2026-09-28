@@ -419,6 +419,8 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "forgesync-core",
+ "forgesync-engine",
  "forgesync-store",
  "serde",
  "serde_json",
@@ -433,6 +435,16 @@ dependencies = [
  "serde_json",
  "thiserror",
  "time",
+]
+
+[[package]]
+name = "forgesync-engine"
+version = "0.1.0"
+dependencies = [
+ "forgesync-core",
+ "forgesync-store",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

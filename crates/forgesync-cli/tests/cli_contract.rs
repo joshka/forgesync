@@ -33,6 +33,8 @@ fn help_lists_global_options_and_no_deferred_commands() {
             "help must not advertise {deferred}"
         );
     }
+    assert!(stdout.contains("search"));
+    assert!(stdout.contains("thread"));
 }
 
 #[test]
@@ -63,7 +65,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let init_json: serde_json::Value = serde_json::from_slice(&init.stdout).expect("init JSON");
     assert_eq!(init_json["command"], "archive init");
     assert_eq!(init_json["schema_version"], 1);
-    assert_eq!(init_json["data"]["schema_version"], 2);
+    assert_eq!(init_json["data"]["schema_version"], 3);
     let archive_id = init_json["data"]["archive_id"]
         .as_str()
         .expect("archive ID");
@@ -79,7 +81,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let status_json: serde_json::Value =
         serde_json::from_slice(&status.stdout).expect("status JSON");
     assert_eq!(status_json["command"], "archive status");
-    assert_eq!(status_json["data"]["archive_id"], archive_id);
+    assert_eq!(status_json["data"]["archive"]["archive_id"], archive_id);
 
     let migrate = forgesync()
         .args(["archive", "migrate", "--archive"])

@@ -107,6 +107,21 @@ pub enum StoreError {
     /// A coverage or staging result could not be encoded or decoded.
     #[error("observation JSON is invalid: {0}")]
     Json(#[from] serde_json::Error),
+    /// A stored provider ID is malformed.
+    #[error("archive contains an invalid provider ID")]
+    InvalidStoredProviderId,
+    /// A stored coverage row has an unsupported family or state.
+    #[error("archive contains an invalid coverage row")]
+    InvalidStoredCoverage,
+    /// A stored thread kind is unsupported by this binary.
+    #[error("archive contains an unsupported thread kind: {0}")]
+    InvalidStoredThreadKind(String),
+    /// A stored count is negative or outside the supported range.
+    #[error("archive contains an invalid count")]
+    InvalidStoredCount,
+    /// An advanced FTS5 query is malformed.
+    #[error("advanced FTS5 search query is invalid")]
+    InvalidSearchQuery,
     /// An archive filesystem operation failed.
     #[error("archive filesystem operation failed for {path}: {source}")]
     Io {
@@ -162,6 +177,11 @@ impl StoreError {
             Self::MissingRequestScope => "observation_scope_missing",
             Self::InvalidCoverageState => "coverage_state_invalid",
             Self::Json(_) => "observation_json_error",
+            Self::InvalidStoredProviderId => "archive_provider_id_invalid",
+            Self::InvalidStoredCoverage => "archive_coverage_invalid",
+            Self::InvalidStoredThreadKind(_) => "archive_thread_kind_invalid",
+            Self::InvalidStoredCount => "archive_count_invalid",
+            Self::InvalidSearchQuery => "search_query_invalid",
             Self::Io { .. } => "archive_io_error",
             Self::Database(_) => "archive_database_error",
             Self::Migration(_) => "archive_migration_error",

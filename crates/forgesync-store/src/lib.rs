@@ -9,6 +9,7 @@ mod health;
 mod migration;
 mod observations;
 mod ordering;
+mod reads;
 
 pub use archive::{ARCHIVE_FORMAT_ID, Archive, ArchiveInfo};
 pub use error::StoreError;
@@ -20,4 +21,8 @@ pub use observations::{
 };
 pub use ordering::{
     compare_observation_order, compare_revision_observation_order, observation_sequence_order_value,
+};
+pub use reads::{
+    ArchiveStatus, FamilyCoverageSummary, ThreadDetail, ThreadPage, ThreadQuery, ThreadSort,
+    ThreadStateFilter, ThreadSummary, ThreadTimelineEntry, ThreadTimelineEvent,
 };

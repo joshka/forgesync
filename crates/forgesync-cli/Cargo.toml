@@ -10,6 +10,8 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+forgesync-core = { path = "../forgesync-core" }
+forgesync-engine = { path = "../forgesync-engine" }
 forgesync-store = { path = "../forgesync-store" }
 serde.workspace = true
 serde_json.workspace = true
