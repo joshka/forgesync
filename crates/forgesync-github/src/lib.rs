@@ -9,6 +9,9 @@ mod token;
 mod transport;
 
 pub use error::{ApiFailureKind, GitHubError};
-pub use resources::{RestThreadPage, fetch_repository, fetch_thread_page, thread_list_url};
+pub use resources::{
+    RestThreadPage, ThreadListState, fetch_repository, fetch_thread_page,
+    fetch_thread_page_in_scope, thread_list_url, thread_list_url_in_scope,
+};
 pub use token::GitHubToken;
 pub use transport::{GitHubClient, GitHubClientConfig, GitHubResponse, RetryPolicy};

@@ -107,6 +107,24 @@ pub enum StoreError {
     /// A stored repository thread scan status is invalid.
     #[error("archive contains an invalid repository thread scan")]
     InvalidRepositoryThreadScan,
+    /// Another sync operation currently owns the archive write lease.
+    #[error("another sync operation currently owns the archive lease")]
+    ArchiveLeaseHeld,
+    /// The current sync operation no longer owns the archive write lease.
+    #[error("archive write lease was lost or expired")]
+    ArchiveLeaseLost,
+    /// The archive lease duration must be positive and representable.
+    #[error("archive lease duration is invalid")]
+    InvalidArchiveLeaseDuration,
+    /// A stored run, job, or outcome state is invalid.
+    #[error("archive contains invalid sync run data")]
+    InvalidRunData,
+    /// The requested run is not present in this archive.
+    #[error("sync run is not present in this archive")]
+    RunMissing,
+    /// A stored run, job, or checkpoint count is invalid.
+    #[error("archive contains an invalid sync count")]
+    InvalidSyncCount,
     /// The request scope is empty or contains only whitespace.
     #[error("observation request scope is required")]
     MissingRequestScope,
@@ -186,6 +204,12 @@ impl StoreError {
             Self::StaleRepositoryThreadScan => "repository_scan_stale",
             Self::RepositoryThreadScanMissing => "repository_scan_missing",
             Self::InvalidRepositoryThreadScan => "repository_scan_invalid",
+            Self::ArchiveLeaseHeld => "archive_lease_held",
+            Self::ArchiveLeaseLost => "archive_lease_lost",
+            Self::InvalidArchiveLeaseDuration => "archive_lease_duration_invalid",
+            Self::InvalidRunData => "sync_run_invalid",
+            Self::RunMissing => "sync_run_missing",
+            Self::InvalidSyncCount => "sync_count_invalid",
             Self::MissingRequestScope => "observation_scope_missing",
             Self::InvalidCoverageState => "coverage_state_invalid",
             Self::Json(_) => "observation_json_error",

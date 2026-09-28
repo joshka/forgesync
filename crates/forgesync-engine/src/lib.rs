@@ -7,8 +7,11 @@ mod error;
 mod inspect;
 mod reference;
 mod search;
+mod sync;
 
-pub use enumeration::{ThreadEnumerationReport, enumerate_repository_threads};
+pub use enumeration::{
+    ThreadEnumerationReport, enumerate_repository_threads, enumerate_repository_threads_in_scope,
+};
 pub use error::EngineError;
 pub use forgesync_store::{ArchiveStatus, ThreadDetail, ThreadPage};
 pub use inspect::{
@@ -17,3 +20,6 @@ pub use inspect::{
 };
 pub use reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
 pub use search::{SearchMode, SearchRequest, search_threads};
+pub use sync::{
+    SyncProgress, SyncProgressStatus, SyncReport, SyncRequest, SyncThreadScope, sync_repositories,
+};

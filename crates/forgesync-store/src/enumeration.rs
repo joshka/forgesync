@@ -2,6 +2,7 @@ use forgesync_core::{Failure, ObservationSequence, RepositoryId, UtcTimestamp};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
 
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::{Archive, StoreError};
 
 /// Durable state of one repository thread enumeration.
@@ -48,9 +49,49 @@ impl Archive {
         started_at: UtcTimestamp,
         first_page_url: &str,
     ) -> Result<(), StoreError> {
+        self.begin_repository_thread_scan_inner(
+            repository,
+            sequence,
+            started_at,
+            first_page_url,
+            None,
+        )
+        .await
+    }
+
+    /// Starts an enumeration only while the supplied archive lease remains current.
+    pub async fn begin_repository_thread_scan_fenced(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        started_at: UtcTimestamp,
+        first_page_url: &str,
+        token: &ArchiveLeaseToken,
+    ) -> Result<(), StoreError> {
+        self.begin_repository_thread_scan_inner(
+            repository,
+            sequence,
+            started_at,
+            first_page_url,
+            Some(token),
+        )
+        .await
+    }
+
+    async fn begin_repository_thread_scan_inner(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        started_at: UtcTimestamp,
+        first_page_url: &str,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<(), StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = to_sql_integer(sequence.get())?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let repository_row_id = repository_row_id(&mut transaction, repository).await?;
         let current_sequence: Option<i64> = sqlx::query_scalar(
             "SELECT sequence FROM repository_thread_scans WHERE repository_id = ?",
@@ -85,10 +126,54 @@ impl Archive {
         next_page_url: Option<&str>,
         updated_at: UtcTimestamp,
     ) -> Result<(), StoreError> {
+        self.record_repository_thread_scan_page_inner(
+            repository,
+            sequence,
+            thread_count,
+            next_page_url,
+            updated_at,
+            None,
+        )
+        .await
+    }
+
+    /// Commits a page only while the supplied archive lease remains current.
+    pub async fn record_repository_thread_scan_page_fenced(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        thread_count: u64,
+        next_page_url: Option<&str>,
+        updated_at: UtcTimestamp,
+        token: &ArchiveLeaseToken,
+    ) -> Result<(), StoreError> {
+        self.record_repository_thread_scan_page_inner(
+            repository,
+            sequence,
+            thread_count,
+            next_page_url,
+            updated_at,
+            Some(token),
+        )
+        .await
+    }
+
+    async fn record_repository_thread_scan_page_inner(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        thread_count: u64,
+        next_page_url: Option<&str>,
+        updated_at: UtcTimestamp,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<(), StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = to_sql_integer(sequence.get())?;
         let thread_count = to_sql_integer(thread_count)?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let repository_row_id = repository_row_id(&mut transaction, repository).await?;
         let row = sqlx::query(
             "SELECT pages_completed, threads_seen FROM repository_thread_scans WHERE repository_id = ? AND sequence = ? AND status = 'in_progress'",
@@ -131,6 +216,42 @@ impl Archive {
         updated_at: UtcTimestamp,
         failure: Option<&Failure>,
     ) -> Result<(), StoreError> {
+        self.finish_repository_thread_scan_inner(
+            repository, sequence, status, updated_at, failure, None,
+        )
+        .await
+    }
+
+    /// Finishes a scan only while the supplied archive lease remains current.
+    pub async fn finish_repository_thread_scan_fenced(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        status: RepositoryThreadScanStatus,
+        updated_at: UtcTimestamp,
+        failure: Option<&Failure>,
+        token: &ArchiveLeaseToken,
+    ) -> Result<(), StoreError> {
+        self.finish_repository_thread_scan_inner(
+            repository,
+            sequence,
+            status,
+            updated_at,
+            failure,
+            Some(token),
+        )
+        .await
+    }
+
+    async fn finish_repository_thread_scan_inner(
+        &self,
+        repository: &RepositoryId,
+        sequence: ObservationSequence,
+        status: RepositoryThreadScanStatus,
+        updated_at: UtcTimestamp,
+        failure: Option<&Failure>,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<(), StoreError> {
         if status == RepositoryThreadScanStatus::InProgress {
             return Err(StoreError::InvalidRepositoryThreadScan);
         }
@@ -141,6 +262,9 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = to_sql_integer(sequence.get())?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let row = sqlx::query(
             "SELECT next_page_url FROM repository_thread_scans WHERE repository_id = (SELECT id FROM repositories WHERE host = ? AND provider_id = ?) AND sequence = ? AND status = 'in_progress'",
         )

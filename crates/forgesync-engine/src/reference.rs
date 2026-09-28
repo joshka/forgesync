@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use forgesync_core::{GitHubHost, ThreadNumber};
+use forgesync_core::{GitHubHost, Repository, ThreadNumber};
 use thiserror::Error;
 
 /// A repository name supplied to a local query.
@@ -12,6 +12,15 @@ pub struct RepositorySelector {
 }
 
 impl RepositorySelector {
+    /// Builds a selector from a repository already stored in the archive.
+    pub fn from_repository(repository: &Repository) -> Self {
+        Self {
+            host: repository.id.host().clone(),
+            owner: repository.owner.clone(),
+            name: repository.name.clone(),
+        }
+    }
+
     /// Returns the selected GitHub host.
     pub fn host(&self) -> &GitHubHost {
         &self.host
@@ -25,6 +34,16 @@ impl RepositorySelector {
     /// Returns the current repository name.
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Returns a host-qualified URL suitable for stable run scope output.
+    pub fn as_url(&self) -> String {
+        format!(
+            "https://{}/{}/{}",
+            self.host.as_str(),
+            self.owner,
+            self.name
+        )
     }
 }
 

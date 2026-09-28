@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P2.3 — Runs, leases, checkpoints, and basic sync**.
+- Next task: **P2.4 — Comments and independent failures**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -253,6 +253,39 @@ Validation:
 - `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
 - Markdown lint: passed, 0 issues.
 
+## P2.3 evidence
+
+Added schema version 5 run, job, failure, archive-lease, and repository-checkpoint records. Archive
+leases use monotonically increasing fencing tokens; sync mutations validate the active token in the
+same transaction as each write. Heartbeats extend the bounded lease while acquisition runs. A stale
+owner cannot write after a later process takes ownership.
+
+Added durable `sync` runs for explicit repository scopes or registered repositories selected with
+`--all`. Sync records open and closed thread jobs, applies each committed REST page before advancing
+its cursor, and leaves interrupted or failed scans incomplete. The default scope fetches open
+threads and performs a closed-thread sweep. Successful closed sweeps advance a watermark; later
+sweeps query from a one-day overlap before that watermark. Incomplete sweeps keep the prior
+watermark. The engine exposes bounded, non-blocking progress snapshots and final partial,
+interrupted, deferred, or complete outcomes. The CLI resolves host-specific credentials, supports
+anonymous requests when no credential helper is available, handles Ctrl-C cancellation, and returns
+distinct exit codes for partial and interrupted runs.
+
+On-disk acceptance tests cover a second archive handle being denied the lease, stale fencing-token
+writes, and a separate CLI process being denied while another process holds the lease. Local HTTP
+tests cancel during page two, verify page one remains queryable, replay the run without duplicate
+threads, and check that a closed sweep failure preserves its watermark and retries across a
+simulated long offline interval with the expected overlap.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked --offline`: passed, 73 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked --offline`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
+  passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -266,7 +299,8 @@ Validation:
 | P1.4 — Offline inspect/search | Complete | Read-only queries, FTS5, stable ties and versioned JSON |
 | P2.1 — HTTP transport and credentials | Complete | Retry, origin-safe auth, cancellation, credential discovery |
 | P2.2 — Thread enumeration | Complete | Stable identities, durable page cursors, rename handling, replay and partial-failure checks |
-| P2.3–P2.4 — Runs and child acquisition | Not started | Leases, checkpoints, comments, isolated failures |
+| P2.3 — Runs, leases, and basic sync | Complete | Fenced writes, run reports, cancellation/replay, closed-sweep overlap |
+| P2.4 — Comments and independent failures | Not started | Complete membership staging, isolated family failures, selective retry |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |

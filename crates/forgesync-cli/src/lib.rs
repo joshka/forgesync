@@ -6,23 +6,27 @@ pub mod args;
 pub mod credentials;
 pub mod output;
 
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, Command, SearchModeArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
-    ThreadStateArg,
+    ArchiveCommand, CliArgs, Command, SearchModeArg, SyncThreadStateArg, ThreadCommand,
+    ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use forgesync_core::{
-    CoverageState, ReviewState, SourceState, ThreadKind, ThreadKind as DiscussionKind, UtcTimestamp,
+    CoverageState, GitHubHost, OperationOutcome, ReviewState, SourceState, ThreadKind,
+    ThreadKind as DiscussionKind, UtcTimestamp,
 };
 use forgesync_engine::{
-    EngineError, SearchMode, SearchRequest, ThreadDetail, ThreadFilters, ThreadListRequest,
-    ThreadPage, ThreadSort, ThreadStateFilter, archive_status, list_threads, search_threads,
-    show_thread,
+    EngineError, RepositorySelector, SearchMode, SearchRequest, SyncProgress, SyncReport,
+    SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage,
+    ThreadSort, ThreadStateFilter, archive_status, list_threads, search_threads, show_thread,
+    sync_repositories,
 };
+use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
     Archive, ArchiveInfo, DoctorReport, MigrationReport, StoreError, ThreadTimelineEvent,
 };
@@ -158,6 +162,31 @@ async fn dispatch(args: CliArgs) -> ExitCode {
             }
             Err(error) => render_store_error(args.json, "search", error),
         },
+        Command::Sync {
+            repositories,
+            all,
+            state,
+        } => {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let interrupt_cancellation = cancellation.clone();
+            let interrupt_task = tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    interrupt_cancellation.cancel();
+                }
+            });
+            let result = sync_command(
+                &path,
+                repositories,
+                all,
+                state,
+                args.json,
+                args.verbose,
+                &cancellation,
+            )
+            .await;
+            interrupt_task.abort();
+            result
+        }
         Command::Thread { command } => match command {
             ThreadCommand::List {
                 repositories,
@@ -222,6 +251,206 @@ fn thread_filters(
         limit,
         offset,
     }
+}
+
+async fn sync_command(
+    archive_path: &std::path::Path,
+    repositories: Vec<RepositorySelector>,
+    all: bool,
+    state: Option<SyncThreadStateArg>,
+    json: bool,
+    verbose: u8,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> ExitCode {
+    let archive = match Archive::open_read_write(archive_path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "sync", error),
+    };
+    let selectors = if all {
+        match archive.list_repositories().await {
+            Ok(registered) => registered
+                .iter()
+                .map(RepositorySelector::from_repository)
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                archive.close().await;
+                return render_store_error(json, "sync", error);
+            }
+        }
+    } else {
+        repositories.clone()
+    };
+    let mut hosts = selectors
+        .iter()
+        .map(|selector| selector.host().clone())
+        .collect::<Vec<_>>();
+    hosts.sort();
+    hosts.dedup();
+
+    let mut clients = HashMap::with_capacity(hosts.len());
+    for host in hosts {
+        let token = match crate::credentials::resolve_github_token(
+            &crate::credentials::GitHubCredentialSettings::default(),
+            &host,
+            cancellation,
+        )
+        .await
+        {
+            Ok(token) => Some(token),
+            Err(
+                crate::credentials::CredentialError::NoCredential
+                | crate::credentials::CredentialError::CommandUnavailable
+                | crate::credentials::CredentialError::CommandFailed
+                | crate::credentials::CredentialError::TimedOut,
+            ) => {
+                if verbose > 0 {
+                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
+                }
+                None
+            }
+            Err(crate::credentials::CredentialError::Cancelled) => {
+                archive.close().await;
+                return render_result(
+                    json,
+                    "sync",
+                    &SyncFailure {
+                        code: "operation_cancelled",
+                        message: "sync was cancelled before acquisition began".to_owned(),
+                    },
+                    |failure| failure.message.clone(),
+                    ExitCode::from(130),
+                );
+            }
+            Err(error) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "sync",
+                    "github_credential_invalid",
+                    &error.to_string(),
+                );
+            }
+        };
+        let base_url = github_api_base_url(&host);
+        let config = match url::Url::parse(&base_url) {
+            Ok(url) => GitHubClientConfig::new(url),
+            Err(_) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "sync",
+                    "github_api_url_invalid",
+                    "could not build GitHub API URL",
+                );
+            }
+        };
+        match GitHubClient::new(config, token) {
+            Ok(client) => {
+                clients.insert(host, client);
+            }
+            Err(error) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "sync",
+                    "github_client_initialization_failed",
+                    &error.to_string(),
+                );
+            }
+        }
+    }
+
+    let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
+    let progress_task = if verbose > 0 && !json {
+        Some(tokio::spawn(async move {
+            while let Some(progress) = progress_receiver.recv().await {
+                let repository = progress.repository.as_deref().unwrap_or("sync");
+                eprintln!(
+                    "forgesync: {}: {:?}, {}/{} jobs, {} threads",
+                    repository,
+                    progress.status,
+                    progress.completed_jobs,
+                    progress.total_jobs,
+                    progress.threads_seen
+                );
+            }
+        }))
+    } else {
+        drop(progress_receiver);
+        None
+    };
+    let request = SyncRequest {
+        repositories,
+        all,
+        scope: match state {
+            None => SyncThreadScope::Default,
+            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+        },
+    };
+    let result = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        cancellation,
+        Some(progress_sender),
+    )
+    .await;
+    if let Some(progress_task) = progress_task {
+        let _ = progress_task.await;
+    }
+    archive.close().await;
+    match result {
+        Ok(report) => {
+            let exit_status = outcome_exit_code(&report.outcome);
+            render_result(json, "sync", &report, sync_summary, exit_status)
+        }
+        Err(error) => render_engine_error(json, "sync", error),
+    }
+}
+
+fn github_api_base_url(host: &GitHubHost) -> String {
+    if host.as_str() == "github.com" {
+        "https://api.github.com/".to_owned()
+    } else {
+        format!("{}/api/v3/", host.https_origin())
+    }
+}
+
+fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
+    match outcome {
+        OperationOutcome::Complete => ExitCode::SUCCESS,
+        OperationOutcome::Partial { .. } | OperationOutcome::Deferred { .. } => ExitCode::from(3),
+        OperationOutcome::Interrupted { .. } => ExitCode::from(130),
+        OperationOutcome::Failed { .. } => ExitCode::FAILURE,
+    }
+}
+
+fn sync_summary(report: &SyncReport) -> String {
+    let state = match report.outcome {
+        OperationOutcome::Complete => "complete",
+        OperationOutcome::Partial { .. } => "partial",
+        OperationOutcome::Deferred { .. } => "deferred",
+        OperationOutcome::Interrupted { .. } => "interrupted",
+        OperationOutcome::Failed { .. } => "failed",
+    };
+    format!(
+        "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads",
+        report.repositories_selected,
+        report.completed_jobs,
+        report.total_jobs,
+        report.failed_jobs,
+        report.deferred_jobs,
+        report.pages_completed,
+        report.threads_seen
+    )
+}
+
+#[derive(Serialize)]
+struct SyncFailure {
+    code: &'static str,
+    message: String,
 }
 
 fn render_thread_page(json: bool, command: &str, page: &ThreadPage) -> ExitCode {

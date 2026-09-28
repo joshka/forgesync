@@ -6,9 +6,12 @@ use forgesync_core::{
     SourceClock, UtcTimestamp,
 };
 use forgesync_github::{
-    ApiFailureKind, GitHubClient, GitHubError, fetch_repository, fetch_thread_page, thread_list_url,
+    ApiFailureKind, GitHubClient, GitHubError, ThreadListState, fetch_repository,
+    fetch_thread_page_in_scope, thread_list_url_in_scope,
 };
-use forgesync_store::{Archive, RepositoryThreadScan, RepositoryThreadScanStatus, StoreError};
+use forgesync_store::{
+    Archive, ArchiveLeaseToken, RepositoryThreadScan, RepositoryThreadScanStatus, StoreError,
+};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -25,6 +28,14 @@ pub struct ThreadEnumerationReport {
     pub interrupted: bool,
 }
 
+pub(crate) struct ThreadScanContext {
+    pub repository: Repository,
+    pub sequence: forgesync_core::ObservationSequence,
+    pub started_at: UtcTimestamp,
+    pub state: ThreadListState,
+    pub since: Option<UtcTimestamp>,
+}
+
 /// Fetches and durably applies every page of repository issues and pull requests.
 ///
 /// The acquisition sequence is reserved before the first request. Each page's thread rows are
@@ -36,8 +47,37 @@ pub async fn enumerate_repository_threads(
     selector: &RepositorySelector,
     cancellation: &CancellationToken,
 ) -> Result<ThreadEnumerationReport, EngineError> {
+    enumerate_repository_threads_in_scope(
+        archive,
+        client,
+        selector,
+        ThreadListState::All,
+        None,
+        None,
+        cancellation,
+    )
+    .await
+}
+
+/// Fetches and applies one selected state scope while enforcing an archive lease fence.
+pub async fn enumerate_repository_threads_in_scope(
+    archive: &Archive,
+    client: &GitHubClient,
+    selector: &RepositorySelector,
+    state: ThreadListState,
+    since: Option<UtcTimestamp>,
+    lease: Option<&ArchiveLeaseToken>,
+    cancellation: &CancellationToken,
+) -> Result<ThreadEnumerationReport, EngineError> {
     let started_at = now_utc()?;
-    let sequence = archive.reserve_observation_sequence(started_at).await?;
+    let sequence = match lease {
+        Some(lease) => {
+            archive
+                .reserve_observation_sequence_fenced(started_at, lease)
+                .await?
+        }
+        None => archive.reserve_observation_sequence(started_at).await?,
+    };
     let repository = fetch_repository(
         client,
         selector.host(),
@@ -46,12 +86,69 @@ pub async fn enumerate_repository_threads(
         cancellation,
     )
     .await?;
-    archive.upsert_repository(&repository).await?;
+    match lease {
+        Some(lease) => {
+            archive.upsert_repository_fenced(&repository, lease).await?;
+        }
+        None => {
+            archive.upsert_repository(&repository).await?;
+        }
+    }
 
-    let first_page = thread_list_url(client, &repository)?;
-    archive
-        .begin_repository_thread_scan(&repository.id, sequence, started_at, first_page.as_str())
-        .await?;
+    enumerate_repository_thread_pages(
+        archive,
+        client,
+        ThreadScanContext {
+            repository,
+            sequence,
+            started_at,
+            state,
+            since,
+        },
+        lease,
+        cancellation,
+    )
+    .await
+}
+
+pub(crate) async fn enumerate_repository_thread_pages(
+    archive: &Archive,
+    client: &GitHubClient,
+    context: ThreadScanContext,
+    lease: Option<&ArchiveLeaseToken>,
+    cancellation: &CancellationToken,
+) -> Result<ThreadEnumerationReport, EngineError> {
+    let ThreadScanContext {
+        repository,
+        sequence,
+        started_at,
+        state,
+        since,
+    } = context;
+    let first_page = thread_list_url_in_scope(client, &repository, state, since)?;
+    match lease {
+        Some(lease) => {
+            archive
+                .begin_repository_thread_scan_fenced(
+                    &repository.id,
+                    sequence,
+                    started_at,
+                    first_page.as_str(),
+                    lease,
+                )
+                .await?;
+        }
+        None => {
+            archive
+                .begin_repository_thread_scan(
+                    &repository.id,
+                    sequence,
+                    started_at,
+                    first_page.as_str(),
+                )
+                .await?;
+        }
+    }
 
     let mut page_url = None;
     let mut visited_pages = HashSet::new();
@@ -67,27 +164,37 @@ pub async fn enumerate_repository_threads(
                     message: "GitHub pagination returned a repeated page URL".to_owned(),
                 },
                 false,
+                lease,
             )
             .await;
         }
 
-        let page =
-            match fetch_thread_page(client, &repository, page_url.as_ref(), cancellation).await {
-                Ok(page) => page,
-                Err(error) => {
-                    let interrupted = error == GitHubError::Cancelled;
-                    let failure = (!interrupted).then(|| github_failure(&error));
-                    return finish_report(
-                        archive,
-                        repository,
-                        sequence,
-                        RepositoryThreadScanStatus::Incomplete,
-                        failure,
-                        interrupted,
-                    )
-                    .await;
-                }
-            };
+        let page = match fetch_thread_page_in_scope(
+            client,
+            &repository,
+            page_url.as_ref(),
+            state,
+            since,
+            cancellation,
+        )
+        .await
+        {
+            Ok(page) => page,
+            Err(error) => {
+                let interrupted = error == GitHubError::Cancelled;
+                let failure = (!interrupted).then(|| github_failure(&error));
+                return finish_report(
+                    archive,
+                    repository,
+                    sequence,
+                    RepositoryThreadScanStatus::Incomplete,
+                    failure,
+                    interrupted,
+                    lease,
+                )
+                .await;
+            }
+        };
 
         let page_thread_count = page.discussions.len() as u64;
         for discussion in page.discussions {
@@ -100,11 +207,15 @@ pub async fn enumerate_repository_threads(
                 sequence,
                 CollectionCompleteness::Complete,
             );
-            if archive
-                .apply_thread_observation(&observation)
-                .await
-                .is_err()
-            {
+            let applied = match lease {
+                Some(lease) => {
+                    archive
+                        .apply_thread_observation_fenced(&observation, lease)
+                        .await
+                }
+                None => archive.apply_thread_observation(&observation).await,
+            };
+            if applied.is_err() {
                 return incomplete_report(
                     archive,
                     repository,
@@ -114,6 +225,7 @@ pub async fn enumerate_repository_threads(
                         message: "archive could not commit a repository thread page".to_owned(),
                     },
                     false,
+                    lease,
                 )
                 .await;
             }
@@ -121,15 +233,31 @@ pub async fn enumerate_repository_threads(
 
         page_url = page.next_page;
         let next_page_url = page_url.as_ref().map(|url| url.as_str());
-        archive
-            .record_repository_thread_scan_page(
-                &repository.id,
-                sequence,
-                page_thread_count,
-                next_page_url,
-                now_utc()?,
-            )
-            .await?;
+        match lease {
+            Some(lease) => {
+                archive
+                    .record_repository_thread_scan_page_fenced(
+                        &repository.id,
+                        sequence,
+                        page_thread_count,
+                        next_page_url,
+                        now_utc()?,
+                        lease,
+                    )
+                    .await?;
+            }
+            None => {
+                archive
+                    .record_repository_thread_scan_page(
+                        &repository.id,
+                        sequence,
+                        page_thread_count,
+                        next_page_url,
+                        now_utc()?,
+                    )
+                    .await?;
+            }
+        }
 
         if page_url.is_none() {
             return finish_report(
@@ -139,6 +267,7 @@ pub async fn enumerate_repository_threads(
                 RepositoryThreadScanStatus::Complete,
                 None,
                 false,
+                lease,
             )
             .await;
         }
@@ -151,6 +280,7 @@ async fn incomplete_report(
     sequence: forgesync_core::ObservationSequence,
     failure: Failure,
     interrupted: bool,
+    lease: Option<&ArchiveLeaseToken>,
 ) -> Result<ThreadEnumerationReport, EngineError> {
     finish_report(
         archive,
@@ -159,6 +289,7 @@ async fn incomplete_report(
         RepositoryThreadScanStatus::Incomplete,
         Some(failure),
         interrupted,
+        lease,
     )
     .await
 }
@@ -170,16 +301,33 @@ async fn finish_report(
     status: RepositoryThreadScanStatus,
     failure: Option<Failure>,
     interrupted: bool,
+    lease: Option<&ArchiveLeaseToken>,
 ) -> Result<ThreadEnumerationReport, EngineError> {
-    archive
-        .finish_repository_thread_scan(
-            &repository.id,
-            sequence,
-            status,
-            now_utc()?,
-            failure.as_ref(),
-        )
-        .await?;
+    match lease {
+        Some(lease) => {
+            archive
+                .finish_repository_thread_scan_fenced(
+                    &repository.id,
+                    sequence,
+                    status,
+                    now_utc()?,
+                    failure.as_ref(),
+                    lease,
+                )
+                .await?;
+        }
+        None => {
+            archive
+                .finish_repository_thread_scan(
+                    &repository.id,
+                    sequence,
+                    status,
+                    now_utc()?,
+                    failure.as_ref(),
+                )
+                .await?;
+        }
+    }
     let scan = archive
         .repository_thread_scan(&repository.id)
         .await?
@@ -191,7 +339,7 @@ async fn finish_report(
     })
 }
 
-fn github_failure(error: &GitHubError) -> Failure {
+pub(super) fn github_failure(error: &GitHubError) -> Failure {
     let kind = match error {
         GitHubError::Api {
             kind: ApiFailureKind::AuthenticationRequired,
@@ -226,7 +374,7 @@ fn github_failure(error: &GitHubError) -> Failure {
     }
 }
 
-fn now_utc() -> Result<UtcTimestamp, EngineError> {
+pub(super) fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| StoreError::ClockOutOfRange)?;

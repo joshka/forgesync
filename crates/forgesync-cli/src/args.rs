@@ -81,6 +81,22 @@ pub enum Command {
         #[arg(long, default_value_t = 0)]
         offset: u64,
     },
+    /// Acquire GitHub discussions into the local archive.
+    Sync {
+        /// Repositories to sync; required unless `--all` is supplied.
+        #[arg(
+            value_name = "OWNER/REPO",
+            required_unless_present = "all",
+            conflicts_with = "all"
+        )]
+        repositories: Vec<RepositorySelector>,
+        /// Sync every repository already registered in the archive.
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "repositories")]
+        all: bool,
+        /// Select open threads, closed threads, or a complete all-state enumeration.
+        #[arg(long, value_enum)]
+        state: Option<SyncThreadStateArg>,
+    },
     /// Inspect archived discussions and current family coverage.
     Thread {
         /// Thread list or detail operation.
@@ -177,6 +193,17 @@ pub enum SearchModeArg {
     Keyword,
     /// Accept FTS5 phrases, boolean operators, and grouping syntax.
     AdvancedFts,
+}
+
+/// Thread-state selection accepted by sync.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum SyncThreadStateArg {
+    /// Fetch only open threads.
+    Open,
+    /// Fetch only closed threads, using the successful closed-sweep watermark.
+    Closed,
+    /// Fetch all open and closed threads.
+    All,
 }
 
 /// Terminal color selection.

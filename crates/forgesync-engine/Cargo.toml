@@ -9,10 +9,12 @@ forgesync-core = { path = "../forgesync-core" }
 forgesync-github = { path = "../forgesync-github" }
 forgesync-store = { path = "../forgesync-store" }
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
-tokio.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
 wiremock.workspace = true

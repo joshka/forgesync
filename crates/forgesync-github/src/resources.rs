@@ -20,6 +20,17 @@ pub struct RestThreadPage {
     pub next_page: Option<Url>,
 }
 
+/// Source states selected from the GitHub issues endpoint.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ThreadListState {
+    /// Include issues and pull requests in either source state.
+    All,
+    /// Include only currently open issues and pull requests.
+    Open,
+    /// Include only currently closed issues and pull requests.
+    Closed,
+}
+
 /// Fetches current repository metadata from GitHub's REST API.
 pub async fn fetch_repository(
     client: &GitHubClient,
@@ -40,12 +51,32 @@ pub async fn fetch_thread_page(
     next_page: Option<&Url>,
     cancellation: &CancellationToken,
 ) -> Result<RestThreadPage, GitHubError> {
+    fetch_thread_page_in_scope(
+        client,
+        repository,
+        next_page,
+        ThreadListState::All,
+        None,
+        cancellation,
+    )
+    .await
+}
+
+/// Fetches one page using an explicit source state and optional update-time lower bound.
+pub async fn fetch_thread_page_in_scope(
+    client: &GitHubClient,
+    repository: &Repository,
+    next_page: Option<&Url>,
+    state: ThreadListState,
+    since: Option<UtcTimestamp>,
+    cancellation: &CancellationToken,
+) -> Result<RestThreadPage, GitHubError> {
     let url = match next_page {
         Some(url) => {
             client.validate_destination(url)?;
             url.clone()
         }
-        None => initial_thread_list_url(client, repository)?,
+        None => initial_thread_list_url(client, repository, state, since)?,
     };
     let response: GitHubResponse<Vec<RestIssue>> = client.get_json_page(&url, cancellation).await?;
     let discussions = response
@@ -62,19 +93,42 @@ pub async fn fetch_thread_page(
 fn initial_thread_list_url(
     client: &GitHubClient,
     repository: &Repository,
+    state: ThreadListState,
+    since: Option<UtcTimestamp>,
 ) -> Result<Url, GitHubError> {
     let mut url = client.endpoint_url(&["repos", &repository.owner, &repository.name, "issues"])?;
+    let state = match state {
+        ThreadListState::All => "all",
+        ThreadListState::Open => "open",
+        ThreadListState::Closed => "closed",
+    };
     url.query_pairs_mut()
-        .append_pair("state", "all")
+        .append_pair("state", state)
         .append_pair("sort", "updated")
         .append_pair("direction", "desc")
         .append_pair("per_page", "100");
+    if let Some(since) = since {
+        let since = since
+            .format_rfc3339()
+            .map_err(|_| GitHubError::InvalidProviderData)?;
+        url.query_pairs_mut().append_pair("since", &since);
+    }
     Ok(url)
 }
 
 /// Builds the first issues-and-pull-requests page URL for a repository.
 pub fn thread_list_url(client: &GitHubClient, repository: &Repository) -> Result<Url, GitHubError> {
-    initial_thread_list_url(client, repository)
+    initial_thread_list_url(client, repository, ThreadListState::All, None)
+}
+
+/// Builds the first issues page URL for a selected state and optional update-time lower bound.
+pub fn thread_list_url_in_scope(
+    client: &GitHubClient,
+    repository: &Repository,
+    state: ThreadListState,
+    since: Option<UtcTimestamp>,
+) -> Result<Url, GitHubError> {
+    initial_thread_list_url(client, repository, state, since)
 }
 
 fn normalize_repository(

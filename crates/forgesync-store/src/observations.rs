@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
 use std::cmp::Ordering;
 
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::ordering::compare_observation_order;
 use crate::{Archive, StoreError};
 
@@ -93,8 +94,30 @@ impl Archive {
         &self,
         started_at: UtcTimestamp,
     ) -> Result<ObservationSequence, StoreError> {
+        self.reserve_observation_sequence_inner(started_at, None)
+            .await
+    }
+
+    /// Reserves a new observation sequence while the supplied archive lease remains current.
+    pub async fn reserve_observation_sequence_fenced(
+        &self,
+        started_at: UtcTimestamp,
+        token: &ArchiveLeaseToken,
+    ) -> Result<ObservationSequence, StoreError> {
+        self.reserve_observation_sequence_inner(started_at, Some(token))
+            .await
+    }
+
+    async fn reserve_observation_sequence_inner(
+        &self,
+        started_at: UtcTimestamp,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<ObservationSequence, StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let raw_sequence: i64 = sqlx::query_scalar(
             "UPDATE observation_sequence SET value = value + 1, last_started_at_us = ? WHERE singleton = 1 RETURNING value",
         )
@@ -108,7 +131,28 @@ impl Archive {
 
     /// Inserts or refreshes a repository identity used by discussion observations.
     pub async fn upsert_repository(&self, repository: &Repository) -> Result<i64, StoreError> {
+        self.upsert_repository_inner(repository, None).await
+    }
+
+    /// Inserts or refreshes a repository only while the supplied archive lease remains current.
+    pub async fn upsert_repository_fenced(
+        &self,
+        repository: &Repository,
+        token: &ArchiveLeaseToken,
+    ) -> Result<i64, StoreError> {
+        self.upsert_repository_inner(repository, Some(token)).await
+    }
+
+    async fn upsert_repository_inner(
+        &self,
+        repository: &Repository,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<i64, StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let payload_json = serde_json::to_string(repository)?;
         let provider_data_json = serde_json::to_string(&repository.provider_data)?;
         let updated_at_us = repository.updated_at.map(UtcTimestamp::unix_microseconds);
@@ -127,8 +171,9 @@ impl Archive {
         .bind(updated_at_us)
         .bind(provider_data_json)
         .bind(payload_json)
-        .fetch_one(writer)
+        .fetch_one(&mut *transaction)
         .await?;
+        transaction.commit().await?;
         Ok(id)
     }
 
@@ -136,6 +181,24 @@ impl Archive {
     pub async fn apply_thread_observation(
         &self,
         observation: &Observation<Discussion>,
+    ) -> Result<ThreadObservationResult, StoreError> {
+        self.apply_thread_observation_inner(observation, None).await
+    }
+
+    /// Applies a thread snapshot only while the supplied archive lease remains current.
+    pub async fn apply_thread_observation_fenced(
+        &self,
+        observation: &Observation<Discussion>,
+        token: &ArchiveLeaseToken,
+    ) -> Result<ThreadObservationResult, StoreError> {
+        self.apply_thread_observation_inner(observation, Some(token))
+            .await
+    }
+
+    async fn apply_thread_observation_inner(
+        &self,
+        observation: &Observation<Discussion>,
+        token: Option<&ArchiveLeaseToken>,
     ) -> Result<ThreadObservationResult, StoreError> {
         if observation.family() != EvidenceFamily::Threads {
             return Err(StoreError::ObservationFamilyMismatch);
@@ -151,6 +214,9 @@ impl Archive {
         let completeness = observation.completeness();
 
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let repository_row_id = repository_row_id(
             &mut transaction,
             discussion.id.repository().host().as_str(),

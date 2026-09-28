@@ -204,6 +204,21 @@ const ALL_FAMILIES: [EvidenceFamily; 5] = [
 ];
 
 impl Archive {
+    /// Returns registered repositories in stable host, owner, and name order.
+    pub async fn list_repositories(&self) -> Result<Vec<Repository>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT payload_json FROM repositories ORDER BY host, owner COLLATE NOCASE, name COLLATE NOCASE, provider_id",
+        )
+        .fetch_all(&self.reader)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                let payload_json: String = row.try_get("payload_json")?;
+                Ok(serde_json::from_str(&payload_json)?)
+            })
+            .collect()
+    }
+
     /// Finds a repository by its current host, owner, and name.
     pub async fn find_repository(
         &self,

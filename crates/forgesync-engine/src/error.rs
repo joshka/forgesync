@@ -24,6 +24,15 @@ pub enum EngineError {
     /// A selected thread is not present in the archive.
     #[error("thread is not present in the archive")]
     ThreadMissing,
+    /// Sync requires either a non-empty explicit repository list or `--all`.
+    #[error("sync requires repositories or --all, but not both")]
+    InvalidSyncScope,
+    /// No GitHub API client was provided for a selected host.
+    #[error("no GitHub API client was configured for host {host}")]
+    GitHubClientMissing {
+        /// Selected GitHub host.
+        host: String,
+    },
     /// A search request has no searchable terms or an invalid advanced expression.
     #[error("search query is invalid")]
     InvalidSearchQuery,
@@ -48,6 +57,8 @@ impl EngineError {
             Self::Reference(_) => "reference_invalid",
             Self::RepositoryMissing { .. } => "repository_missing",
             Self::ThreadMissing => "thread_missing",
+            Self::InvalidSyncScope => "sync_scope_invalid",
+            Self::GitHubClientMissing { .. } => "github_client_missing",
             Self::InvalidSearchQuery => "search_query_invalid",
             Self::InvalidPageLimit => "page_limit_invalid",
             Self::InvalidPageOffset => "page_offset_invalid",

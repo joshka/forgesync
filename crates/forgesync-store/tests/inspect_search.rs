@@ -297,11 +297,35 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("drop v4 repository scans");
+    sqlx::query("DROP TABLE failures")
+        .execute(&pool)
+        .await
+        .expect("drop v5 failures");
+    sqlx::query("DROP TABLE jobs")
+        .execute(&pool)
+        .await
+        .expect("drop v5 jobs");
+    sqlx::query("DROP TABLE runs")
+        .execute(&pool)
+        .await
+        .expect("drop v5 runs");
+    sqlx::query("DROP TABLE archive_lease")
+        .execute(&pool)
+        .await
+        .expect("drop v5 archive lease");
+    sqlx::query("DROP TABLE repository_checkpoints")
+        .execute(&pool)
+        .await
+        .expect("drop v5 checkpoints");
     sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 3")
         .execute(&pool)
         .await
         .expect("mark archive at schema v2");
     sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 4")
+        .execute(&pool)
+        .await
+        .expect("mark archive at schema v2");
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 5")
         .execute(&pool)
         .await
         .expect("mark archive at schema v2");
@@ -311,11 +335,11 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         Archive::open_read_only(&path).await,
         Err(StoreError::MigrationRequired {
             current: 2,
-            supported: 4
+            supported: 5
         })
     ));
     let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.applied_migrations.len(), 2);
+    assert_eq!(migration.applied_migrations.len(), 3);
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");
