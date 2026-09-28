@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P2.4 — Comments and independent failures**.
+- Next task: **P3.1 — PR metadata and reviews**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -286,6 +286,41 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
   passed, 0 issues.
 
+## P2.4 evidence
+
+Added schema version 6 failure identity and retry fields. Failure records can identify the affected
+thread and family, count later retries, record the retrying run, and record successful resolution.
+Child-family writes validate the archive lease in the same transaction. The store reports comments
+coverage as stale when its parent timestamp or GitHub comment count no longer matches the current
+discussion.
+
+Added paginated REST issue-comment acquisition and normalization, preserving unknown provider fields.
+`sync --with comments` selects comment acquisition; default sync makes no comment requests. Each
+repository/state scope receives a separate comments job. Complete observations atomically replace
+membership, including with an empty set. Incomplete observations preserve previous membership and
+expose incomplete coverage. Complete snapshots are reused only while the parent timestamp, expected
+comment count, and stored membership count all match.
+
+Thread-specific failures are persisted independently so one failed thread does not roll back
+successful siblings. Retries skip fresh siblings, update prior retry records, and resolve failures
+only after matching complete coverage exists. A failure-ledger write error reports both the
+original provider failure and the local write error.
+
+Local HTTP acceptance tests cover page-two failure and selective retry, stale coverage, old
+membership preservation, complete-empty versus incomplete-empty collections, independent sibling
+success, and original-error retention when the failure ledger rejects a write. CLI parsing covers
+the explicit `--with comments` selection.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked --offline`: passed, 79 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked --offline`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
+  passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -300,7 +335,7 @@ Validation:
 | P2.1 — HTTP transport and credentials | Complete | Retry, origin-safe auth, cancellation, credential discovery |
 | P2.2 — Thread enumeration | Complete | Stable identities, durable page cursors, rename handling, replay and partial-failure checks |
 | P2.3 — Runs, leases, and basic sync | Complete | Fenced writes, run reports, cancellation/replay, closed-sweep overlap |
-| P2.4 — Comments and independent failures | Not started | Complete membership staging, isolated family failures, selective retry |
+| P2.4 — Comments and independent failures | Complete | Paginated comments, stale coverage, isolated failures, selective retry |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |

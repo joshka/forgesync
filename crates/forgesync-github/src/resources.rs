@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use forgesync_core::{
-    Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, SourceState,
-    ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
+    Comment, CommentId, Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId,
+    SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
 };
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,15 @@ use crate::{GitHubClient, GitHubError, GitHubResponse};
 pub struct RestThreadPage {
     /// Issues and pull requests returned by the repository issues endpoint.
     pub discussions: Vec<Discussion>,
+    /// Next page URL from the provider, when one remains.
+    pub next_page: Option<Url>,
+}
+
+/// One normalized issue-comment page and its validated next-page destination.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RestCommentPage {
+    /// Discussion comments returned by the issues comments endpoint.
+    pub comments: Vec<Comment>,
     /// Next page URL from the provider, when one remains.
     pub next_page: Option<Url>,
 }
@@ -88,6 +97,69 @@ pub async fn fetch_thread_page_in_scope(
         discussions,
         next_page: response.next_page,
     })
+}
+
+/// Fetches one page of issue or pull-request discussion comments.
+///
+/// This follows GitHub's [list issue comments endpoint][github-comments], including its
+/// 100-item page limit and provider-supplied pagination links.
+///
+/// [github-comments]: https://docs.github.com/en/rest/issues/comments#list-issue-comments
+pub async fn fetch_issue_comment_page(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+    next_page: Option<&Url>,
+    cancellation: &CancellationToken,
+) -> Result<RestCommentPage, GitHubError> {
+    if thread.repository() != &repository.id {
+        return Err(GitHubError::InvalidProviderData);
+    }
+    let url = match next_page {
+        Some(url) => {
+            client.validate_destination(url)?;
+            url.clone()
+        }
+        None => initial_issue_comment_url(client, repository, thread)?,
+    };
+    let response: GitHubResponse<Vec<RestComment>> =
+        client.get_json_page(&url, cancellation).await?;
+    let comments = response
+        .value
+        .into_iter()
+        .map(|comment| normalize_comment(thread, comment))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(RestCommentPage {
+        comments,
+        next_page: response.next_page,
+    })
+}
+
+/// Builds the first issue-comment page URL for a discussion.
+pub fn issue_comment_list_url(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+) -> Result<Url, GitHubError> {
+    initial_issue_comment_url(client, repository, thread)
+}
+
+fn initial_issue_comment_url(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+) -> Result<Url, GitHubError> {
+    let number = thread.number().get().to_string();
+    let mut url = client.endpoint_url(&[
+        "repos",
+        &repository.owner,
+        &repository.name,
+        "issues",
+        &number,
+        "comments",
+    ])?;
+    url.query_pairs_mut().append_pair("per_page", "100");
+    Ok(url)
 }
 
 fn initial_thread_list_url(
@@ -227,6 +299,36 @@ fn normalize_issue(repository: &Repository, issue: RestIssue) -> Result<Discussi
     })
 }
 
+fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comment, GitHubError> {
+    let provider_id =
+        ProviderId::new(comment.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
+    let created_at =
+        UtcTimestamp::parse(&comment.created_at).map_err(|_| GitHubError::InvalidProviderData)?;
+    let updated_at = comment
+        .updated_at
+        .map(|value| UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData))
+        .transpose()?;
+    let author = comment
+        .user
+        .as_ref()
+        .and_then(|user| user.get("login"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let mut provider_data = provider_data(comment.extra);
+    if let Some(user) = comment.user {
+        provider_data.insert("user", user);
+    }
+    Ok(Comment {
+        id: CommentId::new(thread.clone(), provider_id),
+        review_id: None,
+        author,
+        body: comment.body,
+        created_at,
+        updated_at,
+        provider_data,
+    })
+}
+
 fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
 }
@@ -276,6 +378,18 @@ struct RestIssue {
     extra: BTreeMap<String, Value>,
 }
 
+#[derive(Deserialize)]
+struct RestComment {
+    id: u64,
+    #[serde(default)]
+    body: String,
+    created_at: String,
+    updated_at: Option<String>,
+    user: Option<Value>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
 #[derive(Deserialize, Serialize)]
 struct RestUser {
     login: Option<String>,
@@ -295,7 +409,8 @@ mod tests {
     use std::path::Path;
 
     use forgesync_core::{
-        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ThreadKind, UtcTimestamp,
+        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ThreadId, ThreadKind,
+        ThreadNumber, UtcTimestamp,
     };
     use reqwest::Url;
     use serde_json::json;
@@ -305,7 +420,7 @@ mod tests {
 
     use crate::{GitHubClient, GitHubClientConfig};
 
-    use super::{fetch_repository, fetch_thread_page};
+    use super::{fetch_issue_comment_page, fetch_repository, fetch_thread_page};
 
     fn fixture(name: &str) -> serde_json::Value {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -429,5 +544,108 @@ mod tests {
             .unwrap();
         assert_eq!(page.discussions.len(), 1);
         assert_eq!(page.next_page.unwrap().query(), Some("page=2"));
+    }
+
+    #[tokio::test]
+    async fn issue_comment_pages_normalize_identity_and_preserve_unknown_fields() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/enterprise/api/v3/repos/fixture-lab/archive-demo/issues/17/comments",
+            ))
+            .and(query_param("per_page", "100"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("Link", "<?page=2>; rel=\"next\"")
+                    .set_body_json(json!([{
+                        "id": 3001,
+                        "body": "first response",
+                        "created_at": "2026-09-19T08:00:00Z",
+                        "updated_at": "2026-09-19T09:00:00Z",
+                        "user": { "login": "reviewer", "type": "User" },
+                        "author_association": "CONTRIBUTOR",
+                        "reactions": { "+1": 2 }
+                    }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/enterprise/api/v3/repos/fixture-lab/archive-demo/issues/17/comments",
+            ))
+            .and(query_param("page", "2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "id": 3002,
+                "body": "second response",
+                "created_at": "2026-09-19T10:00:00Z",
+                "updated_at": null,
+                "user": null,
+                "node_id": "IC_fixture_3002"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let client = GitHubClient::new(
+            GitHubClientConfig::new(
+                Url::parse(&format!("{}/enterprise/api/v3/", server.uri())).unwrap(),
+            ),
+            None,
+        )
+        .expect("GitHub client");
+        let repository_id = RepositoryId::new(
+            GitHubHost::parse("ghe.example.test").unwrap(),
+            ProviderId::new("41").unwrap(),
+        );
+        let repository = Repository {
+            id: repository_id.clone(),
+            owner: "fixture-lab".to_owned(),
+            name: "archive-demo".to_owned(),
+            full_name: "fixture-lab/archive-demo".to_owned(),
+            default_branch: Some("main".to_owned()),
+            updated_at: None,
+            provider_data: ProviderData::new(),
+        };
+        let thread = ThreadId::new(
+            repository_id,
+            ProviderId::new("1701").unwrap(),
+            ThreadNumber::new(17).unwrap(),
+        );
+        let first = fetch_issue_comment_page(
+            &client,
+            &repository,
+            &thread,
+            None,
+            &CancellationToken::new(),
+        )
+        .await
+        .expect("first comment page");
+        assert_eq!(first.comments.len(), 1);
+        assert_eq!(first.comments[0].id.thread(), &thread);
+        assert_eq!(first.comments[0].author.as_deref(), Some("reviewer"));
+        assert_eq!(
+            first.comments[0].provider_data.get("author_association"),
+            Some(&json!("CONTRIBUTOR"))
+        );
+        assert!(first.next_page.is_some());
+
+        let second = fetch_issue_comment_page(
+            &client,
+            &repository,
+            &thread,
+            first.next_page.as_ref(),
+            &CancellationToken::new(),
+        )
+        .await
+        .expect("second comment page");
+        assert_eq!(second.comments.len(), 1);
+        assert_eq!(second.comments[0].id.provider_id().as_str(), "3002");
+        assert_eq!(second.comments[0].author, None);
+        assert_eq!(second.comments[0].updated_at, None);
+        assert_eq!(
+            second.comments[0].provider_data.get("node_id"),
+            Some(&json!("IC_fixture_3002"))
+        );
+        assert!(second.next_page.is_none());
     }
 }

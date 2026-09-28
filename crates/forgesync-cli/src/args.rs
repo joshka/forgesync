@@ -96,6 +96,9 @@ pub enum Command {
         /// Select open threads, closed threads, or a complete all-state enumeration.
         #[arg(long, value_enum)]
         state: Option<SyncThreadStateArg>,
+        /// Add selected evidence families to the thread sync.
+        #[arg(long = "with", value_enum, value_delimiter = ',')]
+        with: Vec<SyncIncludeArg>,
     },
     /// Inspect archived discussions and current family coverage.
     Thread {
@@ -206,6 +209,13 @@ pub enum SyncThreadStateArg {
     All,
 }
 
+/// Optional evidence family selected for a sync run.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum SyncIncludeArg {
+    /// Acquire issue and pull-request discussion comments.
+    Comments,
+}
+
 /// Terminal color selection.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum ColorChoice {
@@ -232,7 +242,7 @@ pub enum LogFormat {
 mod tests {
     use clap::Parser;
 
-    use super::{CliArgs, ColorChoice, LogFormat};
+    use super::{CliArgs, ColorChoice, Command, LogFormat, SyncIncludeArg};
 
     #[test]
     fn global_options_parse_together() {
@@ -265,5 +275,37 @@ mod tests {
         assert_eq!(args.color, ColorChoice::Never);
         assert_eq!(args.log_format, LogFormat::Json);
         assert_eq!(args.verbose, 2);
+    }
+
+    #[test]
+    fn sync_families_are_selected_with_with() {
+        let args =
+            CliArgs::try_parse_from(["forgesync", "--archive", "archive.db", "sync", "owner/repo"])
+                .expect("sync without comments should parse");
+        assert!(matches!(
+            args.command,
+            Command::Sync {
+                with,
+                ..
+            } if with.is_empty()
+        ));
+
+        let args = CliArgs::try_parse_from([
+            "forgesync",
+            "--archive",
+            "archive.db",
+            "sync",
+            "owner/repo",
+            "--with",
+            "comments",
+        ])
+        .expect("sync with comments should parse");
+        assert!(matches!(
+            args.command,
+            Command::Sync {
+                with,
+                ..
+            } if with == vec![SyncIncludeArg::Comments]
+        ));
     }
 }

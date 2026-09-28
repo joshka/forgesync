@@ -47,6 +47,7 @@ pub async fn search_threads(
         kind: request.filters.kind,
         state: store_state_filter(request.filters.state),
         match_expression: Some(match_expression),
+        updated_since: None,
         sort: store_sort(request.filters.sort.unwrap_or(ThreadSort::Relevance)),
         limit,
         offset,

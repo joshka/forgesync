@@ -86,6 +86,7 @@ pub async fn list_threads(
         kind: request.filters.kind,
         state: store_state_filter(request.filters.state),
         match_expression: None,
+        updated_since: None,
         sort: store_sort(request.filters.sort.unwrap_or(ThreadSort::Updated)),
         limit,
         offset,

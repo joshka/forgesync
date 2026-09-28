@@ -86,6 +86,7 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
         kind: None,
         state: ThreadStateFilter::All,
         match_expression: Some("\"needle\"".to_owned()),
+        updated_since: None,
         sort: ThreadSort::Updated,
         limit: NonZeroU32::new(1).expect("positive limit"),
         offset: 0,
@@ -125,6 +126,7 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
             kind: Some(ThreadKind::PullRequest),
             state: ThreadStateFilter::Closed,
             match_expression: None,
+            updated_since: None,
             sort: ThreadSort::Created,
             limit: NonZeroU32::new(10).expect("positive limit"),
             offset: 0,
@@ -140,6 +142,7 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
             kind: None,
             state: ThreadStateFilter::All,
             match_expression: Some("\"never-matches\"".to_owned()),
+            updated_since: None,
             sort: ThreadSort::Relevance,
             limit: NonZeroU32::new(10).expect("positive limit"),
             offset: 0,
@@ -186,6 +189,7 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
             kind: None,
             state: ThreadStateFilter::All,
             match_expression: Some("\"needle\"".to_owned()),
+            updated_since: None,
             sort: ThreadSort::Relevance,
             limit: NonZeroU32::new(10).expect("positive limit"),
             offset: 0,
@@ -329,17 +333,21 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("mark archive at schema v2");
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 6")
+        .execute(&pool)
+        .await
+        .expect("mark archive at schema v2");
     pool.close().await;
 
     assert!(matches!(
         Archive::open_read_only(&path).await,
         Err(StoreError::MigrationRequired {
             current: 2,
-            supported: 5
+            supported: 6
         })
     ));
     let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.applied_migrations.len(), 3);
+    assert_eq!(migration.applied_migrations.len(), 4);
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");
@@ -451,6 +459,7 @@ async fn query(archive: &Archive, expression: &str) -> forgesync_store::ThreadPa
             kind: None,
             state: ThreadStateFilter::All,
             match_expression: Some(expression.to_owned()),
+            updated_since: None,
             sort: ThreadSort::Relevance,
             limit: NonZeroU32::new(10).expect("positive limit"),
             offset: 0,

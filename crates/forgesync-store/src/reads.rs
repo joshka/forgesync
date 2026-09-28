@@ -46,6 +46,8 @@ pub struct ThreadQuery {
     pub state: ThreadStateFilter,
     /// Prepared FTS5 expression. `None` lists without text search.
     pub match_expression: Option<String>,
+    /// Optional inclusive lower bound on the current source update timestamp.
+    pub updated_since: Option<UtcTimestamp>,
     /// Sort policy, applied with deterministic ties.
     pub sort: ThreadSort,
     /// Maximum number of rows to return.
@@ -195,6 +197,12 @@ struct StoredThreadSummary {
     summary: ThreadSummary,
 }
 
+struct StoredCoverage {
+    state: CoverageState,
+    source_clock_state: String,
+    source_clock_us: Option<i64>,
+}
+
 const ALL_FAMILIES: [EvidenceFamily; 5] = [
     EvidenceFamily::Threads,
     EvidenceFamily::Comments,
@@ -268,6 +276,11 @@ impl Archive {
         }
         push_repository_scope(&mut statement, &query.repositories);
         push_discussion_filters(&mut statement, query.kind, query.state);
+        if let Some(updated_since) = query.updated_since {
+            statement
+                .push(" AND t.updated_at_us >= ")
+                .push_bind(updated_since.unix_microseconds());
+        }
         statement
             .push(" ORDER BY ")
             .push(sort_order(query.sort, uses_fts))
@@ -319,7 +332,7 @@ impl Archive {
             .into_iter()
             .map(|mut stored| {
                 let states = coverage_by_thread.get(&stored.row_id);
-                stored.summary.coverage = coverage_for_kind(stored.summary.discussion.kind, states);
+                stored.summary.coverage = coverage_for_kind(&stored.summary.discussion, states);
                 stored.summary
             })
             .collect::<Vec<_>>();
@@ -362,7 +375,7 @@ impl Archive {
         let coverage_by_thread = load_thread_coverage(&self.reader, &[row_id]).await?;
         let summary = ThreadSummary {
             repository,
-            coverage: coverage_for_kind(discussion.kind, coverage_by_thread.get(&row_id)),
+            coverage: coverage_for_kind(&discussion, coverage_by_thread.get(&row_id)),
             discussion,
         };
 
@@ -527,12 +540,12 @@ fn sort_order(sort: ThreadSort, uses_fts: bool) -> &'static str {
 async fn load_thread_coverage(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
-) -> Result<HashMap<i64, HashMap<EvidenceFamily, CoverageState>>, StoreError> {
+) -> Result<HashMap<i64, HashMap<EvidenceFamily, StoredCoverage>>, StoreError> {
     if thread_ids.is_empty() {
         return Ok(HashMap::new());
     }
     let mut statement = QueryBuilder::<Sqlite>::new(
-        "SELECT thread_id, family, state_json FROM family_coverage WHERE thread_id IN (",
+        "SELECT thread_id, family, state_json, source_clock_state, source_clock_us FROM family_coverage WHERE thread_id IN (",
     );
     for (index, thread_id) in thread_ids.iter().enumerate() {
         if index > 0 {
@@ -547,31 +560,75 @@ async fn load_thread_coverage(
         let thread_id: i64 = row.try_get("thread_id")?;
         let family: String = row.try_get("family")?;
         let state_json: String = row.try_get("state_json")?;
+        let source_clock_state: String = row.try_get("source_clock_state")?;
+        let source_clock_us: Option<i64> = row.try_get("source_clock_us")?;
         let family = parse_evidence_family(&family)?;
         let state = serde_json::from_str(&state_json)?;
         coverage
             .entry(thread_id)
             .or_insert_with(HashMap::new)
-            .insert(family, state);
+            .insert(
+                family,
+                StoredCoverage {
+                    state,
+                    source_clock_state,
+                    source_clock_us,
+                },
+            );
     }
     Ok(coverage)
 }
 
 fn coverage_for_kind(
-    kind: ThreadKind,
-    stored: Option<&HashMap<EvidenceFamily, CoverageState>>,
+    discussion: &Discussion,
+    stored: Option<&HashMap<EvidenceFamily, StoredCoverage>>,
 ) -> Vec<Coverage> {
     ALL_FAMILIES
         .into_iter()
-        .filter(|family| kind == ThreadKind::PullRequest || !is_pull_request_family(*family))
+        .filter(|family| {
+            discussion.kind == ThreadKind::PullRequest || !is_pull_request_family(*family)
+        })
         .map(|family| {
-            let state = stored
-                .and_then(|coverage| coverage.get(&family))
-                .cloned()
+            let item = stored.and_then(|coverage| coverage.get(&family));
+            let state = item
+                .map(|item| item.state.clone())
                 .unwrap_or(CoverageState::Missing);
-            Coverage::new(family, state)
+            Coverage::new(family, state).with_stale(is_stale(discussion, family, item))
         })
         .collect()
+}
+
+fn is_stale(
+    discussion: &Discussion,
+    family: EvidenceFamily,
+    stored: Option<&StoredCoverage>,
+) -> bool {
+    if family != EvidenceFamily::Comments {
+        return false;
+    }
+    let Some(stored) = stored else {
+        return false;
+    };
+    if matches!(stored.state, CoverageState::Missing) {
+        return false;
+    }
+
+    let parent_clock_matches = stored.source_clock_state == "valid"
+        && stored.source_clock_us == Some(discussion.updated_at.unix_microseconds());
+    if !parent_clock_matches {
+        return true;
+    }
+    match stored.state {
+        CoverageState::Complete { item_count, .. } => comment_count(discussion) != Some(item_count),
+        _ => false,
+    }
+}
+
+fn comment_count(discussion: &Discussion) -> Option<u64> {
+    discussion
+        .provider_data
+        .get("comments")
+        .and_then(serde_json::Value::as_u64)
 }
 
 fn build_thread_timeline(

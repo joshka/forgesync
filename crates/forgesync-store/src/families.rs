@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::{Row, SqliteConnection};
 
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{
     FamilyObservationResult, FamilyReservation, ObservationDisposition, StagedItem,
     checked_sequence, evidence_family_name, is_child_family, normalize_source_clock,
@@ -22,6 +23,23 @@ struct StagedPage {
     items: Vec<StagedItem<serde_json::Value>>,
 }
 
+/// Inputs that identify and classify one finished child-family collection.
+#[derive(Clone, Copy)]
+pub struct ChildFamilyObservation<'a> {
+    /// Parent discussion whose child family was acquired.
+    pub thread: &'a ThreadId,
+    /// Independently acquired evidence family.
+    pub family: EvidenceFamily,
+    /// Sequence reserved before provider acquisition.
+    pub sequence: ObservationSequence,
+    /// Local time when acquisition reached this terminal state.
+    pub observed_at: UtcTimestamp,
+    /// Whether all pages were acquired and validated.
+    pub completeness: &'a CollectionCompleteness,
+    /// Number of pages in a complete collection; omitted for incomplete results.
+    pub expected_pages: Option<u32>,
+}
+
 impl Archive {
     /// Allocates a sequence and tries to reserve an independently ordered child family.
     pub async fn reserve_child_family_observation(
@@ -31,6 +49,47 @@ impl Archive {
         source_clock: &SourceClock,
         started_at: UtcTimestamp,
         request_scope: &str,
+    ) -> Result<FamilyReservation, StoreError> {
+        self.reserve_child_family_observation_inner(
+            thread,
+            family,
+            source_clock,
+            started_at,
+            request_scope,
+            None,
+        )
+        .await
+    }
+
+    /// Reserves a child family only while the supplied archive lease remains current.
+    pub async fn reserve_child_family_observation_fenced(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        source_clock: &SourceClock,
+        started_at: UtcTimestamp,
+        request_scope: &str,
+        token: &ArchiveLeaseToken,
+    ) -> Result<FamilyReservation, StoreError> {
+        self.reserve_child_family_observation_inner(
+            thread,
+            family,
+            source_clock,
+            started_at,
+            request_scope,
+            Some(token),
+        )
+        .await
+    }
+
+    async fn reserve_child_family_observation_inner(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        source_clock: &SourceClock,
+        started_at: UtcTimestamp,
+        request_scope: &str,
+        token: Option<&ArchiveLeaseToken>,
     ) -> Result<FamilyReservation, StoreError> {
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
@@ -47,6 +106,9 @@ impl Archive {
         let source_clock_fields = source_clock_columns(&source_clock)?;
         let family_name = evidence_family_name(family);
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let thread_row_id = thread_row_id(&mut transaction, thread).await?;
 
         let raw_sequence: i64 = sqlx::query_scalar(
@@ -131,6 +193,39 @@ impl Archive {
     where
         T: Serialize,
     {
+        self.stage_child_family_page_inner(thread, family, sequence, page_index, items, None)
+            .await
+    }
+
+    /// Stages a child-family page only while the supplied archive lease remains current.
+    pub async fn stage_child_family_page_fenced<T>(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        sequence: ObservationSequence,
+        page_index: u32,
+        items: &[StagedItem<T>],
+        token: &ArchiveLeaseToken,
+    ) -> Result<(), StoreError>
+    where
+        T: Serialize,
+    {
+        self.stage_child_family_page_inner(thread, family, sequence, page_index, items, Some(token))
+            .await
+    }
+
+    async fn stage_child_family_page_inner<T>(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        sequence: ObservationSequence,
+        page_index: u32,
+        items: &[StagedItem<T>],
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<(), StoreError>
+    where
+        T: Serialize,
+    {
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),
@@ -141,6 +236,9 @@ impl Archive {
         let page_index = i64::from(page_index);
         let payload_json = serde_json::to_string(items)?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let thread_row_id = thread_row_id(&mut transaction, thread).await?;
         let current_sequence: Option<i64> = sqlx::query_scalar(
             "SELECT sequence FROM thread_family_reservations WHERE thread_id = ? AND family = ?",
@@ -227,6 +325,41 @@ impl Archive {
         completeness: &CollectionCompleteness,
         expected_pages: Option<u32>,
     ) -> Result<FamilyObservationResult, StoreError> {
+        let observation = ChildFamilyObservation {
+            thread,
+            family,
+            sequence,
+            observed_at,
+            completeness,
+            expected_pages,
+        };
+        self.finish_child_family_observation_inner(observation, None)
+            .await
+    }
+
+    /// Finalizes a child family only while the supplied archive lease remains current.
+    pub async fn finish_child_family_observation_fenced(
+        &self,
+        observation: ChildFamilyObservation<'_>,
+        token: &ArchiveLeaseToken,
+    ) -> Result<FamilyObservationResult, StoreError> {
+        self.finish_child_family_observation_inner(observation, Some(token))
+            .await
+    }
+
+    async fn finish_child_family_observation_inner(
+        &self,
+        observation: ChildFamilyObservation<'_>,
+        token: Option<&ArchiveLeaseToken>,
+    ) -> Result<FamilyObservationResult, StoreError> {
+        let ChildFamilyObservation {
+            thread,
+            family,
+            sequence,
+            observed_at,
+            completeness,
+            expected_pages,
+        } = observation;
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),
@@ -246,6 +379,9 @@ impl Archive {
         let family_name = evidence_family_name(family);
         let sequence_value = to_sql_sequence(sequence)?;
         let mut transaction = writer.begin().await?;
+        if let Some(token) = token {
+            require_active_archive_lease(&mut transaction, token).await?;
+        }
         let thread_row_id = thread_row_id(&mut transaction, thread).await?;
         let current_sequence: Option<i64> = sqlx::query_scalar(
             "SELECT sequence FROM thread_family_reservations WHERE thread_id = ? AND family = ?",
@@ -443,6 +579,67 @@ impl Archive {
                 })
             })
             .collect()
+    }
+
+    /// Returns whether the latest complete family snapshot matches the current parent clock and
+    /// expected member count. An unknown count deliberately forces a refresh.
+    pub async fn child_family_is_current(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        source_clock: &SourceClock,
+        expected_item_count: Option<u64>,
+    ) -> Result<bool, StoreError> {
+        if !is_child_family(family) {
+            return Err(StoreError::UnsupportedObservationFamily(
+                evidence_family_name(family).to_owned(),
+            ));
+        }
+        let Some(expected_item_count) = expected_item_count else {
+            return Ok(false);
+        };
+        let source_clock = normalize_source_clock(source_clock)?;
+        let source_fields = source_clock_columns(&source_clock)?;
+        let mut connection = self.reader.acquire().await?;
+        let row_id = thread_row_id(&mut connection, thread).await?;
+        let row = sqlx::query(
+            "SELECT source_clock_state, source_clock_raw, source_clock_us, state_json FROM family_coverage WHERE thread_id = ? AND family = ?",
+        )
+        .bind(row_id)
+        .bind(evidence_family_name(family))
+        .fetch_optional(&mut *connection)
+        .await?;
+        let Some(row) = row else {
+            return Ok(false);
+        };
+        let stored_state: String = row.try_get("source_clock_state")?;
+        let stored_raw: String = row.try_get("source_clock_raw")?;
+        let stored_microseconds: Option<i64> = row.try_get("source_clock_us")?;
+        if stored_state != source_fields.state
+            || stored_raw != source_fields.raw
+            || stored_microseconds != source_fields.unix_microseconds
+        {
+            return Ok(false);
+        }
+        let state_json: String = row.try_get("state_json")?;
+        let state: CoverageState = serde_json::from_str(&state_json)?;
+        let CoverageState::Complete { item_count, .. } = state else {
+            return Ok(false);
+        };
+        if item_count != expected_item_count {
+            return Ok(false);
+        }
+        let member_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM thread_family_membership WHERE thread_id = ? AND family = ?",
+        )
+        .bind(row_id)
+        .bind(evidence_family_name(family))
+        .fetch_one(&mut *connection)
+        .await?;
+        Ok(
+            u64::try_from(member_count).map_err(|_| StoreError::InvalidStoredSequence)?
+                == expected_item_count,
+        )
     }
 }
 

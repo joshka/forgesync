@@ -18,6 +18,7 @@ mod runs;
 pub use archive::{ARCHIVE_FORMAT_ID, Archive, ArchiveInfo};
 pub use enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
 pub use error::StoreError;
+pub use families::ChildFamilyObservation;
 pub use health::{DoctorReport, HealthCheck};
 pub use leases::ArchiveLeaseToken;
 pub use migration::{AppliedMigration, MigrationReport};
@@ -33,6 +34,6 @@ pub use reads::{
     ThreadStateFilter, ThreadSummary, ThreadTimelineEntry, ThreadTimelineEvent,
 };
 pub use runs::{
-    RunDetail, RunFailureInput, RunFailureRecord, RunRecord, RunStatus, SyncJobCompletion,
-    SyncJobRecord, SyncJobStatus,
+    ChildFamilyFailureScope, RunDetail, RunFailureInput, RunFailureRecord, RunRecord, RunStatus,
+    SyncJobCompletion, SyncJobRecord, SyncJobStatus,
 };

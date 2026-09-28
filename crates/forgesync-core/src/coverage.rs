@@ -133,12 +133,24 @@ pub enum CoverageState {
 pub struct Coverage {
     family: EvidenceFamily,
     state: CoverageState,
+    #[serde(default, skip_serializing_if = "is_not_stale")]
+    stale: bool,
 }
 
 impl Coverage {
     /// Creates coverage for a single independently acquired evidence family.
     pub fn new(family: EvidenceFamily, state: CoverageState) -> Self {
-        Self { family, state }
+        Self {
+            family,
+            state,
+            stale: false,
+        }
+    }
+
+    /// Marks complete or incomplete evidence as belonging to an older parent observation.
+    pub fn with_stale(mut self, stale: bool) -> Self {
+        self.stale = stale;
+        self
     }
 
     /// Returns the evidence family this coverage describes.
@@ -150,6 +162,15 @@ impl Coverage {
     pub fn state(&self) -> &CoverageState {
         &self.state
     }
+
+    /// Returns whether this family's evidence predates the current parent discussion.
+    pub fn is_stale(&self) -> bool {
+        self.stale
+    }
+}
+
+fn is_not_stale(stale: &bool) -> bool {
+    !stale
 }
 
 #[cfg(test)]
@@ -180,5 +201,24 @@ mod tests {
         assert_eq!(complete_json["state"]["item_count"], json!(0));
         assert_eq!(missing_json["state"]["status"], json!("missing"));
         assert_ne!(complete_json, missing_json);
+    }
+
+    #[test]
+    fn stale_coverage_is_exposed_separately_from_completeness() {
+        let observed_at = UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("timestamp");
+        let sequence = ObservationSequence::new(3).expect("sequence");
+        let stale = Coverage::new(
+            EvidenceFamily::Comments,
+            CoverageState::Complete {
+                observed_at,
+                sequence,
+                item_count: 2,
+            },
+        )
+        .with_stale(true);
+
+        let stale_json = serde_json::to_value(stale).expect("serialize stale coverage");
+        assert_eq!(stale_json["state"]["status"], json!("complete"));
+        assert_eq!(stale_json["stale"], json!(true));
     }
 }

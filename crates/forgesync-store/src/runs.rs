@@ -113,12 +113,22 @@ pub struct RunFailureRecord {
     pub target: String,
     /// Evidence family when one was selected.
     pub family: Option<EvidenceFamily>,
+    /// Stable provider ID for a selected thread, when the failure is thread-specific.
+    pub thread_provider_id: Option<String>,
+    /// Issue or pull-request number for a selected thread, when known.
+    pub thread_number: Option<u64>,
     /// Sub-scope for variants such as open and closed thread sweeps.
     pub scope_key: String,
     /// Safe failure class and message.
     pub failure: Failure,
     /// Time when the ledger entry was stored.
     pub created_at: UtcTimestamp,
+    /// Number of later runs that retried this unresolved failure.
+    pub retry_count: u64,
+    /// Time when a later run successfully resolved this failure.
+    pub resolved_at: Option<UtcTimestamp>,
+    /// Most recent run that retried this failure.
+    pub retry_run_id: Option<RunId>,
 }
 
 /// Values needed to finish one sync job without spreading status fields across arguments.
@@ -135,12 +145,16 @@ pub struct SyncJobCompletion<'a> {
     pub failure: Option<&'a Failure>,
 }
 
-/// Values needed to record a failure before a repository row can be resolved.
+/// Values needed to record a scope-level or thread-specific acquisition failure.
 pub struct RunFailureInput<'a> {
     /// Parent run identity.
     pub run_id: RunId,
     /// Repository URL or other safe scope identifier.
     pub target: &'a str,
+    /// Stable repository identity, when the source repository is known.
+    pub repository: Option<&'a RepositoryId>,
+    /// Stable thread identity for an independently retried child family.
+    pub thread: Option<&'a forgesync_core::ThreadId>,
     /// Evidence family when the failed work selected one.
     pub family: Option<EvidenceFamily>,
     /// Sub-scope such as open or closed threads.
@@ -149,6 +163,20 @@ pub struct RunFailureInput<'a> {
     pub failure: &'a Failure,
     /// Time when the failure was recorded.
     pub created_at: UtcTimestamp,
+}
+
+/// Identity and scope for retry or resolution of one child-family failure.
+pub struct ChildFamilyFailureScope<'a> {
+    /// Run that is attempting the selected family.
+    pub run_id: RunId,
+    /// Stable repository identity.
+    pub repository: &'a RepositoryId,
+    /// Stable discussion identity.
+    pub thread: &'a forgesync_core::ThreadId,
+    /// Evidence family being retried.
+    pub family: EvidenceFamily,
+    /// Scope key used when the failure was recorded.
+    pub scope_key: &'a str,
 }
 
 impl Archive {
@@ -263,23 +291,120 @@ impl Archive {
         token: &ArchiveLeaseToken,
         failure: RunFailureInput<'_>,
     ) -> Result<(), StoreError> {
+        if let Some(thread) = failure.thread {
+            let Some(repository) = failure.repository else {
+                return Err(StoreError::InvalidRunData);
+            };
+            if repository != thread.repository() {
+                return Err(StoreError::InvalidRunData);
+            }
+        }
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let failure_json = serde_json::to_string(failure.failure)?;
+        let repository_id = match failure.repository {
+            Some(repository) => Some(
+                repository_row_id(
+                    &mut transaction,
+                    repository.host().as_str(),
+                    repository.provider_id().as_str(),
+                )
+                .await?,
+            ),
+            None => None,
+        };
+        let thread_number = failure
+            .thread
+            .map(|thread| to_sql_id_u64(thread.number().get()))
+            .transpose()?;
+        let thread_provider_id = failure.thread.map(|thread| thread.provider_id().as_str());
         sqlx::query(
-            "INSERT INTO failures (run_id, family, target_key, scope_key, failure_json, created_at_us) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO failures (run_id, repository_id, family, target_key, scope_key, failure_json, created_at_us, thread_provider_id, thread_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(to_sql_id(failure.run_id)?)
+        .bind(repository_id)
         .bind(failure.family.map(evidence_family_name))
         .bind(failure.target)
         .bind(failure.scope_key)
         .bind(failure_json)
         .bind(failure.created_at.unix_microseconds())
+        .bind(thread_provider_id)
+        .bind(thread_number)
         .execute(&mut *transaction)
         .await?;
         transaction.commit().await?;
         Ok(())
+    }
+
+    /// Marks unresolved thread-family failures as retried by this run.
+    pub async fn mark_child_family_failures_retried(
+        &self,
+        token: &ArchiveLeaseToken,
+        scope: &ChildFamilyFailureScope<'_>,
+    ) -> Result<u64, StoreError> {
+        if scope.repository != scope.thread.repository() {
+            return Err(StoreError::InvalidRunData);
+        }
+        let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        require_active_archive_lease(&mut transaction, token).await?;
+        let repository_id = repository_row_id(
+            &mut transaction,
+            scope.repository.host().as_str(),
+            scope.repository.provider_id().as_str(),
+        )
+        .await?;
+        let result = sqlx::query(
+            "UPDATE failures SET retry_count = retry_count + 1, retry_run_id = ? WHERE repository_id = ? AND thread_provider_id = ? AND thread_number = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
+        )
+        .bind(to_sql_id(scope.run_id)?)
+        .bind(repository_id)
+        .bind(scope.thread.provider_id().as_str())
+        .bind(to_sql_id_u64(scope.thread.number().get())?)
+        .bind(evidence_family_name(scope.family))
+        .bind(scope.scope_key)
+        .bind(to_sql_id(scope.run_id)?)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Resolves prior failures only after the matching child family is complete.
+    pub async fn resolve_child_family_failures(
+        &self,
+        token: &ArchiveLeaseToken,
+        scope: &ChildFamilyFailureScope<'_>,
+        resolved_at: UtcTimestamp,
+    ) -> Result<u64, StoreError> {
+        if scope.repository != scope.thread.repository() {
+            return Err(StoreError::InvalidRunData);
+        }
+        let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        require_active_archive_lease(&mut transaction, token).await?;
+        let repository_id = repository_row_id(
+            &mut transaction,
+            scope.repository.host().as_str(),
+            scope.repository.provider_id().as_str(),
+        )
+        .await?;
+        let result = sqlx::query(
+            "UPDATE failures SET resolved_at_us = ?, retry_run_id = COALESCE(retry_run_id, ?) WHERE repository_id = ? AND thread_provider_id = ? AND thread_number = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
+        )
+        .bind(resolved_at.unix_microseconds())
+        .bind(to_sql_id(scope.run_id)?)
+        .bind(repository_id)
+        .bind(scope.thread.provider_id().as_str())
+        .bind(to_sql_id_u64(scope.thread.number().get())?)
+        .bind(evidence_family_name(scope.family))
+        .bind(scope.scope_key)
+        .bind(to_sql_id(scope.run_id)?)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(result.rows_affected())
     }
 
     /// Persists the final operation outcome under the current lease fence.
@@ -346,7 +471,7 @@ impl Archive {
         .await?;
         let jobs = rows.into_iter().map(decode_job).collect::<Result<_, _>>()?;
         let rows = sqlx::query(
-            "SELECT id, target_key, family, scope_key, failure_json, created_at_us FROM failures WHERE run_id = ? ORDER BY id",
+            "SELECT id, target_key, family, scope_key, failure_json, created_at_us, thread_provider_id, thread_number, retry_count, resolved_at_us, retry_run_id FROM failures WHERE run_id = ? ORDER BY id",
         )
         .bind(to_sql_id(run_id)?)
         .fetch_all(&self.reader)
@@ -417,13 +542,25 @@ fn decode_job(row: sqlx::sqlite::SqliteRow) -> Result<SyncJobRecord, StoreError>
 fn decode_failure(row: sqlx::sqlite::SqliteRow) -> Result<RunFailureRecord, StoreError> {
     let family: Option<String> = row.try_get("family")?;
     let failure_json: String = row.try_get("failure_json")?;
+    let thread_number: Option<i64> = row.try_get("thread_number")?;
+    let retry_run_id: Option<i64> = row.try_get("retry_run_id")?;
     Ok(RunFailureRecord {
         id: row.try_get("id")?,
         target: row.try_get("target_key")?,
         family: family.map(|family| parse_family(&family)).transpose()?,
+        thread_provider_id: row.try_get("thread_provider_id")?,
+        thread_number: thread_number
+            .map(|number| u64::try_from(number).map_err(|_| StoreError::InvalidRunData))
+            .transpose()?,
         scope_key: row.try_get("scope_key")?,
         failure: serde_json::from_str(&failure_json)?,
         created_at: decode_timestamp(row.try_get("created_at_us")?)?,
+        retry_count: decode_count(row.try_get("retry_count")?)?,
+        resolved_at: row
+            .try_get::<Option<i64>, _>("resolved_at_us")?
+            .map(decode_timestamp)
+            .transpose()?,
+        retry_run_id: retry_run_id.map(checked_run_id).transpose()?,
     })
 }
 

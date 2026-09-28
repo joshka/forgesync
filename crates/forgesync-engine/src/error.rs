@@ -1,3 +1,4 @@
+use forgesync_core::Failure;
 use forgesync_github::{ApiFailureKind, GitHubError};
 use forgesync_store::StoreError;
 use thiserror::Error;
@@ -48,6 +49,15 @@ pub enum EngineError {
     /// A GitHub acquisition request failed before a partial report was available.
     #[error(transparent)]
     GitHub(#[from] GitHubError),
+    /// A provider failure occurred but could not be written to the durable failure ledger.
+    #[error("provider failure {original:?}; failure ledger write failed: {source}")]
+    FailureLedger {
+        /// Original provider failure that needed to be preserved for retry.
+        original: Failure,
+        /// Error returned while recording that failure.
+        #[source]
+        source: StoreError,
+    },
 }
 
 impl EngineError {
@@ -93,6 +103,7 @@ impl EngineError {
                 | GitHubError::Network
                 | GitHubError::Deferred { .. } => unreachable!(),
             },
+            Self::FailureLedger { .. } => "failure_ledger_write_failed",
         }
     }
 }

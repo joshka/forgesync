@@ -12,8 +12,8 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, Command, SearchModeArg, SyncThreadStateArg, ThreadCommand,
-    ThreadKindArg, ThreadSortArg, ThreadStateArg,
+    ArchiveCommand, CliArgs, Command, SearchModeArg, SyncIncludeArg, SyncThreadStateArg,
+    ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use forgesync_core::{
@@ -166,6 +166,7 @@ async fn dispatch(args: CliArgs) -> ExitCode {
             repositories,
             all,
             state,
+            with,
         } => {
             let cancellation = tokio_util::sync::CancellationToken::new();
             let interrupt_cancellation = cancellation.clone();
@@ -174,16 +175,18 @@ async fn dispatch(args: CliArgs) -> ExitCode {
                     interrupt_cancellation.cancel();
                 }
             });
-            let result = sync_command(
-                &path,
+            let request = SyncRequest {
                 repositories,
                 all,
-                state,
-                args.json,
-                args.verbose,
-                &cancellation,
-            )
-            .await;
+                scope: match state {
+                    None => SyncThreadScope::Default,
+                    Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+                    Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+                    Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+                },
+                include_comments: with.contains(&SyncIncludeArg::Comments),
+            };
+            let result = sync_command(&path, request, args.json, args.verbose, &cancellation).await;
             interrupt_task.abort();
             result
         }
@@ -255,9 +258,7 @@ fn thread_filters(
 
 async fn sync_command(
     archive_path: &std::path::Path,
-    repositories: Vec<RepositorySelector>,
-    all: bool,
-    state: Option<SyncThreadStateArg>,
+    request: SyncRequest,
     json: bool,
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,
@@ -266,7 +267,7 @@ async fn sync_command(
         Ok(archive) => archive,
         Err(error) => return render_store_error(json, "sync", error),
     };
-    let selectors = if all {
+    let selectors = if request.all {
         match archive.list_repositories().await {
             Ok(registered) => registered
                 .iter()
@@ -278,7 +279,7 @@ async fn sync_command(
             }
         }
     } else {
-        repositories.clone()
+        request.repositories.clone()
     };
     let mut hosts = selectors
         .iter()
@@ -366,28 +367,19 @@ async fn sync_command(
             while let Some(progress) = progress_receiver.recv().await {
                 let repository = progress.repository.as_deref().unwrap_or("sync");
                 eprintln!(
-                    "forgesync: {}: {:?}, {}/{} jobs, {} threads",
+                    "forgesync: {}: {:?}, {}/{} jobs, {} threads, {} comments",
                     repository,
                     progress.status,
                     progress.completed_jobs,
                     progress.total_jobs,
-                    progress.threads_seen
+                    progress.threads_seen,
+                    progress.comments_seen
                 );
             }
         }))
     } else {
         drop(progress_receiver);
         None
-    };
-    let request = SyncRequest {
-        repositories,
-        all,
-        scope: match state {
-            None => SyncThreadScope::Default,
-            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
-            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
-            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
-        },
     };
     let result = sync_repositories(
         &archive,
@@ -436,14 +428,15 @@ fn sync_summary(report: &SyncReport) -> String {
         OperationOutcome::Failed { .. } => "failed",
     };
     format!(
-        "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads",
+        "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads, {} comments",
         report.repositories_selected,
         report.completed_jobs,
         report.total_jobs,
         report.failed_jobs,
         report.deferred_jobs,
         report.pages_completed,
-        report.threads_seen
+        report.threads_seen,
+        report.comments_seen
     )
 }
 
@@ -541,9 +534,10 @@ fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
     lines.push("Coverage:".to_owned());
     lines.extend(detail.summary.coverage.iter().map(|coverage| {
         format!(
-            "  {}: {}",
+            "  {}: {}{}",
             family_name(coverage.family()),
-            coverage_state_name(coverage.state())
+            coverage_state_name(coverage.state()),
+            if coverage.is_stale() { " (stale)" } else { "" }
         )
     }));
     for item in detail.pull_request_metadata {
