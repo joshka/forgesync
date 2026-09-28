@@ -5,3 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+forgesync-core = { path = "../forgesync-core" }
+serde.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 /// Global process options. Command-specific arguments are added with their implementation phase.
 #[derive(Clone, Debug, Parser)]
@@ -8,7 +8,8 @@ use clap::{ArgAction, Parser, ValueEnum};
     name = "forgesync",
     version,
     about = "A local, queryable GitHub archive",
-    long_about = "Forgesync archives GitHub discussions locally for offline search and maintainer triage."
+    long_about = "Forgesync archives GitHub discussions locally for offline search and maintainer triage.",
+    subcommand_required = true
 )]
 pub struct CliArgs {
     /// Select the archive path for this invocation.
@@ -34,6 +35,34 @@ pub struct CliArgs {
     /// Increase diagnostic verbosity. Use twice for debug output.
     #[arg(short, long, global = true, action = ArgAction::Count)]
     pub verbose: u8,
+
+    /// Command to run.
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+/// Top-level commands available in the selected local workflow.
+#[derive(Clone, Debug, Subcommand)]
+pub enum Command {
+    /// Create and inspect the local archive.
+    Archive {
+        /// Archive lifecycle operation.
+        #[command(subcommand)]
+        command: ArchiveCommand,
+    },
+}
+
+/// Explicit archive lifecycle operations.
+#[derive(Clone, Debug, Subcommand)]
+pub enum ArchiveCommand {
+    /// Create a new archive without overwriting an existing file.
+    Init,
+    /// Apply pending schema migrations to an existing archive.
+    Migrate,
+    /// Show validated archive metadata without changing the archive.
+    Status,
+    /// Check archive integrity and required SQLite capabilities.
+    Doctor,
 }
 
 /// Terminal color selection.
@@ -78,6 +107,8 @@ mod tests {
             "--log-format",
             "json",
             "-vv",
+            "archive",
+            "status",
         ])
         .expect("global options should parse");
 

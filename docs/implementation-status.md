@@ -2,11 +2,12 @@
 
 ## Current position
 
-- Next task: **P1.2 — Explicit SQLite lifecycle**.
+- Next task: **P1.3 — Observation transactions**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
 - Complete: **P1.1 — Core identities and outcomes**.
+- Complete: **P1.2 — Explicit SQLite lifecycle**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -114,6 +115,32 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
   docs/implementation-status.md`: passed, 0 issues.
 
+## P1.2 evidence
+
+Added the SQLite-only SQLx store with an embedded initial migration, Forgesync format identity,
+UUID archive identity, and UTC creation time. Creation uses exclusive file creation and refuses to
+overwrite an existing path. Read-only and read-write opens require an existing regular file and
+reject unsupported, unmigrated, or newer schemas without applying migrations. Migration is a
+separate operation. Read connections are read-only; writable handles use a single writer
+connection, WAL, FULL synchronous mode, foreign keys, and a five-second busy timeout.
+
+Added `archive init`, `archive migrate`, `archive status`, and `archive doctor`. Status opens the
+archive read-only. Doctor runs SQLite quick-check and probes FTS5 and actual foreign-key enforcement
+with temporary objects. All four commands have human output and the shared versioned JSON envelope;
+errors have stable machine-readable codes.
+
+On-disk tests cover exclusive creation, read-only and read-write open, current-schema migration,
+missing paths, refusal of newer, dirty, and checksum-mismatched migration histories, temporary health
+probes, FTS5, foreign keys, and CLI JSON results.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 27 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -122,8 +149,8 @@ Validation:
 | P0.2 — Bootstrap the workspace | Complete | Core/store/CLI, pinned toolchain, lockfile, CI, Clap envelope and process checks |
 | P0.3 — Build the fixture catalog | Complete | Named sanitized selected-family scenarios, truth table, loader validation |
 | P1.1 — Core identities/outcomes | Complete | Checked identities, normalized content, timestamps, coverage, observations, outcomes |
-| P1.2 — Explicit SQLite lifecycle | Next | Separate create/open/migrate; no open-time creation or migration |
-| P1.3 — Observation transactions | Not started | Sequence, staging, comparator, membership, and coverage atomicity |
+| P1.2 — Explicit SQLite lifecycle | Complete | Exclusive create, explicit migration, read-only/write pools, health checks, CLI commands |
+| P1.3 — Observation transactions | Next | Sequence, staging, comparator, membership, and coverage atomicity |
 | P1.4 — Offline inspect/search | Not started | Read-only queries, FTS5, stable ties and versioned JSON |
 | P2.1–P2.4 — GitHub acquisition/recovery | Not started | Typed transport, complete pagination, lease, checkpoints, isolated failures |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
