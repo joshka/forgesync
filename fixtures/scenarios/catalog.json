@@ -9,6 +9,8 @@
     "partial_sync_retains_work",
     "comment_reuse",
     "review_membership_restore",
+    "health_reports_durable_state",
+    "retry_only_selected_failures",
     "deterministic_cluster_scoring"
   ],
   "fixtures": [
@@ -28,7 +30,8 @@
     "fixtures/github/cluster_graph.json",
     "fixtures/scenarios/observation_ordering.json",
     "fixtures/scenarios/interrupted_run.json",
-    "fixtures/scenarios/review_membership.json"
+    "fixtures/scenarios/review_membership.json",
+    "fixtures/scenarios/archive_health_retry.json"
   ],
   "scenarios": [
     {
@@ -72,6 +75,13 @@
       "invariants": ["review_membership_restore"],
       "fixtures": ["fixtures/scenarios/review_membership.json"],
       "expected": "An incomplete refresh cannot remove unseen members; explicit source deletion and restoration update current visibility atomically."
+    },
+    {
+      "id": "read_only_archive_health_and_family_retry",
+      "reference_tests": ["create_open_status_migrate_and_doctor_use_explicit_lifecycle", "retry_selects_one_family_and_leaves_other_failures_unresolved"],
+      "invariants": ["health_reports_durable_state", "retry_only_selected_failures"],
+      "fixtures": ["fixtures/scenarios/archive_health_retry.json"],
+      "expected": "Health reports schema, lease, coverage, and durable work without writes; explicit retries resolve only selected families after successful commits."
     },
     {
       "id": "delayed_observations_and_incomplete_generations",

@@ -31,7 +31,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | --- | --- | --- | --- |
 | init | redesign | archive init --archive creates only a new archive | internal/cli/init.go; docs/configuration.md |
 | migrate | redesign | archive migrate is explicit; open and read never migrate | internal/store/store.go |
-| status, doctor | redesign | archive status and archive doctor report local health and family coverage | internal/cli/control.go; internal/cli/doctor.go |
+| status, doctor | redesign | archive status and doctor report family coverage, schema history, lease ownership, and durable work | internal/cli/control.go; internal/cli/doctor.go |
 | version command | redesign | Use Clap --version only | internal/cli/app.go |
 | metadata, check-update | defer | Control manifests and update checks do not support local acquisition or retrieval | internal/cli/control.go; internal/cli/releasecheck.go |
 | configure | redesign | CLI options resolve over documented env, TOML, and defaults; no edit wizard | internal/config/config.go; docs/configuration.md |
@@ -40,7 +40,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | fill-pr-details | defer | Files, commits, checks, and workflow runs are outside selected v2 scope | internal/cli/sync.go; internal/syncer/pull_details.go |
 | capture | defer | Separate conversation export is not needed for the selected archive workflow | internal/cli/capture.go; docs/capture.md |
 | refresh | redesign | Compose sync and explicitly selected analysis via --analyze; --plan performs no network work | internal/cli/refresh.go |
-| runs | redesign | run list, run show, and run retry operate on durable scoped work | internal/store/runs.go |
+| runs | redesign | run list/show inspect durable work; run retry optionally filters unresolved work with --family | internal/store/runs.go |
 | code index | defer | Source indexing is independent of discussion acquisition | internal/codeindex/; docs/code-index.md |
 | threads | redesign | thread list and thread show share one checked reference model | internal/cli/inspect.go |
 | direct search and issues/prs search shape | redesign | One search QUERY with typed repeatable repo/state/kind/mode filters; no hidden qualifier grammar | internal/cli/search.go; internal/cli/gh_search.go |

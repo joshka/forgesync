@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P3.4 — Health and explicit retry**.
+- Next task: **P4.1 — Versioned documents**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -15,6 +15,8 @@
 - Complete: **P2.3 — Runs, leases, and basic sync**.
 - Complete: **P2.4 — Comments and independent failures**.
 - Complete: **P3.1 — PR metadata and reviews**.
+- Complete: **P3.2 — Review threads**.
+- Complete: **P3.4 — Health and explicit retry**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -388,6 +390,33 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
   docs/implementation-status.md`: passed, 0 issues.
 
+## P3.4 evidence
+
+Archive status and doctor now report validated migration history, pending migrations, writer lease
+ownership and expiry, family coverage, failed and deferred jobs, in-progress runs, and unresolved
+failure counts grouped by evidence family. Diagnostics use read-only queries; doctor retains
+temporary-only SQLite integrity and capability probes.
+
+Added `run list`, `run show`, and `run retry`. Retry filters unresolved failure-ledger entries with
+repeatable `--family`, groups them by repository and thread scope, and executes each selected scope
+through the fenced sync operation. Retry runs record their parent. A previous failure resolves only
+after its matching family commits; a comments-only retry leaves review failures unresolved. The
+retry plan reports an error when the selected run has no matching unresolved work.
+
+The archive-health fixture covers schema, lease, work counts, and read-only diagnosis. The retry
+workflow test covers selected-family filtering, parent linkage, resolution after commit, and
+preservation of an unselected review failure.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 93 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
+  docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -406,7 +435,7 @@ Validation:
 | P3.1 — PR metadata and reviews | Complete | Head-bound review coverage, normalized reviewer identity, independent failure/retry |
 | P3.2 — Review threads | Complete | Typed GraphQL pagination, nested completeness, head-bound state and rollback |
 | P3.3 — Legacy import | Deferred | Reserved task; keep the Go archive intact |
-| P3.4 — Health and explicit retry | Not started | Read-only diagnostics and selected failed-family retry |
+| P3.4 — Health and explicit retry | Complete | Read-only diagnostics and selected failed-family retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |

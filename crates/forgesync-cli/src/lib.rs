@@ -12,23 +12,24 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, Command, SearchModeArg, SyncIncludeArg, SyncThreadStateArg,
-    ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
+    ArchiveCommand, CliArgs, Command, RunCommand, RunFamilyArg, SearchModeArg, SyncIncludeArg,
+    SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use forgesync_core::{
-    CoverageState, GitHubHost, OperationOutcome, ReviewState, SourceState, ThreadKind,
+    CoverageState, GitHubHost, OperationOutcome, ReviewState, RunId, SourceState, ThreadKind,
     ThreadKind as DiscussionKind, UtcTimestamp,
 };
 use forgesync_engine::{
-    EngineError, RepositorySelector, SearchMode, SearchRequest, SyncProgress, SyncReport,
-    SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage,
-    ThreadSort, ThreadStateFilter, archive_status, list_threads, search_threads, show_thread,
-    sync_repositories,
+    EngineError, RepositorySelector, RetryReport, SearchMode, SearchRequest, SyncProgress,
+    SyncReport, SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest,
+    ThreadPage, ThreadSort, ThreadStateFilter, archive_status, list_runs, list_threads,
+    plan_run_retry, run_retry, search_threads, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
-    Archive, ArchiveInfo, DoctorReport, MigrationReport, StoreError, ThreadTimelineEvent,
+    Archive, ArchiveInfo, DoctorReport, MigrationReport, RunDetail, RunRecord, RunStatus,
+    StoreError, SyncJobStatus, ThreadTimelineEvent,
 };
 use serde::Serialize;
 
@@ -116,7 +117,13 @@ async fn dispatch(args: CliArgs) -> ExitCode {
             },
             ArchiveCommand::Doctor => match Archive::open_read_only(&path).await {
                 Ok(archive) => {
-                    let report = archive.doctor().await;
+                    let report = match archive.doctor().await {
+                        Ok(report) => report,
+                        Err(error) => {
+                            archive.close().await;
+                            return render_store_error(args.json, "archive doctor", error);
+                        }
+                    };
                     archive.close().await;
                     let exit_status = if report.healthy {
                         ExitCode::SUCCESS
@@ -187,6 +194,7 @@ async fn dispatch(args: CliArgs) -> ExitCode {
                 include_comments: with.contains(&SyncIncludeArg::Comments),
                 include_reviews: with.contains(&SyncIncludeArg::Reviews),
                 include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
+                parent_run: None,
             };
             let result = sync_command(&path, request, args.json, args.verbose, &cancellation).await;
             interrupt_task.abort();
@@ -225,6 +233,75 @@ async fn dispatch(args: CliArgs) -> ExitCode {
                 }
                 Err(error) => render_store_error(args.json, "thread show", error),
             },
+        },
+        Command::Run { command } => match command {
+            RunCommand::List { limit } => match Archive::open_read_only(&path).await {
+                Ok(archive) => {
+                    let result = list_runs(&archive, limit).await;
+                    archive.close().await;
+                    match result {
+                        Ok(runs) => render_success(args.json, "run list", &runs, run_list_summary),
+                        Err(error) => render_engine_error(args.json, "run list", error),
+                    }
+                }
+                Err(error) => render_store_error(args.json, "run list", error),
+            },
+            RunCommand::Show { id } => {
+                let id = match RunId::new(id) {
+                    Ok(id) => id,
+                    Err(_) => return usage_error("run ID must be a positive integer"),
+                };
+                match Archive::open_read_only(&path).await {
+                    Ok(archive) => {
+                        let result = show_run(&archive, id).await;
+                        archive.close().await;
+                        match result {
+                            Ok(detail) => {
+                                render_success(args.json, "run show", &detail, run_detail_summary)
+                            }
+                            Err(error) => render_engine_error(args.json, "run show", error),
+                        }
+                    }
+                    Err(error) => render_store_error(args.json, "run show", error),
+                }
+            }
+            RunCommand::Retry { id, family } => {
+                let id = match RunId::new(id) {
+                    Ok(id) => id,
+                    Err(_) => return usage_error("run ID must be a positive integer"),
+                };
+                let cancellation = tokio_util::sync::CancellationToken::new();
+                let interrupt_cancellation = cancellation.clone();
+                let interrupt_task = tokio::spawn(async move {
+                    if tokio::signal::ctrl_c().await.is_ok() {
+                        interrupt_cancellation.cancel();
+                    }
+                });
+                let result = retry_command(
+                    &path,
+                    id,
+                    family
+                        .into_iter()
+                        .map(|family| match family {
+                            RunFamilyArg::Threads => forgesync_core::EvidenceFamily::Threads,
+                            RunFamilyArg::Comments => forgesync_core::EvidenceFamily::Comments,
+                            RunFamilyArg::PullRequestMetadata => {
+                                forgesync_core::EvidenceFamily::PullRequestMetadata
+                            }
+                            RunFamilyArg::Reviews => forgesync_core::EvidenceFamily::Reviews,
+                            RunFamilyArg::ReviewThreads => {
+                                forgesync_core::EvidenceFamily::ReviewThreads
+                            }
+                        })
+                        .collect(),
+                    args.json,
+                    args.verbose,
+                    &cancellation,
+                )
+                .await;
+                interrupt_task.abort();
+                result
+            }
         },
     }
 }
@@ -407,6 +484,154 @@ async fn sync_command(
     }
 }
 
+async fn retry_command(
+    archive_path: &std::path::Path,
+    run_id: RunId,
+    families: Vec<forgesync_core::EvidenceFamily>,
+    json: bool,
+    verbose: u8,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> ExitCode {
+    let archive = match Archive::open_read_write(archive_path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "run retry", error),
+    };
+    let plan = match plan_run_retry(&archive, run_id, &families).await {
+        Ok(plan) => plan,
+        Err(error) => {
+            archive.close().await;
+            return render_engine_error(json, "run retry", error);
+        }
+    };
+    let mut hosts = plan
+        .scopes
+        .iter()
+        .map(|scope| scope.repository.host().clone())
+        .collect::<Vec<_>>();
+    hosts.sort();
+    hosts.dedup();
+
+    let mut clients = HashMap::with_capacity(hosts.len());
+    for host in hosts {
+        let token = match crate::credentials::resolve_github_token(
+            &crate::credentials::GitHubCredentialSettings::default(),
+            &host,
+            cancellation,
+        )
+        .await
+        {
+            Ok(token) => Some(token),
+            Err(
+                crate::credentials::CredentialError::NoCredential
+                | crate::credentials::CredentialError::CommandUnavailable
+                | crate::credentials::CredentialError::CommandFailed
+                | crate::credentials::CredentialError::TimedOut,
+            ) => {
+                if verbose > 0 {
+                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
+                }
+                None
+            }
+            Err(crate::credentials::CredentialError::Cancelled) => {
+                archive.close().await;
+                return render_result(
+                    json,
+                    "run retry",
+                    &SyncFailure {
+                        code: "operation_cancelled",
+                        message: "retry was cancelled before acquisition began".to_owned(),
+                    },
+                    |failure| failure.message.clone(),
+                    ExitCode::from(130),
+                );
+            }
+            Err(error) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "run retry",
+                    "github_credential_invalid",
+                    &error.to_string(),
+                );
+            }
+        };
+        let config = match url::Url::parse(&github_api_base_url(&host)) {
+            Ok(url) => GitHubClientConfig::new(url),
+            Err(_) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "run retry",
+                    "github_api_url_invalid",
+                    "could not build GitHub API URL",
+                );
+            }
+        };
+        match GitHubClient::new(config, token) {
+            Ok(client) => {
+                clients.insert(host, client);
+            }
+            Err(error) => {
+                archive.close().await;
+                return render_error(
+                    json,
+                    "run retry",
+                    "github_client_initialization_failed",
+                    &error.to_string(),
+                );
+            }
+        }
+    }
+
+    let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
+    let progress_task = if verbose > 0 && !json {
+        Some(tokio::spawn(async move {
+            while let Some(progress) = progress_receiver.recv().await {
+                let repository = progress.repository.as_deref().unwrap_or("retry");
+                eprintln!(
+                    "forgesync: {}: {:?}, {}/{} jobs, {} threads, {} comments, {} PRs, {} reviews, {} review threads",
+                    repository,
+                    progress.status,
+                    progress.completed_jobs,
+                    progress.total_jobs,
+                    progress.threads_seen,
+                    progress.comments_seen,
+                    progress.pull_request_metadata_seen,
+                    progress.reviews_seen,
+                    progress.review_threads_seen
+                );
+            }
+        }))
+    } else {
+        drop(progress_receiver);
+        None
+    };
+    let result = run_retry(
+        &archive,
+        &clients,
+        plan,
+        cancellation,
+        Some(progress_sender),
+    )
+    .await;
+    if let Some(progress_task) = progress_task {
+        let _ = progress_task.await;
+    }
+    archive.close().await;
+    match result {
+        Ok(report) => {
+            let exit_status = report
+                .runs
+                .iter()
+                .map(|run| outcome_exit_code(&run.outcome))
+                .find(|status| *status != ExitCode::SUCCESS)
+                .unwrap_or(ExitCode::SUCCESS);
+            render_result(json, "run retry", &report, retry_summary, exit_status)
+        }
+        Err(error) => render_engine_error(json, "run retry", error),
+    }
+}
+
 fn github_api_base_url(host: &GitHubHost) -> String {
     if host.as_str() == "github.com" {
         "https://api.github.com/".to_owned()
@@ -483,7 +708,152 @@ fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
             coverage.applicable_threads
         )
     }));
+    lines.push(format!(
+        "Work: {} unresolved failures, {} failed jobs, {} deferred jobs, {} in-progress runs",
+        status.diagnostics.work.unresolved_failures,
+        status.diagnostics.work.failed_jobs,
+        status.diagnostics.work.deferred_jobs,
+        status.diagnostics.work.in_progress_runs
+    ));
+    lines.push(format!(
+        "Lease: {} (fence {}, expires {})",
+        if status.diagnostics.lease.held {
+            format!(
+                "held by {}",
+                status
+                    .diagnostics
+                    .lease
+                    .owner_id
+                    .as_deref()
+                    .unwrap_or("unknown")
+            )
+        } else {
+            "available".to_owned()
+        },
+        status.diagnostics.lease.fencing_token,
+        status
+            .diagnostics
+            .lease
+            .expires_at
+            .format_rfc3339()
+            .unwrap_or_else(|_| "invalid timestamp".to_owned())
+    ));
+    lines.push(format!(
+        "Schema: {} / {} supported{}",
+        status.diagnostics.schema.current_version,
+        status.diagnostics.schema.supported_version,
+        if status.diagnostics.schema.history_valid {
+            " (history valid)"
+        } else {
+            " (history invalid)"
+        }
+    ));
     lines.join("\n")
+}
+
+fn run_list_summary(runs: &Vec<RunRecord>) -> String {
+    let mut lines = vec!["ID\tSTATUS\tSTARTED\tPARENT".to_owned()];
+    for run in runs {
+        lines.push(format!(
+            "{}\t{}\t{}\t{}",
+            run.id.get(),
+            run_status_name(run.status),
+            run.started_at
+                .format_rfc3339()
+                .unwrap_or_else(|_| "invalid timestamp".to_owned()),
+            run.parent_id
+                .map(|parent| parent.get().to_string())
+                .unwrap_or_else(|| "-".to_owned())
+        ));
+    }
+    if runs.is_empty() {
+        lines.push("No runs recorded.".to_owned());
+    }
+    lines.join("\n")
+}
+
+fn run_detail_summary(detail: &RunDetail) -> String {
+    let mut lines = vec![format!(
+        "Run {}: {}\nStarted: {}\nParent: {}\nJobs: {}\nFailures: {}",
+        detail.run.id.get(),
+        run_status_name(detail.run.status),
+        detail
+            .run
+            .started_at
+            .format_rfc3339()
+            .unwrap_or_else(|_| "invalid timestamp".to_owned()),
+        detail
+            .run
+            .parent_id
+            .map(|parent| parent.get().to_string())
+            .unwrap_or_else(|| "-".to_owned()),
+        detail.jobs.len(),
+        detail.failures.len()
+    )];
+    lines.push("Jobs:".to_owned());
+    lines.extend(detail.jobs.iter().map(|job| {
+        format!(
+            "  {} {} [{}]: {} ({} items, {} pages)",
+            job.repository.full_name,
+            family_name(job.family),
+            job.scope_key,
+            sync_job_status_name(job.status),
+            job.items_committed,
+            job.pages_completed
+        )
+    }));
+    lines.push("Failures:".to_owned());
+    lines.extend(detail.failures.iter().map(|failure| {
+        format!(
+            "  {} {} [{}]: {}{}",
+            failure.target,
+            failure.family.map(family_name).unwrap_or("unassigned"),
+            failure.scope_key,
+            failure.failure.message,
+            if failure.resolved_at.is_some() {
+                " (resolved)"
+            } else {
+                ""
+            }
+        )
+    }));
+    if detail.failures.is_empty() {
+        lines.push("  None".to_owned());
+    }
+    lines.join("\n")
+}
+
+fn retry_summary(report: &RetryReport) -> String {
+    let mut lines = vec![format!(
+        "Retry of run {}: {} failure(s), {} sync run(s)",
+        report.parent_run_id.get(),
+        report.failure_ids.len(),
+        report.runs.len()
+    )];
+    lines.extend(report.runs.iter().map(sync_summary));
+    lines.join("\n")
+}
+
+fn run_status_name(status: RunStatus) -> &'static str {
+    match status {
+        RunStatus::InProgress => "in_progress",
+        RunStatus::Complete => "complete",
+        RunStatus::Partial => "partial",
+        RunStatus::Failed => "failed",
+        RunStatus::Interrupted => "interrupted",
+        RunStatus::Deferred => "deferred",
+    }
+}
+
+fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
+    match status {
+        SyncJobStatus::Pending => "pending",
+        SyncJobStatus::InProgress => "in_progress",
+        SyncJobStatus::Complete => "complete",
+        SyncJobStatus::Failed => "failed",
+        SyncJobStatus::Deferred => "deferred",
+        SyncJobStatus::Interrupted => "interrupted",
+    }
 }
 
 fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
@@ -756,7 +1126,19 @@ fn doctor_summary(report: &DoctorReport) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("{headline}\n{checks}")
+    format!(
+        "{headline}\n{checks}\n{} unresolved failures, {} failed jobs, {} deferred jobs\nSchema {} / {}, lease {}",
+        report.diagnostics.work.unresolved_failures,
+        report.diagnostics.work.failed_jobs,
+        report.diagnostics.work.deferred_jobs,
+        report.diagnostics.schema.current_version,
+        report.diagnostics.schema.supported_version,
+        if report.diagnostics.lease.held {
+            "held"
+        } else {
+            "available"
+        }
+    )
 }
 
 fn render_success<T>(

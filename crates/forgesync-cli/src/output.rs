@@ -2,8 +2,8 @@ use forgesync_core::{
     Comment, Coverage, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
 };
 use forgesync_store::{
-    ArchiveInfo, ArchiveStatus, FamilyCoverageSummary, StagedItem, ThreadDetail, ThreadPage,
-    ThreadSummary, ThreadTimelineEntry,
+    ArchiveDiagnostics, ArchiveInfo, ArchiveStatus, FamilyCoverageSummary, StagedItem,
+    ThreadDetail, ThreadPage, ThreadSummary, ThreadTimelineEntry,
 };
 use serde::Serialize;
 
@@ -51,6 +51,8 @@ pub struct ArchiveStatusOutput<'a> {
     pub pull_requests: u64,
     /// Complete, incomplete, and missing counts by family.
     pub coverage: &'a [FamilyCoverageSummary],
+    /// Schema, lease, and durable-work diagnostics.
+    pub diagnostics: &'a ArchiveDiagnostics,
 }
 
 impl<'a> From<&'a ArchiveStatus> for ArchiveStatusOutput<'a> {
@@ -62,6 +64,7 @@ impl<'a> From<&'a ArchiveStatus> for ArchiveStatusOutput<'a> {
             issues: status.issues,
             pull_requests: status.pull_requests,
             coverage: &status.coverage,
+            diagnostics: &status.diagnostics,
         }
     }
 }

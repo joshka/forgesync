@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "source": "Synthetic fixture for read-only archive health and explicit family retries.",
+  "health": {
+    "doctor_is_read_only": true,
+    "schema_history_is_validated": true,
+    "lease_ownership_is_reported": true,
+    "failed_and_deferred_jobs_are_counted": true,
+    "unresolved_failures_are_grouped_by_family": true
+  },
+  "retry": {
+    "parent_run_is_preserved": true,
+    "only_selected_families_are_requested": true,
+    "unselected_failures_remain_unresolved": true,
+    "failure_resolves_only_after_complete_commit": true
+  }
+}

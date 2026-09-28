@@ -25,6 +25,24 @@ pub enum EngineError {
     /// A selected thread is not present in the archive.
     #[error("thread is not present in the archive")]
     ThreadMissing,
+    /// A selected durable run does not exist in the archive.
+    #[error("run {id} is not present in the archive")]
+    RunMissing {
+        /// Missing local run ID.
+        id: u64,
+    },
+    /// A durable run has no unresolved failures to retry.
+    #[error("run {id} has no unresolved retryable work")]
+    NoRetryableWork {
+        /// Run with no unresolved failures.
+        id: u64,
+    },
+    /// A durable failure target cannot be mapped to a repository selector.
+    #[error("run failure target cannot be retried: {target}")]
+    RetryTargetInvalid {
+        /// Persisted repository or selector value.
+        target: String,
+    },
     /// Sync requires either a non-empty explicit repository list or `--all`.
     #[error("sync requires repositories or --all, but not both")]
     InvalidSyncScope,
@@ -67,6 +85,9 @@ impl EngineError {
             Self::Reference(_) => "reference_invalid",
             Self::RepositoryMissing { .. } => "repository_missing",
             Self::ThreadMissing => "thread_missing",
+            Self::RunMissing { .. } => "run_missing",
+            Self::NoRetryableWork { .. } => "run_no_retryable_work",
+            Self::RetryTargetInvalid { .. } => "run_retry_target_invalid",
             Self::InvalidSyncScope => "sync_scope_invalid",
             Self::GitHubClientMissing { .. } => "github_client_missing",
             Self::InvalidSearchQuery => "search_query_invalid",

@@ -1,7 +1,7 @@
 use serde::Serialize;
 use sqlx::SqliteConnection;
 
-use crate::Archive;
+use crate::{Archive, ArchiveDiagnostics, StoreError};
 
 /// Result of one local archive health check.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -21,17 +21,31 @@ pub struct DoctorReport {
     pub healthy: bool,
     /// Individual health checks.
     pub checks: Vec<HealthCheck>,
+    /// Read-only schema, lease, and retryable-work diagnostics.
+    pub diagnostics: ArchiveDiagnostics,
 }
 
 impl Archive {
     /// Checks archive integrity, foreign-key enforcement, and FTS5 availability.
-    pub async fn doctor(&self) -> DoctorReport {
-        let mut checks = Vec::with_capacity(3);
+    pub async fn doctor(&self) -> Result<DoctorReport, StoreError> {
+        let diagnostics = self.diagnostics().await?;
+        let mut checks = Vec::with_capacity(4);
         checks.push(check_integrity(&self.reader).await);
         checks.push(check_foreign_keys(&self.reader).await);
         checks.push(check_fts5(&self.reader).await);
+        checks.push(pass(
+            "schema_history",
+            format!(
+                "migration history is valid at schema {} (binary supports {})",
+                diagnostics.schema.current_version, diagnostics.schema.supported_version
+            ),
+        ));
         let healthy = checks.iter().all(|check| check.healthy);
-        DoctorReport { healthy, checks }
+        Ok(DoctorReport {
+            healthy,
+            checks,
+            diagnostics,
+        })
     }
 }
 
@@ -154,11 +168,11 @@ async fn check_fts5(pool: &sqlx::SqlitePool) -> HealthCheck {
     }
 }
 
-fn pass(name: &str, detail: &str) -> HealthCheck {
+fn pass(name: &str, detail: impl Into<String>) -> HealthCheck {
     HealthCheck {
         name: name.to_owned(),
         healthy: true,
-        detail: detail.to_owned(),
+        detail: detail.into(),
     }
 }
 

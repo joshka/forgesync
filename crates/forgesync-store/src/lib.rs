@@ -4,6 +4,7 @@
 
 mod archive;
 mod checkpoints;
+mod diagnostics;
 mod enumeration;
 mod error;
 mod families;
@@ -16,6 +17,10 @@ mod reads;
 mod runs;
 
 pub use archive::{ARCHIVE_FORMAT_ID, Archive, ArchiveInfo};
+pub use diagnostics::{
+    ArchiveDiagnostics, ArchiveLeaseStatus, FamilyFailureCount, PendingMigration,
+    SchemaDiagnostics, WorkDiagnostics,
+};
 pub use enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
 pub use error::StoreError;
 pub use families::ChildFamilyObservation;
@@ -34,6 +39,6 @@ pub use reads::{
     ThreadStateFilter, ThreadSummary, ThreadTimelineEntry, ThreadTimelineEvent,
 };
 pub use runs::{
-    ChildFamilyFailureScope, RunDetail, RunFailureInput, RunFailureRecord, RunRecord, RunStatus,
-    SyncJobCompletion, SyncJobRecord, SyncJobStatus,
+    ChildFamilyFailureScope, RunDetail, RunFailureInput, RunFailureRecord, RunFailureScope,
+    RunRecord, RunStatus, SyncJobCompletion, SyncJobRecord, SyncJobStatus,
 };

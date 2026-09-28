@@ -14,9 +14,9 @@ use forgesync_github::{
 };
 use forgesync_store::{
     Archive, ArchiveLeaseToken, ChildFamilyFailureScope, ChildFamilyObservation,
-    ObservationDisposition, RepositoryThreadScanStatus, RunFailureInput, RunRecord, StagedItem,
-    StoreError, SyncJobCompletion, SyncJobRecord, SyncJobStatus, ThreadQuery, ThreadSort,
-    ThreadStateFilter,
+    ObservationDisposition, RepositoryThreadScanStatus, RunFailureInput, RunFailureScope,
+    RunRecord, StagedItem, StoreError, SyncJobCompletion, SyncJobRecord, SyncJobStatus,
+    ThreadQuery, ThreadSort, ThreadStateFilter,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -34,7 +34,7 @@ const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
 /// Thread scope requested for one sync run.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncThreadScope {
     /// Fetch open threads and run the durable closed-thread sweep.
@@ -63,6 +63,8 @@ pub struct SyncRequest {
     pub include_reviews: bool,
     /// Acquire current pull-request review threads and nested comments.
     pub include_review_threads: bool,
+    /// Parent run when this request explicitly retries durable work.
+    pub parent_run: Option<RunId>,
 }
 
 /// Progress snapshot sent opportunistically through a bounded channel.
@@ -261,7 +263,7 @@ pub async fn sync_repositories(
         "include_review_threads": request.include_review_threads,
     });
     let run_id = match archive
-        .create_run(&lease, None, started_at, &run_scope)
+        .create_run(&lease, request.parent_run, started_at, &run_scope)
         .await
     {
         Ok(run_id) => run_id,
@@ -469,6 +471,7 @@ async fn run_jobs(
         archive
             .upsert_repository_fenced(&repository, context.lease)
             .await?;
+        let selector_target = selector.as_url();
 
         for (unit_index, unit) in units.iter().enumerate() {
             if context.cancellation.is_cancelled() {
@@ -500,6 +503,17 @@ async fn run_jobs(
                     EvidenceFamily::Threads,
                     unit.key,
                     started_at,
+                )
+                .await?;
+            archive
+                .mark_scope_failures_retried(
+                    context.lease,
+                    &RunFailureScope {
+                        run_id: context.run_id,
+                        target: &selector_target,
+                        family: EvidenceFamily::Threads,
+                        scope_key: unit.key,
+                    },
                 )
                 .await?;
             send_progress(
@@ -557,6 +571,20 @@ async fn run_jobs(
                         &repository.id,
                         sequence,
                         started_at,
+                        now_utc()?,
+                    )
+                    .await?;
+            }
+            if report.scan.status == RepositoryThreadScanStatus::Complete {
+                archive
+                    .resolve_scope_failures(
+                        context.lease,
+                        &RunFailureScope {
+                            run_id: context.run_id,
+                            target: &selector_target,
+                            family: EvidenceFamily::Threads,
+                            scope_key: unit.key,
+                        },
                         now_utc()?,
                     )
                     .await?;
@@ -984,6 +1012,18 @@ async fn run_comment_job(
             started_at,
         )
         .await?;
+    let selector_target = RepositorySelector::from_repository(repository).as_url();
+    archive
+        .mark_scope_failures_retried(
+            context.lease,
+            &RunFailureScope {
+                run_id: context.run_id,
+                target: &selector_target,
+                family: EvidenceFamily::Comments,
+                scope_key: unit.key,
+            },
+        )
+        .await?;
     let progress_repository = RepositorySelector::from_repository(repository).as_url();
     send_progress(
         &context.progress,
@@ -1099,6 +1139,20 @@ async fn run_comment_job(
             },
         )
         .await?;
+    if status == SyncJobStatus::Complete {
+        archive
+            .resolve_scope_failures(
+                context.lease,
+                &RunFailureScope {
+                    run_id: context.run_id,
+                    target: &selector_target,
+                    family: EvidenceFamily::Comments,
+                    scope_key: unit.key,
+                },
+                now_utc()?,
+            )
+            .await?;
+    }
     summary.completed_jobs += 1;
     if let Some(failure) = failure.as_ref() {
         count_failure(summary, failure);

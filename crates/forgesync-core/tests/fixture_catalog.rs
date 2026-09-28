@@ -11,6 +11,8 @@ const REQUIRED_INVARIANTS: &[&str] = &[
     "partial_sync_retains_work",
     "comment_reuse",
     "review_membership_restore",
+    "health_reports_durable_state",
+    "retry_only_selected_failures",
     "deterministic_cluster_scoring",
 ];
 

@@ -6,6 +6,7 @@ mod enumeration;
 mod error;
 mod inspect;
 mod reference;
+mod runs;
 mod search;
 mod sync;
 
@@ -19,6 +20,9 @@ pub use inspect::{
     show_thread,
 };
 pub use reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
+pub use runs::{
+    RetryPlan, RetryReport, RetryScope, list_runs, plan_run_retry, run_retry, show_run,
+};
 pub use search::{SearchMode, SearchRequest, search_threads};
 pub use sync::{
     SyncProgress, SyncProgressStatus, SyncReport, SyncRequest, SyncThreadScope, sync_repositories,

@@ -38,6 +38,7 @@ fn help_lists_global_options_and_no_deferred_commands() {
     }
     assert!(stdout.contains("search"));
     assert!(stdout.contains("thread"));
+    assert!(stdout.contains("run"));
 }
 
 #[test]
@@ -80,11 +81,24 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
         .arg("--json")
         .output()
         .expect("run archive status");
-    assert!(status.status.success());
+    assert!(
+        status.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&status.stdout),
+        String::from_utf8_lossy(&status.stderr)
+    );
     let status_json: serde_json::Value =
         serde_json::from_slice(&status.stdout).expect("status JSON");
     assert_eq!(status_json["command"], "archive status");
     assert_eq!(status_json["data"]["archive"]["archive_id"], archive_id);
+    assert_eq!(
+        status_json["data"]["diagnostics"]["work"]["unresolved_failures"],
+        0
+    );
+    assert_eq!(
+        status_json["data"]["diagnostics"]["schema"]["history_valid"],
+        true
+    );
 
     let migrate = forgesync()
         .args(["archive", "migrate", "--archive"])
@@ -119,8 +133,52 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
         serde_json::from_slice(&doctor.stdout).expect("doctor JSON");
     assert_eq!(doctor_json["command"], "archive doctor");
     assert_eq!(doctor_json["data"]["healthy"], true);
-    assert_eq!(doctor_json["data"]["checks"].as_array().unwrap().len(), 3);
+    assert_eq!(doctor_json["data"]["checks"].as_array().unwrap().len(), 4);
 
+    remove_archive(&path);
+}
+
+#[test]
+fn run_list_show_and_retry_use_durable_run_records() {
+    let path = temporary_archive_path();
+    let init = forgesync()
+        .args(["archive", "init", "--archive"])
+        .arg(&path)
+        .output()
+        .expect("initialize archive");
+    assert!(init.status.success());
+
+    let list = forgesync()
+        .args(["run", "list", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .output()
+        .expect("list runs");
+    assert!(list.status.success());
+    let list_json: serde_json::Value = serde_json::from_slice(&list.stdout).expect("run list JSON");
+    assert_eq!(list_json["command"], "run list");
+    assert_eq!(list_json["data"], serde_json::json!([]));
+
+    let show = forgesync()
+        .args(["run", "show", "1", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .output()
+        .expect("show run");
+    assert_eq!(show.status.code(), Some(1));
+    let show_json: serde_json::Value = serde_json::from_slice(&show.stdout).expect("run show JSON");
+    assert_eq!(show_json["error"]["code"], "run_missing");
+
+    let retry = forgesync()
+        .args(["run", "retry", "1", "--family", "comments", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .output()
+        .expect("retry run");
+    assert_eq!(retry.status.code(), Some(1));
+    let retry_json: serde_json::Value =
+        serde_json::from_slice(&retry.stdout).expect("run retry JSON");
+    assert_eq!(retry_json["error"]["code"], "run_missing");
     remove_archive(&path);
 }
 

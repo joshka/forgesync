@@ -111,6 +111,8 @@ pub struct RunFailureRecord {
     pub id: i64,
     /// Repository or selector string that identifies the failed scope.
     pub target: String,
+    /// Resolved repository identity when the provider repository was already known.
+    pub repository: Option<Repository>,
     /// Evidence family when one was selected.
     pub family: Option<EvidenceFamily>,
     /// Stable provider ID for a selected thread, when the failure is thread-specific.
@@ -179,7 +181,67 @@ pub struct ChildFamilyFailureScope<'a> {
     pub scope_key: &'a str,
 }
 
+/// Identity for a repository-selector failure that predates repository resolution.
+pub struct RunFailureScope<'a> {
+    /// Run attempting the selected scope.
+    pub run_id: RunId,
+    /// Exact repository selector URL recorded in the failure ledger.
+    pub target: &'a str,
+    /// Evidence family selected by the failed work.
+    pub family: EvidenceFamily,
+    /// Thread sub-scope recorded on the failure.
+    pub scope_key: &'a str,
+}
+
 impl Archive {
+    /// Marks matching unresolved selector failures as retried by this run.
+    pub async fn mark_scope_failures_retried(
+        &self,
+        token: &ArchiveLeaseToken,
+        scope: &RunFailureScope<'_>,
+    ) -> Result<u64, StoreError> {
+        let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        require_active_archive_lease(&mut transaction, token).await?;
+        let result = sqlx::query(
+            "UPDATE failures SET retry_count = retry_count + 1, retry_run_id = ? WHERE repository_id IS NULL AND target_key = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
+        )
+        .bind(to_sql_id(scope.run_id)?)
+        .bind(scope.target)
+        .bind(evidence_family_name(scope.family))
+        .bind(scope.scope_key)
+        .bind(to_sql_id(scope.run_id)?)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Resolves selector failures only after the matching scope has completed.
+    pub async fn resolve_scope_failures(
+        &self,
+        token: &ArchiveLeaseToken,
+        scope: &RunFailureScope<'_>,
+        resolved_at: UtcTimestamp,
+    ) -> Result<u64, StoreError> {
+        let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        require_active_archive_lease(&mut transaction, token).await?;
+        let result = sqlx::query(
+            "UPDATE failures SET resolved_at_us = ?, retry_run_id = COALESCE(retry_run_id, ?) WHERE repository_id IS NULL AND target_key = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
+        )
+        .bind(resolved_at.unix_microseconds())
+        .bind(to_sql_id(scope.run_id)?)
+        .bind(scope.target)
+        .bind(evidence_family_name(scope.family))
+        .bind(scope.scope_key)
+        .bind(to_sql_id(scope.run_id)?)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(result.rows_affected())
+    }
+
     /// Inserts a run before acquisition and records its complete requested scope.
     pub async fn create_run(
         &self,
@@ -471,7 +533,7 @@ impl Archive {
         .await?;
         let jobs = rows.into_iter().map(decode_job).collect::<Result<_, _>>()?;
         let rows = sqlx::query(
-            "SELECT id, target_key, family, scope_key, failure_json, created_at_us, thread_provider_id, thread_number, retry_count, resolved_at_us, retry_run_id FROM failures WHERE run_id = ? ORDER BY id",
+            "SELECT f.id, f.target_key, f.family, f.scope_key, f.failure_json, f.created_at_us, f.thread_provider_id, f.thread_number, f.retry_count, f.resolved_at_us, f.retry_run_id, r.payload_json AS repository_json FROM failures f LEFT JOIN repositories r ON r.id = f.repository_id WHERE f.run_id = ? ORDER BY f.id",
         )
         .bind(to_sql_id(run_id)?)
         .fetch_all(&self.reader)
@@ -544,9 +606,13 @@ fn decode_failure(row: sqlx::sqlite::SqliteRow) -> Result<RunFailureRecord, Stor
     let failure_json: String = row.try_get("failure_json")?;
     let thread_number: Option<i64> = row.try_get("thread_number")?;
     let retry_run_id: Option<i64> = row.try_get("retry_run_id")?;
+    let repository_json: Option<String> = row.try_get("repository_json")?;
     Ok(RunFailureRecord {
         id: row.try_get("id")?,
         target: row.try_get("target_key")?,
+        repository: repository_json
+            .map(|json| serde_json::from_str(&json))
+            .transpose()?,
         family: family.map(|family| parse_family(&family)).transpose()?,
         thread_provider_id: row.try_get("thread_provider_id")?,
         thread_number: thread_number

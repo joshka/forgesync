@@ -9,7 +9,7 @@ use forgesync_core::{
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{QueryBuilder, Row, Sqlite};
 
-use crate::{Archive, ArchiveInfo, StagedItem, StoreError};
+use crate::{Archive, ArchiveDiagnostics, ArchiveInfo, StagedItem, StoreError};
 
 /// Source-state filter for a local discussion query.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -190,6 +190,8 @@ pub struct ArchiveStatus {
     pub pull_requests: u64,
     /// Coverage totals across all applicable threads.
     pub coverage: Vec<FamilyCoverageSummary>,
+    /// Schema, lease, and durable-work diagnostics.
+    pub diagnostics: ArchiveDiagnostics,
 }
 
 struct StoredThreadSummary {
@@ -480,6 +482,7 @@ impl Archive {
             issues,
             pull_requests,
             coverage: self.coverage_summary(&[]).await?,
+            diagnostics: self.diagnostics().await?,
         })
     }
 }
