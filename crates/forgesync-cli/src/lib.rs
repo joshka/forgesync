@@ -24,10 +24,10 @@ use forgesync_core::{
 };
 use forgesync_engine::{
     EmbeddingClient, EmbeddingReport, EngineError, RepositorySelector, RetryReport, SearchMode,
-    SearchRequest, SyncProgress, SyncReport, SyncRequest, SyncThreadScope, ThreadDetail,
-    ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector, ThreadSort, ThreadStateFilter,
-    archive_status, embed_documents, list_runs, list_threads, plan_run_retry, run_retry,
-    search_threads, show_run, show_thread, sync_repositories,
+    SearchRequest, SearchResultPage, SyncProgress, SyncReport, SyncRequest, SyncThreadScope,
+    ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector, ThreadSort,
+    ThreadStateFilter, archive_status, embed_documents, list_runs, list_threads, plan_run_retry,
+    retrieve_threads, run_retry, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
@@ -36,7 +36,9 @@ use forgesync_store::{
 };
 use serde::Serialize;
 
-use crate::output::{ArchiveStatusOutput, JsonEnvelope, ThreadDetailOutput, ThreadPageOutput};
+use crate::output::{
+    ArchiveStatusOutput, JsonEnvelope, SearchPageOutput, ThreadDetailOutput, ThreadPageOutput,
+};
 
 /// Parses arguments, runs the selected command, and writes its process output.
 pub fn run_from<I, T>(arguments: I) -> ExitCode
@@ -163,28 +165,84 @@ async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
             kind,
             state,
             mode,
+            keyword_fallback,
             sort,
             limit,
             offset,
-        } => match Archive::open_read_only(&path).await {
-            Ok(archive) => {
-                let request = SearchRequest {
-                    query,
-                    mode: match mode {
-                        SearchModeArg::Keyword => SearchMode::Keyword,
-                        SearchModeArg::AdvancedFts => SearchMode::AdvancedFts,
-                    },
-                    filters: thread_filters(repositories, kind, state, sort, limit, offset),
-                };
-                let result = search_threads(&archive, &request).await;
-                archive.close().await;
-                match result {
-                    Ok(page) => render_thread_page(args.json, "search", &page),
-                    Err(error) => render_engine_error(args.json, "search", error),
-                }
+        } => {
+            let mode = match mode {
+                SearchModeArg::Keyword => SearchMode::Keyword,
+                SearchModeArg::AdvancedFts => SearchMode::AdvancedFts,
+                SearchModeArg::Semantic => SearchMode::Semantic,
+                SearchModeArg::Hybrid => SearchMode::Hybrid,
+            };
+            if keyword_fallback && !matches!(mode, SearchMode::Semantic | SearchMode::Hybrid) {
+                return render_error_with_status(
+                    args.json,
+                    "search",
+                    "search_fallback_mode_invalid",
+                    "--keyword-fallback requires --mode semantic or --mode hybrid",
+                    ExitCode::from(2),
+                );
             }
-            Err(error) => render_store_error(args.json, "search", error),
-        },
+            let embedding_client = if matches!(mode, SearchMode::Semantic | SearchMode::Hybrid) {
+                let service = config.embeddings.clone();
+                let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
+                let client_config = match service.client_config(api_key) {
+                    Ok(config) => config,
+                    Err(error) => {
+                        return render_error_with_status(
+                            args.json,
+                            "search",
+                            error.code(),
+                            &error.to_string(),
+                            ExitCode::from(2),
+                        );
+                    }
+                };
+                match EmbeddingClient::new(client_config) {
+                    Ok(client) => Some(client),
+                    Err(error) => {
+                        return render_error(args.json, "search", error.code(), &error.to_string());
+                    }
+                }
+            } else {
+                None
+            };
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let interrupt_cancellation = cancellation.clone();
+            let interrupt_task = tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    interrupt_cancellation.cancel();
+                }
+            });
+            let result = match Archive::open_read_only(&path).await {
+                Ok(archive) => {
+                    let request = SearchRequest {
+                        query,
+                        mode,
+                        filters: thread_filters(repositories, kind, state, sort, limit, offset),
+                        allow_keyword_fallback: keyword_fallback,
+                    };
+                    let result = retrieve_threads(
+                        &archive,
+                        &request,
+                        config.documents.recipe,
+                        embedding_client.as_ref(),
+                        &cancellation,
+                    )
+                    .await;
+                    archive.close().await;
+                    match result {
+                        Ok(page) => render_search_page(args.json, &page),
+                        Err(error) => render_engine_error(args.json, "search", error),
+                    }
+                }
+                Err(error) => render_store_error(args.json, "search", error),
+            };
+            interrupt_task.abort();
+            result
+        }
         Command::Sync {
             repositories,
             all,
@@ -957,6 +1015,11 @@ fn render_thread_page(json: bool, command: &str, page: &ThreadPage) -> ExitCode 
     render_success(json, command, &output, thread_page_summary)
 }
 
+fn render_search_page(json: bool, page: &SearchResultPage) -> ExitCode {
+    let output = SearchPageOutput::from(page);
+    render_success(json, "search", &output, search_page_summary)
+}
+
 fn render_thread_detail(json: bool, detail: &ThreadDetail) -> ExitCode {
     let output = ThreadDetailOutput::from(detail);
     render_success(json, "thread show", &output, thread_detail_summary)
@@ -1140,6 +1203,51 @@ fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
             discussion_kind_name(thread.kind),
             source_state_name(&thread.state),
             thread.title
+        ));
+    }
+    if page.items.is_empty() {
+        lines.push("No discussions matched.".to_owned());
+    }
+    lines.push("Coverage:".to_owned());
+    lines.extend(page.coverage.iter().map(|coverage| {
+        format!(
+            "  {}: {} complete, {} incomplete, {} missing of {}",
+            family_name(coverage.family),
+            coverage.complete,
+            coverage.incomplete,
+            coverage.missing,
+            coverage.applicable_threads
+        )
+    }));
+    if let Some(next_offset) = page.next_offset {
+        lines.push(format!("Next offset: {next_offset}"));
+    }
+    lines.join("\n")
+}
+
+fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
+    let mut lines = vec![format!(
+        "Mode: {:?} (requested {:?}), ranking: {:?}, sort: {:?}",
+        page.mode, page.requested_mode, page.ranking, page.sort
+    )];
+    if let Some(reason) = page.fallback_reason {
+        lines.push(format!("Keyword fallback: {reason}"));
+    }
+    lines.push("RANK\tSCORE\tREPOSITORY\tNUMBER\tKIND\tSTATE\tTITLE".to_owned());
+    for (index, item) in page.items.iter().enumerate() {
+        let score = item
+            .score
+            .map(|score| format!("{score:.6}"))
+            .unwrap_or_else(|| "-".to_owned());
+        lines.push(format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            index + 1,
+            score,
+            item.repository.full_name,
+            item.thread.id.number().get(),
+            discussion_kind_name(item.thread.kind),
+            source_state_name(&item.thread.state),
+            item.thread.title
         ));
     }
     if page.items.is_empty() {
@@ -1456,7 +1564,14 @@ fn render_store_error(json: bool, command: &str, error: StoreError) -> ExitCode 
 }
 
 fn render_engine_error(json: bool, command: &str, error: EngineError) -> ExitCode {
-    render_error(json, command, error.code(), &error.to_string())
+    let code = error.code();
+    let message = error.to_string();
+    let status = if code == "operation_cancelled" {
+        ExitCode::from(130)
+    } else {
+        ExitCode::FAILURE
+    };
+    render_error_with_status(json, command, code, &message, status)
 }
 
 fn render_error(json: bool, command: &str, code: &str, message: &str) -> ExitCode {

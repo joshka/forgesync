@@ -199,7 +199,7 @@ struct StoredThreadSummary {
     summary: ThreadSummary,
 }
 
-struct StoredCoverage {
+pub(crate) struct StoredCoverage {
     state: CoverageState,
     source_clock_state: String,
     source_clock_us: Option<i64>,
@@ -487,7 +487,10 @@ impl Archive {
     }
 }
 
-fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories: &[RepositoryId]) {
+pub(crate) fn push_repository_scope(
+    statement: &mut QueryBuilder<Sqlite>,
+    repositories: &[RepositoryId],
+) {
     if repositories.is_empty() {
         return;
     }
@@ -506,7 +509,7 @@ fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories: &[R
     statement.push(")");
 }
 
-fn push_discussion_filters(
+pub(crate) fn push_discussion_filters(
     statement: &mut QueryBuilder<Sqlite>,
     kind: Option<ThreadKind>,
     state: ThreadStateFilter,
@@ -542,7 +545,7 @@ fn sort_order(sort: ThreadSort, uses_fts: bool) -> &'static str {
     }
 }
 
-async fn load_thread_coverage(
+pub(crate) async fn load_thread_coverage(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
 ) -> Result<HashMap<i64, HashMap<EvidenceFamily, StoredCoverage>>, StoreError> {
@@ -606,7 +609,7 @@ async fn load_thread_coverage(
     Ok(coverage)
 }
 
-fn coverage_for_kind(
+pub(crate) fn coverage_for_kind(
     discussion: &Discussion,
     stored: Option<&HashMap<EvidenceFamily, StoredCoverage>>,
 ) -> Vec<Coverage> {

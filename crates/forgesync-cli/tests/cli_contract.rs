@@ -131,6 +131,85 @@ async fn embed_empty_registered_repository_needs_no_provider_request() {
     remove_archive(&path);
 }
 
+#[tokio::test]
+async fn semantic_search_requires_current_vectors_and_fallback_is_explicit() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository_id = RepositoryId::new(
+        GitHubHost::parse("github.com").expect("host"),
+        ProviderId::new("41").expect("repository ID"),
+    );
+    archive
+        .upsert_repository(&Repository {
+            id: repository_id,
+            owner: "owner".to_owned(),
+            name: "repo".to_owned(),
+            full_name: "owner/repo".to_owned(),
+            default_branch: Some("main".to_owned()),
+            updated_at: None,
+            provider_data: ProviderData::new(),
+        })
+        .await
+        .expect("register repository");
+    archive.close().await;
+
+    let unavailable = forgesync()
+        .args(["search", "local query", "--mode", "semantic", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .env_remove("OPENAI_API_KEY")
+        .output()
+        .expect("run semantic search without vectors");
+    assert_eq!(unavailable.status.code(), Some(1));
+    let unavailable_json: serde_json::Value =
+        serde_json::from_slice(&unavailable.stdout).expect("semantic error JSON");
+    assert_eq!(
+        unavailable_json["error"]["code"],
+        "semantic_vectors_unavailable"
+    );
+
+    let fallback = forgesync()
+        .args([
+            "search",
+            "local query",
+            "--mode",
+            "hybrid",
+            "--keyword-fallback",
+            "--archive",
+        ])
+        .arg(&path)
+        .arg("--json")
+        .env_remove("OPENAI_API_KEY")
+        .output()
+        .expect("run hybrid search with explicit keyword fallback");
+    assert!(fallback.status.success());
+    let fallback_json: serde_json::Value =
+        serde_json::from_slice(&fallback.stdout).expect("fallback JSON");
+    assert_eq!(fallback_json["data"]["requested_mode"], "hybrid");
+    assert_eq!(fallback_json["data"]["mode"], "keyword");
+    assert_eq!(
+        fallback_json["data"]["fallback_reason"],
+        "semantic_vectors_unavailable"
+    );
+    assert!(fallback_json["data"]["coverage"].is_array());
+
+    let invalid_fallback = forgesync()
+        .args(["search", "local query", "--keyword-fallback", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .output()
+        .expect("reject fallback on keyword mode");
+    assert_eq!(invalid_fallback.status.code(), Some(2));
+    let invalid_fallback_json: serde_json::Value =
+        serde_json::from_slice(&invalid_fallback.stdout).expect("invalid fallback JSON");
+    assert_eq!(
+        invalid_fallback_json["error"]["code"],
+        "search_fallback_mode_invalid"
+    );
+
+    remove_archive(&path);
+}
+
 #[test]
 fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let path = temporary_archive_path();

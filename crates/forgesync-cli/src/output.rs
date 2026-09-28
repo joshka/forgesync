@@ -1,6 +1,7 @@
 use forgesync_core::{
     Comment, Coverage, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
 };
+use forgesync_engine::{SearchMode, SearchProvenance, SearchRanking, SearchResultPage, ThreadSort};
 use forgesync_store::{
     ArchiveDiagnostics, ArchiveInfo, ArchiveStatus, FamilyCoverageSummary, StagedItem,
     ThreadDetail, ThreadPage, ThreadSummary, ThreadTimelineEntry,
@@ -105,6 +106,71 @@ impl<'a> From<&'a ThreadPage> for ThreadPageOutput<'a> {
     fn from(page: &'a ThreadPage) -> Self {
         Self {
             items: page.items.iter().map(ThreadSummaryOutput::from).collect(),
+            next_offset: page.next_offset,
+            coverage: &page.coverage,
+        }
+    }
+}
+
+/// Stable JSON view of keyword, semantic, and hybrid search results.
+#[derive(Serialize)]
+pub struct SearchPageOutput<'a> {
+    /// User-supplied query text.
+    pub query: &'a str,
+    /// Mode requested by the caller.
+    pub requested_mode: SearchMode,
+    /// Mode that produced the returned results.
+    pub mode: SearchMode,
+    /// Effective ranking policy.
+    pub ranking: SearchRanking,
+    /// Search sort order applied to the results.
+    pub sort: ThreadSort,
+    /// Provider or vector-coverage classification when explicit fallback was used.
+    pub fallback_reason: Option<&'a str>,
+    /// Ranked discussions and per-result source evidence.
+    pub items: Vec<SearchHitOutput<'a>>,
+    /// Offset to pass to the next request, when more results are available.
+    pub next_offset: Option<u64>,
+    /// Coverage totals for the selected repository scope.
+    pub coverage: &'a [FamilyCoverageSummary],
+}
+
+/// Stable view of one result while preserving the existing top-level thread fields.
+#[derive(Serialize)]
+pub struct SearchHitOutput<'a> {
+    /// Current repository identity and display metadata.
+    pub repository: &'a Repository,
+    /// Current normalized source discussion.
+    pub thread: &'a Discussion,
+    /// Current evidence coverage.
+    pub coverage: &'a [Coverage],
+    /// Mode-specific score, omitted for keyword-only ranking.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    /// Source ranks used to produce the result.
+    pub provenance: &'a [SearchProvenance],
+}
+
+impl<'a> From<&'a SearchResultPage> for SearchPageOutput<'a> {
+    fn from(page: &'a SearchResultPage) -> Self {
+        Self {
+            query: &page.query,
+            requested_mode: page.requested_mode,
+            mode: page.mode,
+            ranking: page.ranking,
+            sort: page.sort,
+            fallback_reason: page.fallback_reason.as_deref(),
+            items: page
+                .items
+                .iter()
+                .map(|hit| SearchHitOutput {
+                    repository: &hit.summary.repository,
+                    thread: &hit.summary.discussion,
+                    coverage: &hit.summary.coverage,
+                    score: hit.score,
+                    provenance: &hit.provenance,
+                })
+                .collect(),
             next_offset: page.next_offset,
             coverage: &page.coverage,
         }

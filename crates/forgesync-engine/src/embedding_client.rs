@@ -12,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_RESPONSE_BODY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_BATCH_INPUTS: usize = 2048;
+const MAX_EMBEDDING_DIMENSIONS: usize = 65_536;
 const MAX_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 /// Independent endpoint and capacity settings for one embedding service.
@@ -380,6 +381,9 @@ fn validate_config(config: &EmbeddingClientConfig) -> Result<(), EmbeddingClient
     if !valid_endpoint(&config.endpoint)
         || config.model.trim().is_empty()
         || config.dimensions == Some(0)
+        || config
+            .dimensions
+            .is_some_and(|dimensions| dimensions > 65_536)
         || config.max_input_bytes < 4
         || config.max_batch_input_bytes < config.max_input_bytes
         || config.max_batch_input_bytes > 300_000
@@ -473,6 +477,9 @@ fn validate_response(
     for item in response.data {
         if item.index >= input_count || indexed[item.index].is_some() {
             return Err(EmbeddingClientError::InvalidResponse);
+        }
+        if item.embedding.len() > MAX_EMBEDDING_DIMENSIONS {
+            return Err(EmbeddingClientError::InvalidVector);
         }
         let values = item
             .embedding

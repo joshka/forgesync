@@ -10,12 +10,13 @@ use forgesync_core::{
     OperationOutcome, Review, ReviewState, ReviewThread, UtcTimestamp,
 };
 use forgesync_engine::{
-    EmbeddingClient, EmbeddingClientConfig, EngineError, RepositorySelector, SyncRequest,
-    SyncThreadScope, ThreadSelector, build_thread_document, embed_documents,
-    materialize_thread_document, plan_run_retry, run_retry, sync_repositories,
+    EmbeddingClient, EmbeddingClientConfig, EngineError, RepositorySelector, SearchMode,
+    SearchRanking, SearchRequest, SyncRequest, SyncThreadScope, ThreadFilters, ThreadSelector,
+    ThreadSort, ThreadStateFilter, build_thread_document, embed_documents,
+    materialize_thread_document, plan_run_retry, retrieve_threads, run_retry, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
-use forgesync_store::{Archive, SyncJobStatus, ThreadQuery, ThreadSort, ThreadStateFilter};
+use forgesync_store::{Archive, SyncJobStatus, ThreadQuery};
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
@@ -1270,6 +1271,80 @@ async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chun
         5
     );
 
+    let hybrid = retrieve_threads(
+        &archive,
+        &SearchRequest {
+            query: "target".to_owned(),
+            mode: SearchMode::Hybrid,
+            filters: ThreadFilters {
+                repositories: vec!["owner/repo".parse().expect("repository selector")],
+                kind: None,
+                state: ThreadStateFilter::All,
+                sort: Some(ThreadSort::Relevance),
+                limit: 10,
+                offset: 0,
+            },
+            allow_keyword_fallback: false,
+        },
+        DocumentRecipe::OriginalBody,
+        Some(&client),
+        &CancellationToken::new(),
+    )
+    .await
+    .expect("hybrid retrieval");
+    assert_eq!(hybrid.requested_mode, SearchMode::Hybrid);
+    assert_eq!(hybrid.mode, SearchMode::Hybrid);
+    assert_eq!(hybrid.ranking, SearchRanking::ReciprocalRankFusion);
+    assert_eq!(hybrid.items.len(), 1);
+    assert_eq!(hybrid.items[0].summary.discussion.id.number().get(), 11);
+    assert_eq!(hybrid.items[0].provenance.len(), 2);
+    assert!((hybrid.items[0].score.expect("RRF score") - 2.0 / 61.0).abs() < f64::EPSILON);
+    assert_eq!(responder.calls.load(Ordering::SeqCst), 7);
+
+    let no_key_client = EmbeddingClient::new(EmbeddingClientConfig {
+        endpoint: format!("{}/v1", server.uri()).parse().expect("endpoint"),
+        model: "fixture-model".to_owned(),
+        api_key: String::new(),
+        dimensions: Some(2),
+        max_input_bytes: 10,
+        max_batch_input_bytes: 10,
+        batch_size: 1,
+        concurrency: 1,
+        request_timeout: Duration::from_secs(2),
+        total_budget: Duration::from_secs(3),
+        max_attempts: 1,
+    })
+    .expect("client without a resolved key");
+    let fallback = retrieve_threads(
+        &archive,
+        &SearchRequest {
+            query: "target".to_owned(),
+            mode: SearchMode::Hybrid,
+            filters: ThreadFilters {
+                repositories: vec!["owner/repo".parse().expect("repository selector")],
+                kind: None,
+                state: ThreadStateFilter::All,
+                sort: Some(ThreadSort::Relevance),
+                limit: 10,
+                offset: 0,
+            },
+            allow_keyword_fallback: true,
+        },
+        DocumentRecipe::OriginalBody,
+        Some(&no_key_client),
+        &CancellationToken::new(),
+    )
+    .await
+    .expect("explicit keyword fallback");
+    assert_eq!(fallback.requested_mode, SearchMode::Hybrid);
+    assert_eq!(fallback.mode, SearchMode::Keyword);
+    assert_eq!(
+        fallback.fallback_reason.as_deref(),
+        Some("embedding_key_missing")
+    );
+    assert_eq!(fallback.items.len(), 1);
+    assert_eq!(responder.calls.load(Ordering::SeqCst), 7);
+
     archive.close().await;
     remove_archive(&archive_path);
 }
@@ -1502,10 +1577,10 @@ async fn thread_summary(archive: &Archive, number: u64) -> forgesync_store::Thre
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),
             kind: None,
-            state: ThreadStateFilter::All,
+            state: forgesync_store::ThreadStateFilter::All,
             match_expression: None,
             updated_since: None,
-            sort: ThreadSort::Updated,
+            sort: forgesync_store::ThreadSort::Updated,
             limit: NonZeroU32::new(1000).expect("positive limit"),
             offset: 0,
         })
@@ -1635,10 +1710,10 @@ async fn thread_count(archive: &Archive) -> usize {
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),
             kind: None,
-            state: ThreadStateFilter::All,
+            state: forgesync_store::ThreadStateFilter::All,
             match_expression: None,
             updated_since: None,
-            sort: ThreadSort::Updated,
+            sort: forgesync_store::ThreadSort::Updated,
             limit: NonZeroU32::new(20).expect("positive limit"),
             offset: 0,
         })

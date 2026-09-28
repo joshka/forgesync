@@ -24,7 +24,10 @@ pub use diagnostics::{
     SchemaDiagnostics, WorkDiagnostics,
 };
 pub use documents::DocumentWrite;
-pub use embeddings::{EmbeddingChunkInput, EmbeddingWrite, StoredEmbeddingChunk};
+pub use embeddings::{
+    EmbeddingChunkInput, EmbeddingDocumentPage, EmbeddingDocumentQuery, EmbeddingSearchDocument,
+    EmbeddingWrite, StoredEmbeddingChunk,
+};
 pub use enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
 pub use error::StoreError;
 pub use families::ChildFamilyObservation;

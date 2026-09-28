@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P4.3 — Semantic and hybrid search**.
+- Next task: **P4.4 — Clustering and maintainer decisions**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -474,6 +474,41 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
   docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
 
+## P4.3 evidence
+
+Added paged exact semantic retrieval over current vectors matching the configured endpoint, model,
+recipe, document hash, source update, and enriched-evidence freshness. Each bounded page is scored in
+a blocking worker under a process-wide concurrency limit; cancellation is checked while ranking and
+between pages. A discussion with multiple document chunks receives its maximum chunk cosine score.
+Hybrid retrieval fuses keyword and semantic ranks with reciprocal rank fusion (constant 60), and
+results report the requested/effective mode, ranking, scores, and contributing source ranks. Missing
+vectors or provider failures remain explicit unless the caller selects keyword fallback.
+
+The CLI exposes semantic and hybrid modes plus `--keyword-fallback`. Keyword search remains local
+and independent of embedding configuration. Local fixtures cover known cosine directions, chunk
+maxima, dimension rejection, stable ties, cancellation, RRF scores and provenance, missing model
+configuration, and fallback without an extra provider request.
+
+The reproducible exact-cosine benchmark uses the production cosine and ranking implementation with
+deterministic 1536-dimensional f32 vectors. Run `cargo build --release -p forgesync-engine
+--example exact-cosine-benchmark --locked`, then `/usr/bin/time -l
+target/release/examples/exact-cosine-benchmark 10000 1536` and repeat with `100000`. On an Apple M2
+Max with 64 GiB RAM, macOS 26.6.2, and rustc 1.98.1, ranking plus top-20 sorting took 20.192 ms
+and 204.010 ms, respectively. Peak process RSS was 69,173,248 bytes at 10k and 636,764,160 bytes
+at 100k; each vector set contains 61,440,000 and 614,400,000 raw input bytes. Generation and
+startup are excluded from the reported ranking time but included in peak RSS. This measures in-memory
+cosine ranking and sorting, not SQLite reads or embedding-provider latency.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 120 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
+  docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -495,7 +530,7 @@ Validation:
 | P3.4 — Health and explicit retry | Complete | Read-only diagnostics and selected failed-family retry |
 | P4.1 — Versioned documents | Complete | Two recipes, timestamp-independent hashes, fenced document persistence |
 | P4.2 — Embeddings | Complete | Bounded client, deterministic chunk batches, validated vectors, retry reuses successful batches |
-| P4.3 — Semantic and hybrid search | Not started | Exact cosine, reciprocal rank fusion, compatible-vector filtering |
+| P4.3 — Semantic and hybrid search | Complete | Paged exact cosine, RRF provenance, explicit fallback, 10k/100k latency and peak-RSS measurements |
 | P4.4 — Clustering and maintainer decisions | Not started | Deterministic candidate graph, stable IDs, persisted decisions |
 | P4.5 — Refresh composition | Not started | Explicit optional analysis stages and per-stage outcomes |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |

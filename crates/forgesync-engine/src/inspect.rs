@@ -5,6 +5,7 @@ use forgesync_store::{
     Archive, ArchiveStatus, StoreError, ThreadDetail, ThreadPage, ThreadQuery,
     ThreadSort as StoreThreadSort, ThreadStateFilter as StoreThreadStateFilter,
 };
+use serde::Serialize;
 
 use crate::{EngineError, RepositorySelector, ThreadSelector};
 
@@ -21,7 +22,8 @@ pub enum ThreadStateFilter {
 }
 
 /// Sort order for a local discussion query.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ThreadSort {
     /// Rank full-text matches first; without a query, use update order.
     #[default]

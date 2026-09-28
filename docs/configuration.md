@@ -59,6 +59,21 @@ The `embed` command accepts `--endpoint`, `--model`, `--api-key-env`, `--dimensi
 Completed vector batches are stored independently; a later run reuses matching chunks and requests
 only missing ones. Provider keys are never included in archive identity or output.
 
+## Retrieval modes
+
+`search QUERY` defaults to local keyword search and does not use an embedding service. Use
+`--mode semantic` for exact cosine ranking or `--mode hybrid` to combine keyword and semantic
+ranks with reciprocal rank fusion (constant 60). Semantic and hybrid search use the configured
+document recipe, endpoint, and model, and only consider complete vectors whose document matches the
+current archived thread and evidence coverage. A document's score is the best cosine similarity
+among its deterministic chunks.
+
+Semantic and hybrid modes return an explicit error when compatible vectors or the embedding service
+are unavailable. Add `--keyword-fallback` to opt into keyword-only results for those cases; JSON
+reports both requested and effective modes and the fallback reason. `--sort updated` and
+`--sort created` apply those stable source-time orders after scoring or fusion. Semantic/hybrid
+pagination retains at most 10,000 results before applying the requested offset and limit.
+
 Unknown fields and recipe values are errors. Configuration is loaded after command-line parsing;
 configuration errors use the normal application error output, including the JSON envelope when
 `--json` is selected.

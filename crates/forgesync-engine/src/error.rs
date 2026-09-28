@@ -3,6 +3,7 @@ use forgesync_github::{ApiFailureKind, GitHubError};
 use forgesync_store::StoreError;
 use thiserror::Error;
 
+use crate::embedding_client::EmbeddingClientError;
 use crate::reference::ReferenceParseError;
 
 /// Errors returned by local Forgesync workflows.
@@ -67,6 +68,27 @@ pub enum EngineError {
     /// A deterministic input could not be split within the configured byte budget.
     #[error("embedding input cannot be split within the configured byte budget")]
     InvalidEmbeddingInput,
+    /// The caller selected keyword fallback for a non-semantic search mode.
+    #[error("keyword fallback is only valid with semantic or hybrid search")]
+    InvalidSearchFallbackMode,
+    /// No complete current vectors match the selected service and document recipe.
+    #[error("semantic search has no current compatible vectors; run `forgesync embed`")]
+    SemanticVectorsUnavailable,
+    /// No embedding client was supplied for semantic retrieval.
+    #[error("semantic search requires a configured embedding service")]
+    EmbeddingServiceUnavailable,
+    /// Semantic search was cancelled before ranking completed.
+    #[error("semantic search was cancelled")]
+    SearchCancelled,
+    /// A bounded exact-ranking worker failed before returning its page.
+    #[error("semantic ranking worker failed")]
+    SearchWorkerFailed,
+    /// A semantic or hybrid page would retain too many ranked results.
+    #[error("semantic and hybrid search support an offset plus limit of at most 10,000")]
+    SearchWindowTooLarge,
+    /// The embedding provider rejected or could not fulfill a search request.
+    #[error(transparent)]
+    Embedding(#[from] EmbeddingClientError),
     /// An archive operation failed.
     #[error(transparent)]
     Store(#[from] StoreError),
@@ -101,6 +123,14 @@ impl EngineError {
             Self::InvalidPageOffset => "page_offset_invalid",
             Self::EmbeddingWorkerFailed => "embedding_worker_failed",
             Self::InvalidEmbeddingInput => "embedding_input_invalid",
+            Self::InvalidSearchFallbackMode => "search_fallback_mode_invalid",
+            Self::SemanticVectorsUnavailable => "semantic_vectors_unavailable",
+            Self::EmbeddingServiceUnavailable => "embedding_service_unavailable",
+            Self::SearchCancelled => "operation_cancelled",
+            Self::SearchWorkerFailed => "search_worker_failed",
+            Self::SearchWindowTooLarge => "search_window_too_large",
+            Self::Embedding(EmbeddingClientError::Cancelled) => "operation_cancelled",
+            Self::Embedding(error) => error.code(),
             Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",
             Self::Store(error) => error.code(),
             Self::GitHub(GitHubError::Cancelled) => "operation_cancelled",

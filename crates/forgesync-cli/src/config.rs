@@ -98,6 +98,9 @@ impl EmbeddingServiceConfig {
             || self.model.trim().is_empty()
             || !valid_environment_variable_name(&self.api_key_env)
             || self.dimensions == Some(0)
+            || self
+                .dimensions
+                .is_some_and(|dimensions| dimensions > 65_536)
             || self.max_input_bytes < 4
             || self.max_batch_input_bytes < self.max_input_bytes
             || self.max_batch_input_bytes > 300_000

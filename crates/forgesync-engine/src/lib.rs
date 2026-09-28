@@ -7,6 +7,7 @@ mod embedding_client;
 mod embeddings;
 mod enumeration;
 mod error;
+mod exact_search;
 mod inspect;
 mod reference;
 mod runs;
@@ -22,6 +23,7 @@ pub use enumeration::{
     ThreadEnumerationReport, enumerate_repository_threads, enumerate_repository_threads_in_scope,
 };
 pub use error::EngineError;
+pub use exact_search::cosine_similarity;
 pub use forgesync_store::{ArchiveStatus, ThreadDetail, ThreadPage};
 pub use inspect::{
     ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status, list_threads,
@@ -31,7 +33,10 @@ pub use reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
 pub use runs::{
     RetryPlan, RetryReport, RetryScope, list_runs, plan_run_retry, run_retry, show_run,
 };
-pub use search::{SearchMode, SearchRequest, search_threads};
+pub use search::{
+    SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
+    retrieve_threads, search_threads,
+};
 pub use sync::{
     SyncProgress, SyncProgressStatus, SyncReport, SyncRequest, SyncThreadScope, sync_repositories,
 };

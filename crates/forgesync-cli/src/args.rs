@@ -51,9 +51,9 @@ pub enum Command {
         #[command(subcommand)]
         command: ArchiveCommand,
     },
-    /// Search archived discussions using local data only.
+    /// Search archived discussions with local keyword or optional semantic ranking.
     Search {
-        /// Ordinary text or an explicit FTS5 expression.
+        /// Search text sent to the selected local or semantic retrieval mode.
         query: String,
         /// Limit results to one or more registered repositories.
         #[arg(long = "repo", value_name = "OWNER/REPO")]
@@ -64,9 +64,12 @@ pub enum Command {
         /// Filter by source open or closed state.
         #[arg(long, value_enum, default_value_t = ThreadStateArg::All)]
         state: ThreadStateArg,
-        /// Choose keyword tokenization or explicit FTS5 syntax.
+        /// Choose keyword, semantic, hybrid, or explicit FTS5 retrieval.
         #[arg(long, value_enum, default_value_t = SearchModeArg::Keyword)]
         mode: SearchModeArg,
+        /// Return keyword results if semantic retrieval has no compatible data or fails.
+        #[arg(long, action = ArgAction::SetTrue)]
+        keyword_fallback: bool,
         /// Sort results by relevance, source update time, or creation time.
         #[arg(long, value_enum)]
         sort: Option<ThreadSortArg>,
@@ -276,6 +279,10 @@ pub enum SearchModeArg {
     /// Quote ordinary text tokens and treat punctuation as separators.
     #[default]
     Keyword,
+    /// Rank current compatible document vectors by exact cosine similarity.
+    Semantic,
+    /// Fuse keyword and semantic result ranks.
+    Hybrid,
     /// Accept FTS5 phrases, boolean operators, and grouping syntax.
     AdvancedFts,
 }
