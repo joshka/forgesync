@@ -61,6 +61,12 @@ pub enum EngineError {
     /// Pagination exceeds the range supported by SQLite.
     #[error("page offset is outside the supported range")]
     InvalidPageOffset,
+    /// An embedding worker task ended before returning a batch result.
+    #[error("embedding worker ended unexpectedly")]
+    EmbeddingWorkerFailed,
+    /// A deterministic input could not be split within the configured byte budget.
+    #[error("embedding input cannot be split within the configured byte budget")]
+    InvalidEmbeddingInput,
     /// An archive operation failed.
     #[error(transparent)]
     Store(#[from] StoreError),
@@ -93,6 +99,8 @@ impl EngineError {
             Self::InvalidSearchQuery => "search_query_invalid",
             Self::InvalidPageLimit => "page_limit_invalid",
             Self::InvalidPageOffset => "page_offset_invalid",
+            Self::EmbeddingWorkerFailed => "embedding_worker_failed",
+            Self::InvalidEmbeddingInput => "embedding_input_invalid",
             Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",
             Self::Store(error) => error.code(),
             Self::GitHub(GitHubError::Cancelled) => "operation_cancelled",

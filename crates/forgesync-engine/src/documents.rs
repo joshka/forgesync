@@ -1,7 +1,8 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use forgesync_core::{
-    Comment, Document, DocumentRecipe, Review, ReviewState, ReviewThread, ThreadKind, UtcTimestamp,
+    Comment, CoverageState, Document, DocumentRecipe, EvidenceFamily, Review, ReviewState,
+    ReviewThread, ThreadKind, UtcTimestamp,
 };
 use forgesync_store::{Archive, DocumentWrite, StagedItem, ThreadDetail};
 use serde::Serialize;
@@ -39,10 +40,16 @@ pub fn build_document(detail: &ThreadDetail, recipe: DocumentRecipe) -> Document
     }
 
     if recipe == DocumentRecipe::DiscussionEnriched {
-        append_comments(&mut sections, &detail.comments);
+        if has_current_complete_evidence(detail, EvidenceFamily::Comments) {
+            append_comments(&mut sections, &detail.comments);
+        }
         if discussion.kind == ThreadKind::PullRequest {
-            append_reviews(&mut sections, &detail.reviews);
-            append_review_threads(&mut sections, &detail.review_threads);
+            if has_current_complete_evidence(detail, EvidenceFamily::Reviews) {
+                append_reviews(&mut sections, &detail.reviews);
+            }
+            if has_current_complete_evidence(detail, EvidenceFamily::ReviewThreads) {
+                append_review_threads(&mut sections, &detail.review_threads);
+            }
         }
     }
 
@@ -56,6 +63,17 @@ pub fn build_document(detail: &ThreadDetail, recipe: DocumentRecipe) -> Document
         dedupe_text,
         discussion.updated_at,
     )
+}
+
+fn has_current_complete_evidence(detail: &ThreadDetail, family: EvidenceFamily) -> bool {
+    detail
+        .summary
+        .coverage
+        .iter()
+        .find(|coverage| coverage.family() == family)
+        .is_some_and(|coverage| {
+            !coverage.is_stale() && matches!(coverage.state(), CoverageState::Complete { .. })
+        })
 }
 
 /// Builds the selected recipe from one locally archived discussion.
@@ -91,7 +109,7 @@ pub async fn materialize_thread_document(
     Ok(DocumentBuildReport { document, write })
 }
 
-fn now_utc() -> Result<UtcTimestamp, EngineError> {
+pub(crate) fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| forgesync_store::StoreError::ClockOutOfRange)?;
@@ -241,10 +259,11 @@ fn review_state_label(state: &ReviewState) -> &str {
 #[cfg(test)]
 mod tests {
     use forgesync_core::{
-        BranchRef, Comment, CommentId, CommitSha, DocumentRecipe, GitHubHost, ProviderData,
-        ProviderId, PullRequestMetadata, Repository, RepositoryId, Review, ReviewId, ReviewState,
-        ReviewThread, ReviewThreadId, ReviewerIdentity, SourceState, ThreadId, ThreadKind,
-        ThreadNumber, UtcTimestamp,
+        BranchRef, Comment, CommentId, CommitSha, Coverage, CoverageState, DocumentRecipe,
+        EvidenceFamily, GitHubHost, ObservationSequence, ProviderData, ProviderId,
+        PullRequestMetadata, Repository, RepositoryId, Review, ReviewId, ReviewState, ReviewThread,
+        ReviewThreadId, ReviewerIdentity, SourceState, ThreadId, ThreadKind, ThreadNumber,
+        UtcTimestamp,
     };
     use forgesync_store::{StagedItem, ThreadDetail, ThreadSummary};
     use serde_json::json;
@@ -285,6 +304,23 @@ mod tests {
         assert!(document.text.contains("Inline suggestion"));
         assert!(!document.text.contains("Automated notice"));
         assert_eq!(document.dedupe_text, document.dedupe_text.to_lowercase());
+    }
+
+    #[test]
+    fn discussion_recipe_excludes_stale_family_evidence() {
+        let mut detail = sample_detail();
+        detail.summary.coverage = vec![
+            complete_coverage(EvidenceFamily::Comments, 3).with_stale(true),
+            complete_coverage(EvidenceFamily::Reviews, 1).with_stale(true),
+            complete_coverage(EvidenceFamily::ReviewThreads, 1),
+        ];
+
+        let document = build_document(&detail, DocumentRecipe::DiscussionEnriched);
+
+        assert!(!document.text.contains("Discussion reply"));
+        assert!(!document.text.contains("Review by reviewer"));
+        assert!(document.text.contains("Review thread on src/lib.rs"));
+        assert!(document.text.contains("Inline suggestion"));
     }
 
     fn sample_detail() -> ThreadDetail {
@@ -404,7 +440,11 @@ mod tests {
             summary: ThreadSummary {
                 repository,
                 discussion,
-                coverage: Vec::new(),
+                coverage: vec![
+                    complete_coverage(EvidenceFamily::Comments, 3),
+                    complete_coverage(EvidenceFamily::Reviews, 1),
+                    complete_coverage(EvidenceFamily::ReviewThreads, 1),
+                ],
             },
             comments: vec![
                 staged("1", original_comment),
@@ -416,6 +456,17 @@ mod tests {
             review_threads: vec![staged("6", review_thread)],
             timeline: Vec::new(),
         }
+    }
+
+    fn complete_coverage(family: EvidenceFamily, item_count: u64) -> Coverage {
+        Coverage::new(
+            family,
+            CoverageState::Complete {
+                observed_at: timestamp("2026-09-20T14:00:00Z"),
+                sequence: ObservationSequence::new(1).expect("sequence"),
+                item_count,
+            },
+        )
     }
 
     fn staged<T>(id: &str, payload: T) -> StagedItem<T> {

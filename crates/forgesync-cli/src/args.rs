@@ -100,6 +100,39 @@ pub enum Command {
         #[arg(long = "with", value_enum, value_delimiter = ',')]
         with: Vec<SyncIncludeArg>,
     },
+    /// Build deterministic documents and store compatible embeddings for local discussions.
+    Embed {
+        /// One or more registered repositories to embed.
+        #[arg(value_name = "OWNER/REPO", required = true)]
+        repositories: Vec<RepositorySelector>,
+        /// Force provider requests even when current compatible vectors are stored.
+        #[arg(long, action = ArgAction::SetTrue)]
+        force: bool,
+        /// Override the configured OpenAI-compatible base endpoint.
+        #[arg(long, value_name = "URL")]
+        endpoint: Option<String>,
+        /// Override the configured embedding model.
+        #[arg(long, value_name = "MODEL")]
+        model: Option<String>,
+        /// Override the environment variable name containing the API key.
+        #[arg(long, value_name = "NAME")]
+        api_key_env: Option<String>,
+        /// Override the expected output dimensions.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=65536))]
+        dimensions: Option<u32>,
+        /// Override the maximum UTF-8 bytes per input chunk.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=300000))]
+        max_input_bytes: Option<u32>,
+        /// Override the maximum UTF-8 bytes in one request.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=300000))]
+        max_batch_input_bytes: Option<u32>,
+        /// Override the maximum inputs per request.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=2048))]
+        batch_size: Option<u32>,
+        /// Override the maximum requests in flight for this service.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=64))]
+        concurrency: Option<u32>,
+    },
     /// Inspect archived discussions and current family coverage.
     Thread {
         /// Thread list or detail operation.

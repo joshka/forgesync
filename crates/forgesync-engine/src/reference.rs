@@ -79,6 +79,11 @@ pub struct ThreadSelector {
 }
 
 impl ThreadSelector {
+    /// Builds a selector from a validated repository identity and positive thread number.
+    pub fn new(repository: RepositorySelector, number: ThreadNumber) -> Self {
+        Self { repository, number }
+    }
+
     /// Returns the selected repository.
     pub fn repository(&self) -> &RepositorySelector {
         &self.repository

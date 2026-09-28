@@ -1,25 +1,27 @@
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use forgesync_core::{
-    Comment, CoverageState, EvidenceFamily, FailureKind, GitHubHost, OperationOutcome, Review,
-    ReviewState, ReviewThread, UtcTimestamp,
+    Comment, CoverageState, Document, DocumentRecipe, EvidenceFamily, FailureKind, GitHubHost,
+    OperationOutcome, Review, ReviewState, ReviewThread, UtcTimestamp,
 };
 use forgesync_engine::{
-    EngineError, RepositorySelector, SyncRequest, SyncThreadScope, ThreadSelector,
-    build_thread_document, materialize_thread_document, plan_run_retry, run_retry,
-    sync_repositories,
+    EmbeddingClient, EmbeddingClientConfig, EngineError, RepositorySelector, SyncRequest,
+    SyncThreadScope, ThreadSelector, build_thread_document, embed_documents,
+    materialize_thread_document, plan_run_retry, run_retry, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{Archive, SyncJobStatus, ThreadQuery, ThreadSort, ThreadStateFilter};
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
+use wiremock::Respond;
 use wiremock::matchers::{body_string_contains, method, path, query_param};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 
@@ -1151,6 +1153,155 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     remove_archive(&archive_path);
 }
 
+#[tokio::test]
+async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chunks() {
+    let server = MockServer::start().await;
+    mount_repository(&server).await;
+    mount_open_issues(
+        &server,
+        vec![issue_with_comment_count(
+            91,
+            11,
+            "Embedding target",
+            "2026-09-20T09:30:00Z",
+            0,
+        )],
+    )
+    .await;
+    let responder = Arc::new(EmbeddingResponder {
+        calls: AtomicUsize::new(0),
+        fail_on_call: AtomicUsize::new(2),
+    });
+    Mock::given(method("POST"))
+        .and(path("/v1/embeddings"))
+        .respond_with(SharedEmbeddingResponder(Arc::clone(&responder)))
+        .mount(&server)
+        .await;
+
+    let archive_path = temporary_archive_path();
+    let archive = Archive::create(&archive_path)
+        .await
+        .expect("create archive");
+    let repository = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("repository selector");
+    let sync = sync_once(&archive, &server, repository, SyncThreadScope::Open).await;
+    assert_eq!(sync.outcome, OperationOutcome::Complete);
+    let thread = thread_summary(&archive, 11).await;
+    let now = current_timestamp();
+    let text = "alpha beta gamma delta epsilon".to_owned();
+    let document = Document::new(
+        thread.discussion.id.clone(),
+        DocumentRecipe::OriginalBody,
+        thread.discussion.title.clone(),
+        text.clone(),
+        text.to_lowercase(),
+        thread.discussion.updated_at,
+    );
+    let lease = archive
+        .acquire_archive_lease(now, Duration::from_secs(60))
+        .await
+        .expect("claim archive lease for document");
+    archive
+        .upsert_document_fenced(&lease, &document, now)
+        .await
+        .expect("store embedding source document");
+    archive
+        .release_archive_lease(&lease, current_timestamp())
+        .await
+        .expect("release document lease");
+
+    let client = EmbeddingClient::new(EmbeddingClientConfig {
+        endpoint: format!("{}/v1", server.uri()).parse().expect("endpoint"),
+        model: "fixture-model".to_owned(),
+        api_key: "fixture-key".to_owned(),
+        dimensions: Some(2),
+        max_input_bytes: 10,
+        max_batch_input_bytes: 10,
+        batch_size: 1,
+        concurrency: 1,
+        request_timeout: Duration::from_secs(2),
+        total_budget: Duration::from_secs(3),
+        max_attempts: 1,
+    })
+    .expect("embedding client");
+
+    let first = embed_documents(
+        &archive,
+        &client,
+        std::slice::from_ref(&document),
+        false,
+        &CancellationToken::new(),
+    )
+    .await
+    .expect("first embedding run");
+    assert_eq!(first.chunks_selected, 5);
+    assert_eq!(first.chunks_embedded, 4);
+    assert_eq!(first.failed_batches.len(), 1);
+    assert_eq!(
+        archive
+            .embedding_chunks(&document, client.endpoint_identity(), client.model(), 5)
+            .await
+            .expect("read committed chunks")
+            .len(),
+        4
+    );
+
+    responder.fail_on_call.store(0, Ordering::SeqCst);
+    let retried = embed_documents(
+        &archive,
+        &client,
+        std::slice::from_ref(&document),
+        false,
+        &CancellationToken::new(),
+    )
+    .await
+    .expect("retry missing chunk");
+    assert_eq!(retried.chunks_skipped, 4);
+    assert_eq!(retried.chunks_embedded, 1);
+    assert!(retried.failed_batches.is_empty());
+    assert_eq!(responder.calls.load(Ordering::SeqCst), 6);
+    assert_eq!(
+        archive
+            .embedding_chunks(&document, client.endpoint_identity(), client.model(), 5)
+            .await
+            .expect("read complete chunks")
+            .len(),
+        5
+    );
+
+    archive.close().await;
+    remove_archive(&archive_path);
+}
+
+struct EmbeddingResponder {
+    calls: AtomicUsize,
+    fail_on_call: AtomicUsize,
+}
+
+struct SharedEmbeddingResponder(Arc<EmbeddingResponder>);
+
+impl Respond for SharedEmbeddingResponder {
+    fn respond(&self, request: &Request) -> ResponseTemplate {
+        self.0.respond(request)
+    }
+}
+
+impl Respond for EmbeddingResponder {
+    fn respond(&self, _request: &Request) -> ResponseTemplate {
+        let call = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+        if call == self.fail_on_call.load(Ordering::SeqCst) {
+            ResponseTemplate::new(503)
+        } else {
+            ResponseTemplate::new(200).set_body_json(json!({
+                "data": [{"index": 0, "embedding": [0.6, 0.8]}],
+                "model": "fixture-model",
+                "object": "list"
+            }))
+        }
+    }
+}
+
 async fn sync_once(
     archive: &Archive,
     server: &MockServer,
@@ -1503,6 +1654,16 @@ fn temporary_archive_path() -> PathBuf {
         "forgesync-sync-workflow-{}-{next}.sqlite",
         std::process::id()
     ))
+}
+
+fn current_timestamp() -> UtcTimestamp {
+    let elapsed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock after Unix epoch");
+    UtcTimestamp::from_unix_microseconds(
+        i64::try_from(elapsed.as_micros()).expect("current timestamp fits"),
+    )
+    .expect("valid current timestamp")
 }
 
 fn remove_archive(path: &PathBuf) {

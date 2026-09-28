@@ -23,7 +23,41 @@ recipe = "original_body"
 
 The recipe and its version are included in document identity, so changing the recipe invalidates
 derived document artifacts. Source retrieval timestamps are recorded separately and do not change
-the content hash. Embedding service settings are documented with the embedding workflow.
+the content hash. Embedding service configuration is optional and does not affect keyword-only
+workflows.
+
+## Embedding service
+
+The optional `[embeddings]` section configures one OpenAI-compatible service. The API key is read
+from the named environment variable and is never saved in TOML:
+
+```toml
+[embeddings]
+endpoint = "https://api.openai.com/v1"
+model = "text-embedding-3-small"
+api_key_env = "OPENAI_API_KEY"
+max_input_bytes = 7000
+max_batch_input_bytes = 250000
+batch_size = 64
+concurrency = 4
+```
+
+The default endpoint is the OpenAI `/v1` base; Forgesync appends `/embeddings`. A local HTTP URL
+is allowed for loopback fixtures. Other endpoints must use HTTPS. Requests use `model`, `input`,
+optional `dimensions`, and `encoding_format = "float"`, and map response vectors back by their
+returned input index. See the [Create embeddings API reference](https://developers.openai.com/api/reference/resources/embeddings/methods/create).
+
+`max_input_bytes` limits each deterministic UTF-8 chunk. `max_batch_input_bytes` limits the combined
+bytes in one request. These are byte budgets, not token estimates; lower them for services with a
+smaller model input limit. Forgesync does not infer a token limit from error text. `batch_size` and
+`concurrency` bound request count and parallel requests. `request_timeout_seconds`,
+`retry_budget_seconds`, and `max_attempts` configure bounded transient retries. `dimensions` can
+set the expected output length; when omitted, vectors in each response must still agree in length.
+
+The `embed` command accepts `--endpoint`, `--model`, `--api-key-env`, `--dimensions`,
+`--max-input-bytes`, `--max-batch-input-bytes`, `--batch-size`, and `--concurrency` overrides.
+Completed vector batches are stored independently; a later run reuses matching chunks and requests
+only missing ones. Provider keys are never included in archive identity or output.
 
 Unknown fields and recipe values are errors. Configuration is loaded after command-line parsing;
 configuration errors use the normal application error output, including the JSON envelope when

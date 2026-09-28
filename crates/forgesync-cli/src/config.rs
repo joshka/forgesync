@@ -1,8 +1,13 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use forgesync_core::DocumentRecipe;
+use forgesync_engine::EmbeddingClientConfig;
 use serde::Deserialize;
 use thiserror::Error;
+use url::Url;
+
+use crate::credentials::valid_environment_variable_name;
 
 /// User configuration for Forgesync operations.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
@@ -10,6 +15,8 @@ use thiserror::Error;
 pub struct ForgesyncConfig {
     /// Inputs used to create retrieval documents and embeddings.
     pub documents: DocumentsConfig,
+    /// Independent OpenAI-compatible embedding service settings.
+    pub embeddings: EmbeddingServiceConfig,
 }
 
 /// Document recipe selected by embedding and analysis operations.
@@ -25,6 +32,108 @@ impl Default for DocumentsConfig {
         Self {
             recipe: DocumentRecipe::DiscussionEnriched,
         }
+    }
+}
+
+/// Endpoint, model, key reference, and bounded request settings for embeddings.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct EmbeddingServiceConfig {
+    /// Base URL before the standard `/embeddings` path is appended.
+    pub endpoint: String,
+    /// Model name sent with embedding requests.
+    pub model: String,
+    /// Environment variable containing the API key; the key itself is never stored in TOML.
+    pub api_key_env: String,
+    /// Expected output dimensions, when configured for the selected model.
+    pub dimensions: Option<u32>,
+    /// Maximum UTF-8 bytes in one deterministic input chunk.
+    pub max_input_bytes: usize,
+    /// Maximum UTF-8 bytes across one request batch.
+    pub max_batch_input_bytes: usize,
+    /// Maximum chunks sent in one request.
+    pub batch_size: usize,
+    /// Maximum requests in flight for this service.
+    pub concurrency: usize,
+    /// Timeout per request, in seconds.
+    pub request_timeout_seconds: u64,
+    /// Total retry budget per request, in seconds.
+    pub retry_budget_seconds: u64,
+    /// Maximum attempts for transient failures.
+    pub max_attempts: u32,
+}
+
+impl Default for EmbeddingServiceConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: "https://api.openai.com/v1".to_owned(),
+            model: "text-embedding-3-small".to_owned(),
+            api_key_env: "OPENAI_API_KEY".to_owned(),
+            dimensions: None,
+            max_input_bytes: 7_000,
+            max_batch_input_bytes: 250_000,
+            batch_size: 64,
+            concurrency: 4,
+            request_timeout_seconds: 30,
+            retry_budget_seconds: 120,
+            max_attempts: 3,
+        }
+    }
+}
+
+impl EmbeddingServiceConfig {
+    /// Validates endpoint and resource bounds before an embedding operation starts.
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
+        let secure = endpoint.scheme() == "https";
+        let local_http =
+            endpoint.scheme() == "http" && endpoint.host_str().is_some_and(is_loopback_host);
+        let valid_endpoint = (secure || local_http)
+            && endpoint.host_str().is_some()
+            && endpoint.username().is_empty()
+            && endpoint.password().is_none()
+            && endpoint.query().is_none()
+            && endpoint.fragment().is_none();
+        if !valid_endpoint
+            || self.model.trim().is_empty()
+            || !valid_environment_variable_name(&self.api_key_env)
+            || self.dimensions == Some(0)
+            || self.max_input_bytes < 4
+            || self.max_batch_input_bytes < self.max_input_bytes
+            || self.max_batch_input_bytes > 300_000
+            || self.batch_size == 0
+            || self.batch_size > 2048
+            || self.concurrency == 0
+            || self.concurrency > 64
+            || self.request_timeout_seconds == 0
+            || self.request_timeout_seconds > 600
+            || self.retry_budget_seconds == 0
+            || self.retry_budget_seconds > 3600
+            || self.max_attempts == 0
+            || self.max_attempts > 8
+        {
+            return Err(ConfigError::InvalidEmbeddings);
+        }
+        Ok(())
+    }
+
+    /// Creates the HTTP client settings after the application resolves the secret key.
+    pub fn client_config(&self, api_key: String) -> Result<EmbeddingClientConfig, ConfigError> {
+        self.validate()?;
+        let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
+        Ok(EmbeddingClientConfig {
+            endpoint,
+            model: self.model.trim().to_owned(),
+            api_key,
+            dimensions: self.dimensions,
+            max_input_bytes: self.max_input_bytes,
+            max_batch_input_bytes: self.max_batch_input_bytes,
+            batch_size: self.batch_size,
+            concurrency: self.concurrency,
+            request_timeout: Duration::from_secs(self.request_timeout_seconds),
+            total_budget: Duration::from_secs(self.retry_budget_seconds),
+            max_attempts: self.max_attempts,
+        })
     }
 }
 
@@ -66,6 +175,9 @@ pub enum ConfigError {
         #[source]
         source: toml::de::Error,
     },
+    /// The embedding service has an invalid endpoint or request budget.
+    #[error("embedding service configuration is invalid")]
+    InvalidEmbeddings,
 }
 
 impl ConfigError {
@@ -73,7 +185,7 @@ impl ConfigError {
     pub const fn code(&self) -> &'static str {
         match self {
             Self::Read { .. } => "config_read_failed",
-            Self::Parse { .. } => "config_invalid",
+            Self::Parse { .. } | Self::InvalidEmbeddings => "config_invalid",
         }
     }
 }
@@ -82,9 +194,18 @@ fn config_path_from_environment() -> Option<PathBuf> {
     std::env::var_os("FORGESYNC_CONFIG").map(PathBuf::from)
 }
 
+fn is_loopback_host(host: &str) -> bool {
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|address| address.is_loopback())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{DocumentsConfig, ForgesyncConfig};
+    use super::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
     use forgesync_core::DocumentRecipe;
 
     #[test]
@@ -118,5 +239,28 @@ mod tests {
             toml::from_str::<ForgesyncConfig>("[documents]\nrecipe = 'include_everything'\n")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn embedding_service_defaults_are_bounded_and_independent() {
+        let config = EmbeddingServiceConfig::default();
+        config.validate().expect("default embedding settings");
+        assert_eq!(config.endpoint, "https://api.openai.com/v1");
+        assert_eq!(config.api_key_env, "OPENAI_API_KEY");
+        assert_eq!(config.concurrency, 4);
+    }
+
+    #[test]
+    fn embedding_service_config_rejects_unsafe_urls_and_invalid_budgets() {
+        let config = EmbeddingServiceConfig {
+            endpoint: "http://example.com/v1".to_owned(),
+            ..EmbeddingServiceConfig::default()
+        };
+        assert!(config.validate().is_err());
+        let config = EmbeddingServiceConfig {
+            max_batch_input_bytes: EmbeddingServiceConfig::default().max_input_bytes - 1,
+            ..EmbeddingServiceConfig::default()
+        };
+        assert!(config.validate().is_err());
     }
 }

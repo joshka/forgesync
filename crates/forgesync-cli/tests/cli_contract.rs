@@ -3,7 +3,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::Command;
-use forgesync_core::UtcTimestamp;
+use forgesync_core::{
+    GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, UtcTimestamp,
+};
 use forgesync_store::Archive;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
@@ -39,6 +41,7 @@ fn help_lists_global_options_and_no_deferred_commands() {
     assert!(stdout.contains("search"));
     assert!(stdout.contains("thread"));
     assert!(stdout.contains("run"));
+    assert!(stdout.contains("embed"));
 }
 
 #[test]
@@ -78,12 +81,54 @@ fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {
         .arg("--json")
         .output()
         .expect("run with invalid config");
-    assert_eq!(invalid.status.code(), Some(1));
+    assert_eq!(invalid.status.code(), Some(2));
     let error: serde_json::Value = serde_json::from_slice(&invalid.stdout).expect("error JSON");
     assert_eq!(error["error"]["code"], "config_invalid");
 
     remove_archive(&archive_path);
     let _ = std::fs::remove_file(config_path);
+}
+
+#[tokio::test]
+async fn embed_empty_registered_repository_needs_no_provider_request() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository_id = RepositoryId::new(
+        GitHubHost::parse("github.com").expect("host"),
+        ProviderId::new("41").expect("repository ID"),
+    );
+    archive
+        .upsert_repository(&Repository {
+            id: repository_id,
+            owner: "owner".to_owned(),
+            name: "repo".to_owned(),
+            full_name: "owner/repo".to_owned(),
+            default_branch: Some("main".to_owned()),
+            updated_at: None,
+            provider_data: ProviderData::new(),
+        })
+        .await
+        .expect("register repository");
+    archive.close().await;
+
+    let output = forgesync()
+        .args(["embed", "owner/repo", "--archive"])
+        .arg(&path)
+        .args(["--endpoint", "http://127.0.0.1:1/v1", "--json"])
+        .output()
+        .expect("run embed without selected threads");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).expect("embed JSON");
+    assert_eq!(result["command"], "embed");
+    assert_eq!(result["data"]["report"]["documents"], 0);
+    assert_eq!(result["data"]["report"]["chunks_selected"], 0);
+
+    remove_archive(&path);
 }
 
 #[test]
@@ -104,7 +149,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let init_json: serde_json::Value = serde_json::from_slice(&init.stdout).expect("init JSON");
     assert_eq!(init_json["command"], "archive init");
     assert_eq!(init_json["schema_version"], 1);
-    assert_eq!(init_json["data"]["schema_version"], 8);
+    assert_eq!(init_json["data"]["schema_version"], 9);
     let archive_id = init_json["data"]["archive_id"]
         .as_str()
         .expect("archive ID");

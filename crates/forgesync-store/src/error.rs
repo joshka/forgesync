@@ -128,6 +128,12 @@ pub enum StoreError {
     /// A derived retrieval document has an unsupported recipe or invalid content hash.
     #[error("retrieval document data is invalid")]
     InvalidDocument,
+    /// A stored or returned embedding has invalid identity, dimensions, or vector data.
+    #[error("embedding data is invalid")]
+    InvalidEmbedding,
+    /// The source document changed before the embedding could be persisted.
+    #[error("embedding source document is no longer current")]
+    DocumentNotCurrent,
     /// The requested run is not present in this archive.
     #[error("sync run is not present in this archive")]
     RunMissing,
@@ -220,6 +226,8 @@ impl StoreError {
             Self::InvalidArchiveLeaseDuration => "archive_lease_duration_invalid",
             Self::InvalidRunData => "sync_run_invalid",
             Self::InvalidDocument => "document_invalid",
+            Self::InvalidEmbedding => "embedding_invalid",
+            Self::DocumentNotCurrent => "embedding_document_not_current",
             Self::RunMissing => "sync_run_missing",
             Self::InvalidSyncCount => "sync_count_invalid",
             Self::MissingRequestScope => "observation_scope_missing",

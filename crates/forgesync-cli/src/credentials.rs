@@ -120,7 +120,7 @@ fn choose_environment_token(
         .transpose()
 }
 
-fn valid_environment_variable_name(name: &str) -> bool {
+pub(crate) fn valid_environment_variable_name(name: &str) -> bool {
     let mut characters = name.chars();
     let Some(first) = characters.next() else {
         return false;

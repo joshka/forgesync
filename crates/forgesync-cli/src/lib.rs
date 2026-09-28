@@ -7,7 +7,7 @@ pub mod config;
 pub mod credentials;
 pub mod output;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
@@ -19,14 +19,15 @@ use args::{
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use config::ForgesyncConfig;
 use forgesync_core::{
-    CoverageState, GitHubHost, OperationOutcome, ReviewState, RunId, SourceState, ThreadKind,
-    ThreadKind as DiscussionKind, UtcTimestamp,
+    CoverageState, DocumentRecipe, GitHubHost, OperationOutcome, ReviewState, RunId, SourceState,
+    ThreadKind, ThreadKind as DiscussionKind, UtcTimestamp,
 };
 use forgesync_engine::{
-    EngineError, RepositorySelector, RetryReport, SearchMode, SearchRequest, SyncProgress,
-    SyncReport, SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest,
-    ThreadPage, ThreadSort, ThreadStateFilter, archive_status, list_runs, list_threads,
-    plan_run_retry, run_retry, search_threads, show_run, show_thread, sync_repositories,
+    EmbeddingClient, EmbeddingReport, EngineError, RepositorySelector, RetryReport, SearchMode,
+    SearchRequest, SyncProgress, SyncReport, SyncRequest, SyncThreadScope, ThreadDetail,
+    ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector, ThreadSort, ThreadStateFilter,
+    archive_status, embed_documents, list_runs, list_threads, plan_run_retry, run_retry,
+    search_threads, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
@@ -55,7 +56,13 @@ where
     let config = match ForgesyncConfig::load(args.config.as_deref()) {
         Ok(config) => config,
         Err(error) => {
-            return render_error(args.json, "configuration", error.code(), &error.to_string());
+            return render_error_with_status(
+                args.json,
+                "configuration",
+                error.code(),
+                &error.to_string(),
+                ExitCode::from(2),
+            );
         }
     };
 
@@ -76,7 +83,7 @@ where
     runtime.block_on(dispatch(args, config))
 }
 
-async fn dispatch(args: CliArgs, _config: ForgesyncConfig) -> ExitCode {
+async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
     let Some(path) = args.archive else {
         return usage_error("--archive PATH is required for local archive commands");
     };
@@ -206,6 +213,64 @@ async fn dispatch(args: CliArgs, _config: ForgesyncConfig) -> ExitCode {
                 parent_run: None,
             };
             let result = sync_command(&path, request, args.json, args.verbose, &cancellation).await;
+            interrupt_task.abort();
+            result
+        }
+        Command::Embed {
+            repositories,
+            force,
+            endpoint,
+            model,
+            api_key_env,
+            dimensions,
+            max_input_bytes,
+            max_batch_input_bytes,
+            batch_size,
+            concurrency,
+        } => {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let interrupt_cancellation = cancellation.clone();
+            let interrupt_task = tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    interrupt_cancellation.cancel();
+                }
+            });
+            let mut service = config.embeddings;
+            if let Some(endpoint) = endpoint {
+                service.endpoint = endpoint;
+            }
+            if let Some(model) = model {
+                service.model = model;
+            }
+            if let Some(api_key_env) = api_key_env {
+                service.api_key_env = api_key_env;
+            }
+            if let Some(dimensions) = dimensions {
+                service.dimensions = Some(dimensions);
+            }
+            if let Some(max_input_bytes) = max_input_bytes {
+                service.max_input_bytes = max_input_bytes as usize;
+            }
+            if let Some(max_batch_input_bytes) = max_batch_input_bytes {
+                service.max_batch_input_bytes = max_batch_input_bytes as usize;
+            }
+            if let Some(batch_size) = batch_size {
+                service.batch_size = batch_size as usize;
+            }
+            if let Some(concurrency) = concurrency {
+                service.concurrency = concurrency as usize;
+            }
+            let result = embed_command(EmbedCommandRequest {
+                archive_path: &path,
+                repositories,
+                service,
+                recipe: config.documents.recipe,
+                force,
+                json: args.json,
+                verbose: args.verbose,
+                cancellation: &cancellation,
+            })
+            .await;
             interrupt_task.abort();
             result
         }
@@ -493,6 +558,174 @@ async fn sync_command(
     }
 }
 
+struct EmbedCommandRequest<'a> {
+    archive_path: &'a std::path::Path,
+    repositories: Vec<RepositorySelector>,
+    service: crate::config::EmbeddingServiceConfig,
+    recipe: DocumentRecipe,
+    force: bool,
+    json: bool,
+    verbose: u8,
+    cancellation: &'a tokio_util::sync::CancellationToken,
+}
+
+async fn embed_command(request: EmbedCommandRequest<'_>) -> ExitCode {
+    let EmbedCommandRequest {
+        archive_path,
+        repositories,
+        service,
+        recipe,
+        force,
+        json,
+        verbose,
+        cancellation,
+    } = request;
+    if let Err(error) = service.validate() {
+        return render_error_with_status(
+            json,
+            "embed",
+            error.code(),
+            &error.to_string(),
+            ExitCode::from(2),
+        );
+    }
+    let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
+    let client_config = match service.client_config(api_key) {
+        Ok(config) => config,
+        Err(error) => {
+            return render_error_with_status(
+                json,
+                "embed",
+                error.code(),
+                &error.to_string(),
+                ExitCode::from(2),
+            );
+        }
+    };
+    let client = match EmbeddingClient::new(client_config) {
+        Ok(client) => client,
+        Err(error) => {
+            return render_error_with_status(
+                json,
+                "embed",
+                error.code(),
+                &error.to_string(),
+                ExitCode::from(2),
+            );
+        }
+    };
+    let archive = match Archive::open_read_write(archive_path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "embed", error),
+    };
+    let mut repositories = repositories
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    repositories.sort_by_key(RepositorySelector::as_url);
+    let mut report = EmbeddingReport::default();
+
+    for repository in &repositories {
+        let mut offset = 0u64;
+        loop {
+            let page = match list_threads(
+                &archive,
+                &ThreadListRequest {
+                    filters: ThreadFilters {
+                        repositories: vec![repository.clone()],
+                        kind: None,
+                        state: ThreadStateFilter::All,
+                        sort: Some(ThreadSort::Updated),
+                        limit: 1000,
+                        offset,
+                    },
+                },
+            )
+            .await
+            {
+                Ok(page) => page,
+                Err(error) => {
+                    archive.close().await;
+                    return render_engine_error(json, "embed", error);
+                }
+            };
+            let next_offset = page.next_offset;
+            let mut documents = Vec::with_capacity(page.items.len());
+            for thread in page.items {
+                let selector = ThreadSelector::new(
+                    RepositorySelector::from_repository(&thread.repository),
+                    thread.discussion.id.number(),
+                );
+                if verbose > 0 && !json {
+                    eprintln!(
+                        "forgesync: building {}#{} document",
+                        thread.repository.full_name,
+                        thread.discussion.id.number().get()
+                    );
+                }
+                match forgesync_engine::materialize_thread_document(&archive, &selector, recipe)
+                    .await
+                {
+                    Ok(built) => documents.push(built.document),
+                    Err(error) => {
+                        archive.close().await;
+                        return render_engine_error(json, "embed", error);
+                    }
+                }
+            }
+            if !documents.is_empty() {
+                match embed_documents(&archive, &client, &documents, force, cancellation).await {
+                    Ok(page_report) => add_embedding_report(&mut report, page_report),
+                    Err(error) => {
+                        archive.close().await;
+                        return render_engine_error(json, "embed", error);
+                    }
+                }
+            }
+            let Some(next_offset) = next_offset else {
+                break;
+            };
+            offset = next_offset;
+        }
+        if report.cancelled {
+            break;
+        }
+    }
+    archive.close().await;
+
+    let output = EmbeddingOutput {
+        repositories: repositories
+            .iter()
+            .map(RepositorySelector::as_url)
+            .collect(),
+        recipe,
+        endpoint: client.endpoint_identity().to_owned(),
+        model: client.model().to_owned(),
+        dimensions: service.dimensions,
+        report,
+    };
+    let exit_status = if output.report.cancelled {
+        ExitCode::from(130)
+    } else if output.report.failed_batches.is_empty() {
+        ExitCode::SUCCESS
+    } else if output.report.chunks_embedded > 0 || output.report.chunks_skipped > 0 {
+        ExitCode::from(3)
+    } else {
+        ExitCode::FAILURE
+    };
+    render_result(json, "embed", &output, embedding_summary, exit_status)
+}
+
+fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
+    total.documents = total.documents.saturating_add(page.documents);
+    total.chunks_selected = total.chunks_selected.saturating_add(page.chunks_selected);
+    total.chunks_embedded = total.chunks_embedded.saturating_add(page.chunks_embedded);
+    total.chunks_skipped = total.chunks_skipped.saturating_add(page.chunks_skipped);
+    total.failed_batches.extend(page.failed_batches);
+    total.cancelled |= page.cancelled;
+}
+
 async fn retry_command(
     archive_path: &std::path::Path,
     run_id: RunId,
@@ -686,6 +919,37 @@ fn sync_summary(report: &SyncReport) -> String {
 struct SyncFailure {
     code: &'static str,
     message: String,
+}
+
+#[derive(Serialize)]
+struct EmbeddingOutput {
+    repositories: Vec<String>,
+    recipe: DocumentRecipe,
+    endpoint: String,
+    model: String,
+    dimensions: Option<u32>,
+    report: EmbeddingReport,
+}
+
+fn embedding_summary(output: &EmbeddingOutput) -> String {
+    let state = if output.report.cancelled {
+        "cancelled"
+    } else if output.report.failed_batches.is_empty() {
+        "complete"
+    } else if output.report.chunks_embedded > 0 || output.report.chunks_skipped > 0 {
+        "partial"
+    } else {
+        "failed"
+    };
+    format!(
+        "Embedding {state}: {} documents, {} chunks embedded, {} already current, {} failed batches using {} ({})",
+        output.report.documents,
+        output.report.chunks_embedded,
+        output.report.chunks_skipped,
+        output.report.failed_batches.len(),
+        output.model,
+        output.endpoint
+    )
 }
 
 fn render_thread_page(json: bool, command: &str, page: &ThreadPage) -> ExitCode {
@@ -1196,6 +1460,16 @@ fn render_engine_error(json: bool, command: &str, error: EngineError) -> ExitCod
 }
 
 fn render_error(json: bool, command: &str, code: &str, message: &str) -> ExitCode {
+    render_error_with_status(json, command, code, message, ExitCode::FAILURE)
+}
+
+fn render_error_with_status(
+    json: bool,
+    command: &str,
+    code: &str,
+    message: &str,
+    exit_status: ExitCode,
+) -> ExitCode {
     if json {
         let envelope = JsonEnvelope::<serde_json::Value>::failure(command, code, message);
         if serde_json::to_writer(std::io::stdout().lock(), &envelope).is_ok() {
@@ -1204,7 +1478,7 @@ fn render_error(json: bool, command: &str, code: &str, message: &str) -> ExitCod
     } else {
         let _ = writeln!(std::io::stderr().lock(), "forgesync: {message}");
     }
-    ExitCode::FAILURE
+    exit_status
 }
 
 fn usage_error(message: &str) -> ExitCode {

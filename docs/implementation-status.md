@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P4.2 — Embeddings**.
+- Next task: **P4.3 — Semantic and hybrid search**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -18,6 +18,7 @@
 - Complete: **P3.2 — Review threads**.
 - Complete: **P3.4 — Health and explicit retry**.
 - Complete: **P4.1 — Versioned documents**.
+- Complete: **P4.2 — Embeddings**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -444,6 +445,35 @@ Validation:
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 - Markdownlint on changed documentation: passed.
 
+## P4.2 evidence
+
+Added independent OpenAI-compatible embedding endpoint, model, credential environment variable,
+dimension, byte-budget, batch-size, concurrency, timeout, and retry configuration. The reusable
+client validates the endpoint, avoids redirects that could forward credentials, bounds response
+bodies and total retry time, and validates every returned model, index, vector dimension, finite
+value, and nonzero norm. Credentials are read only by the CLI edge and never stored in the archive.
+
+Added deterministic UTF-8 chunking and request batching under per-input and combined-request byte
+limits. These are explicit byte budgets and do not infer token limits from provider error prose.
+Embeddings are stored as little-endian f32 with model/service identity, dimensions, document hash,
+chunk index, and chunk hash. A batch commits independently; retries select only missing chunks
+whose document and service identity remain current. Enriched documents exclude stale comments,
+reviews, and review-thread evidence.
+
+Local fixtures cover out-of-order and malformed responses, unsafe redirects, byte-bounded chunking
+and batches, and a later batch failure followed by a retry that requests only the missing chunk.
+The CLI also confirms that an empty repository selection needs no provider request.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 115 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
+  docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -464,7 +494,7 @@ Validation:
 | P3.3 — Legacy import | Deferred | Reserved task; keep the Go archive intact |
 | P3.4 — Health and explicit retry | Complete | Read-only diagnostics and selected failed-family retry |
 | P4.1 — Versioned documents | Complete | Two recipes, timestamp-independent hashes, fenced document persistence |
-| P4.2 — Embeddings | Not started | Provider config, deterministic chunks, validated vectors |
+| P4.2 — Embeddings | Complete | Bounded client, deterministic chunk batches, validated vectors, retry reuses successful batches |
 | P4.3 — Semantic and hybrid search | Not started | Exact cosine, reciprocal rank fusion, compatible-vector filtering |
 | P4.4 — Clustering and maintainer decisions | Not started | Deterministic candidate graph, stable IDs, persisted decisions |
 | P4.5 — Refresh composition | Not started | Explicit optional analysis stages and per-stage outcomes |

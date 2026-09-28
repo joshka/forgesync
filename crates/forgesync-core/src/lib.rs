@@ -5,6 +5,7 @@
 mod content;
 mod coverage;
 mod document;
+mod embedding;
 mod identity;
 mod observation;
 mod outcome;
@@ -20,6 +21,7 @@ pub use coverage::{
     UnavailableReason,
 };
 pub use document::{Document, DocumentRecipe};
+pub use embedding::{EmbeddingVector, EmbeddingVectorError};
 pub use identity::{
     CommentId, CommitSha, GitHubHost, IdentityError, ObservationSequence, ProviderId, RepositoryId,
     ReviewId, ReviewThreadId, RunId, ThreadId, ThreadNumber, ThreadReference,
