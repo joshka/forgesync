@@ -2,11 +2,13 @@
 
 //! Reusable local archive operations shared by frontends.
 
+mod enumeration;
 mod error;
 mod inspect;
 mod reference;
 mod search;
 
+pub use enumeration::{ThreadEnumerationReport, enumerate_repository_threads};
 pub use error::EngineError;
 pub use forgesync_store::{ArchiveStatus, ThreadDetail, ThreadPage};
 pub use inspect::{

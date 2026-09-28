@@ -98,6 +98,15 @@ pub enum StoreError {
     /// The collection completeness fields contradict the staged result.
     #[error("collection completeness does not match staged items or page count")]
     InvalidCollectionCompleteness,
+    /// A repository thread scan was replaced by a newer acquisition sequence.
+    #[error("repository thread scan was superseded by a newer acquisition")]
+    StaleRepositoryThreadScan,
+    /// No in-progress repository thread scan matches the supplied identity and sequence.
+    #[error("repository thread scan is not in progress for this sequence")]
+    RepositoryThreadScanMissing,
+    /// A stored repository thread scan status is invalid.
+    #[error("archive contains an invalid repository thread scan")]
+    InvalidRepositoryThreadScan,
     /// The request scope is empty or contains only whitespace.
     #[error("observation request scope is required")]
     MissingRequestScope,
@@ -174,6 +183,9 @@ impl StoreError {
             Self::IncompletePageSet { .. } => "observation_pages_incomplete",
             Self::MissingExpectedPageCount => "observation_page_count_missing",
             Self::InvalidCollectionCompleteness => "observation_completeness_invalid",
+            Self::StaleRepositoryThreadScan => "repository_scan_stale",
+            Self::RepositoryThreadScanMissing => "repository_scan_missing",
+            Self::InvalidRepositoryThreadScan => "repository_scan_invalid",
             Self::MissingRequestScope => "observation_scope_missing",
             Self::InvalidCoverageState => "coverage_state_invalid",
             Self::Json(_) => "observation_json_error",

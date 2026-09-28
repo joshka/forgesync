@@ -4,9 +4,11 @@
 //! access belong to the application boundary.
 
 mod error;
+mod resources;
 mod token;
 mod transport;
 
 pub use error::{ApiFailureKind, GitHubError};
+pub use resources::{RestThreadPage, fetch_repository, fetch_thread_page, thread_list_url};
 pub use token::GitHubToken;
-pub use transport::{GitHubClient, GitHubClientConfig, RetryPolicy};
+pub use transport::{GitHubClient, GitHubClientConfig, GitHubResponse, RetryPolicy};

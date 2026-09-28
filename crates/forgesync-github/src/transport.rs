@@ -1,7 +1,7 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use reqwest::header::{ACCEPT, AUTHORIZATION, LOCATION, RETRY_AFTER, USER_AGENT};
+use reqwest::header::{ACCEPT, AUTHORIZATION, LINK, LOCATION, RETRY_AFTER, USER_AGENT};
 use reqwest::{Method, Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -12,6 +12,7 @@ use crate::{ApiFailureKind, GitHubError, GitHubToken};
 
 const MAX_SUCCESS_BODY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
+const MAX_REDIRECTS: usize = 5;
 
 /// Retry limits for transient network, server, and rate-limit failures.
 #[derive(Clone, Debug)]
@@ -66,10 +67,20 @@ impl GitHubClientConfig {
 #[derive(Clone)]
 pub struct GitHubClient {
     http: reqwest::Client,
+    api_base_url: Url,
     origin: TrustedOrigin,
     token: Option<GitHubToken>,
     retry: RetryPolicy,
     request_slots: std::sync::Arc<Semaphore>,
+}
+
+/// JSON content and the validated next URL from a GitHub REST Link header.
+#[derive(Clone, Debug)]
+pub struct GitHubResponse<T> {
+    /// Deserialized current-page content.
+    pub value: T,
+    /// Next page URL, when the provider reports one.
+    pub next_page: Option<Url>,
 }
 
 impl GitHubClient {
@@ -94,6 +105,7 @@ impl GitHubClient {
 
         Ok(Self {
             http,
+            api_base_url: config.api_base_url,
             origin,
             token,
             retry: config.retry,
@@ -120,12 +132,41 @@ impl GitHubClient {
         Ok(candidate)
     }
 
+    /// Creates a URL by appending encoded path segments to the configured API base path.
+    pub fn endpoint_url(&self, path_segments: &[&str]) -> Result<Url, GitHubError> {
+        let mut url = self.api_base_url.clone();
+        let mut segments = url
+            .path_segments_mut()
+            .map_err(|_| GitHubError::InvalidApiBaseUrl)?;
+        segments.pop_if_empty();
+        for segment in path_segments {
+            if segment.is_empty() {
+                return Err(GitHubError::InvalidApiBaseUrl);
+            }
+            segments.push(segment);
+        }
+        drop(segments);
+        Ok(url)
+    }
+
     /// Sends a GET request and deserializes a bounded JSON response.
     pub async fn get_json<T>(
         &self,
         url: &Url,
         cancellation: &CancellationToken,
     ) -> Result<T, GitHubError>
+    where
+        T: DeserializeOwned,
+    {
+        Ok(self.get_json_page(url, cancellation).await?.value)
+    }
+
+    /// Sends a GET request and returns JSON content with a validated next-page URL.
+    pub async fn get_json_page<T>(
+        &self,
+        url: &Url,
+        cancellation: &CancellationToken,
+    ) -> Result<GitHubResponse<T>, GitHubError>
     where
         T: DeserializeOwned,
     {
@@ -136,7 +177,7 @@ impl GitHubClient {
         &self,
         url: &Url,
         cancellation: &CancellationToken,
-    ) -> Result<T, GitHubError>
+    ) -> Result<GitHubResponse<T>, GitHubError>
     where
         T: DeserializeOwned,
     {
@@ -180,8 +221,13 @@ impl GitHubClient {
             };
 
             match outcome {
-                Ok(bytes) => {
-                    return serde_json::from_slice(&bytes).map_err(|_| GitHubError::InvalidJson);
+                Ok(response) => {
+                    let value = serde_json::from_slice(&response.body)
+                        .map_err(|_| GitHubError::InvalidJson)?;
+                    return Ok(GitHubResponse {
+                        value,
+                        next_page: response.next_page,
+                    });
                 }
                 Err(failure) if failure.retryable => {
                     let delay = failure
@@ -218,39 +264,63 @@ impl GitHubClient {
         url: &Url,
         _permit: OwnedSemaphorePermit,
         cancellation: &CancellationToken,
-    ) -> Result<Vec<u8>, RequestFailure> {
-        let mut request = self
-            .http
-            .request(Method::GET, url.clone())
-            .header(ACCEPT, "application/vnd.github+json")
-            .header(USER_AGENT, "forgesync");
-        if let Some(token) = &self.token {
-            request = request.header(AUTHORIZATION, format!("Bearer {}", token.expose()));
+    ) -> Result<ResponseBody, RequestFailure> {
+        let mut current_url = url.clone();
+        let mut visited = std::collections::HashSet::new();
+        for redirect_count in 0..=MAX_REDIRECTS {
+            if !visited.insert(current_url.as_str().to_owned()) {
+                return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
+            }
+            self.origin
+                .validate(&current_url)
+                .map_err(RequestFailure::terminal)?;
+            let mut request = self
+                .http
+                .request(Method::GET, current_url.clone())
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(USER_AGENT, "forgesync");
+            if let Some(token) = &self.token {
+                request = request.header(AUTHORIZATION, format!("Bearer {}", token.expose()));
+            }
+
+            let response = tokio::select! {
+                _ = cancellation.cancelled() => return Err(RequestFailure::terminal(GitHubError::Cancelled)),
+                response = request.send() => response.map_err(classify_transport_error)?,
+            };
+            let status = response.status();
+            tracing::debug!(
+                status = status.as_u16(),
+                redirect_count,
+                "GitHub response received"
+            );
+
+            if status.is_redirection() {
+                if redirect_count == MAX_REDIRECTS {
+                    return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
+                }
+                current_url =
+                    redirect_target(&response, &self.origin).map_err(RequestFailure::terminal)?;
+                continue;
+            }
+            if !status.is_success() {
+                return classify_api_response(response, status).await;
+            }
+
+            let next_page =
+                next_page_from_headers(response.url(), response.headers(), &self.origin)
+                    .map_err(RequestFailure::terminal)?;
+            let body = read_body(response, MAX_SUCCESS_BODY_BYTES)
+                .await
+                .map_err(|error| match error {
+                    BodyReadError::TooLarge => {
+                        RequestFailure::terminal(GitHubError::ResponseTooLarge)
+                    }
+                    BodyReadError::Transport(error) => classify_transport_error(error),
+                })?;
+            return Ok(ResponseBody { body, next_page });
         }
 
-        let response = tokio::select! {
-            _ = cancellation.cancelled() => return Err(RequestFailure::terminal(GitHubError::Cancelled)),
-            response = request.send() => response.map_err(classify_transport_error)?,
-        };
-        let status = response.status();
-        tracing::debug!(status = status.as_u16(), "GitHub response received");
-
-        if status.is_redirection() {
-            return Err(RequestFailure::terminal(classify_redirect(
-                &response,
-                &self.origin,
-            )));
-        }
-        if !status.is_success() {
-            return classify_api_response(response, status).await;
-        }
-
-        read_body(response, MAX_SUCCESS_BODY_BYTES)
-            .await
-            .map_err(|error| match error {
-                BodyReadError::TooLarge => RequestFailure::terminal(GitHubError::ResponseTooLarge),
-                BodyReadError::Transport(error) => classify_transport_error(error),
-            })
+        Err(RequestFailure::terminal(GitHubError::RedirectRejected))
     }
 }
 
@@ -269,7 +339,7 @@ async fn acquire_request_slot(
 async fn classify_api_response(
     response: Response,
     status: StatusCode,
-) -> Result<Vec<u8>, RequestFailure> {
+) -> Result<ResponseBody, RequestFailure> {
     let headers = response.headers().clone();
     let retry_after = retry_after_hint(&headers);
     let body = read_error_prefix(response).await.unwrap_or_default();
@@ -334,18 +404,20 @@ async fn read_body_prefix(mut response: Response, limit: usize) -> Result<Vec<u8
     Ok(bytes)
 }
 
-fn classify_redirect(response: &Response, origin: &TrustedOrigin) -> GitHubError {
+fn redirect_target(response: &Response, origin: &TrustedOrigin) -> Result<Url, GitHubError> {
     let location = response
         .headers()
         .get(LOCATION)
         .and_then(|value| value.to_str().ok());
     let Some(location) = location else {
-        return GitHubError::RedirectRejected;
+        return Err(GitHubError::RedirectRejected);
     };
-    match response.url().join(location) {
-        Ok(url) if origin.validate(&url).is_err() => GitHubError::UntrustedOrigin,
-        _ => GitHubError::RedirectRejected,
-    }
+    let target = response
+        .url()
+        .join(location)
+        .map_err(|_| GitHubError::RedirectRejected)?;
+    origin.validate(&target)?;
+    Ok(target)
 }
 
 fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
@@ -354,6 +426,93 @@ fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
     } else {
         RequestFailure::retryable(GitHubError::Network, None)
     }
+}
+
+fn next_page_from_headers(
+    current_url: &Url,
+    headers: &reqwest::header::HeaderMap,
+    origin: &TrustedOrigin,
+) -> Result<Option<Url>, GitHubError> {
+    for value in headers.get_all(LINK).iter() {
+        let value = value
+            .to_str()
+            .map_err(|_| GitHubError::InvalidPaginationLink)?;
+        for item in split_link_header(value) {
+            if let Some(target) = next_link_target(item)? {
+                let next = current_url
+                    .join(target)
+                    .map_err(|_| GitHubError::InvalidPaginationLink)?;
+                origin.validate(&next)?;
+                return Ok(Some(next));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn split_link_header(value: &str) -> Vec<&str> {
+    let mut items = Vec::new();
+    let mut start = 0;
+    let mut in_angle = false;
+    let mut in_quotes = false;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if in_quotes {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_quotes = false;
+            }
+            continue;
+        }
+        match character {
+            '<' => in_angle = true,
+            '>' => in_angle = false,
+            '"' => in_quotes = true,
+            ',' if !in_angle => {
+                items.push(value[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if start <= value.len() {
+        items.push(value[start..].trim());
+    }
+    items
+}
+
+fn next_link_target(item: &str) -> Result<Option<&str>, GitHubError> {
+    let Some(close_bracket) = item.find('>') else {
+        if item.to_ascii_lowercase().contains("rel=\"next\"") {
+            return Err(GitHubError::InvalidPaginationLink);
+        }
+        return Ok(None);
+    };
+    let Some(target) = item.strip_prefix('<') else {
+        return Err(GitHubError::InvalidPaginationLink);
+    };
+    let target = &target[..close_bracket - 1];
+    let parameters = &item[close_bracket + 1..];
+    let is_next = parameters.split(';').any(|parameter| {
+        let Some((name, value)) = parameter.trim().split_once('=') else {
+            return false;
+        };
+        if !name.trim().eq_ignore_ascii_case("rel") {
+            return false;
+        }
+        value
+            .trim()
+            .trim_matches('"')
+            .split_ascii_whitespace()
+            .any(|relation| relation.eq_ignore_ascii_case("next"))
+    });
+    if is_next && target.is_empty() {
+        return Err(GitHubError::InvalidPaginationLink);
+    }
+    Ok(is_next.then_some(target))
 }
 
 fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {
@@ -429,6 +588,11 @@ struct RequestFailure {
     error: GitHubError,
     retryable: bool,
     retry_after: Option<Duration>,
+}
+
+struct ResponseBody {
+    body: Vec<u8>,
+    next_page: Option<Url>,
 }
 
 impl RequestFailure {
@@ -536,7 +700,9 @@ mod tests {
             if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
                 ResponseTemplate::new(503).set_body_json(serde_json::json!({"message": "retry"}))
             } else {
-                ResponseTemplate::new(200).set_body_json(serde_json::json!({"message": "ok"}))
+                ResponseTemplate::new(200)
+                    .insert_header("Link", "<?page=2>; title=\"next, page\"; rel=\"next\"")
+                    .set_body_json(serde_json::json!({"message": "ok"}))
             }
         }
     }
@@ -553,7 +719,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retries_selected_server_failures_and_sends_token_only_to_configured_origin() {
+    async fn retries_selected_server_failures_and_sends_the_bearer_token() {
         let server = MockServer::start().await;
         let attempts = Arc::new(AtomicUsize::new(0));
         Mock::given(method("GET"))
@@ -569,12 +735,13 @@ mod tests {
         )
         .unwrap();
         let url = Url::parse(&format!("{}/thread", server.uri())).unwrap();
-        let message: Message = client
-            .get_json(&url, &CancellationToken::new())
+        let response: super::GitHubResponse<Message> = client
+            .get_json_page(&url, &CancellationToken::new())
             .await
             .unwrap();
 
-        assert_eq!(message.message, "ok");
+        assert_eq!(response.value.message, "ok");
+        assert_eq!(response.next_page.unwrap().query(), Some("page=2"));
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
     }
 
@@ -707,6 +874,56 @@ mod tests {
                 .await,
             Err(GitHubError::UntrustedOrigin)
         );
+    }
+
+    #[tokio::test]
+    async fn same_origin_redirect_can_follow_a_renamed_repository() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/repos/old-name"))
+            .respond_with(
+                ResponseTemplate::new(301)
+                    .insert_header("Location", format!("{}/repos/new-name", server.uri())),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/repos/new-name"))
+            .and(header("authorization", "Bearer test-secret"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "message": "renamed"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let client = GitHubClient::new(
+            config(&server),
+            Some(GitHubToken::new("test-secret").unwrap()),
+        )
+        .unwrap();
+        let url = Url::parse(&format!("{}/repos/old-name", server.uri())).unwrap();
+
+        assert_eq!(
+            client
+                .get_json::<Message>(&url, &CancellationToken::new())
+                .await
+                .unwrap()
+                .message,
+            "renamed"
+        );
+    }
+
+    #[tokio::test]
+    async fn endpoint_paths_keep_enterprise_base_paths_and_encode_segments() {
+        let server = MockServer::start().await;
+        let base_url = Url::parse(&format!("{}/api/v3/", server.uri())).unwrap();
+        let client = GitHubClient::new(ClientConfig::new(base_url), None).unwrap();
+
+        let endpoint = client
+            .endpoint_url(&["repos", "owner name", "repo"])
+            .unwrap();
+        assert_eq!(endpoint.path(), "/api/v3/repos/owner%20name/repo");
     }
 
     #[tokio::test]

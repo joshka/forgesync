@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P2.2 — Thread enumeration**.
+- Next task: **P2.3 — Runs, leases, checkpoints, and basic sync**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -202,10 +202,11 @@ the configured origin, method, attempt, and status. HTTP errors are typed withou
 provider payloads.
 
 The client attaches bearer credentials only to its configured origin. It validates absolute and
-relative pagination URLs, disables automatic redirects, and rejects redirects so callers must
-validate before following them. It retries network failures, 429, selected 5xx responses, and
-identified 403 rate limits; generic authentication and permission failures are not retried. Retry
-and reset hints are honored when they fit the retry budget; otherwise the operation is deferred.
+relative pagination URLs, disables automatic redirects, and explicitly follows same-origin redirects
+after validating each destination. Cross-origin redirects are rejected before contact. It retries
+network failures, 429, selected 5xx responses, and identified 403 rate limits; generic
+authentication and permission failures are not retried. Retry and reset hints are honored when they
+fit the retry budget; otherwise the operation is deferred.
 
 Added CLI-edge credential discovery in configured environment variable, `GITHUB_TOKEN`, then
 host-aware `gh auth token --hostname HOST` order. The `gh` subprocess uses argument arrays, suppresses
@@ -225,6 +226,33 @@ Validation:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
+## P2.2 evidence
+
+Added typed GitHub REST normalization for repository metadata and the combined issues endpoint.
+Numeric repository and thread IDs remain stable when a repository is renamed. Issue responses with
+the REST `pull_request` object normalize as pull requests; unknown owner, author, label, assignee,
+and provider fields remain available in provider data. Pagination follows validated same-origin
+`Link` destinations while preserving enterprise API base paths.
+
+Added schema version 4 repository scan records. Each scan stores its sequence, status, start and
+update times, committed page and thread counts, safe failure summary, and next page URL. The engine
+reserves its sequence before network access, updates the repository by stable provider ID, applies
+each thread row independently, and advances the cursor only after every row in that page commits.
+A later page failure or cancellation leaves prior rows available and the scan explicitly incomplete.
+
+Local HTTP tests cover repository rename redirects, issue and pull-request normalization, enterprise
+pagination, idempotent replay, and a page-two failure that preserves page-one content and its retry
+cursor.
+
+Validation:
+
+- `cargo fmt --all`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked --offline`: passed, 66 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked --offline`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
+- Markdown lint: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -237,7 +265,7 @@ Validation:
 | P1.3 — Observation transactions | Complete | Sequence, staging, comparator, membership, and coverage atomicity |
 | P1.4 — Offline inspect/search | Complete | Read-only queries, FTS5, stable ties and versioned JSON |
 | P2.1 — HTTP transport and credentials | Complete | Retry, origin-safe auth, cancellation, credential discovery |
-| P2.2 — Thread enumeration | Next | Typed repository/thread REST pagination and normalization |
+| P2.2 — Thread enumeration | Complete | Stable identities, durable page cursors, rename handling, replay and partial-failure checks |
 | P2.3–P2.4 — Runs and child acquisition | Not started | Leases, checkpoints, comments, isolated failures |
 | P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |

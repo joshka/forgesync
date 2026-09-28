@@ -1,3 +1,4 @@
+use forgesync_github::{ApiFailureKind, GitHubError};
 use forgesync_store::StoreError;
 use thiserror::Error;
 
@@ -35,6 +36,9 @@ pub enum EngineError {
     /// An archive operation failed.
     #[error(transparent)]
     Store(#[from] StoreError),
+    /// A GitHub acquisition request failed before a partial report was available.
+    #[error(transparent)]
+    GitHub(#[from] GitHubError),
 }
 
 impl EngineError {
@@ -49,6 +53,35 @@ impl EngineError {
             Self::InvalidPageOffset => "page_offset_invalid",
             Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",
             Self::Store(error) => error.code(),
+            Self::GitHub(GitHubError::Cancelled) => "operation_cancelled",
+            Self::GitHub(GitHubError::Timeout) => "github_timeout",
+            Self::GitHub(GitHubError::Network) => "github_network_error",
+            Self::GitHub(GitHubError::Api {
+                kind: ApiFailureKind::AuthenticationRequired,
+                ..
+            }) => "github_authentication_required",
+            Self::GitHub(GitHubError::Api {
+                kind: ApiFailureKind::PermissionDenied,
+                ..
+            }) => "github_permission_denied",
+            Self::GitHub(GitHubError::Deferred { .. }) => "github_retry_deferred",
+            Self::GitHub(error) => match error {
+                GitHubError::UntrustedOrigin => "github_untrusted_origin",
+                GitHubError::InvalidPaginationLink => "github_pagination_invalid",
+                GitHubError::RedirectRejected => "github_redirect_rejected",
+                GitHubError::ResponseTooLarge => "github_response_too_large",
+                GitHubError::InvalidJson => "github_response_invalid_json",
+                GitHubError::InvalidProviderData => "github_provider_data_invalid",
+                GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
+                GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
+                GitHubError::InvalidConfiguration => "github_configuration_invalid",
+                GitHubError::ClientInitialization => "github_client_initialization_failed",
+                GitHubError::Api { .. } => "github_api_error",
+                GitHubError::Cancelled
+                | GitHubError::Timeout
+                | GitHubError::Network
+                | GitHubError::Deferred { .. } => unreachable!(),
+            },
         }
     }
 }

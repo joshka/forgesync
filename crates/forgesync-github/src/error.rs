@@ -50,6 +50,9 @@ pub enum GitHubError {
     /// A request or pagination link points outside the configured API origin.
     #[error("GitHub URL is outside the configured API origin")]
     UntrustedOrigin,
+    /// A GitHub pagination Link header cannot be parsed safely.
+    #[error("GitHub pagination link is invalid")]
+    InvalidPaginationLink,
     /// The provider returned a redirect which must be followed explicitly after validation.
     #[error("GitHub redirected the request; validate the destination and retry explicitly")]
     RedirectRejected,
@@ -59,6 +62,9 @@ pub enum GitHubError {
     /// The API returned a successful response that was not valid JSON for the requested type.
     #[error("GitHub response was not valid JSON")]
     InvalidJson,
+    /// Provider data could not be normalized into the selected core model.
+    #[error("GitHub response contains invalid provider data")]
+    InvalidProviderData,
     /// The configured request concurrency limit could not be acquired.
     #[error("GitHub request capacity is unavailable")]
     ConcurrencyUnavailable,

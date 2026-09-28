@@ -3,6 +3,7 @@
 //! Durable archive operations and local query primitives.
 
 mod archive;
+mod enumeration;
 mod error;
 mod families;
 mod health;
@@ -12,6 +13,7 @@ mod ordering;
 mod reads;
 
 pub use archive::{ARCHIVE_FORMAT_ID, Archive, ArchiveInfo};
+pub use enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
 pub use error::StoreError;
 pub use health::{DoctorReport, HealthCheck};
 pub use migration::{AppliedMigration, MigrationReport};

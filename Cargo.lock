@@ -582,15 +582,21 @@ name = "forgesync-engine"
 version = "0.1.0"
 dependencies = [
  "forgesync-core",
+ "forgesync-github",
  "forgesync-store",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
+ "tokio-util",
+ "wiremock",
 ]
 
 [[package]]
 name = "forgesync-github"
 version = "0.1.0"
 dependencies = [
+ "forgesync-core",
  "httpdate",
  "reqwest",
  "serde",
