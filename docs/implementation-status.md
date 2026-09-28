@@ -2,8 +2,9 @@
 
 ## Current position
 
-- Next task: **P0.2 — Bootstrap the Rust workspace**.
+- Next task: **P0.3 — Build the fixture catalog**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
+- Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -30,10 +31,27 @@ fixture revision freshness, incomplete generations, independent family reservati
 equivalence/malformed cases, and transactional application before P1.3 implementation. No conflict
 has been established.
 
+## P0.2 evidence
+
+Created the resolver-3 workspace with core, store, and CLI crates, pinned Rust 1.98.1, generated
+Cargo.lock, added CI checks and the repository-specific AGENTS.md. The current CLI has global Clap
+options, --version/help behavior, and a tested versioned JSON envelope. It intentionally advertises
+no feature commands until an implementation phase provides their handlers. No Gitcrawl or CrawlKit
+source code was copied, so no inherited source-license attribution was needed.
+
+Cargo resolved Clap 4.6.7, Serde 1.0.229, serde_json 1.0.151, and assert_cmd 2.2.2. These are lockfile
+versions, not raised minimum requirements.
+
 Validation:
 
 - markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/compatibility.md
   docs/implementation-status.md: passed, 0 issues.
+- cargo fmt --all -- --check: passed.
+- cargo clippy --workspace --all-targets --all-features --locked -- -D warnings: passed.
+- cargo test --workspace --locked: passed, 6 tests.
+- cargo build -p forgesync-cli --no-default-features --locked: passed.
+- cargo doc --workspace --no-deps --all-features --locked: passed.
+- Offline cargo install to target/install-smoke and installed --version/--help smoke: passed.
 - Reference jj revision recorded without changing the checkout.
 
 ## Task sequence
@@ -41,8 +59,8 @@ Validation:
 | Task | Status | Evidence or next gate |
 | --- | --- | --- |
 | P0.1 — Capture the baseline | Complete | Ledger, command migration table, data families, selected matrix |
-| P0.2 — Bootstrap the workspace | Next | Core/store/CLI first; workspace metadata, pinned toolchain, CI, Clap contract |
-| P0.3 — Build the fixture catalog | Not started | Named, sanitized selected-family scenarios and observation truth table |
+| P0.2 — Bootstrap the workspace | Complete | Core/store/CLI, pinned toolchain, lockfile, CI, Clap envelope and process checks |
+| P0.3 — Build the fixture catalog | Next | Named, sanitized selected-family scenarios and observation truth table |
 | P1.1 — Core identities/outcomes | Not started | Checked host/repository/thread/run IDs and typed evidence states |
 | P1.2 — Explicit SQLite lifecycle | Not started | Separate create/open/migrate; no open-time creation or migration |
 | P1.3 — Observation transactions | Not started | Sequence, staging, comparator, membership, and coverage atomicity |
