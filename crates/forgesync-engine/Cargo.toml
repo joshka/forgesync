@@ -9,6 +9,7 @@ forgesync-core = { path = "../forgesync-core" }
 forgesync-github = { path = "../forgesync-github" }
 forgesync-store = { path = "../forgesync-store" }
 reqwest.workspace = true
+regex.workspace = true
 sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true

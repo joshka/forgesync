@@ -86,6 +86,27 @@ pub enum EngineError {
     /// A semantic or hybrid page would retain too many ranked results.
     #[error("semantic and hybrid search support an offset plus limit of at most 10,000")]
     SearchWindowTooLarge,
+    /// No compatible current vectors exist in the selected clustering scope.
+    #[error("clustering has no current compatible vectors; run `forgesync embed`")]
+    ClusterVectorsUnavailable,
+    /// Clustering thresholds or resource bounds are invalid.
+    #[error("clustering options are invalid")]
+    InvalidClusterOptions,
+    /// The archive returned duplicate or contradictory clustering inputs.
+    #[error("clustering input is invalid")]
+    InvalidClusterInput,
+    /// A selected local cluster does not exist in the archive.
+    #[error("cluster is not present in this archive")]
+    ClusterMissing,
+    /// A local decision does not target a current member of the selected cluster.
+    #[error("cluster decision target is not a current member")]
+    InvalidClusterDecision,
+    /// Cluster graph construction was cancelled.
+    #[error("clustering was cancelled")]
+    ClusteringCancelled,
+    /// A bounded cluster graph worker ended before returning its result.
+    #[error("cluster graph worker failed")]
+    ClusterWorkerFailed,
     /// The embedding provider rejected or could not fulfill a search request.
     #[error(transparent)]
     Embedding(#[from] EmbeddingClientError),
@@ -129,6 +150,13 @@ impl EngineError {
             Self::SearchCancelled => "operation_cancelled",
             Self::SearchWorkerFailed => "search_worker_failed",
             Self::SearchWindowTooLarge => "search_window_too_large",
+            Self::ClusterVectorsUnavailable => "cluster_vectors_unavailable",
+            Self::InvalidClusterOptions => "cluster_options_invalid",
+            Self::InvalidClusterInput => "cluster_input_invalid",
+            Self::ClusterMissing => "cluster_missing",
+            Self::InvalidClusterDecision => "cluster_decision_invalid",
+            Self::ClusteringCancelled => "operation_cancelled",
+            Self::ClusterWorkerFailed => "cluster_worker_failed",
             Self::Embedding(EmbeddingClientError::Cancelled) => "operation_cancelled",
             Self::Embedding(error) => error.code(),
             Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",

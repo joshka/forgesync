@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P4.4 — Clustering and maintainer decisions**.
+- Next task: **P4.5 — Refresh composition**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -509,6 +509,46 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
   docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
 
+## P4.4 evidence
+
+Added deterministic candidate graph construction from current stored vectors and explicit issue
+references. The graph retains Gitcrawl's selected scoring gates: same-kind cosine threshold `0.80`,
+cross-kind threshold `0.93`, high-confidence threshold `0.90`, weak title overlap `0.18`, direct
+reference score `0.94`, and early body reference evidence within 240 bytes. Per-thread fanout defaults
+to 16, connected components are capped at 40 members, and representative selection breaks degree
+ties by issue number and stable identity. Graph construction is separate from SQLite persistence and
+CLI rendering, runs in a bounded blocking worker, and checks cancellation.
+
+Migration 10 adds cluster runs, stable public cluster IDs, generated memberships, local member
+decisions, and decision events. Regeneration matches old and new groups by deterministic member
+overlap, keeps the same public ID where groups correspond, and carries canonical, exclusion, and
+dismissal decisions forward. Partial vector coverage updates only observed groups and never retires
+unseen groups or removes unseen memberships; complete current coverage may retire them.
+
+The engine clusters current open discussions using only complete vectors for the selected endpoint,
+model, and document recipe. It holds and heartbeats the archive writer lease across its local vector
+snapshot, graph build, and generation write. It does not contact the embedding provider or read an API
+key. Reports show eligible and vector counts; zero vectors with eligible discussions return an
+actionable unavailable-vector error without writing a run. The CLI implements `cluster build`,
+`cluster list`, `cluster show`, `cluster dismiss/restore`, `cluster exclude/include`, and
+`cluster canonical` with versioned JSON and local-only decisions.
+
+Reference-scoring unit tests cover similarity safeguards, repository-scoped references, early body
+references, bounded fanout, max size, determinism, and cancellation. On-disk store tests cover stable
+IDs, partial retention, complete retirement, canonical/exclusion/dismissal persistence, and input
+validation. Engine and CLI integration tests cover fresh-vector selection, stale-vector partial
+coverage, no-vector rejection, offline build/list, and operation without an embedding API key.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 128 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
+  docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -531,7 +571,7 @@ Validation:
 | P4.1 — Versioned documents | Complete | Two recipes, timestamp-independent hashes, fenced document persistence |
 | P4.2 — Embeddings | Complete | Bounded client, deterministic chunk batches, validated vectors, retry reuses successful batches |
 | P4.3 — Semantic and hybrid search | Complete | Paged exact cosine, RRF provenance, explicit fallback, 10k/100k latency and peak-RSS measurements |
-| P4.4 — Clustering and maintainer decisions | Not started | Deterministic candidate graph, stable IDs, persisted decisions |
+| P4.4 — Clustering and maintainer decisions | Complete | Bounded deterministic graph, durable stable IDs, local decisions, partial-coverage safety |
 | P4.5 — Refresh composition | Not started | Explicit optional analysis stages and per-stage outcomes |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |

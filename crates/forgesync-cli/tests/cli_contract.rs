@@ -42,6 +42,7 @@ fn help_lists_global_options_and_no_deferred_commands() {
     assert!(stdout.contains("thread"));
     assert!(stdout.contains("run"));
     assert!(stdout.contains("embed"));
+    assert!(stdout.contains("cluster"));
 }
 
 #[test]
@@ -228,7 +229,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let init_json: serde_json::Value = serde_json::from_slice(&init.stdout).expect("init JSON");
     assert_eq!(init_json["command"], "archive init");
     assert_eq!(init_json["schema_version"], 1);
-    assert_eq!(init_json["data"]["schema_version"], 9);
+    assert_eq!(init_json["data"]["schema_version"], 10);
     let archive_id = init_json["data"]["archive_id"]
         .as_str()
         .expect("archive ID");

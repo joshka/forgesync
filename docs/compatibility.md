@@ -47,7 +47,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | neighbors | redesign | thread related uses the shared retrieval and ranking policy | internal/cli/neighbors.go |
 | summarize, key-summaries | defer | Summary generation is explicitly outside v2 | internal/cli/summarize.go; internal/store/summary_tasks.go |
 | embed | retain | Optional embeddings are independent of keyword workflows | internal/cli/embed.go; internal/openai/client.go |
-| cluster, clusters, reports, durable views, detail/explain | redesign | One cluster namespace with stable public IDs and shared evidence queries | internal/cli/cluster.go; internal/cli/clusters.go |
+| cluster, clusters, reports, durable views, detail/explain | redesign | `cluster build/list/show/dismiss/restore/exclude/include/canonical` use stable IDs, shared evidence queries, and archive-local decisions | internal/cli/cluster.go; internal/cli/clusters.go; P4.4 |
 | close-thread, reopen-thread | redesign | thread dismiss/restore changes local triage state, not GitHub open/closed state | internal/cli/governance.go |
 | close-cluster, reopen-cluster | redesign | cluster dismiss/restore persists local decisions across regeneration | internal/cli/governance.go |
 | exclude/include cluster member, set canonical | redesign | cluster exclude/include/canonical retain selected local maintainer choices | internal/cli/governance.go |

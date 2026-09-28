@@ -13,8 +13,9 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, Command, RunCommand, RunFamilyArg, SearchModeArg, SyncIncludeArg,
-    SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
+    ArchiveCommand, CliArgs, ClusterCommand, Command, RunCommand, RunFamilyArg, SearchModeArg,
+    SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
+    ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use config::ForgesyncConfig;
@@ -23,11 +24,14 @@ use forgesync_core::{
     ThreadKind, ThreadKind as DiscussionKind, UtcTimestamp,
 };
 use forgesync_engine::{
-    EmbeddingClient, EmbeddingReport, EngineError, RepositorySelector, RetryReport, SearchMode,
-    SearchRequest, SearchResultPage, SyncProgress, SyncReport, SyncRequest, SyncThreadScope,
-    ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector, ThreadSort,
-    ThreadStateFilter, archive_status, embed_documents, list_runs, list_threads, plan_run_retry,
-    retrieve_threads, run_retry, show_run, show_thread, sync_repositories,
+    ClusterBuildReport, ClusterBuildRequest, ClusterDetail, ClusterListRequest, ClusterOptions,
+    ClusterPage, EmbeddingClient, EmbeddingReport, EngineError, RepositorySelector, RetryReport,
+    SearchMode, SearchRequest, SearchResultPage, SyncProgress, SyncReport, SyncRequest,
+    SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector,
+    ThreadSort, ThreadStateFilter, archive_status, build_clusters, dismiss_cluster,
+    embed_documents, exclude_cluster_member, include_cluster_member, list_clusters, list_runs,
+    list_threads, plan_run_retry, restore_cluster, retrieve_threads, run_retry,
+    set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
@@ -328,6 +332,27 @@ async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
                 verbose: args.verbose,
                 cancellation: &cancellation,
             })
+            .await;
+            interrupt_task.abort();
+            result
+        }
+        Command::Cluster { command } => {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let interrupt_cancellation = cancellation.clone();
+            let interrupt_task = tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    interrupt_cancellation.cancel();
+                }
+            });
+            let result = cluster_command(
+                &path,
+                command,
+                config.embeddings,
+                config.documents.recipe,
+                args.json,
+                args.verbose,
+                &cancellation,
+            )
             .await;
             interrupt_task.abort();
             result
@@ -775,6 +800,206 @@ async fn embed_command(request: EmbedCommandRequest<'_>) -> ExitCode {
     render_result(json, "embed", &output, embedding_summary, exit_status)
 }
 
+async fn cluster_command(
+    archive_path: &std::path::Path,
+    command: ClusterCommand,
+    mut embedding_service: crate::config::EmbeddingServiceConfig,
+    recipe: DocumentRecipe,
+    json: bool,
+    verbose: u8,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> ExitCode {
+    match command {
+        ClusterCommand::Build {
+            repository,
+            endpoint,
+            model,
+            threshold,
+            cross_kind_threshold,
+            fanout,
+            max_cluster_size,
+            min_cluster_size,
+        } => {
+            if let Some(endpoint) = endpoint {
+                embedding_service.endpoint = endpoint;
+            }
+            if let Some(model) = model {
+                embedding_service.model = model;
+            }
+            if let Err(error) = embedding_service.validate() {
+                return render_error_with_status(
+                    json,
+                    "cluster build",
+                    error.code(),
+                    &error.to_string(),
+                    ExitCode::from(2),
+                );
+            }
+            let endpoint = match url::Url::parse(&embedding_service.endpoint) {
+                Ok(endpoint) => endpoint.as_str().trim_end_matches('/').to_owned(),
+                Err(_) => {
+                    return render_error_with_status(
+                        json,
+                        "cluster build",
+                        "embedding_configuration_invalid",
+                        "embedding service configuration is invalid",
+                        ExitCode::from(2),
+                    );
+                }
+            };
+            let request = ClusterBuildRequest {
+                repository,
+                endpoint,
+                model: embedding_service.model.trim().to_owned(),
+                recipe,
+                options: ClusterOptions {
+                    threshold,
+                    cross_kind_threshold,
+                    fanout: usize::try_from(fanout).unwrap_or(usize::MAX),
+                    max_cluster_size: usize::try_from(max_cluster_size).unwrap_or(usize::MAX),
+                    min_cluster_size: usize::try_from(min_cluster_size).unwrap_or(usize::MAX),
+                },
+            };
+            if verbose > 0 && !json {
+                eprintln!(
+                    "forgesync: building local clusters for {} using stored vectors",
+                    request.repository.as_url()
+                );
+            }
+            let archive = match Archive::open_read_write(archive_path).await {
+                Ok(archive) => archive,
+                Err(error) => return render_store_error(json, "cluster build", error),
+            };
+            let result = build_clusters(&archive, &request, cancellation).await;
+            archive.close().await;
+            match result {
+                Ok(report) => {
+                    let status = if report.generation.complete_coverage {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(3)
+                    };
+                    render_result(
+                        json,
+                        "cluster build",
+                        &report,
+                        cluster_build_summary,
+                        status,
+                    )
+                }
+                Err(error) => render_engine_error(json, "cluster build", error),
+            }
+        }
+        ClusterCommand::List {
+            repositories,
+            include_retired,
+            limit,
+            offset,
+        } => match Archive::open_read_only(archive_path).await {
+            Ok(archive) => {
+                let result = list_clusters(
+                    &archive,
+                    &ClusterListRequest {
+                        repositories,
+                        include_retired,
+                        limit,
+                        offset,
+                    },
+                )
+                .await;
+                archive.close().await;
+                match result {
+                    Ok(page) => render_success(json, "cluster list", &page, cluster_page_summary),
+                    Err(error) => render_engine_error(json, "cluster list", error),
+                }
+            }
+            Err(error) => render_store_error(json, "cluster list", error),
+        },
+        ClusterCommand::Show { id } => match Archive::open_read_only(archive_path).await {
+            Ok(archive) => {
+                let result = show_cluster(&archive, id).await;
+                archive.close().await;
+                match result {
+                    Ok(detail) => {
+                        render_success(json, "cluster show", &detail, cluster_detail_summary)
+                    }
+                    Err(error) => render_engine_error(json, "cluster show", error),
+                }
+            }
+            Err(error) => render_store_error(json, "cluster show", error),
+        },
+        ClusterCommand::Dismiss { id, reason } => {
+            mutate_cluster(json, "cluster dismiss", id, "dismissed", async {
+                let archive = Archive::open_read_write(archive_path).await?;
+                let result = dismiss_cluster(&archive, id, reason.as_deref().unwrap_or("")).await;
+                archive.close().await;
+                result
+            })
+            .await
+        }
+        ClusterCommand::Restore { id } => {
+            mutate_cluster(json, "cluster restore", id, "restored", async {
+                let archive = Archive::open_read_write(archive_path).await?;
+                let result = restore_cluster(&archive, id).await;
+                archive.close().await;
+                result
+            })
+            .await
+        }
+        ClusterCommand::Exclude { id, member, reason } => {
+            mutate_cluster(json, "cluster exclude", id, "member_excluded", async move {
+                let archive = Archive::open_read_write(archive_path).await?;
+                let result =
+                    exclude_cluster_member(&archive, id, &member, reason.as_deref().unwrap_or(""))
+                        .await;
+                archive.close().await;
+                result
+            })
+            .await
+        }
+        ClusterCommand::Include { id, member } => {
+            mutate_cluster(json, "cluster include", id, "member_included", async move {
+                let archive = Archive::open_read_write(archive_path).await?;
+                let result = include_cluster_member(&archive, id, &member).await;
+                archive.close().await;
+                result
+            })
+            .await
+        }
+        ClusterCommand::Canonical { id, member } => {
+            mutate_cluster(json, "cluster canonical", id, "canonical_set", async move {
+                let archive = Archive::open_read_write(archive_path).await?;
+                let result = set_canonical_cluster_member(&archive, id, &member).await;
+                archive.close().await;
+                result
+            })
+            .await
+        }
+    }
+}
+
+async fn mutate_cluster<F>(
+    json: bool,
+    command: &'static str,
+    cluster_id: u64,
+    action: &'static str,
+    operation: F,
+) -> ExitCode
+where
+    F: std::future::Future<Output = Result<(), EngineError>>,
+{
+    match operation.await {
+        Ok(()) => render_success(
+            json,
+            command,
+            &ClusterDecisionOutput { cluster_id, action },
+            cluster_decision_summary,
+        ),
+        Err(EngineError::Store(error)) => render_store_error(json, command, error),
+        Err(error) => render_engine_error(json, command, error),
+    }
+}
+
 fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
     total.documents = total.documents.saturating_add(page.documents);
     total.chunks_selected = total.chunks_selected.saturating_add(page.chunks_selected);
@@ -989,6 +1214,12 @@ struct EmbeddingOutput {
     report: EmbeddingReport,
 }
 
+#[derive(Serialize)]
+struct ClusterDecisionOutput {
+    cluster_id: u64,
+    action: &'static str,
+}
+
 fn embedding_summary(output: &EmbeddingOutput) -> String {
     let state = if output.report.cancelled {
         "cancelled"
@@ -1008,6 +1239,101 @@ fn embedding_summary(output: &EmbeddingOutput) -> String {
         output.model,
         output.endpoint
     )
+}
+
+fn cluster_build_summary(report: &ClusterBuildReport) -> String {
+    let coverage = if report.generation.complete_coverage {
+        "complete"
+    } else {
+        "partial"
+    };
+    format!(
+        "Cluster build {coverage}: {} eligible discussions, {} with vectors, {} candidate edges, {} groups, {} members, {} groups retired (run {})",
+        report.eligible_threads,
+        report.vector_threads,
+        report.candidate_edges,
+        report.generation.cluster_count,
+        report.generation.member_count,
+        report.generation.retired_count,
+        report.generation.run_id
+    )
+}
+
+fn cluster_page_summary(page: &ClusterPage) -> String {
+    if page.items.is_empty() {
+        return "No clusters found".to_owned();
+    }
+    let mut lines = Vec::with_capacity(page.items.len() + 1);
+    lines.push(format!("{} cluster(s)", page.items.len()));
+    for cluster in &page.items {
+        let lifecycle = match cluster.lifecycle {
+            forgesync_engine::ClusterLifecycle::Active => "active",
+            forgesync_engine::ClusterLifecycle::Retired => "retired",
+        };
+        let dismissed = if cluster.dismissed { ", dismissed" } else { "" };
+        lines.push(format!(
+            "#{} [{}{}] {} active / {} excluded: {}",
+            cluster.id,
+            lifecycle,
+            dismissed,
+            cluster.active_member_count,
+            cluster.excluded_member_count,
+            cluster.title
+        ));
+    }
+    if let Some(offset) = page.next_offset {
+        lines.push(format!("Next page: --offset {offset}"));
+    }
+    lines.join("\n")
+}
+
+fn cluster_detail_summary(detail: &ClusterDetail) -> String {
+    let cluster = &detail.cluster;
+    let lifecycle = match cluster.lifecycle {
+        forgesync_engine::ClusterLifecycle::Active => "active",
+        forgesync_engine::ClusterLifecycle::Retired => "retired",
+    };
+    let representative = cluster.representative.as_ref().map_or_else(
+        || "none".to_owned(),
+        |thread| format!("#{}", thread.number().get()),
+    );
+    let mut lines = vec![format!(
+        "Cluster #{} [{}] {} — {} ({} members, representative {})",
+        cluster.id,
+        lifecycle,
+        cluster.repository.full_name,
+        cluster.title,
+        cluster.active_member_count + cluster.excluded_member_count,
+        representative
+    )];
+    if cluster.dismissed {
+        lines.push(format!(
+            "Dismissed: {}",
+            cluster.dismissal_reason.as_deref().unwrap_or_default()
+        ));
+    }
+    for member in &detail.members {
+        let role = match member.role {
+            forgesync_engine::ClusterMemberRole::Canonical => "canonical",
+            forgesync_engine::ClusterMemberRole::Representative => "representative",
+            forgesync_engine::ClusterMemberRole::Related => "related",
+        };
+        let state = match member.state {
+            forgesync_engine::ClusterMemberState::Active => "active",
+            forgesync_engine::ClusterMemberState::Excluded => "excluded",
+            forgesync_engine::ClusterMemberState::Removed => "removed",
+        };
+        lines.push(format!(
+            "  #{} [{role}, {state}] {}",
+            member.summary.discussion.id.number().get(),
+            member.summary.discussion.title
+        ));
+    }
+    lines.join("\n")
+}
+
+fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
+    format!("Cluster #{}: {}", output.cluster_id, output.action)
 }
 
 fn render_thread_page(json: bool, command: &str, page: &ThreadPage) -> ExitCode {

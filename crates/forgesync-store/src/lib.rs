@@ -4,6 +4,7 @@
 
 mod archive;
 mod checkpoints;
+mod clusters;
 mod diagnostics;
 mod documents;
 mod embeddings;
@@ -19,6 +20,11 @@ mod reads;
 mod runs;
 
 pub use archive::{ARCHIVE_FORMAT_ID, Archive, ArchiveInfo};
+pub use clusters::{
+    ClusterDetail, ClusterGenerationInput, ClusterGenerationResult, ClusterInput, ClusterLifecycle,
+    ClusterListQuery, ClusterMember, ClusterMemberInput, ClusterMemberRole, ClusterMemberState,
+    ClusterPage, ClusterSummary,
+};
 pub use diagnostics::{
     ArchiveDiagnostics, ArchiveLeaseStatus, FamilyFailureCount, PendingMigration,
     SchemaDiagnostics, WorkDiagnostics,

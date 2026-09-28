@@ -59,6 +59,31 @@ The `embed` command accepts `--endpoint`, `--model`, `--api-key-env`, `--dimensi
 Completed vector batches are stored independently; a later run reuses matching chunks and requests
 only missing ones. Provider keys are never included in archive identity or output.
 
+## Related-discussion clusters
+
+`cluster build OWNER/REPO` uses the configured embedding endpoint and model identity together with
+the configured document recipe. It reads current open discussions and their compatible stored
+vectors. The command does not read the API key or contact the embedding provider; use `embed` to
+create missing vectors first. Command-line `--endpoint` and `--model` select which stored vector
+identity to use.
+
+Clustering defaults to a cosine threshold of `0.80`, a cross-kind issue/pull-request threshold of
+`0.93`, fanout `16`, maximum component size `40`, and minimum component size `1`. Override these with
+`--threshold`, `--cross-kind-threshold`, `--fanout`, `--max-cluster-size`, and
+`--min-cluster-size`. The graph is deterministic for the same archive content, vectors, and options.
+
+The command compares the number of current open discussions with the number that have complete
+compatible vectors. A run with partial vector coverage records groups from available vectors and
+preserves unseen groups and memberships. A complete run can retire groups that no longer qualify.
+If eligible discussions exist but none has a compatible vector, the command reports that vectors
+are unavailable and writes no generation. JSON and human output report eligible and vector counts
+so the coverage policy is visible.
+
+`cluster list`, `cluster show`, `cluster dismiss`, `cluster restore`, `cluster exclude`,
+`cluster include`, and `cluster canonical` inspect or change archive-local triage decisions. These
+commands do not change GitHub state. Dismissal, exclusion, and canonical choices persist across
+matched regenerated clusters.
+
 ## Retrieval modes
 
 `search QUERY` defaults to local keyword search and does not use an embedding service. Use

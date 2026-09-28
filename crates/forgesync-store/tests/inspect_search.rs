@@ -325,6 +325,26 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("drop v7 family head context");
+    sqlx::query("DROP TABLE cluster_events")
+        .execute(&pool)
+        .await
+        .expect("drop v10 cluster events");
+    sqlx::query("DROP TABLE cluster_member_decisions")
+        .execute(&pool)
+        .await
+        .expect("drop v10 cluster decisions");
+    sqlx::query("DROP TABLE cluster_memberships")
+        .execute(&pool)
+        .await
+        .expect("drop v10 cluster memberships");
+    sqlx::query("DROP TABLE clusters")
+        .execute(&pool)
+        .await
+        .expect("drop v10 clusters");
+    sqlx::query("DROP TABLE cluster_runs")
+        .execute(&pool)
+        .await
+        .expect("drop v10 cluster runs");
     sqlx::query("DROP TABLE embeddings")
         .execute(&pool)
         .await
@@ -361,17 +381,21 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("mark archive at schema v2");
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 10")
+        .execute(&pool)
+        .await
+        .expect("mark archive at schema v2");
     pool.close().await;
 
     assert!(matches!(
         Archive::open_read_only(&path).await,
         Err(StoreError::MigrationRequired {
             current: 2,
-            supported: 9
+            supported: 10
         })
     ));
     let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.applied_migrations.len(), 7);
+    assert_eq!(migration.applied_migrations.len(), 8);
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");

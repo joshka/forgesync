@@ -161,6 +161,15 @@ pub enum StoreError {
     /// A stored count is negative or outside the supported range.
     #[error("archive contains an invalid count")]
     InvalidStoredCount,
+    /// A generated cluster input violates identity, membership, or score invariants.
+    #[error("generated cluster data is invalid")]
+    InvalidClusterGeneration,
+    /// A selected local cluster does not exist in this archive.
+    #[error("cluster is not present in this archive")]
+    ClusterMissing,
+    /// A selected thread is not a current member of the cluster.
+    #[error("thread is not a current cluster member")]
+    ClusterMemberMissing,
     /// An advanced FTS5 query is malformed.
     #[error("advanced FTS5 search query is invalid")]
     InvalidSearchQuery,
@@ -237,6 +246,9 @@ impl StoreError {
             Self::InvalidStoredCoverage => "archive_coverage_invalid",
             Self::InvalidStoredThreadKind(_) => "archive_thread_kind_invalid",
             Self::InvalidStoredCount => "archive_count_invalid",
+            Self::InvalidClusterGeneration => "cluster_generation_invalid",
+            Self::ClusterMissing => "cluster_missing",
+            Self::ClusterMemberMissing => "cluster_member_missing",
             Self::InvalidSearchQuery => "search_query_invalid",
             Self::Io { .. } => "archive_io_error",
             Self::Database(_) => "archive_database_error",

@@ -2,6 +2,7 @@
 
 //! Reusable local archive operations shared by frontends.
 
+mod clustering;
 mod documents;
 mod embedding_client;
 mod embeddings;
@@ -14,6 +15,11 @@ mod runs;
 mod search;
 mod sync;
 
+pub use clustering::{
+    ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters,
+    dismiss_cluster, exclude_cluster_member, include_cluster_member, list_clusters,
+    restore_cluster, set_canonical_cluster_member, show_cluster,
+};
 pub use documents::{
     DocumentBuildReport, build_document, build_thread_document, materialize_thread_document,
 };
@@ -24,7 +30,10 @@ pub use enumeration::{
 };
 pub use error::EngineError;
 pub use exact_search::cosine_similarity;
-pub use forgesync_store::{ArchiveStatus, ThreadDetail, ThreadPage};
+pub use forgesync_store::{
+    ArchiveStatus, ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole,
+    ClusterMemberState, ClusterPage, ClusterSummary, ThreadDetail, ThreadPage,
+};
 pub use inspect::{
     ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status, list_threads,
     show_thread,
