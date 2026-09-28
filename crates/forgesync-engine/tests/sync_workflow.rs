@@ -5,7 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use forgesync_core::{
-    Comment, CoverageState, EvidenceFamily, FailureKind, GitHubHost, OperationOutcome, UtcTimestamp,
+    Comment, CoverageState, EvidenceFamily, FailureKind, GitHubHost, OperationOutcome, Review,
+    ReviewState, UtcTimestamp,
 };
 use forgesync_engine::{
     EngineError, RepositorySelector, SyncRequest, SyncThreadScope, sync_repositories,
@@ -62,6 +63,7 @@ async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {
         all: false,
         scope: SyncThreadScope::Open,
         include_comments: false,
+        include_reviews: false,
     };
     let sync_task = tokio::spawn(async move {
         let result =
@@ -516,6 +518,7 @@ async fn comment_failure_ledger_error_retains_the_provider_failure() {
             all: false,
             scope: SyncThreadScope::Open,
             include_comments: true,
+            include_reviews: false,
         },
         &CancellationToken::new(),
         None,
@@ -539,6 +542,183 @@ async fn comment_failure_ledger_error_retains_the_provider_failure() {
     remove_archive(&archive_path);
 }
 
+#[tokio::test]
+async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
+    let server = MockServer::start().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-20T09:30:00Z")]).await;
+    mount_comments(&server, 18, vec![comment(1801, "existing issue comment")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_pull_reviews(
+        &server,
+        200,
+        vec![pull_review(
+            1811,
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        )],
+    )
+    .await;
+
+    let archive_path = temporary_archive_path();
+    let archive = Archive::create(&archive_path)
+        .await
+        .expect("create archive");
+    let selector = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
+    let initial = sync_once_with_families(
+        &archive,
+        &server,
+        selector.clone(),
+        SyncThreadScope::Open,
+        true,
+        true,
+    )
+    .await;
+    assert_eq!(initial.outcome, OperationOutcome::Complete);
+    assert_eq!(initial.comments_seen, 1);
+    assert_eq!(initial.reviews_seen, 1);
+    let comments_before = comment_bodies(&archive, 18).await;
+    let reviews_before = review_members(&archive, 18).await;
+    assert_eq!(comments_before, ["existing issue comment"]);
+    assert_eq!(reviews_before.len(), 1);
+
+    server.reset().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "cccccccccccccccccccccccccccccccccccccccc", false).await;
+    mount_pull_reviews(&server, 500, Vec::new()).await;
+    let failed_refresh = sync_once_with_families(
+        &archive,
+        &server,
+        selector,
+        SyncThreadScope::Open,
+        false,
+        true,
+    )
+    .await;
+    assert!(matches!(
+        failed_refresh.outcome,
+        OperationOutcome::Partial {
+            failed_items: 1,
+            ..
+        }
+    ));
+
+    let summary = thread_summary(&archive, 18).await;
+    assert_eq!(comment_bodies(&archive, 18).await, comments_before);
+    assert!(comment_coverage(&summary).is_stale());
+    assert!(matches!(
+        review_coverage(&summary).state(),
+        CoverageState::Incomplete { .. }
+    ));
+    assert!(review_coverage(&summary).is_stale());
+    assert_eq!(review_members(&archive, 18).await, reviews_before);
+    assert_eq!(
+        review_members(&archive, 18).await[0].payload.state,
+        ReviewState::ChangesRequested
+    );
+
+    archive.close().await;
+    remove_archive(&archive_path);
+}
+
+#[tokio::test]
+async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_them() {
+    let server = MockServer::start().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-20T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
+    mount_pull_reviews(
+        &server,
+        200,
+        vec![pull_review(
+            1811,
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        )],
+    )
+    .await;
+
+    let archive_path = temporary_archive_path();
+    let archive = Archive::create(&archive_path)
+        .await
+        .expect("create archive");
+    let selector = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
+    let initial = sync_once_with_families(
+        &archive,
+        &server,
+        selector.clone(),
+        SyncThreadScope::Open,
+        false,
+        true,
+    )
+    .await;
+    assert_eq!(initial.outcome, OperationOutcome::Complete);
+    assert_eq!(
+        review_members(&archive, 18).await[0]
+            .payload
+            .commit_sha
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    );
+
+    server.reset().await;
+    mount_repository(&server).await;
+    mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
+    mount_pull_request_metadata(&server, "cccccccccccccccccccccccccccccccccccccccc", false).await;
+    Mock::given(method("GET"))
+        .and(path("/api/v3/repos/owner/repo/pulls/18/reviews"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&server)
+        .await;
+    let metadata_only = sync_once_with_families(
+        &archive,
+        &server,
+        selector,
+        SyncThreadScope::Open,
+        false,
+        false,
+    )
+    .await;
+    assert_eq!(metadata_only.outcome, OperationOutcome::Complete);
+    assert_eq!(metadata_only.reviews_seen, 0);
+
+    let summary = thread_summary(&archive, 18).await;
+    assert!(matches!(
+        review_coverage(&summary).state(),
+        CoverageState::Complete { item_count: 1, .. }
+    ));
+    assert!(review_coverage(&summary).is_stale());
+    assert_eq!(
+        review_members(&archive, 18).await[0]
+            .payload
+            .commit_sha
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    );
+    let metadata = archive
+        .child_family_members::<forgesync_core::PullRequestMetadata>(
+            &summary.discussion.id,
+            EvidenceFamily::PullRequestMetadata,
+        )
+        .await
+        .expect("read current pull-request metadata");
+    assert_eq!(
+        metadata[0].payload.head.sha.as_str(),
+        "cccccccccccccccccccccccccccccccccccccccc"
+    );
+
+    archive.close().await;
+    remove_archive(&archive_path);
+}
+
 async fn sync_once(
     archive: &Archive,
     server: &MockServer,
@@ -555,6 +735,17 @@ async fn sync_once_with_comments(
     scope: SyncThreadScope,
     include_comments: bool,
 ) -> forgesync_engine::SyncReport {
+    sync_once_with_families(archive, server, selector, scope, include_comments, false).await
+}
+
+async fn sync_once_with_families(
+    archive: &Archive,
+    server: &MockServer,
+    selector: RepositorySelector,
+    scope: SyncThreadScope,
+    include_comments: bool,
+    include_reviews: bool,
+) -> forgesync_engine::SyncReport {
     let clients = clients_for(server, &selector);
     sync_repositories(
         archive,
@@ -564,6 +755,7 @@ async fn sync_once_with_comments(
             all: false,
             scope,
             include_comments,
+            include_reviews,
         },
         &CancellationToken::new(),
         None,
@@ -591,6 +783,59 @@ async fn mount_open_issues(server: &MockServer, issues: Vec<serde_json::Value>) 
         .respond_with(ResponseTemplate::new(200).set_body_json(issues))
         .mount(server)
         .await;
+}
+
+fn pull_request_issue(updated_at: &str) -> serde_json::Value {
+    let mut issue = issue(1802, 18, "selected change");
+    issue["updated_at"] = json!(updated_at);
+    issue["comments"] = json!(1);
+    issue["html_url"] = json!("https://github.com/owner/repo/pull/18");
+    issue["pull_request"] = json!({
+        "url": "https://api.github.com/repos/owner/repo/pulls/18"
+    });
+    issue
+}
+
+async fn mount_pull_request_metadata(server: &MockServer, head_sha: &str, merged: bool) {
+    Mock::given(method("GET"))
+        .and(path("/api/v3/repos/owner/repo/pulls/18"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "base": {
+                "ref": "main",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "repo": { "id": 41, "full_name": "owner/repo" }
+            },
+            "head": {
+                "ref": "topic",
+                "sha": head_sha,
+                "repo": { "id": 41, "full_name": "owner/repo" }
+            },
+            "draft": false,
+            "merged": merged
+        })))
+        .mount(server)
+        .await;
+}
+
+async fn mount_pull_reviews(server: &MockServer, status: u16, reviews: Vec<serde_json::Value>) {
+    Mock::given(method("GET"))
+        .and(path("/api/v3/repos/owner/repo/pulls/18/reviews"))
+        .and(query_param("per_page", "100"))
+        .respond_with(ResponseTemplate::new(status).set_body_json(reviews))
+        .mount(server)
+        .await;
+}
+
+fn pull_review(id: u64, commit_sha: &str) -> serde_json::Value {
+    json!({
+        "id": id,
+        "state": "CHANGES_REQUESTED",
+        "body": "Please revise this change.",
+        "submitted_at": "2026-09-19T12:00:00Z",
+        "commit_id": commit_sha,
+        "user": { "id": 51, "login": "reviewer", "type": "User" },
+        "author_association": "MEMBER"
+    })
 }
 
 async fn mount_comments(server: &MockServer, number: u64, comments: Vec<serde_json::Value>) {
@@ -631,6 +876,14 @@ fn comment_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core
         .expect("comment coverage")
 }
 
+fn review_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core::Coverage {
+    summary
+        .coverage
+        .iter()
+        .find(|coverage| coverage.family() == EvidenceFamily::Reviews)
+        .expect("review coverage")
+}
+
 async fn comment_bodies(archive: &Archive, number: u64) -> Vec<String> {
     let summary = thread_summary(archive, number).await;
     archive
@@ -640,6 +893,17 @@ async fn comment_bodies(archive: &Archive, number: u64) -> Vec<String> {
         .into_iter()
         .map(|item| item.payload.body)
         .collect()
+}
+
+async fn review_members(
+    archive: &Archive,
+    number: u64,
+) -> Vec<forgesync_store::StagedItem<Review>> {
+    let summary = thread_summary(archive, number).await;
+    archive
+        .child_family_members::<Review>(&summary.discussion.id, EvidenceFamily::Reviews)
+        .await
+        .expect("read canonical reviews")
 }
 
 async fn mount_repository(server: &MockServer) {

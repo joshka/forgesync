@@ -4,10 +4,12 @@ use std::time::Duration;
 
 use forgesync_core::{
     CollectionCompleteness, Comment, DeferredReason, EvidenceFamily, Failure, FailureKind,
-    GitHubHost, OperationOutcome, RunId, SourceClock, UtcTimestamp,
+    GitHubHost, IncompleteReason, OperationOutcome, PullRequestMetadata, Review, RunId,
+    SourceClock, ThreadId, ThreadKind, UtcTimestamp,
 };
 use forgesync_github::{
-    GitHubClient, GitHubError, ThreadListState, fetch_issue_comment_page, fetch_repository,
+    GitHubClient, GitHubError, ThreadListState, fetch_issue_comment_page,
+    fetch_pull_request_metadata, fetch_pull_request_review_page, fetch_repository,
 };
 use forgesync_store::{
     Archive, ArchiveLeaseToken, ChildFamilyFailureScope, ChildFamilyObservation,
@@ -56,6 +58,8 @@ pub struct SyncRequest {
     pub scope: SyncThreadScope,
     /// Acquire issue and pull-request discussion comments.
     pub include_comments: bool,
+    /// Acquire pull-request reviews.
+    pub include_reviews: bool,
 }
 
 /// Progress snapshot sent opportunistically through a bounded channel.
@@ -71,6 +75,10 @@ pub struct SyncProgress {
     pub threads_seen: u64,
     /// Number of comments returned by committed provider pages.
     pub comments_seen: u64,
+    /// Number of pull-request metadata records returned by successful requests.
+    pub pull_request_metadata_seen: u64,
+    /// Number of reviews returned by committed provider pages.
+    pub reviews_seen: u64,
     /// Current repository URL, when one is being processed.
     pub repository: Option<String>,
     /// State of the latest progress update.
@@ -118,6 +126,10 @@ pub struct SyncReport {
     pub threads_seen: u64,
     /// Number of comments returned by committed pages.
     pub comments_seen: u64,
+    /// Number of pull-request metadata records returned by successful requests.
+    pub pull_request_metadata_seen: u64,
+    /// Number of reviews returned by committed pages.
+    pub reviews_seen: u64,
     /// Terminal outcome persisted on the run.
     pub outcome: OperationOutcome,
 }
@@ -130,12 +142,15 @@ struct ScopeUnit {
 }
 
 struct WorkSummary {
+    total_jobs: u64,
     completed_jobs: u64,
     failed_jobs: u64,
     deferred_jobs: u64,
     pages_completed: u64,
     threads_seen: u64,
     comments_seen: u64,
+    pull_request_metadata_seen: u64,
+    reviews_seen: u64,
     interrupted: bool,
     interrupted_jobs: u64,
     pending_jobs: u64,
@@ -145,6 +160,7 @@ struct WorkSummary {
 struct SyncRunContext<'a> {
     total_jobs: u64,
     include_comments: bool,
+    include_reviews: bool,
     run_id: RunId,
     lease: &'a ArchiveLeaseToken,
     cancellation: &'a CancellationToken,
@@ -220,7 +236,7 @@ pub async fn sync_repositories(
     let total_jobs = unique_selectors
         .len()
         .checked_mul(units.len())
-        .and_then(|count| count.checked_mul(if request.include_comments { 2 } else { 1 }))
+        .and_then(|count| count.checked_mul(1 + usize::from(request.include_comments)))
         .and_then(|count| u64::try_from(count).ok())
         .ok_or(StoreError::IntegerOutOfRange)?;
     let started_at = now_utc()?;
@@ -232,6 +248,7 @@ pub async fn sync_repositories(
         "all": request.all,
         "thread_scope": request.scope,
         "include_comments": request.include_comments,
+        "include_reviews": request.include_reviews,
     });
     let run_id = match archive
         .create_run(&lease, None, started_at, &run_scope)
@@ -253,6 +270,7 @@ pub async fn sync_repositories(
         SyncRunContext {
             total_jobs,
             include_comments: request.include_comments,
+            include_reviews: request.include_reviews,
             run_id,
             lease: &lease,
             cancellation: &operation_cancellation,
@@ -327,12 +345,14 @@ async fn execute_and_finalize(
         repositories_selected: u64::try_from(selectors.len())
             .map_err(|_| StoreError::IntegerOutOfRange)?,
         completed_jobs: work.completed_jobs,
-        total_jobs: context.total_jobs,
+        total_jobs: work.total_jobs,
         failed_jobs: work.failed_jobs,
         deferred_jobs: work.deferred_jobs,
         pages_completed: work.pages_completed,
         threads_seen: work.threads_seen,
         comments_seen: work.comments_seen,
+        pull_request_metadata_seen: work.pull_request_metadata_seen,
+        reviews_seen: work.reviews_seen,
         outcome,
     })
 }
@@ -345,12 +365,15 @@ async fn run_jobs(
     context: &SyncRunContext<'_>,
 ) -> Result<WorkSummary, EngineError> {
     let mut summary = WorkSummary {
+        total_jobs: context.total_jobs,
         completed_jobs: 0,
         failed_jobs: 0,
         deferred_jobs: 0,
         pages_completed: 0,
         threads_seen: 0,
         comments_seen: 0,
+        pull_request_metadata_seen: 0,
+        reviews_seen: 0,
         interrupted: false,
         interrupted_jobs: 0,
         pending_jobs: 0,
@@ -389,8 +412,12 @@ async fn run_jobs(
             Err(error) => {
                 let failure = github_failure(&error);
                 for unit in units {
-                    let selected_families = std::iter::once(EvidenceFamily::Threads)
-                        .chain(context.include_comments.then_some(EvidenceFamily::Comments));
+                    let selected_families = [
+                        Some(EvidenceFamily::Threads),
+                        context.include_comments.then_some(EvidenceFamily::Comments),
+                    ]
+                    .into_iter()
+                    .flatten();
                     for family in selected_families {
                         archive
                             .record_run_failure(
@@ -417,7 +444,7 @@ async fn run_jobs(
                             &context.progress,
                             context.run_id,
                             &summary,
-                            context.total_jobs,
+                            summary.total_jobs,
                             Some(selector.as_url()),
                             progress_status(&failure),
                         );
@@ -466,7 +493,7 @@ async fn run_jobs(
                 &context.progress,
                 context.run_id,
                 &summary,
-                context.total_jobs,
+                summary.total_jobs,
                 Some(selector.as_url()),
                 SyncProgressStatus::InProgress,
             );
@@ -533,7 +560,7 @@ async fn run_jobs(
                 &context.progress,
                 context.run_id,
                 &summary,
-                context.total_jobs,
+                summary.total_jobs,
                 Some(selector.as_url()),
                 progress_status,
             );
@@ -546,13 +573,18 @@ async fn run_jobs(
                     break;
                 }
             }
+            run_pull_request_jobs(archive, client, &repository, *unit, context, &mut summary)
+                .await?;
+            if summary.interrupted {
+                break;
+            }
         }
         if summary.interrupted {
             break;
         }
     }
     if summary.interrupted {
-        summary.pending_jobs = context
+        summary.pending_jobs = summary
             .total_jobs
             .saturating_sub(summary.completed_jobs)
             .saturating_add(summary.interrupted_jobs);
@@ -567,6 +599,303 @@ struct CommentThreadResult {
     comments_committed: u64,
     failure: Option<Failure>,
     interrupted: bool,
+}
+
+struct ThreadFamilyResult<T> {
+    pages_completed: u64,
+    items_received: u64,
+    items_committed: u64,
+    value: Option<T>,
+    failure: Option<Failure>,
+    interrupted: bool,
+}
+
+impl<T> Default for ThreadFamilyResult<T> {
+    fn default() -> Self {
+        Self {
+            pages_completed: 0,
+            items_received: 0,
+            items_committed: 0,
+            value: None,
+            failure: None,
+            interrupted: false,
+        }
+    }
+}
+
+#[derive(Default)]
+struct FamilyJobAccumulator {
+    pages_completed: u64,
+    items_committed: u64,
+    hard_failure: Option<Failure>,
+    deferred_failure: Option<Failure>,
+    interrupted: bool,
+}
+
+struct PullRequestTarget {
+    thread: ThreadId,
+    updated_at: UtcTimestamp,
+}
+
+#[derive(Clone, Copy)]
+struct ThreadFamilyScope<'a> {
+    repository: &'a forgesync_core::Repository,
+    thread: &'a ThreadId,
+    updated_at: UtcTimestamp,
+    key: &'a str,
+}
+
+async fn run_pull_request_jobs(
+    archive: &Archive,
+    client: &GitHubClient,
+    repository: &forgesync_core::Repository,
+    unit: ScopeUnit,
+    context: &SyncRunContext<'_>,
+    summary: &mut WorkSummary,
+) -> Result<(), EngineError> {
+    let targets = pull_request_targets(archive, repository, unit).await?;
+    if targets.is_empty() {
+        return Ok(());
+    }
+    let added_jobs = 1 + u64::from(context.include_reviews);
+    summary.total_jobs = summary
+        .total_jobs
+        .checked_add(added_jobs)
+        .ok_or(StoreError::IntegerOutOfRange)?;
+
+    let started_at = now_utc()?;
+    let metadata_job_id = archive
+        .start_sync_job(
+            context.lease,
+            context.run_id,
+            &repository.id,
+            EvidenceFamily::PullRequestMetadata,
+            unit.key,
+            started_at,
+        )
+        .await?;
+    let reviews_job_id = if context.include_reviews {
+        Some(
+            archive
+                .start_sync_job(
+                    context.lease,
+                    context.run_id,
+                    &repository.id,
+                    EvidenceFamily::Reviews,
+                    unit.key,
+                    started_at,
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
+    let progress_repository = RepositorySelector::from_repository(repository).as_url();
+    send_progress(
+        &context.progress,
+        context.run_id,
+        summary,
+        summary.total_jobs,
+        Some(progress_repository.clone()),
+        SyncProgressStatus::InProgress,
+    );
+
+    let mut metadata_job = FamilyJobAccumulator::default();
+    let mut reviews_job = FamilyJobAccumulator::default();
+    for target in targets {
+        if context.cancellation.is_cancelled() {
+            metadata_job.interrupted = true;
+            reviews_job.interrupted = context.include_reviews;
+            break;
+        }
+        let family_scope = ThreadFamilyScope {
+            repository,
+            thread: &target.thread,
+            updated_at: target.updated_at,
+            key: unit.key,
+        };
+        let metadata_result =
+            sync_thread_pull_request_metadata(archive, client, &family_scope, context).await?;
+        accumulate_thread_result(&mut metadata_job, &metadata_result)?;
+        summary.pull_request_metadata_seen = summary
+            .pull_request_metadata_seen
+            .checked_add(metadata_result.items_received)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+
+        if metadata_result.interrupted {
+            metadata_job.interrupted = true;
+            reviews_job.interrupted = context.include_reviews;
+            break;
+        }
+        if context.include_reviews {
+            let reviews_result = sync_thread_reviews(
+                archive,
+                client,
+                &family_scope,
+                metadata_result.value.as_ref(),
+                metadata_result.failure.as_ref(),
+                context,
+            )
+            .await?;
+            accumulate_thread_result(&mut reviews_job, &reviews_result)?;
+            summary.reviews_seen = summary
+                .reviews_seen
+                .checked_add(reviews_result.items_received)
+                .ok_or(StoreError::IntegerOutOfRange)?;
+            if reviews_result.interrupted {
+                metadata_job.interrupted = true;
+                reviews_job.interrupted = true;
+                break;
+            }
+        }
+    }
+
+    summary.pages_completed = summary
+        .pages_completed
+        .checked_add(metadata_job.pages_completed)
+        .and_then(|count| count.checked_add(reviews_job.pages_completed))
+        .ok_or(StoreError::IntegerOutOfRange)?;
+    finish_family_sync_job(
+        archive,
+        context,
+        summary,
+        &progress_repository,
+        metadata_job_id,
+        metadata_job,
+    )
+    .await?;
+    if let Some(reviews_job_id) = reviews_job_id {
+        finish_family_sync_job(
+            archive,
+            context,
+            summary,
+            &progress_repository,
+            reviews_job_id,
+            reviews_job,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn pull_request_targets(
+    archive: &Archive,
+    repository: &forgesync_core::Repository,
+    unit: ScopeUnit,
+) -> Result<Vec<PullRequestTarget>, EngineError> {
+    let page_limit = NonZeroU32::new(1000).ok_or(EngineError::InvalidPageLimit)?;
+    let mut offset = 0_u64;
+    let mut targets = Vec::new();
+    loop {
+        let page = archive
+            .query_threads(&ThreadQuery {
+                repositories: vec![repository.id.clone()],
+                kind: Some(ThreadKind::PullRequest),
+                state: store_state_filter(unit.state),
+                match_expression: None,
+                updated_since: None,
+                sort: ThreadSort::Updated,
+                limit: page_limit,
+                offset,
+            })
+            .await?;
+        targets.extend(page.items.into_iter().map(|summary| PullRequestTarget {
+            thread: summary.discussion.id,
+            updated_at: summary.discussion.updated_at,
+        }));
+        let Some(next_offset) = page.next_offset else {
+            break;
+        };
+        offset = next_offset;
+    }
+    Ok(targets)
+}
+
+fn accumulate_thread_result<T>(
+    job: &mut FamilyJobAccumulator,
+    result: &ThreadFamilyResult<T>,
+) -> Result<(), StoreError> {
+    job.pages_completed = job
+        .pages_completed
+        .checked_add(result.pages_completed)
+        .ok_or(StoreError::IntegerOutOfRange)?;
+    job.items_committed = job
+        .items_committed
+        .checked_add(result.items_committed)
+        .ok_or(StoreError::IntegerOutOfRange)?;
+    job.interrupted |= result.interrupted;
+    if let Some(failure) = result.failure.as_ref() {
+        let failure_slot = if failure.kind == FailureKind::RateLimited {
+            &mut job.deferred_failure
+        } else {
+            &mut job.hard_failure
+        };
+        if failure_slot.is_none() {
+            *failure_slot = Some(failure.clone());
+        }
+    }
+    Ok(())
+}
+
+async fn finish_family_sync_job(
+    archive: &Archive,
+    context: &SyncRunContext<'_>,
+    summary: &mut WorkSummary,
+    repository: &str,
+    job_id: i64,
+    job: FamilyJobAccumulator,
+) -> Result<(), EngineError> {
+    let (status, failure, progress_status) = if job.interrupted {
+        (
+            SyncJobStatus::Interrupted,
+            None,
+            SyncProgressStatus::Interrupted,
+        )
+    } else if let Some(failure) = job.hard_failure {
+        (
+            SyncJobStatus::Failed,
+            Some(failure.clone()),
+            progress_status(&failure),
+        )
+    } else if let Some(failure) = job.deferred_failure {
+        (
+            SyncJobStatus::Deferred,
+            Some(failure.clone()),
+            progress_status(&failure),
+        )
+    } else {
+        (SyncJobStatus::Complete, None, SyncProgressStatus::Complete)
+    };
+    archive
+        .finish_sync_job(
+            context.lease,
+            job_id,
+            SyncJobCompletion {
+                status,
+                updated_at: now_utc()?,
+                pages_completed: job.pages_completed,
+                items_committed: job.items_committed,
+                failure: failure.as_ref(),
+            },
+        )
+        .await?;
+    summary.completed_jobs = summary.completed_jobs.saturating_add(1);
+    if let Some(failure) = failure.as_ref() {
+        count_failure(summary, failure);
+    }
+    if job.interrupted {
+        summary.interrupted = true;
+        summary.interrupted_jobs = summary.interrupted_jobs.saturating_add(1);
+    }
+    send_progress(
+        &context.progress,
+        context.run_id,
+        summary,
+        summary.total_jobs,
+        Some(repository.to_owned()),
+        progress_status,
+    );
+    Ok(())
 }
 
 async fn run_comment_job(
@@ -593,7 +922,7 @@ async fn run_comment_job(
         &context.progress,
         context.run_id,
         summary,
-        context.total_jobs,
+        summary.total_jobs,
         Some(progress_repository.clone()),
         SyncProgressStatus::InProgress,
     );
@@ -715,7 +1044,7 @@ async fn run_comment_job(
         &context.progress,
         context.run_id,
         summary,
-        context.total_jobs,
+        summary.total_jobs,
         Some(progress_repository),
         if interrupted {
             SyncProgressStatus::Interrupted
@@ -726,6 +1055,371 @@ async fn run_comment_job(
         },
     );
     Ok(())
+}
+
+async fn sync_thread_pull_request_metadata(
+    archive: &Archive,
+    client: &GitHubClient,
+    scope: &ThreadFamilyScope<'_>,
+    context: &SyncRunContext<'_>,
+) -> Result<ThreadFamilyResult<PullRequestMetadata>, EngineError> {
+    let mut result = ThreadFamilyResult::default();
+    let family = EvidenceFamily::PullRequestMetadata;
+    let failure_scope = ChildFamilyFailureScope {
+        run_id: context.run_id,
+        repository: &scope.repository.id,
+        thread: scope.thread,
+        family,
+        scope_key: scope.key,
+    };
+    let source_clock = SourceClock::Valid(scope.updated_at);
+    let request_scope = format!("run:{}:{}", context.run_id.get(), scope.key);
+    let reservation = archive
+        .reserve_child_family_observation_fenced(
+            scope.thread,
+            family,
+            &source_clock,
+            now_utc()?,
+            &request_scope,
+            context.lease,
+        )
+        .await?;
+    if !reservation.reserved {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    archive
+        .mark_child_family_failures_retried(context.lease, &failure_scope)
+        .await?;
+
+    let metadata = match fetch_pull_request_metadata(
+        client,
+        scope.repository,
+        scope.thread,
+        context.cancellation,
+    )
+    .await
+    {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            archive
+                .finish_child_family_observation_fenced(
+                    ChildFamilyObservation {
+                        thread: scope.thread,
+                        family,
+                        sequence: reservation.sequence,
+                        observed_at: now_utc()?,
+                        completeness: &CollectionCompleteness::Incomplete {
+                            reason: incomplete_reason(&error, 0),
+                            received_items: 0,
+                        },
+                        expected_pages: None,
+                        head_sha: None,
+                    },
+                    context.lease,
+                )
+                .await?;
+            if matches!(error, GitHubError::Cancelled) {
+                result.interrupted = true;
+                return Ok(result);
+            }
+            let failure = github_failure(&error);
+            record_thread_family_failure(
+                archive,
+                context,
+                scope.repository,
+                scope.thread,
+                family,
+                scope.key,
+                &failure,
+            )
+            .await?;
+            result.failure = Some(failure);
+            return Ok(result);
+        }
+    };
+
+    let item = StagedItem {
+        id: scope.thread.provider_id().clone(),
+        payload: metadata.clone(),
+    };
+    archive
+        .stage_child_family_page_fenced(
+            scope.thread,
+            family,
+            reservation.sequence,
+            0,
+            &[item],
+            context.lease,
+        )
+        .await?;
+    let observation = archive
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: scope.thread,
+                family,
+                sequence: reservation.sequence,
+                observed_at: now_utc()?,
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: None,
+            },
+            context.lease,
+        )
+        .await?;
+    if matches!(
+        observation.disposition,
+        ObservationDisposition::Applied | ObservationDisposition::Replayed
+    ) {
+        result.pages_completed = 1;
+        result.items_received = 1;
+        result.items_committed = observation.item_count;
+        result.value = Some(metadata);
+        archive
+            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
+            .await?;
+    } else {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    Ok(result)
+}
+
+async fn sync_thread_reviews(
+    archive: &Archive,
+    client: &GitHubClient,
+    scope: &ThreadFamilyScope<'_>,
+    metadata: Option<&PullRequestMetadata>,
+    metadata_failure: Option<&Failure>,
+    context: &SyncRunContext<'_>,
+) -> Result<ThreadFamilyResult<()>, EngineError> {
+    let mut result = ThreadFamilyResult::default();
+    let family = EvidenceFamily::Reviews;
+    let failure_scope = ChildFamilyFailureScope {
+        run_id: context.run_id,
+        repository: &scope.repository.id,
+        thread: scope.thread,
+        family,
+        scope_key: scope.key,
+    };
+    let source_clock = SourceClock::Valid(scope.updated_at);
+    if let Some(metadata) = metadata
+        && archive
+            .review_family_is_current_for_head(scope.thread, &source_clock, &metadata.head.sha)
+            .await?
+    {
+        archive
+            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
+            .await?;
+        return Ok(result);
+    }
+
+    let request_scope = format!("run:{}:{}", context.run_id.get(), scope.key);
+    let reservation = archive
+        .reserve_child_family_observation_fenced(
+            scope.thread,
+            family,
+            &source_clock,
+            now_utc()?,
+            &request_scope,
+            context.lease,
+        )
+        .await?;
+    if !reservation.reserved {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    archive
+        .mark_child_family_failures_retried(context.lease, &failure_scope)
+        .await?;
+
+    let Some(metadata) = metadata else {
+        let failure = metadata_failure.cloned().unwrap_or(Failure {
+            kind: FailureKind::ProviderResponse,
+            message: "pull-request head metadata is unavailable".to_owned(),
+        });
+        archive
+            .finish_child_family_observation_fenced(
+                ChildFamilyObservation {
+                    thread: scope.thread,
+                    family,
+                    sequence: reservation.sequence,
+                    observed_at: now_utc()?,
+                    completeness: &CollectionCompleteness::Incomplete {
+                        reason: IncompleteReason::Unknown,
+                        received_items: 0,
+                    },
+                    expected_pages: None,
+                    head_sha: None,
+                },
+                context.lease,
+            )
+            .await?;
+        record_thread_family_failure(
+            archive,
+            context,
+            scope.repository,
+            scope.thread,
+            family,
+            scope.key,
+            &failure,
+        )
+        .await?;
+        result.failure = Some(failure);
+        return Ok(result);
+    };
+
+    let mut next_page = None;
+    let mut page_count = 0_u32;
+    loop {
+        let page = match fetch_pull_request_review_page(
+            client,
+            scope.repository,
+            scope.thread,
+            next_page.as_ref(),
+            context.cancellation,
+        )
+        .await
+        {
+            Ok(page) => page,
+            Err(error) => {
+                archive
+                    .finish_child_family_observation_fenced(
+                        ChildFamilyObservation {
+                            thread: scope.thread,
+                            family,
+                            sequence: reservation.sequence,
+                            observed_at: now_utc()?,
+                            completeness: &CollectionCompleteness::Incomplete {
+                                reason: incomplete_reason(&error, page_count),
+                                received_items: result.items_received,
+                            },
+                            expected_pages: None,
+                            head_sha: None,
+                        },
+                        context.lease,
+                    )
+                    .await?;
+                if matches!(error, GitHubError::Cancelled) {
+                    result.interrupted = true;
+                    return Ok(result);
+                }
+                let failure = github_failure(&error);
+                record_thread_family_failure(
+                    archive,
+                    context,
+                    scope.repository,
+                    scope.thread,
+                    family,
+                    scope.key,
+                    &failure,
+                )
+                .await?;
+                result.failure = Some(failure);
+                result.pages_completed = u64::from(page_count);
+                return Ok(result);
+            }
+        };
+        let page_items =
+            u64::try_from(page.reviews.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
+        result.items_received = result
+            .items_received
+            .checked_add(page_items)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        let items = page
+            .reviews
+            .into_iter()
+            .map(|review| StagedItem {
+                id: review.id.provider_id().clone(),
+                payload: review,
+            })
+            .collect::<Vec<StagedItem<Review>>>();
+        archive
+            .stage_child_family_page_fenced(
+                scope.thread,
+                family,
+                reservation.sequence,
+                page_count,
+                &items,
+                context.lease,
+            )
+            .await?;
+        page_count = page_count
+            .checked_add(1)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        next_page = page.next_page;
+        if next_page.is_none() {
+            break;
+        }
+    }
+
+    let observation = archive
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: scope.thread,
+                family,
+                sequence: reservation.sequence,
+                observed_at: now_utc()?,
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(page_count),
+                head_sha: Some(&metadata.head.sha),
+            },
+            context.lease,
+        )
+        .await?;
+    result.pages_completed = u64::from(page_count);
+    if matches!(
+        observation.disposition,
+        ObservationDisposition::Applied | ObservationDisposition::Replayed
+    ) {
+        result.items_committed = observation.item_count;
+        archive
+            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
+            .await?;
+    } else {
+        return Err(StoreError::StaleObservationGeneration.into());
+    }
+    Ok(result)
+}
+
+async fn record_thread_family_failure(
+    archive: &Archive,
+    context: &SyncRunContext<'_>,
+    repository: &forgesync_core::Repository,
+    thread: &ThreadId,
+    family: EvidenceFamily,
+    scope_key: &str,
+    failure: &Failure,
+) -> Result<(), EngineError> {
+    archive
+        .record_run_failure(
+            context.lease,
+            RunFailureInput {
+                run_id: context.run_id,
+                target: &repository.full_name,
+                repository: Some(&repository.id),
+                thread: Some(thread),
+                family: Some(family),
+                scope_key,
+                failure,
+                created_at: now_utc()?,
+            },
+        )
+        .await
+        .map_err(|source| EngineError::FailureLedger {
+            original: failure.clone(),
+            source,
+        })?;
+    Ok(())
+}
+
+fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> IncompleteReason {
+    if matches!(error, GitHubError::Cancelled) {
+        IncompleteReason::Cancelled
+    } else if matches!(error, GitHubError::Deferred { .. }) {
+        IncompleteReason::RetryBudget
+    } else if pages_completed > 0 {
+        IncompleteReason::Pagination
+    } else {
+        IncompleteReason::Unknown
+    }
 }
 
 async fn sync_thread_comments(
@@ -817,6 +1511,7 @@ async fn sync_thread_comments(
                                 received_items: result.comments_received,
                             },
                             expected_pages: None,
+                            head_sha: None,
                         },
                         context.lease,
                     )
@@ -891,6 +1586,7 @@ async fn sync_thread_comments(
                 observed_at: now_utc()?,
                 completeness: &CollectionCompleteness::Complete,
                 expected_pages: Some(page_count),
+                head_sha: None,
             },
             context.lease,
         )
@@ -1035,6 +1731,8 @@ fn send_progress(
             total_jobs,
             threads_seen: summary.threads_seen,
             comments_seen: summary.comments_seen,
+            pull_request_metadata_seen: summary.pull_request_metadata_seen,
+            reviews_seen: summary.reviews_seen,
             repository,
             status,
         };

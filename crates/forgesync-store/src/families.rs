@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use forgesync_core::{
-    CollectionCompleteness, CoverageState, EvidenceFamily, ObservationSequence, SourceClock,
-    ThreadId, UtcTimestamp,
+    CollectionCompleteness, CommitSha, CoverageState, EvidenceFamily, ObservationSequence,
+    SourceClock, ThreadId, UtcTimestamp,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -38,6 +38,8 @@ pub struct ChildFamilyObservation<'a> {
     pub completeness: &'a CollectionCompleteness,
     /// Number of pages in a complete collection; omitted for incomplete results.
     pub expected_pages: Option<u32>,
+    /// Pull-request head the completed review evidence describes.
+    pub head_sha: Option<&'a CommitSha>,
 }
 
 impl Archive {
@@ -332,7 +334,17 @@ impl Archive {
             observed_at,
             completeness,
             expected_pages,
+            head_sha: None,
         };
+        self.finish_child_family_observation_with_context(observation)
+            .await
+    }
+
+    /// Finalizes a child family with its acquisition context and without an archive lease.
+    pub async fn finish_child_family_observation_with_context(
+        &self,
+        observation: ChildFamilyObservation<'_>,
+    ) -> Result<FamilyObservationResult, StoreError> {
         self.finish_child_family_observation_inner(observation, None)
             .await
     }
@@ -359,6 +371,7 @@ impl Archive {
             observed_at,
             completeness,
             expected_pages,
+            head_sha,
         } = observation;
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
@@ -373,6 +386,19 @@ impl Archive {
                 return Err(StoreError::InvalidCollectionCompleteness);
             }
             _ => {}
+        }
+        let head_bound_family = matches!(
+            family,
+            EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads
+        );
+        if head_sha.is_some() && !head_bound_family {
+            return Err(StoreError::UnexpectedPullRequestHeadContext);
+        }
+        if head_bound_family
+            && matches!(completeness, CollectionCompleteness::Complete)
+            && head_sha.is_none()
+        {
+            return Err(StoreError::MissingPullRequestHeadContext);
         }
 
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
@@ -511,6 +537,17 @@ impl Archive {
                     &state,
                 )
                 .await?;
+                if let Some(head_sha) = head_sha {
+                    sqlx::query(
+                        "INSERT INTO thread_family_head_contexts (thread_id, family, head_sha, sequence) VALUES (?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET head_sha = excluded.head_sha, sequence = excluded.sequence",
+                    )
+                    .bind(thread_row_id)
+                    .bind(family_name)
+                    .bind(head_sha.as_str())
+                    .bind(sequence_value)
+                    .execute(&mut *transaction)
+                    .await?;
+                }
                 sqlx::query(
                     "UPDATE observation_generations SET status = 'complete', received_items = ?, item_count = ? WHERE thread_id = ? AND family = ? AND sequence = ?",
                 )
@@ -590,14 +627,54 @@ impl Archive {
         source_clock: &SourceClock,
         expected_item_count: Option<u64>,
     ) -> Result<bool, StoreError> {
+        self.child_family_is_current_inner(
+            thread,
+            family,
+            source_clock,
+            expected_item_count,
+            None,
+            false,
+        )
+        .await
+    }
+
+    /// Returns whether review membership is complete for the same source clock and pull-request
+    /// head. The stored count is checked against canonical membership because GitHub does not
+    /// expose a review count on the parent issue row.
+    pub async fn review_family_is_current_for_head(
+        &self,
+        thread: &ThreadId,
+        source_clock: &SourceClock,
+        head_sha: &CommitSha,
+    ) -> Result<bool, StoreError> {
+        self.child_family_is_current_inner(
+            thread,
+            EvidenceFamily::Reviews,
+            source_clock,
+            None,
+            Some(head_sha),
+            true,
+        )
+        .await
+    }
+
+    async fn child_family_is_current_inner(
+        &self,
+        thread: &ThreadId,
+        family: EvidenceFamily,
+        source_clock: &SourceClock,
+        expected_item_count: Option<u64>,
+        expected_head_sha: Option<&CommitSha>,
+        allow_stored_count: bool,
+    ) -> Result<bool, StoreError> {
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),
             ));
         }
-        let Some(expected_item_count) = expected_item_count else {
+        if expected_item_count.is_none() && !allow_stored_count {
             return Ok(false);
-        };
+        }
         let source_clock = normalize_source_clock(source_clock)?;
         let source_fields = source_clock_columns(&source_clock)?;
         let mut connection = self.reader.acquire().await?;
@@ -621,12 +698,24 @@ impl Archive {
         {
             return Ok(false);
         }
+        if let Some(expected_head_sha) = expected_head_sha {
+            let stored_head_sha: Option<String> = sqlx::query_scalar(
+                "SELECT head_sha FROM thread_family_head_contexts WHERE thread_id = ? AND family = ?",
+            )
+            .bind(row_id)
+            .bind(evidence_family_name(family))
+            .fetch_optional(&mut *connection)
+            .await?;
+            if stored_head_sha.as_deref() != Some(expected_head_sha.as_str()) {
+                return Ok(false);
+            }
+        }
         let state_json: String = row.try_get("state_json")?;
         let state: CoverageState = serde_json::from_str(&state_json)?;
         let CoverageState::Complete { item_count, .. } = state else {
             return Ok(false);
         };
-        if item_count != expected_item_count {
+        if expected_item_count.is_some_and(|expected| item_count != expected) {
             return Ok(false);
         }
         let member_count: i64 = sqlx::query_scalar(
@@ -636,10 +725,9 @@ impl Archive {
         .bind(evidence_family_name(family))
         .fetch_one(&mut *connection)
         .await?;
-        Ok(
-            u64::try_from(member_count).map_err(|_| StoreError::InvalidStoredSequence)?
-                == expected_item_count,
-        )
+        let member_count =
+            u64::try_from(member_count).map_err(|_| StoreError::InvalidStoredSequence)?;
+        Ok(member_count == item_count)
     }
 }
 

@@ -11,6 +11,7 @@
   "updated_at": "2026-09-20T10:00:00Z",
   "closed_at": null,
   "merged_at": null,
+  "merged": false,
   "html_url": "https://github.com/fixture-lab/archive-demo/pull/18",
   "draft": false,
   "base": {

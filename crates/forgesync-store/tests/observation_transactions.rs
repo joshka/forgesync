@@ -3,13 +3,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
 use forgesync_core::{
-    CollectionCompleteness, CoverageState, Discussion, EvidenceFamily, GitHubHost,
+    CollectionCompleteness, CommitSha, CoverageState, Discussion, EvidenceFamily, GitHubHost,
     IncompleteReason, Observation, ObservationSequence, ProviderData, ProviderId, Repository,
     RepositoryId, SourceClock, SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
 };
 use forgesync_store::{
-    Archive, ObservationDisposition, StagedItem, StoreError, compare_observation_order,
-    compare_revision_observation_order, observation_sequence_order_value,
+    Archive, ChildFamilyObservation, ObservationDisposition, StagedItem, StoreError,
+    compare_observation_order, compare_revision_observation_order,
+    observation_sequence_order_value,
 };
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -369,15 +370,18 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("reserve reviews independently");
     assert!(reviews.reserved);
+    let review_head =
+        CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review head SHA");
     archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Reviews,
-            reviews.sequence,
-            timestamp("2026-09-20T10:00:06Z"),
-            &CollectionCompleteness::Complete,
-            Some(0),
-        )
+        .finish_child_family_observation_with_context(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Reviews,
+            sequence: reviews.sequence,
+            observed_at: timestamp("2026-09-20T10:00:06Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(0),
+            head_sha: Some(&review_head),
+        })
         .await
         .expect("complete empty reviews");
     assert!(
@@ -386,6 +390,16 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
             .await
             .expect("empty reviews")
             .is_empty()
+    );
+    assert!(
+        archive
+            .review_family_is_current_for_head(
+                &thread_id,
+                &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                &review_head,
+            )
+            .await
+            .expect("read review snapshot context")
     );
 
     let stale_comments = archive

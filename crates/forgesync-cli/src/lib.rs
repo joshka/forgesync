@@ -185,6 +185,7 @@ async fn dispatch(args: CliArgs) -> ExitCode {
                     Some(SyncThreadStateArg::All) => SyncThreadScope::All,
                 },
                 include_comments: with.contains(&SyncIncludeArg::Comments),
+                include_reviews: with.contains(&SyncIncludeArg::Reviews),
             };
             let result = sync_command(&path, request, args.json, args.verbose, &cancellation).await;
             interrupt_task.abort();
@@ -367,13 +368,15 @@ async fn sync_command(
             while let Some(progress) = progress_receiver.recv().await {
                 let repository = progress.repository.as_deref().unwrap_or("sync");
                 eprintln!(
-                    "forgesync: {}: {:?}, {}/{} jobs, {} threads, {} comments",
+                    "forgesync: {}: {:?}, {}/{} jobs, {} threads, {} comments, {} PRs, {} reviews",
                     repository,
                     progress.status,
                     progress.completed_jobs,
                     progress.total_jobs,
                     progress.threads_seen,
-                    progress.comments_seen
+                    progress.comments_seen,
+                    progress.pull_request_metadata_seen,
+                    progress.reviews_seen
                 );
             }
         }))
@@ -428,7 +431,7 @@ fn sync_summary(report: &SyncReport) -> String {
         OperationOutcome::Failed { .. } => "failed",
     };
     format!(
-        "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads, {} comments",
+        "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads, {} comments, {} PRs, {} reviews",
         report.repositories_selected,
         report.completed_jobs,
         report.total_jobs,
@@ -436,7 +439,9 @@ fn sync_summary(report: &SyncReport) -> String {
         report.deferred_jobs,
         report.pages_completed,
         report.threads_seen,
-        report.comments_seen
+        report.comments_seen,
+        report.pull_request_metadata_seen,
+        report.reviews_seen
     )
 }
 
@@ -544,12 +549,14 @@ fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
         let metadata = &item.payload;
         lines.push(String::new());
         lines.push(format!(
-            "Pull request: {}:{} -> {}:{} (draft: {})",
+            "Pull request: {}:{} -> {}:{} (head {}, draft: {}, merged: {})",
             repository_identity(metadata.head.repository.as_ref()),
             metadata.head.name,
             repository_identity(metadata.base.repository.as_ref()),
             metadata.base.name,
-            metadata.draft
+            metadata.head.sha,
+            metadata.draft,
+            metadata.merged
         ));
     }
 
@@ -582,8 +589,13 @@ fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
                     comment.body
                 ),
                 ThreadTimelineEvent::Review { review } => format!(
-                    "review {}: {}{}",
+                    "review {} by {}: {}{}",
                     review.id.provider_id(),
+                    review
+                        .reviewer
+                        .as_ref()
+                        .and_then(|reviewer| reviewer.login.as_deref())
+                        .unwrap_or("unknown reviewer"),
                     review_state_name(&review.state),
                     review
                         .body

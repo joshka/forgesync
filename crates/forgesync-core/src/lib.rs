@@ -12,7 +12,7 @@ mod timestamp;
 
 pub use content::{
     BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
-    ReviewThread, SourceState, ThreadKind,
+    ReviewThread, ReviewerIdentity, SourceState, ThreadKind,
 };
 pub use coverage::{
     Coverage, CoverageState, DeferredReason, EvidenceFamily, Failure, FailureKind,

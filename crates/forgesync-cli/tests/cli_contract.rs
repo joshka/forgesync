@@ -68,7 +68,7 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
     let init_json: serde_json::Value = serde_json::from_slice(&init.stdout).expect("init JSON");
     assert_eq!(init_json["command"], "archive init");
     assert_eq!(init_json["schema_version"], 1);
-    assert_eq!(init_json["data"]["schema_version"], 6);
+    assert_eq!(init_json["data"]["schema_version"], 7);
     let archive_id = init_json["data"]["archive_id"]
         .as_str()
         .expect("archive ID");

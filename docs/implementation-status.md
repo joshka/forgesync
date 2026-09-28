@@ -2,13 +2,19 @@
 
 ## Current position
 
-- Next task: **P3.1 — PR metadata and reviews**.
+- Next task: **P3.2 — Review threads**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
 - Complete: **P1.1 — Core identities and outcomes**.
 - Complete: **P1.2 — Explicit SQLite lifecycle**.
 - Complete: **P1.3 — Observation transactions**.
+- Complete: **P1.4 — Offline inspect and search**.
+- Complete: **P2.1 — HTTP transport and credentials**.
+- Complete: **P2.2 — Thread enumeration**.
+- Complete: **P2.3 — Runs, leases, and basic sync**.
+- Complete: **P2.4 — Comments and independent failures**.
+- Complete: **P3.1 — PR metadata and reviews**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -286,6 +292,36 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
   passed, 0 issues.
 
+## P3.1 evidence
+
+Added schema version 7 head context for review snapshots. Pull-request metadata now records
+host-qualified base/head repositories and commit IDs, draft and merged state, and the provider's
+original branch values. Unknown pull-request and reviewer fields remain available as provenance.
+Reviews include normalized state, reviewer provider ID and login, submitted time, reviewed commit,
+and the original reviewer object.
+
+Sync refreshes PR metadata as its own family for archived pull requests. `sync --with reviews`
+selects paginated review acquisition; ordinary sync makes no review requests. Review membership and
+its captured head SHA commit together. A changed head marks the previous review snapshot stale,
+while a failed or incomplete refresh keeps both the last complete membership and its head context.
+Metadata, review, and comment failures remain isolated. Repositories without pull requests do not
+receive empty PR-family jobs.
+
+Local HTTP and archive tests cover enterprise endpoint paths, paginated reviews, branch/reviewer
+identity and provenance, changed-head staleness without implicit review fetches, failed-review
+preservation of comments and prior reviews, and complete empty review snapshots. CLI parsing covers
+`--with reviews`.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked --offline`: passed, 82 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked --offline`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked --offline`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/implementation-status.md`:
+  passed, 0 issues.
+
 ## P2.4 evidence
 
 Added schema version 6 failure identity and retry fields. Failure records can identify the affected
@@ -336,7 +372,10 @@ Validation:
 | P2.2 — Thread enumeration | Complete | Stable identities, durable page cursors, rename handling, replay and partial-failure checks |
 | P2.3 — Runs, leases, and basic sync | Complete | Fenced writes, run reports, cancellation/replay, closed-sweep overlap |
 | P2.4 — Comments and independent failures | Complete | Paginated comments, stale coverage, isolated failures, selective retry |
-| P3.1–P3.4 — Reviews and health | Not started | PR base/head + reviews, review threads, coverage and explicit retry |
+| P3.1 — PR metadata and reviews | Complete | Head-bound review coverage, normalized reviewer identity, independent failure/retry |
+| P3.2 — Review threads | Not started | GraphQL thread membership, resolution, nested completeness and rollback |
+| P3.3 — Legacy import | Deferred | Reserved task; keep the Go archive intact |
+| P3.4 — Health and explicit retry | Not started | Read-only diagnostics and selected failed-family retry |
 | P4.1–P4.5 — Retrieval and analysis | Not started | Versioned documents, embeddings, semantic search, clustering, refresh |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |

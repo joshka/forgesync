@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CommentId, CommitSha, ProviderData, RepositoryId, ReviewId, ReviewThreadId, ThreadId,
-    UtcTimestamp,
+    CommentId, CommitSha, ProviderData, ProviderId, RepositoryId, ReviewId, ReviewThreadId,
+    ThreadId, UtcTimestamp,
 };
 
 /// Whether a discussion is an issue or a pull request.
@@ -95,6 +95,10 @@ pub struct PullRequestMetadata {
     pub head: BranchRef,
     /// Whether the pull request is a draft.
     pub draft: bool,
+    /// Whether GitHub reports the pull request as merged.
+    pub merged: bool,
+    /// Provider fields not yet modeled by Forgesync, including original base/head values.
+    pub provider_data: ProviderData,
 }
 
 /// A discussion comment or a comment attached to a review thread.
@@ -141,6 +145,8 @@ pub struct Review {
     pub id: ReviewId,
     /// Provider review state.
     pub state: ReviewState,
+    /// Reviewer identity as reported by the provider, when still available.
+    pub reviewer: Option<ReviewerIdentity>,
     /// Review body, preserving an empty body separately from no body.
     pub body: Option<String>,
     /// Source submission time, when present.
@@ -148,6 +154,17 @@ pub struct Review {
     /// Commit SHA reviewed by this submission, when present.
     pub commit_sha: Option<CommitSha>,
     /// Provider fields not yet modeled by Forgesync.
+    pub provider_data: ProviderData,
+}
+
+/// Provider identity and source provenance for a pull-request reviewer.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ReviewerIdentity {
+    /// Stable provider user ID, when supplied.
+    pub provider_id: Option<ProviderId>,
+    /// Current provider login, when supplied.
+    pub login: Option<String>,
+    /// Original user object, including fields not yet modeled by Forgesync.
     pub provider_data: ProviderData,
 }
 

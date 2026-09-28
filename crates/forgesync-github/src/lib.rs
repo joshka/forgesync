@@ -10,7 +10,8 @@ mod transport;
 
 pub use error::{ApiFailureKind, GitHubError};
 pub use resources::{
-    RestCommentPage, RestThreadPage, ThreadListState, fetch_issue_comment_page, fetch_repository,
+    RestCommentPage, RestReviewPage, RestThreadPage, ThreadListState, fetch_issue_comment_page,
+    fetch_pull_request_metadata, fetch_pull_request_review_page, fetch_repository,
     fetch_thread_page, fetch_thread_page_in_scope, issue_comment_list_url, thread_list_url,
     thread_list_url_in_scope,
 };

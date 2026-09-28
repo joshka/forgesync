@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use forgesync_core::{
-    Comment, CommentId, Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId,
+    BranchRef, Comment, CommentId, CommitSha, Discussion, GitHubHost, ProviderData, ProviderId,
+    PullRequestMetadata, Repository, RepositoryId, Review, ReviewId, ReviewState, ReviewerIdentity,
     SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
 };
 use reqwest::Url;
@@ -25,6 +26,15 @@ pub struct RestThreadPage {
 pub struct RestCommentPage {
     /// Discussion comments returned by the issues comments endpoint.
     pub comments: Vec<Comment>,
+    /// Next page URL from the provider, when one remains.
+    pub next_page: Option<Url>,
+}
+
+/// One normalized pull-request review page and its validated next-page destination.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RestReviewPage {
+    /// Submitted and pending reviews returned by the pull-request reviews endpoint.
+    pub reviews: Vec<Review>,
     /// Next page URL from the provider, when one remains.
     pub next_page: Option<Url>,
 }
@@ -133,6 +143,89 @@ pub async fn fetch_issue_comment_page(
         comments,
         next_page: response.next_page,
     })
+}
+
+/// Fetches and normalizes base/head metadata and merge state for one pull request using GitHub's
+/// [get pull request endpoint][github-pull-request].
+///
+/// [github-pull-request]: https://docs.github.com/en/rest/pulls/pulls#get-a-pull-request
+pub async fn fetch_pull_request_metadata(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+    cancellation: &CancellationToken,
+) -> Result<PullRequestMetadata, GitHubError> {
+    validate_pull_request_scope(repository, thread)?;
+    let number = thread.number().get().to_string();
+    let url = client.endpoint_url(&[
+        "repos",
+        &repository.owner,
+        &repository.name,
+        "pulls",
+        &number,
+    ])?;
+    let response: RestPullRequest = client.get_json(&url, cancellation).await?;
+    normalize_pull_request(repository, response)
+}
+
+/// Fetches one page of pull-request reviews using GitHub's [list reviews endpoint][github-reviews]
+/// and its 100-item page limit.
+///
+/// [github-reviews]: https://docs.github.com/en/rest/pulls/reviews#list-reviews-for-a-pull-request
+pub async fn fetch_pull_request_review_page(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+    next_page: Option<&Url>,
+    cancellation: &CancellationToken,
+) -> Result<RestReviewPage, GitHubError> {
+    validate_pull_request_scope(repository, thread)?;
+    let url = match next_page {
+        Some(url) => {
+            client.validate_destination(url)?;
+            url.clone()
+        }
+        None => initial_pull_request_review_url(client, repository, thread)?,
+    };
+    let response: GitHubResponse<Vec<RestReview>> =
+        client.get_json_page(&url, cancellation).await?;
+    let reviews = response
+        .value
+        .into_iter()
+        .map(|review| normalize_review(thread, review))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(RestReviewPage {
+        reviews,
+        next_page: response.next_page,
+    })
+}
+
+fn validate_pull_request_scope(
+    repository: &Repository,
+    thread: &ThreadId,
+) -> Result<(), GitHubError> {
+    if thread.repository() != &repository.id {
+        return Err(GitHubError::InvalidProviderData);
+    }
+    Ok(())
+}
+
+fn initial_pull_request_review_url(
+    client: &GitHubClient,
+    repository: &Repository,
+    thread: &ThreadId,
+) -> Result<Url, GitHubError> {
+    let number = thread.number().get().to_string();
+    let mut url = client.endpoint_url(&[
+        "repos",
+        &repository.owner,
+        &repository.name,
+        "pulls",
+        &number,
+        "reviews",
+    ])?;
+    url.query_pairs_mut().append_pair("per_page", "100");
+    Ok(url)
 }
 
 /// Builds the first issue-comment page URL for a discussion.
@@ -329,6 +422,108 @@ fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comment,
     })
 }
 
+fn normalize_pull_request(
+    repository: &Repository,
+    pull_request: RestPullRequest,
+) -> Result<PullRequestMetadata, GitHubError> {
+    let base_source = serde_json::to_value(&pull_request.base).map_err(json_error)?;
+    let head_source = serde_json::to_value(&pull_request.head).map_err(json_error)?;
+    let base = normalize_branch_ref(repository.id.host(), pull_request.base)?;
+    let head = normalize_branch_ref(repository.id.host(), pull_request.head)?;
+    let mut provider_data = provider_data(pull_request.extra);
+    provider_data.insert("base_source", base_source);
+    provider_data.insert("head_source", head_source);
+
+    Ok(PullRequestMetadata {
+        base,
+        head,
+        draft: pull_request.draft,
+        merged: pull_request.merged,
+        provider_data,
+    })
+}
+
+fn normalize_branch_ref(
+    host: &GitHubHost,
+    branch: RestBranchRef,
+) -> Result<BranchRef, GitHubError> {
+    let repository = branch
+        .repo
+        .and_then(|repository| repository.id)
+        .map(|id| {
+            let provider_id =
+                ProviderId::new(id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
+            Ok::<_, GitHubError>(RepositoryId::new(host.clone(), provider_id))
+        })
+        .transpose()?;
+    let sha = CommitSha::new(branch.sha).map_err(|_| GitHubError::InvalidProviderData)?;
+    Ok(BranchRef {
+        name: branch.name,
+        sha,
+        repository,
+    })
+}
+
+fn normalize_review(thread: &ThreadId, review: RestReview) -> Result<Review, GitHubError> {
+    let provider_id =
+        ProviderId::new(review.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
+    let submitted_at = review.submitted_at.map(parse_timestamp).transpose()?;
+    let commit_sha = review
+        .commit_id
+        .filter(|value| !value.is_empty())
+        .map(CommitSha::new)
+        .transpose()
+        .map_err(|_| GitHubError::InvalidProviderData)?;
+    let reviewer = review.user.as_ref().and_then(normalize_reviewer);
+    let mut provider_data = provider_data(review.extra);
+    if let Some(user) = review.user {
+        provider_data.insert("user", user);
+    }
+    Ok(Review {
+        id: ReviewId::new(thread.clone(), provider_id),
+        state: normalize_review_state(&review.state),
+        reviewer,
+        body: review.body,
+        submitted_at,
+        commit_sha,
+        provider_data,
+    })
+}
+
+fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
+    let object = user.as_object()?;
+    let provider_id = object.get("id").and_then(provider_id_from_value);
+    let login = object
+        .get("login")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let provider_data = ProviderData::from_value(user.clone()).unwrap_or_default();
+    Some(ReviewerIdentity {
+        provider_id,
+        login,
+        provider_data,
+    })
+}
+
+fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
+    let value = value
+        .as_u64()
+        .map(|id| id.to_string())
+        .or_else(|| value.as_str().map(str::to_owned))?;
+    ProviderId::new(value).ok()
+}
+
+fn normalize_review_state(state: &str) -> ReviewState {
+    match state {
+        "APPROVED" => ReviewState::Approved,
+        "CHANGES_REQUESTED" => ReviewState::ChangesRequested,
+        "COMMENTED" => ReviewState::Commented,
+        "DISMISSED" => ReviewState::Dismissed,
+        "PENDING" => ReviewState::Pending,
+        state => ReviewState::Other(state.to_owned()),
+    }
+}
+
 fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
 }
@@ -390,6 +585,45 @@ struct RestComment {
     extra: BTreeMap<String, Value>,
 }
 
+#[derive(Deserialize)]
+struct RestPullRequest {
+    base: RestBranchRef,
+    head: RestBranchRef,
+    draft: bool,
+    merged: bool,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct RestBranchRef {
+    #[serde(rename = "ref")]
+    name: String,
+    sha: String,
+    repo: Option<RestBranchRepository>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct RestBranchRepository {
+    id: Option<u64>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+#[derive(Deserialize)]
+struct RestReview {
+    id: u64,
+    state: String,
+    body: Option<String>,
+    submitted_at: Option<String>,
+    commit_id: Option<String>,
+    user: Option<Value>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
 #[derive(Deserialize, Serialize)]
 struct RestUser {
     login: Option<String>,
@@ -409,8 +643,8 @@ mod tests {
     use std::path::Path;
 
     use forgesync_core::{
-        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ThreadId, ThreadKind,
-        ThreadNumber, UtcTimestamp,
+        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ReviewState, ThreadId,
+        ThreadKind, ThreadNumber, UtcTimestamp,
     };
     use reqwest::Url;
     use serde_json::json;
@@ -420,7 +654,10 @@ mod tests {
 
     use crate::{GitHubClient, GitHubClientConfig};
 
-    use super::{fetch_issue_comment_page, fetch_repository, fetch_thread_page};
+    use super::{
+        fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
+        fetch_repository, fetch_thread_page,
+    };
 
     fn fixture(name: &str) -> serde_json::Value {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -646,6 +883,171 @@ mod tests {
             second.comments[0].provider_data.get("node_id"),
             Some(&json!("IC_fixture_3002"))
         );
+        assert!(second.next_page.is_none());
+    }
+
+    #[tokio::test]
+    async fn pull_request_metadata_and_reviews_keep_head_and_reviewer_provenance() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/enterprise/api/v3/repos/fixture-lab/archive-demo/pulls/18",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "base": {
+                    "ref": "main",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "repo": { "id": 41, "full_name": "fixture-lab/archive-demo" }
+                },
+                "head": {
+                    "ref": "topic",
+                    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "repo": { "id": 99, "full_name": "contributor/archive-demo" }
+                },
+                "draft": true,
+                "merged": false,
+                "maintainer_can_modify": true
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/enterprise/api/v3/repos/fixture-lab/archive-demo/pulls/18/reviews",
+            ))
+            .and(query_param("per_page", "100"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("Link", "<?page=2>; rel=\"next\"")
+                    .set_body_json(json!([{
+                        "id": 1801,
+                        "state": "APPROVED",
+                        "body": "Looks good.",
+                        "submitted_at": "2026-09-19T12:00:00Z",
+                        "commit_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "user": { "id": 51, "login": "reviewer", "type": "User" },
+                        "author_association": "MEMBER"
+                    }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/enterprise/api/v3/repos/fixture-lab/archive-demo/pulls/18/reviews",
+            ))
+            .and(query_param("page", "2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "id": 1802,
+                "state": "PENDING",
+                "body": null,
+                "submitted_at": null,
+                "commit_id": null,
+                "user": null,
+                "node_id": "PRR_fixture_1802"
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let client = GitHubClient::new(
+            GitHubClientConfig::new(
+                Url::parse(&format!("{}/enterprise/api/v3/", server.uri())).unwrap(),
+            ),
+            None,
+        )
+        .expect("GitHub client");
+        let repository_id = RepositoryId::new(
+            GitHubHost::parse("ghe.example.test").unwrap(),
+            ProviderId::new("41").unwrap(),
+        );
+        let repository = Repository {
+            id: repository_id.clone(),
+            owner: "fixture-lab".to_owned(),
+            name: "archive-demo".to_owned(),
+            full_name: "fixture-lab/archive-demo".to_owned(),
+            default_branch: Some("main".to_owned()),
+            updated_at: None,
+            provider_data: ProviderData::new(),
+        };
+        let thread = ThreadId::new(
+            repository_id,
+            ProviderId::new("1802").unwrap(),
+            ThreadNumber::new(18).unwrap(),
+        );
+        let cancellation = CancellationToken::new();
+
+        let metadata = fetch_pull_request_metadata(&client, &repository, &thread, &cancellation)
+            .await
+            .expect("pull request metadata");
+        assert_eq!(metadata.base.name, "main");
+        assert_eq!(
+            metadata
+                .base
+                .repository
+                .as_ref()
+                .unwrap()
+                .provider_id()
+                .as_str(),
+            "41"
+        );
+        assert_eq!(
+            metadata.head.sha.as_str(),
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        );
+        assert_eq!(
+            metadata
+                .head
+                .repository
+                .as_ref()
+                .unwrap()
+                .provider_id()
+                .as_str(),
+            "99"
+        );
+        assert!(metadata.draft);
+        assert!(!metadata.merged);
+        assert_eq!(
+            metadata.provider_data.get("maintainer_can_modify"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            metadata.provider_data.get("head_source").unwrap()["ref"],
+            "topic"
+        );
+
+        let first =
+            fetch_pull_request_review_page(&client, &repository, &thread, None, &cancellation)
+                .await
+                .expect("first review page");
+        assert_eq!(first.reviews.len(), 1);
+        assert_eq!(first.reviews[0].id.thread(), &thread);
+        assert_eq!(first.reviews[0].state, ReviewState::Approved);
+        let reviewer = first.reviews[0]
+            .reviewer
+            .as_ref()
+            .expect("reviewer identity");
+        assert_eq!(reviewer.provider_id.as_ref().unwrap().as_str(), "51");
+        assert_eq!(reviewer.login.as_deref(), Some("reviewer"));
+        assert_eq!(reviewer.provider_data.get("type"), Some(&json!("User")));
+        assert_eq!(
+            first.reviews[0].provider_data.get("author_association"),
+            Some(&json!("MEMBER"))
+        );
+        assert!(first.next_page.is_some());
+
+        let second = fetch_pull_request_review_page(
+            &client,
+            &repository,
+            &thread,
+            first.next_page.as_ref(),
+            &cancellation,
+        )
+        .await
+        .expect("second review page");
+        assert_eq!(second.reviews.len(), 1);
+        assert_eq!(second.reviews[0].state, ReviewState::Pending);
+        assert!(second.reviews[0].reviewer.is_none());
+        assert!(second.reviews[0].commit_sha.is_none());
         assert!(second.next_page.is_none());
     }
 }

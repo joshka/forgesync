@@ -163,7 +163,7 @@ impl Coverage {
         &self.state
     }
 
-    /// Returns whether this family's evidence predates the current parent discussion.
+    /// Returns whether this family's evidence predates its current parent or interpretation context.
     pub fn is_stale(&self) -> bool {
         self.stale
     }

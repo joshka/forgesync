@@ -95,6 +95,12 @@ pub enum StoreError {
     /// A completion result did not supply the page count required for atomic application.
     #[error("complete collection requires an expected page count")]
     MissingExpectedPageCount,
+    /// Review evidence was completed without identifying the pull-request head it describes.
+    #[error("complete review evidence requires a pull-request head SHA")]
+    MissingPullRequestHeadContext,
+    /// A pull-request head context was attached to a non-review evidence family.
+    #[error("pull-request head context is not valid for this evidence family")]
+    UnexpectedPullRequestHeadContext,
     /// The collection completeness fields contradict the staged result.
     #[error("collection completeness does not match staged items or page count")]
     InvalidCollectionCompleteness,
@@ -200,6 +206,8 @@ impl StoreError {
             Self::StagedItemConflict => "observation_item_conflict",
             Self::IncompletePageSet { .. } => "observation_pages_incomplete",
             Self::MissingExpectedPageCount => "observation_page_count_missing",
+            Self::MissingPullRequestHeadContext => "pull_request_head_context_missing",
+            Self::UnexpectedPullRequestHeadContext => "pull_request_head_context_unexpected",
             Self::InvalidCollectionCompleteness => "observation_completeness_invalid",
             Self::StaleRepositoryThreadScan => "repository_scan_stale",
             Self::RepositoryThreadScanMissing => "repository_scan_missing",

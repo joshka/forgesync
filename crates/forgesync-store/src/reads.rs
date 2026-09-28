@@ -201,6 +201,8 @@ struct StoredCoverage {
     state: CoverageState,
     source_clock_state: String,
     source_clock_us: Option<i64>,
+    snapshot_head_sha: Option<String>,
+    current_head_sha: Option<String>,
 }
 
 const ALL_FAMILIES: [EvidenceFamily; 5] = [
@@ -544,8 +546,27 @@ async fn load_thread_coverage(
     if thread_ids.is_empty() {
         return Ok(HashMap::new());
     }
+    let mut metadata_statement = QueryBuilder::<Sqlite>::new(
+        "SELECT thread_id, payload_json FROM thread_family_membership WHERE family = 'pull_request_metadata' AND thread_id IN (",
+    );
+    for (index, thread_id) in thread_ids.iter().enumerate() {
+        if index > 0 {
+            metadata_statement.push(", ");
+        }
+        metadata_statement.push_bind(thread_id);
+    }
+    metadata_statement.push(")");
+    let metadata_rows = metadata_statement.build().fetch_all(pool).await?;
+    let mut current_heads = HashMap::with_capacity(metadata_rows.len());
+    for row in metadata_rows {
+        let thread_id: i64 = row.try_get("thread_id")?;
+        let payload_json: String = row.try_get("payload_json")?;
+        let metadata: PullRequestMetadata = serde_json::from_str(&payload_json)?;
+        current_heads.insert(thread_id, metadata.head.sha.as_str().to_owned());
+    }
+
     let mut statement = QueryBuilder::<Sqlite>::new(
-        "SELECT thread_id, family, state_json, source_clock_state, source_clock_us FROM family_coverage WHERE thread_id IN (",
+        "SELECT c.thread_id, c.family, c.state_json, c.source_clock_state, c.source_clock_us, h.head_sha AS snapshot_head_sha FROM family_coverage c LEFT JOIN thread_family_head_contexts h ON h.thread_id = c.thread_id AND h.family = c.family WHERE c.thread_id IN (",
     );
     for (index, thread_id) in thread_ids.iter().enumerate() {
         if index > 0 {
@@ -562,6 +583,7 @@ async fn load_thread_coverage(
         let state_json: String = row.try_get("state_json")?;
         let source_clock_state: String = row.try_get("source_clock_state")?;
         let source_clock_us: Option<i64> = row.try_get("source_clock_us")?;
+        let snapshot_head_sha: Option<String> = row.try_get("snapshot_head_sha")?;
         let family = parse_evidence_family(&family)?;
         let state = serde_json::from_str(&state_json)?;
         coverage
@@ -573,6 +595,8 @@ async fn load_thread_coverage(
                     state,
                     source_clock_state,
                     source_clock_us,
+                    snapshot_head_sha,
+                    current_head_sha: current_heads.get(&thread_id).cloned(),
                 },
             );
     }
@@ -603,7 +627,7 @@ fn is_stale(
     family: EvidenceFamily,
     stored: Option<&StoredCoverage>,
 ) -> bool {
-    if family != EvidenceFamily::Comments {
+    if !matches!(family, EvidenceFamily::Comments | EvidenceFamily::Reviews) {
         return false;
     }
     let Some(stored) = stored else {
@@ -618,8 +642,14 @@ fn is_stale(
     if !parent_clock_matches {
         return true;
     }
-    match stored.state {
-        CoverageState::Complete { item_count, .. } => comment_count(discussion) != Some(item_count),
+    match family {
+        EvidenceFamily::Comments => match stored.state {
+            CoverageState::Complete { item_count, .. } => {
+                comment_count(discussion) != Some(item_count)
+            }
+            _ => false,
+        },
+        EvidenceFamily::Reviews => stored.snapshot_head_sha != stored.current_head_sha,
         _ => false,
     }
 }
