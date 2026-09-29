@@ -1,5 +1,6 @@
 /target/
 /dist/
+/.rumdl_cache/
 *.db
 *.db-shm
 *.db-wal

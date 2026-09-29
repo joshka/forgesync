@@ -694,6 +694,7 @@ Validation:
 - Local Apple Silicon package creation and archive member verification: passed.
 - `offline_search` example run against a fresh temporary archive: passed without credentials.
 - `actionlint .github/workflows/ci.yml .github/workflows/release.yml`: passed.
+- `rumdl fmt .`, `rumdl fmt --check .`, and `rumdl check .`: passed, 8 Markdown files.
 - Markdownlint for `README.md`, `docs/installation.md`, `docs/releasing.md`,
   `docs/compatibility.md`, and `docs/implementation-status.md`: passed, 0 issues.
 - Hosted Windows, Linux, and Intel macOS jobs are configured but have not run from this checkout.

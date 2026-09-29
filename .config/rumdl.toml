@@ -1,0 +1,5 @@
+[MD013]
+line-length = 100
+heading-line-length = 100
+code-block-line-length = 100
+tables = false

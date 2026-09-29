@@ -12,6 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up rumdl
+        uses: rvben/rumdl@v0
+        with:
+          version: "0.2.77"
+          install-only: true
+      - name: Check Markdown formatting
+        run: rumdl fmt --check .
+      - name: Lint Markdown
+        run: rumdl check .
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run Clippy
