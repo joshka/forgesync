@@ -17,10 +17,11 @@ use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort};
 use forgesync_store::runs::{RunFailureScope, SyncJobCompletion, SyncJobStatus};
 
+use super::SyncProgressStatus;
+use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
 use super::repository_work::RepositoryWork;
-use super::support::{count_failure, send_progress, store_state_filter};
-use super::{SyncProgressStatus, WorkSummary};
+use super::support::{send_progress, store_state_filter};
 use crate::enumeration::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
@@ -166,7 +167,7 @@ impl<'a> CommentJob<'a> {
         }
         summary.completed_jobs += 1;
         if let Some(failure) = failure {
-            count_failure(summary, failure);
+            summary.record_failure(failure);
         }
         if self.job.progress.interrupted {
             summary.interrupted = true;

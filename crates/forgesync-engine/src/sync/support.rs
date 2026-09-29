@@ -1,20 +1,32 @@
-//! # Shared sync resolution and failure accounting
+//! # Sync attribution, state mapping, and progress presentation
 //!
 //! Support functions resolve user selectors, map requested state filters, turn job outcomes into
 //! progress, and record thread-family failures. They centralize cross-family policy without owning
-//! any provider pagination.
+//! any provider pagination. Run-wide counters and outcome selection belong to `accounting`;
+//! this module translates individual job evidence into ledger inputs and progress snapshots.
 //!
 //! A failure is tied to the thread and family that produced it. This lets the run ledger and
 //! report retain partial success and gives retry a precise target rather than a generic failed-run
 //! flag.
 
+use forgesync_core::coverage::{EvidenceFamily, Failure, FailureKind};
+use forgesync_core::identity::{RunId, ThreadId};
+use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_github::resources::ThreadListState;
+use forgesync_store::archive::Archive;
+use forgesync_store::enumeration::RepositoryThreadScanStatus;
+use forgesync_store::reads::ThreadStateFilter;
+use forgesync_store::runs::{RunFailureInput, SyncJobStatus};
+use tokio::sync::mpsc;
+
+use super::accounting::WorkSummary;
 use super::{
-    Archive, CLOSED_SWEEP_OVERLAP_MICROSECONDS, DeferredReason, EngineError, EvidenceFamily,
-    Failure, FailureKind, OperationOutcome, RepositorySelector, RepositoryThreadScanStatus,
-    RunFailureInput, RunId, SyncJobStatus, SyncProgress, SyncProgressStatus, SyncRequest,
-    SyncRunContext, ThreadEnumerationReport, ThreadId, ThreadListState, ThreadStateFilter,
-    UtcTimestamp, WorkSummary, mpsc, now_utc,
+    CLOSED_SWEEP_OVERLAP_MICROSECONDS, SyncProgress, SyncProgressStatus, SyncRequest,
+    SyncRunContext,
 };
+use crate::enumeration::{ThreadEnumerationReport, now_utc};
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
 
 /// Persists one family failure without discarding other acquired evidence.
 pub async fn record_thread_family_failure(
@@ -107,47 +119,6 @@ pub fn progress_status(failure: &Failure) -> SyncProgressStatus {
     } else {
         SyncProgressStatus::Failed
     }
-}
-
-/// Adds one failure to aggregate work counts without losing its category.
-pub fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
-    if failure.kind == FailureKind::RateLimited {
-        summary.deferred_jobs += 1;
-    } else {
-        summary.failed_jobs += 1;
-    }
-    if summary.first_failure.is_none() {
-        summary.first_failure = Some(failure.clone());
-    }
-}
-
-/// Derives the final complete, partial, or interrupted run outcome.
-pub fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
-    if work.interrupted {
-        return OperationOutcome::Interrupted {
-            pending_items: work.pending_jobs,
-        };
-    }
-    if work.failed_jobs > 0 || work.deferred_jobs > 0 {
-        if work.completed_jobs > work.failed_jobs + work.deferred_jobs {
-            return OperationOutcome::Partial {
-                failed_items: work.failed_jobs,
-                deferred_items: work.deferred_jobs,
-            };
-        }
-        if work.failed_jobs == 0 {
-            return OperationOutcome::Deferred {
-                reason: DeferredReason::RateLimitBudget,
-            };
-        }
-        return OperationOutcome::Failed {
-            failure: work.first_failure.clone().unwrap_or(Failure {
-                kind: FailureKind::ProviderResponse,
-                message: "sync failed before any repository completed".to_owned(),
-            }),
-        };
-    }
-    OperationOutcome::Complete
 }
 
 /// Adds a bounded overlap to a closed-thread sweep watermark.

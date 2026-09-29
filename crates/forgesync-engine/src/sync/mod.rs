@@ -5,36 +5,34 @@
 //! opened archive and explicit cancellation. It uses the GitHub adapter for transport and
 //! normalization, then the store for ordered observations.
 //!
-//! `jobs` coordinates thread work. `comments`, `reviews`, and `review_threads` own independently
-//! paginated child families; `pull_requests` and `metadata` handle pull-request-specific evidence.
-//! `review_collection` owns the reserved lifecycle shared by review families, while their provider
-//! collectors own page traversal. `support` resolves selectors and records scoped failures. An
-//! incomplete child collection must
-//! not replace prior complete membership. Per-job failure isolation lets one discussion fail while
-//! other work still commits.
+//! `accounting` owns run-wide counters and outcome selection; `jobs` coordinates thread work.
+//! `comments`, `reviews`, and `review_threads` own independently paginated child families;
+//! `pull_requests` and `metadata` handle pull-request-specific evidence. `review_collection` owns
+//! the reserved lifecycle shared by review families, while their provider collectors own page
+//! traversal. `support` resolves selectors and records scoped failures. An incomplete child
+//! collection must not replace prior complete membership. Per-job failure isolation lets one
+//! discussion fail while other work still commits.
 
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-use forgesync_core::coverage::{DeferredReason, EvidenceFamily, Failure, FailureKind};
+use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_github::resources::ThreadListState;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
-use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::error::StoreError;
 use forgesync_store::leases::ArchiveLeaseToken;
-use forgesync_store::reads::ThreadStateFilter;
-use forgesync_store::runs::{RunFailureInput, RunRecord, SyncJobRecord, SyncJobStatus};
+use forgesync_store::runs::{RunRecord, SyncJobRecord};
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::mpsc;
 use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
-use crate::enumeration::{ThreadEnumerationReport, now_utc};
+use crate::enumeration::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
@@ -43,6 +41,7 @@ const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
 /// One day of replay overlap protects closed-thread sweeps from timestamp boundary gaps.
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
+mod accounting;
 mod comment_job;
 mod comments;
 mod family_job;
@@ -57,7 +56,7 @@ mod support;
 mod thread_job;
 
 use jobs::run_jobs;
-use support::{operation_outcome, resolve_selectors};
+use support::resolve_selectors;
 
 /// Thread scope requested for one sync run.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
@@ -191,43 +190,6 @@ struct ScopeUnit {
     state: ThreadListState,
     /// Whether complete enumeration establishes a new closed-sweep checkpoint.
     update_closed_watermark: bool,
-}
-
-/// In-memory accounting accumulated after durable job and observation updates.
-///
-/// Terminal jobs include failures and interruptions; they are not synonymous with successful jobs.
-/// Cancellation adds interrupted jobs back into pending work because their scope needs retry. The
-/// final outcome uses these counters while the returned report reloads authoritative ledger rows.
-#[derive(Default)]
-struct WorkSummary {
-    /// Initial repository/scope jobs plus pull-request family jobs added for nonempty scopes.
-    total_jobs: u64,
-    /// Jobs recorded as terminal, including failed, deferred, and interrupted jobs.
-    completed_jobs: u64,
-    /// Jobs ending with failures other than exhausted rate-limit budgets.
-    failed_jobs: u64,
-    /// Jobs deferred after the provider rate-limit retry budget expires.
-    deferred_jobs: u64,
-    /// Provider pages whose acquisition was durably recorded.
-    pages_completed: u64,
-    /// Parent discussion rows received by recorded scans.
-    threads_seen: u64,
-    /// Discussion comments received by recorded scans.
-    comments_seen: u64,
-    /// Pull-request metadata records received by recorded acquisitions.
-    pull_request_metadata_seen: u64,
-    /// Review records received by recorded acquisitions.
-    reviews_seen: u64,
-    /// Review-thread records received by recorded acquisitions.
-    review_threads_seen: u64,
-    /// Whether cancellation stopped selected work before the run completed.
-    interrupted: bool,
-    /// Terminal interrupted jobs that must also count as remaining work.
-    interrupted_jobs: u64,
-    /// Remaining jobs calculated after interruption, including interrupted terminal jobs.
-    pending_jobs: u64,
-    /// First encountered failure used when the whole run fails without successful jobs.
-    first_failure: Option<Failure>,
 }
 
 /// Immutable run identity and execution policy shared by repository-family job owners.
@@ -422,7 +384,7 @@ async fn execute_and_finalize(
             return Err(original_error);
         }
     };
-    let outcome = operation_outcome(&work);
+    let outcome = work.outcome();
     archive
         .finish_run(context.lease, context.run_id, now_utc()?, &outcome)
         .await?;

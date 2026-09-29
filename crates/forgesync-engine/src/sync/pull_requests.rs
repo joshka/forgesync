@@ -17,13 +17,12 @@ use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort};
 
+use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
 use super::repository_work::RepositoryWork;
 use super::review_collection::{ReviewFamily, ReviewSync};
 use super::support::{send_progress, store_state_filter};
-use super::{
-    PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope, WorkSummary,
-};
+use super::{PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope};
 use crate::enumeration::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;

@@ -22,10 +22,11 @@ use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::runs::RunFailureInput;
 
+use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
-use super::support::{count_failure, overlap_start, progress_status, send_progress};
+use super::support::{overlap_start, progress_status, send_progress};
 use super::thread_job::ThreadJob;
-use super::{ScopeUnit, SyncProgressStatus, SyncRunContext, WorkSummary};
+use super::{ScopeUnit, SyncProgressStatus, SyncRunContext};
 use crate::enumeration::{ThreadScanContext, github_failure, now_utc};
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
@@ -186,7 +187,7 @@ impl RepositorySync<'_> {
                 original: failure.clone(),
                 source,
             })?;
-        count_failure(summary, failure);
+        summary.record_failure(failure);
         summary.completed_jobs += 1;
         self.publish(summary, progress_status(failure));
         Ok(())
@@ -262,17 +263,5 @@ impl Acquisition {
             started_at,
             sequence,
         })
-    }
-}
-
-impl WorkSummary {
-    /// Includes interrupted jobs in the remaining-work count when cancellation stopped the run.
-    fn finish_pending(&mut self) {
-        if self.interrupted {
-            self.pending_jobs = self
-                .total_jobs
-                .saturating_sub(self.completed_jobs)
-                .saturating_add(self.interrupted_jobs);
-        }
     }
 }

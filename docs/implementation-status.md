@@ -1204,3 +1204,23 @@ completion, and outcome selection. All fourteen sync workflow scenarios and stri
 engine Rustdoc pass. Nightly formatting and Markdown checks pass. The remaining sync coordinator and
 representation ownership still need structural review; these contracts establish what a subsequent
 extraction must preserve.
+
+## Continued maintenance: owned sync outcome accounting
+
+`sync/accounting` now owns `WorkSummary` and its failure classification, terminal family accounting,
+remaining-work calculation, and outcome selection. Those methods previously lived across the root,
+job runner, family job, and support module. Callers now import the representation from its owner and
+ask it to record failures or select an outcome. The support module imports domain, store, and engine
+types directly instead of relying on a parent import prelude. Its responsibility is attribution and
+presentation of individual job evidence.
+
+Five nearby linear unit scenarios pass for complete, partial, deferred, failed, and interrupted
+outcomes, including first-diagnostic retention and interrupted jobs remaining retryable. The
+repository/provider integration scenarios remain the evidence for durable acquisition behavior. The
+broader coordinator, other representations, and remaining workflow candidates are still open.
+
+Current-tree validation for this extraction passes: five focused accounting cases, fourteen sync
+workflow scenarios, workspace Clippy with warnings denied, all workspace tests/doctests, the CLI
+build without default features, strict public/private Rustdoc, nightly formatting, rumdl, and
+changed-page Markdown linting. The generated accounting module and type documentation were checked
+for the ownership and counter distinctions above.

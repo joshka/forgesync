@@ -14,9 +14,10 @@ use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::error::StoreError;
 use forgesync_store::runs::{RunFailureScope, SyncJobCompletion};
 
+use super::SyncProgressStatus;
+use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
-use super::support::{count_failure, job_result, send_progress};
-use super::{SyncProgressStatus, WorkSummary};
+use super::support::{job_result, send_progress};
 use crate::enumeration::{
     ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages, now_utc,
 };
@@ -142,7 +143,7 @@ impl<'a> ThreadJob<'a> {
     ) {
         summary.completed_jobs += 1;
         if let Some(failure) = failure {
-            count_failure(summary, failure);
+            summary.record_failure(failure);
         }
         if report.interrupted {
             summary.interrupted = true;

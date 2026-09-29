@@ -15,8 +15,9 @@ use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::runs::{SyncJobCompletion, SyncJobStatus};
 
-use super::support::{count_failure, progress_status, send_progress};
-use super::{SyncProgressStatus, SyncRunContext, ThreadFamilyResult, WorkSummary};
+use super::accounting::WorkSummary;
+use super::support::{progress_status, send_progress};
+use super::{SyncProgressStatus, SyncRunContext, ThreadFamilyResult};
 use crate::enumeration::now_utc;
 use crate::error::EngineError;
 
@@ -135,19 +136,5 @@ impl FamilyJobProgress {
             }
         }
         Ok(())
-    }
-}
-
-impl WorkSummary {
-    /// Adds a finished family job to run accounting while retaining its first failure.
-    fn record_family_outcome(&mut self, failure: Option<&Failure>, interrupted: bool) {
-        self.completed_jobs = self.completed_jobs.saturating_add(1);
-        if let Some(failure) = failure {
-            count_failure(self, failure);
-        }
-        if interrupted {
-            self.interrupted = true;
-            self.interrupted_jobs = self.interrupted_jobs.saturating_add(1);
-        }
     }
 }
