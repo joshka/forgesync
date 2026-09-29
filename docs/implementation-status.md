@@ -2,6 +2,10 @@
 
 ## Current position
 
+- CLI and TUI discussion detail now assemble named source, coverage, metadata/body, and timeline
+  sections. TUI loading/error resolution precedes its prepared detail view, whose lines still
+  determine scroll limits. All 20 TUI state, snapshot, and resize tests passed.
+
 - Repository scans now expose start, parent application, and cursor recording as durable phases
   beside their traversal. Both enumeration regressions pass, including page-two failure and replay.
 

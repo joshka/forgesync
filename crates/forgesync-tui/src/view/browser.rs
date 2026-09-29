@@ -8,10 +8,10 @@
 //! focus cues. It should render loading and failure state from the app rather than silently
 //! implying an empty archive.
 
+use super::detail::detail_lines;
 use super::{
-    App, COMPACT_WIDTH, Color, Constraint, Direction, Focus, Frame, Layout, Line, List, ListItem,
-    ListState, Modifier, Paragraph, Rect, SourceState, Style, Text, ThreadDetail, ThreadKind,
-    ThreadTimelineEvent, Wrap, family_name, pane_block, selected_style,
+    App, COMPACT_WIDTH, Constraint, Direction, Focus, Frame, Layout, List, ListItem, ListState,
+    Paragraph, Rect, Text, Wrap, pane_block, selected_style,
 };
 
 /// Arranges repository, discussion, and detail panes for the available width.
@@ -121,11 +121,7 @@ fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
 
 /// Draws selected discussion content or its loading and failure state.
 fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let lines = detail_lines(
-        app.detail.as_ref(),
-        app.detail_loading,
-        app.detail_error.as_deref(),
-    );
+    let lines = detail_lines(app);
     let block = pane_block("Discussion detail", app.focus == Focus::Detail);
     let inner_height = block.inner(area).height;
     let max_scroll = lines.len().saturating_sub(usize::from(inner_height));
@@ -139,119 +135,4 @@ fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
             .scroll((app.detail_scroll, 0)),
         area,
     );
-}
-
-/// Builds the ordered summary and timeline lines for one discussion.
-fn detail_lines(
-    detail: Option<&ThreadDetail>,
-    loading: bool,
-    error: Option<&str>,
-) -> Vec<Line<'static>> {
-    let Some(detail) = detail else {
-        let text = if loading {
-            "Loading selected discussion…"
-        } else if let Some(error) = error {
-            return vec![Line::from(error.to_owned())];
-        } else {
-            "Select a discussion and press Enter to inspect it."
-        };
-        return vec![Line::from(text)];
-    };
-    let summary = &detail.summary;
-    let discussion = &summary.discussion;
-    let kind = match discussion.kind {
-        ThreadKind::Issue => "Issue",
-        ThreadKind::PullRequest => "Pull request",
-    };
-    let state = match &discussion.state {
-        SourceState::Open => "open".to_owned(),
-        SourceState::Closed => "closed".to_owned(),
-        SourceState::Other(value) => value.clone(),
-    };
-    let mut lines = vec![
-        Line::from(format!("{} #{}", kind, discussion.id.number().get())).style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Line::from(summary.repository.full_name.clone()),
-        Line::from(state),
-        Line::from(discussion.title.clone()).style(Style::default().add_modifier(Modifier::BOLD)),
-    ];
-    if let Some(url) = &discussion.html_url {
-        lines.push(Line::from(url.clone()).style(Style::default().fg(Color::Blue)));
-    }
-    lines.push(Line::from(""));
-    if let Some(body) = &discussion.body {
-        lines.push(Line::from("Body").style(Style::default().add_modifier(Modifier::BOLD)));
-        lines.extend(body.lines().map(|line| Line::from(line.to_owned())));
-        lines.push(Line::from(""));
-    }
-    if !discussion.labels.is_empty() {
-        lines.push(Line::from(format!(
-            "Labels: {}",
-            discussion.labels.join(", ")
-        )));
-    }
-    lines.push(Line::from("Coverage").style(Style::default().add_modifier(Modifier::BOLD)));
-    lines.extend(summary.coverage.iter().map(|coverage| {
-        Line::from(format!(
-            "{}: {:?}{}",
-            family_name(coverage.family()),
-            coverage.state(),
-            if coverage.is_stale() { " (stale)" } else { "" }
-        ))
-    }));
-    lines.push(Line::from(""));
-    lines.push(Line::from("Current evidence").style(Style::default().add_modifier(Modifier::BOLD)));
-    lines.extend(
-        detail
-            .timeline
-            .iter()
-            .map(|entry| timeline_line(&entry.event)),
-    );
-    lines
-}
-
-/// Formats one archive timeline event for the detail pane.
-fn timeline_line(event: &ThreadTimelineEvent) -> Line<'static> {
-    match event {
-        ThreadTimelineEvent::ThreadCreated { title, .. } => Line::from(format!("Created: {title}")),
-        ThreadTimelineEvent::ThreadClosed { .. } => Line::from("Discussion closed"),
-        ThreadTimelineEvent::Comment { comment } => Line::from(format!(
-            "Comment · {}: {}",
-            comment.author.as_deref().unwrap_or("unknown author"),
-            comment.body
-        )),
-        ThreadTimelineEvent::Review { review } => Line::from(format!(
-            "Review · {} · {}",
-            review
-                .reviewer
-                .as_ref()
-                .and_then(|reviewer| reviewer.login.as_deref())
-                .unwrap_or("unknown reviewer"),
-            review.body.as_deref().unwrap_or("(no review comment)")
-        )),
-        ThreadTimelineEvent::ReviewThread {
-            is_resolved,
-            is_outdated,
-            path,
-            ..
-        } => Line::from(format!(
-            "Review thread · {} · {} · {}",
-            if *is_resolved {
-                "resolved"
-            } else {
-                "unresolved"
-            },
-            if *is_outdated { "outdated" } else { "current" },
-            path.as_deref().unwrap_or("unknown path")
-        )),
-        ThreadTimelineEvent::ReviewThreadComment { comment, path, .. } => Line::from(format!(
-            "Review comment · {} · {}: {}",
-            path.as_deref().unwrap_or("unknown path"),
-            comment.author.as_deref().unwrap_or("unknown author"),
-            comment.body
-        )),
-    }
 }

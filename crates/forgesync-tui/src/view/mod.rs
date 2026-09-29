@@ -24,6 +24,7 @@ use crate::app::{App, Focus, Screen};
 mod browser;
 mod clusters;
 mod coverage;
+mod detail;
 mod failures;
 
 use browser::draw_browser;

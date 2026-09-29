@@ -13,8 +13,9 @@ use forgesync_core::content::{ReviewState, SourceState, ThreadKind as Discussion
 use forgesync_core::coverage::CoverageState;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::search::SearchResultPage;
-use forgesync_store::reads::{ThreadDetail, ThreadPage, ThreadTimelineEvent};
+use forgesync_store::reads::{ThreadDetail, ThreadPage};
 
+use super::detail::thread_detail_summary;
 use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
 use crate::{OutputMode, render_success};
 
@@ -112,133 +113,6 @@ pub fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
     }));
     if let Some(next_offset) = page.next_offset {
         lines.push(format!("Next offset: {next_offset}"));
-    }
-    lines.join("\n")
-}
-
-/// Formats a discussion timeline and current family coverage.
-pub fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
-    let thread = detail.summary.thread;
-    let mut lines = vec![format!(
-        "{}/{}#{} — {}\nKind: {}\nState: {}\nUpdated: {}",
-        detail.summary.repository.owner,
-        detail.summary.repository.name,
-        thread.id.number().get(),
-        thread.title,
-        discussion_kind_name(thread.kind),
-        source_state_name(&thread.state),
-        format_timestamp(thread.updated_at)
-    )];
-    if let Some(url) = &thread.html_url {
-        lines.push(format!("URL: {url}"));
-    }
-    if let Some(body) = &thread.body {
-        lines.push(String::new());
-        lines.push(body.clone());
-    }
-    lines.push(String::new());
-    lines.push("Coverage:".to_owned());
-    lines.extend(detail.summary.coverage.iter().map(|coverage| {
-        format!(
-            "  {}: {}{}",
-            family_name(coverage.family()),
-            coverage_state_name(coverage.state()),
-            if coverage.is_stale() { " (stale)" } else { "" }
-        )
-    }));
-    for item in detail.pull_request_metadata {
-        let metadata = &item.payload;
-        lines.push(String::new());
-        lines.push(format!(
-            "Pull request: {}:{} -> {}:{} (head {}, draft: {}, merged: {})",
-            repository_identity(metadata.head.repository.as_ref()),
-            metadata.head.name,
-            repository_identity(metadata.base.repository.as_ref()),
-            metadata.base.name,
-            metadata.head.sha,
-            metadata.draft,
-            metadata.merged
-        ));
-    }
-
-    if !detail.timeline.is_empty() {
-        lines.push(String::new());
-        lines.push("Current timeline:".to_owned());
-        for entry in detail.timeline {
-            let time = entry
-                .occurred_at
-                .map(format_timestamp)
-                .unwrap_or_else(|| "time unavailable".to_owned());
-            let summary = match &entry.event {
-                ThreadTimelineEvent::ThreadCreated { thread, title } => {
-                    format!(
-                        "{}#{} opened: {title}",
-                        thread.repository().provider_id(),
-                        thread.number().get()
-                    )
-                }
-                ThreadTimelineEvent::ThreadClosed { thread } => {
-                    format!(
-                        "{}#{} closed",
-                        thread.repository().provider_id(),
-                        thread.number().get()
-                    )
-                }
-                ThreadTimelineEvent::Comment { comment } => format!(
-                    "comment by {}: {}",
-                    comment.author.as_deref().unwrap_or("unknown author"),
-                    comment.body
-                ),
-                ThreadTimelineEvent::Review { review } => format!(
-                    "review {} by {}: {}{}",
-                    review.id.provider_id(),
-                    review
-                        .reviewer
-                        .as_ref()
-                        .and_then(|reviewer| reviewer.login.as_deref())
-                        .unwrap_or("unknown reviewer"),
-                    review_state_name(&review.state),
-                    review
-                        .body
-                        .as_deref()
-                        .map_or(String::new(), |body| format!(" — {body}"))
-                ),
-                ThreadTimelineEvent::ReviewThread {
-                    path,
-                    is_resolved,
-                    is_outdated,
-                    ..
-                } => format!(
-                    "review thread {}: {}{}",
-                    path.as_deref().unwrap_or("unknown path"),
-                    if *is_resolved {
-                        "resolved"
-                    } else {
-                        "unresolved"
-                    },
-                    if *is_outdated { ", outdated" } else { "" }
-                ),
-                ThreadTimelineEvent::ReviewThreadComment {
-                    path,
-                    is_resolved,
-                    is_outdated,
-                    comment,
-                    ..
-                } => format!(
-                    "review comment on {} ({}{}), by {}: {}",
-                    path.as_deref().unwrap_or("unknown path"),
-                    if *is_resolved {
-                        "resolved"
-                    } else {
-                        "unresolved"
-                    },
-                    if *is_outdated { ", outdated" } else { "" },
-                    comment.author.as_deref().unwrap_or("unknown author"),
-                    comment.body
-                ),
-            };
-            lines.push(format!("  {time}: {summary}"));
-        }
     }
     lines.join("\n")
 }

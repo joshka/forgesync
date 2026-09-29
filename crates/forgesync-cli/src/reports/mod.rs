@@ -16,6 +16,7 @@ use serde::Serialize;
 
 mod archive;
 mod clusters;
+mod detail;
 mod embedding;
 mod runs;
 mod sync;
