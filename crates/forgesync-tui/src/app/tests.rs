@@ -66,10 +66,17 @@ fn search_keys_build_a_local_query_until_enter() {
     app.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
     app.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
     app.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE));
     assert!(app.search_query.is_none());
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert_eq!(app.search_query.as_deref(), Some("tui"));
+    assert_eq!(app.search_query.as_deref(), Some("tui search"));
     assert_eq!(actions.len(), 1);
 }
 
