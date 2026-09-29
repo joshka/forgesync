@@ -993,3 +993,8 @@ alongside the existing app keyboard and rendering tests. All twenty-eight TUI te
 
 The module map and recurring selection/lifecycle rules are updated. Other terminal panels and the
 remaining workspace review surfaces stay open in the source-shape audit.
+
+Follow-up identity review also preserves renames: the selected repository's metadata refreshes only
+when the provider identity matches. An absent selection retains its scope rather than selecting all.
+The fifth picker regression verifies a renamed URL. The terminal state module imports engine and
+store dependencies directly, and the parent no longer supplies a query-action import prelude.

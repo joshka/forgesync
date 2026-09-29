@@ -88,9 +88,10 @@ and canonical membership count. None of these reads promote staged pages or chan
 
 `app/repositories` owns repository rows, highlight, applied scope, and the pending read generation.
 The synthetic all-repositories row is a cursor position; the applied filter retains a repository
-value independently of refreshed row order. The owner rejects stale replies, clamps cursor bounds,
-and retains loaded rows when a refresh fails. App coordination resets thread and detail state when
-the user applies a new scope.
+value independently of refreshed row order. A matching provider identity refreshes its metadata,
+including renamed repository URLs; an absent row does not broaden the applied scope. The owner
+rejects stale replies, clamps cursor bounds, and retains loaded rows when a refresh fails. App
+coordination resets thread and detail state when the user applies a new scope.
 
 `app/operation` owns the displayed writer generation and an idle/running enum. A running state
 contains its required label and optional progress snapshot. Input reads whether cancellation is
