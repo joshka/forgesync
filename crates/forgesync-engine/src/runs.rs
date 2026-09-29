@@ -7,7 +7,9 @@
 //! Retry uses recorded failure scope and current archive state rather than guessing from missing
 //! content. The new attempt is a workflow with its own report; prior successes and failures remain
 //! inspectable. The store owns ledger persistence, while this module decides what the engine
-//! should run again.
+//! should run again. `planning` resolves failed targets, restores recorded scope, and combines
+//! selected families before execution. It keeps ledger interpretation separate from acquisition;
+//! `run_retry` consumes that plan through the regular fenced sync workflow.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;
@@ -20,6 +22,8 @@ use tokio_util::sync::CancellationToken;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 use crate::sync::{SyncReport, SyncRequest, SyncThreadScope, sync_repositories};
+
+mod planning;
 
 /// One repository and scope selected by an explicit run retry.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,70 +82,7 @@ pub async fn plan_run_retry(
     families: &[EvidenceFamily],
 ) -> Result<RetryPlan, EngineError> {
     let detail = show_run(archive, run_id).await?;
-    let run_scope = &detail.run.scope;
-    let original_scope = scope_from_json(run_scope.get("thread_scope"));
-    let original_comments = bool_from_json(run_scope.get("include_comments"));
-    let original_reviews = bool_from_json(run_scope.get("include_reviews"));
-    let original_review_threads = bool_from_json(run_scope.get("include_review_threads"));
-    let mut plan = RetryPlan {
-        parent_run_id: run_id,
-        failure_ids: Vec::new(),
-        scopes: Vec::new(),
-    };
-
-    for failure in detail.failures.iter().filter(|failure| {
-        failure.resolved_at.is_none()
-            && (families.is_empty()
-                || failure
-                    .family
-                    .is_some_and(|family| families.contains(&family)))
-    }) {
-        let matching_job = detail.jobs.iter().find(|job| {
-            job.repository.full_name == failure.target
-                && failure.family.is_none_or(|family| job.family == family)
-                && (failure.scope_key.is_empty() || job.scope_key == failure.scope_key)
-        });
-        let repository = failure
-            .repository
-            .as_ref()
-            .or_else(|| matching_job.map(|job| &job.repository))
-            .map(RepositorySelector::from_repository)
-            .or_else(|| failure.target.parse::<RepositorySelector>().ok())
-            .ok_or_else(|| EngineError::RetryTargetInvalid {
-                target: failure.target.clone(),
-            })?;
-        let scope = scope_from_failure_key(&failure.scope_key).unwrap_or(original_scope);
-        let retry_scope = scope_for_family(
-            repository,
-            scope,
-            failure.family,
-            original_comments,
-            original_reviews,
-            original_review_threads,
-        );
-        if let Some(existing) = plan.scopes.iter_mut().find(|existing| {
-            existing.repository == retry_scope.repository && existing.scope == retry_scope.scope
-        }) {
-            existing.include_comments |= retry_scope.include_comments;
-            existing.include_reviews |= retry_scope.include_reviews;
-            existing.include_review_threads |= retry_scope.include_review_threads;
-        } else {
-            plan.scopes.push(retry_scope);
-        }
-        plan.failure_ids.push(failure.id);
-    }
-
-    if plan.scopes.is_empty() {
-        return Err(EngineError::NoRetryableWork { id: run_id.get() });
-    }
-    plan.scopes.sort_by(|left, right| {
-        left.repository
-            .as_url()
-            .cmp(&right.repository.as_url())
-            .then_with(|| scope_name(left.scope).cmp(scope_name(right.scope)))
-    });
-    plan.failure_ids.sort_unstable();
-    Ok(plan)
+    planning::plan(&detail, families)
 }
 
 /// Retries the supplied plan through the regular fenced sync operation.
@@ -172,69 +113,4 @@ pub async fn run_retry(
         failure_ids: plan.failure_ids,
         runs,
     })
-}
-
-/// Builds the minimal retry scope for one unresolved evidence family.
-fn scope_for_family(
-    repository: RepositorySelector,
-    scope: SyncThreadScope,
-    family: Option<EvidenceFamily>,
-    original_comments: bool,
-    original_reviews: bool,
-    original_review_threads: bool,
-) -> RetryScope {
-    let mut retry = RetryScope {
-        repository,
-        scope,
-        include_comments: false,
-        include_reviews: false,
-        include_review_threads: false,
-    };
-    match family {
-        Some(EvidenceFamily::Comments) => retry.include_comments = true,
-        Some(EvidenceFamily::Reviews) => retry.include_reviews = true,
-        Some(EvidenceFamily::ReviewThreads) => retry.include_review_threads = true,
-        Some(EvidenceFamily::Threads | EvidenceFamily::PullRequestMetadata) => {}
-        None => {
-            retry.include_comments = original_comments;
-            retry.include_reviews = original_reviews;
-            retry.include_review_threads = original_review_threads;
-        }
-    }
-    retry
-}
-
-/// Reads the original thread scope from a persisted run request.
-fn scope_from_json(value: Option<&serde_json::Value>) -> SyncThreadScope {
-    match value.and_then(serde_json::Value::as_str) {
-        Some("open") => SyncThreadScope::Open,
-        Some("closed") => SyncThreadScope::Closed,
-        Some("all") => SyncThreadScope::All,
-        _ => SyncThreadScope::Default,
-    }
-}
-
-/// Recovers a recorded state scope when planning selected retry work.
-fn scope_from_failure_key(value: &str) -> Option<SyncThreadScope> {
-    match value {
-        "open" => Some(SyncThreadScope::Open),
-        "closed" => Some(SyncThreadScope::Closed),
-        "all" => Some(SyncThreadScope::All),
-        _ => None,
-    }
-}
-
-/// Reads a persisted inclusion flag without treating malformed data as true.
-fn bool_from_json(value: Option<&serde_json::Value>) -> bool {
-    value.and_then(serde_json::Value::as_bool).unwrap_or(false)
-}
-
-/// Returns the durable name used for a thread-state retry scope.
-fn scope_name(scope: SyncThreadScope) -> &'static str {
-    match scope {
-        SyncThreadScope::Default => "default",
-        SyncThreadScope::Open => "open",
-        SyncThreadScope::Closed => "closed",
-        SyncThreadScope::All => "all",
-    }
 }
