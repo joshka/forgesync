@@ -929,3 +929,24 @@ with warnings denied, all workspace tests and doctests, the CLI build without de
 strict public/private Rustdoc, rumdl, changed-page markdownlint, and both actionlint workflows. The
 production-function comment inventory reports zero missing comments outside inherited trait
 implementations; semantic documentation depth remains a separate review requirement.
+
+## Continued maintenance: imports and search preparation
+
+Engine-root passthrough exports of store DTOs are removed. Consumers already import the actual store
+modules; the workspace compile check passes. Child-family freshness imports its domain,
+serialization, archive, and observation dependencies directly. The parent module retains only its
+own type dependencies, and the staged page representation documents its validation role.
+
+Search preparation now names request conversion, fallback validation, query-client setup, and
+read-only execution. Its execution owner keeps request, recipe, and optional transport together,
+while retaining archive closure and cancellation. The module introduction correctly explains the
+network-generated semantic query vector. All CLI unit and contract tests pass.
+
+Outcome serialization and invalid-reference tests use named parameterized cases rather than loops.
+The serialization cases still verify both exact JSON and round-trip decoding; malformed repository
+paths remain a distinct scenario. These changes preserve the original assertions and inputs.
+
+Validation for this batch passes: focused store transaction, CLI, outcome, and reference tests;
+nightly formatting; workspace Clippy with warnings denied; all workspace tests and doctests; the CLI
+build without default features; strict public/private Rustdoc; rumdl; and changed-page Markdown
+linting. Remaining completion requirements stay open in the source-shape audit.

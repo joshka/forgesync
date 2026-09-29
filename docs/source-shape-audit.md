@@ -42,12 +42,17 @@ Implemented follow-ups:
 - Semantic-search docs distinguish archived document vectors from the network-generated query
   vector.
 
+Search preparation now separates request conversion, fallback validation, query-client setup, and
+read-only execution. The execution owner keeps the request, recipe, and optional client coherent; it
+closes the archive before rendering and retains cancellation for engine retrieval. Module docs
+correct the stale offline claim for service-backed semantic queries.
+
 Remaining review surfaces:
 
 - Broader function and state review beyond the selected traversal and diagnostic slices.
 - Review additional store operations beyond the reservation, staging, and freshness slices.
-- Restricted visibility and imports routed through parent module aliases, including the engine
-  root's passthrough exports of store DTO collections.
+- Restricted visibility and imports routed through remaining parent module aliases. Engine-root
+  passthrough exports are removed; child-family freshness now imports from the actual owners.
 - Deeper module and item documentation contracts across all crates. All six crate introductions now
   have expanded entry guidance and have been reviewed in rendered Rustdoc.
 - Hosted behavior of the refreshed CI actions. Local workflow syntax validation passes.
@@ -103,14 +108,14 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 
 ### Next concrete review targets
 
-- Remove engine-root passthrough exports and route child imports through their actual owners.
+- Continue routing remaining child imports through their actual owners.
 - Document remaining private representations, policy constants, and TUI state fields with their
   contracts; inspect short module introductions for missing relationships rather than adding words.
-- Review CLI search/retry result branches, TUI result application, refresh cluster traversal,
-  embedding batch scheduling, and sync run coordination against the dispatch and state-owner rules.
-- Replace the outcome serialization and invalid-reference test loops with named cases, and write
-  enumeration replay scenarios linearly. Review catalog-validation loops separately: checking a
-  complete fixture catalog is a different contract from selecting multiple behavioral scenarios.
+- Review CLI retry result branches, TUI result application, refresh cluster traversal, embedding
+  batch scheduling, and sync run coordination against the dispatch and state-owner rules.
+- Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
+  expose named cases without loops. Review catalog-validation loops separately: checking a complete
+  fixture catalog is a different contract from selecting multiple behavioral scenarios.
 
 These targets are entries into the full checklist above, not a replacement or narrower definition of
 completion. The final current-tree local gates pass for this batch; hosted execution and the
