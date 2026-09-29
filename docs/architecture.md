@@ -127,3 +127,9 @@ binds shared local scheduling services; `thread_page` owns browse/keyword filter
 the dispatcher. Writer `progress` keeps producer and forwarding task together, drains before
 completion delivery, and aborts on unexpected drop. These owners keep runtime lifetime, read policy,
 and navigation state distinct without repeating shared service parameters in every read starter.
+
+CLI command and report roots import only what they use; child code names its owning module rather
+than a parent alias. Workflow-specific output DTOs live with their report formatters. Refresh
+presentation selects stage formatters in request order, then renders each existing `RefreshStage`
+through the common status/detail/failure pattern. Report preparation stays pure and separate from
+archive cleanup and output stream policy.

@@ -1163,3 +1163,15 @@ introductions explain these relationships and the embedding summary's failure pr
 All thirty-five CLI unit tests and fourteen CLI contract tests pass. Workspace Clippy, all workspace
 tests/doctests, the build without default features, strict public/private Rustdoc, rumdl, and
 changed-page Markdown linting pass. DTO relocation preserves the serialized output contract.
+
+## Continued maintenance: refresh stage presentation
+
+The long refresh summary match now selects named stage presentation and payload-count functions. The
+existing `RefreshStage<T>` keeps status, optional report, and failure together; a small shared
+formatter renders those facts consistently without introducing a second state wrapper. Nearby linear
+tests verify absent payloads, safe failures, selected order, omitted stage records, and the
+remaining-work suffix.
+
+All four refresh presentation cases and thirty-nine CLI unit tests pass, including partial payload
+counts before a stage failure. Full workspace Clippy, tests/doctests, the build without default
+features, strict public/private Rustdoc, rumdl, and changed-page Markdown linting pass.
