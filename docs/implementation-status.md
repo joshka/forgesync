@@ -42,8 +42,9 @@
 The crate roots now expose named concept modules. CLI command families, engine sync, refresh,
 search, and clustering, GitHub resource and transport code, store operations, and TUI state and
 rendering are grouped by behavior. Large unit suites were moved beside their owners. The
-review-thread suite and TUI query operations received the same treatment in the latest slices. The
-architecture map and Rust conventions describe the resulting navigation paths.
+review-thread suite and TUI query operations received the same treatment in the latest slices. TUI
+read dispatch now names each query handler. The architecture map and Rust conventions describe the
+resulting navigation paths.
 
 Validation of the combined migration on this checkout:
 
