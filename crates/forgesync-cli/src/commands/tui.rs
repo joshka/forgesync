@@ -2,14 +2,8 @@
 
 use super::*;
 
-pub(super) struct TuiCommandRequest<'a> {
-    pub(super) path: &'a std::path::Path,
-    pub(super) json: OutputMode,
-    pub(super) verbose: u8,
-}
-
-pub(super) async fn tui_command(request: TuiCommandRequest<'_>) -> ExitCode {
-    if request.json.is_json() {
+pub(super) async fn tui_command(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
+    if json.is_json() {
         return usage_error("--json is not supported by the interactive tui command");
     }
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
@@ -20,7 +14,7 @@ pub(super) async fn tui_command(request: TuiCommandRequest<'_>) -> ExitCode {
             "the tui command requires an interactive terminal",
         );
     }
-    let archive = match Archive::open_read_write(request.path).await {
+    let archive = match Archive::open_read_write(path).await {
         Ok(archive) => archive,
         Err(error) => return render_store_error(OutputMode::Text, "tui", error),
     };
@@ -36,14 +30,13 @@ pub(super) async fn tui_command(request: TuiCommandRequest<'_>) -> ExitCode {
         .map(RepositorySelector::from_repository)
         .collect::<Vec<_>>();
     let cancellation = tokio_util::sync::CancellationToken::new();
-    let clients =
-        match github_clients_for_selectors(&selectors, request.verbose, &cancellation).await {
-            Ok(clients) => clients,
-            Err(error) => {
-                archive.close().await;
-                return render_github_client_setup_error(OutputMode::Text, "tui", error);
-            }
-        };
+    let clients = match github_clients_for_selectors(&selectors, verbose, &cancellation).await {
+        Ok(clients) => clients,
+        Err(error) => {
+            archive.close().await;
+            return render_github_client_setup_error(OutputMode::Text, "tui", error);
+        }
+    };
     let result = forgesync_tui::run(archive, clients).await;
     match result {
         Ok(()) => ExitCode::SUCCESS,

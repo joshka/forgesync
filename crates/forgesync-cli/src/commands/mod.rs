@@ -17,7 +17,7 @@ mod thread;
 mod tui;
 
 use archive::archive_command;
-use cluster::{ClusterCliRequest, cluster_from_cli};
+use cluster::cluster_from_cli;
 use embed::embed_from_cli;
 use github::{github_api_base_url, github_clients_for_selectors, render_github_client_setup_error};
 use refresh::refresh_from_cli;
@@ -27,7 +27,7 @@ use search::search_command;
 use sync::sync_from_cli;
 use thread::thread_command;
 #[cfg(feature = "tui")]
-use tui::{TuiCommandRequest, tui_command};
+use tui::tui_command;
 
 pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
     let Some(path) = args.archive else {
@@ -55,27 +55,12 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             embed_from_cli(embed_args, &path, output, args.verbose, config).await
         }
         Command::Cluster { command } => {
-            cluster_from_cli(ClusterCliRequest {
-                archive_path: &path,
-                command,
-                embedding_service: config.embeddings,
-                recipe: config.documents.recipe,
-                json: output,
-                verbose: args.verbose,
-            })
-            .await
+            cluster_from_cli(command, &path, output, args.verbose, config).await
         }
         Command::Thread { command } => thread_command(&path, output, command).await,
         Command::Run { command } => run_command(&path, output, args.verbose, command).await,
         #[cfg(feature = "tui")]
-        Command::Tui => {
-            tui_command(TuiCommandRequest {
-                path: &path,
-                json: output,
-                verbose: args.verbose,
-            })
-            .await
-        }
+        Command::Tui => tui_command(&path, output, args.verbose).await,
     }
 }
 

@@ -2,16 +2,13 @@
 
 use super::*;
 
-pub(super) struct ClusterCliRequest<'a> {
-    pub(super) archive_path: &'a std::path::Path,
-    pub(super) command: ClusterCommand,
-    pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
-    pub(super) recipe: DocumentRecipe,
-    pub(super) json: OutputMode,
-    pub(super) verbose: u8,
-}
-
-pub(super) async fn cluster_from_cli(request: ClusterCliRequest<'_>) -> ExitCode {
+pub(super) async fn cluster_from_cli(
+    command: ClusterCommand,
+    path: &std::path::Path,
+    json: OutputMode,
+    verbose: u8,
+    config: ForgesyncConfig,
+) -> ExitCode {
     let cancellation = tokio_util::sync::CancellationToken::new();
     let interrupt_cancellation = cancellation.clone();
     let interrupt_task = tokio::spawn(async move {
@@ -20,12 +17,12 @@ pub(super) async fn cluster_from_cli(request: ClusterCliRequest<'_>) -> ExitCode
         }
     });
     let result = cluster_command(
-        request.archive_path,
-        request.command,
-        request.embedding_service,
-        request.recipe,
-        request.json,
-        request.verbose,
+        path,
+        command,
+        config.embeddings,
+        config.documents.recipe,
+        json,
+        verbose,
         &cancellation,
     )
     .await;
