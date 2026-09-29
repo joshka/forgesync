@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 mod operations;
+mod reads;
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{GitHubHost, RunId};
@@ -23,6 +24,10 @@ use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::runs::{RunStatus, SyncJobStatus};
 use operations::start_operation;
+use reads::{
+    ThreadRead, start_cluster_detail, start_clusters, start_coverage, start_detail, start_failures,
+    start_repositories, start_threads,
+};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinHandle;
@@ -123,139 +128,33 @@ pub(crate) fn start_query(
     tasks: &mut QueryTasks,
 ) {
     match action {
-        QueryAction::Repositories => {
-            let generation = app.begin_repositories();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = list_repositories(&archive)
-                    .await
-                    .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::Repositories { generation, result })
-                    .await;
-            }));
-        }
+        QueryAction::Repositories => start_repositories(app, archive, runtime, sender, tasks),
         QueryAction::Threads {
             query,
             repositories,
             offset,
-        } => {
-            let generation = app.begin_threads();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let filters = ThreadFilters {
-                    repositories,
-                    kind: None,
-                    state: ThreadStateFilter::All,
-                    sort: Some(if query.is_some() {
-                        ThreadSort::Relevance
-                    } else {
-                        ThreadSort::Updated
-                    }),
-                    limit: 100,
-                    offset,
-                };
-                let result = match query {
-                    Some(query) => {
-                        search_threads(
-                            &archive,
-                            &SearchRequest {
-                                query,
-                                mode: SearchMode::Keyword,
-                                filters,
-                                allow_keyword_fallback: false,
-                            },
-                        )
-                        .await
-                    }
-                    None => list_threads(&archive, &ThreadListRequest { filters }).await,
-                }
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::Threads {
-                        generation,
-                        offset,
-                        result,
-                    })
-                    .await;
-            }));
-        }
+        } => start_threads(
+            ThreadRead {
+                query,
+                repositories,
+                offset,
+            },
+            app,
+            archive,
+            runtime,
+            sender,
+            tasks,
+        ),
         QueryAction::Detail(selector) => {
-            let generation = app.begin_detail();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = show_thread(&archive, &selector)
-                    .await
-                    .map(Box::new)
-                    .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::Detail { generation, result })
-                    .await;
-            }));
+            start_detail(selector, app, archive, runtime, sender, tasks)
         }
-        QueryAction::Coverage => {
-            let generation = app.begin_coverage();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = archive_status(&archive)
-                    .await
-                    .map(Box::new)
-                    .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::Coverage { generation, result })
-                    .await;
-            }));
-        }
-        QueryAction::Failures => {
-            let generation = app.begin_failures();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = load_failures(&archive).await;
-                let _ = sender
-                    .send(QueryMessage::Failures { generation, result })
-                    .await;
-            }));
-        }
+        QueryAction::Coverage => start_coverage(app, archive, runtime, sender, tasks),
+        QueryAction::Failures => start_failures(app, archive, runtime, sender, tasks),
         QueryAction::Clusters { repositories } => {
-            let generation = app.begin_clusters();
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = list_clusters(
-                    &archive,
-                    &ClusterListRequest {
-                        repositories,
-                        include_retired: true,
-                        limit: 100,
-                        offset: 0,
-                    },
-                )
-                .await
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::Clusters { generation, result })
-                    .await;
-            }));
+            start_clusters(repositories, app, archive, runtime, sender, tasks);
         }
         QueryAction::ClusterDetail { generation, id } => {
-            let archive = Arc::clone(archive);
-            let sender = sender.clone();
-            tasks.push(runtime.spawn(async move {
-                let result = show_cluster(&archive, id)
-                    .await
-                    .map(Box::new)
-                    .map_err(|error| error.to_string());
-                let _ = sender
-                    .send(QueryMessage::ClusterDetail { generation, result })
-                    .await;
-            }));
+            start_cluster_detail(generation, id, archive, runtime, sender, tasks);
         }
         QueryAction::CancelOperation => {
             if let Some(operation) = &tasks.operation {
