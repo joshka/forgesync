@@ -106,7 +106,7 @@ fn sample_app() -> App {
         selected_thread: Some(0),
         ..App::default()
     };
-    app.repository_picker.applied = Some(0);
+    app.repository_picker.applied = Some(summary.repository.clone());
     app.repository_picker.cursor = 1;
     app
 }

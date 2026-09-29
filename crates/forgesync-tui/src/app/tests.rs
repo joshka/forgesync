@@ -106,7 +106,13 @@ fn repository_picker_applies_the_highlighted_repository() {
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
 
-    assert_eq!(app.repository_picker.applied, Some(0));
+    assert_eq!(
+        app.repository_picker
+            .applied
+            .as_ref()
+            .map(|repository| repository.full_name.as_str()),
+        Some("owner/repo")
+    );
     assert!(matches!(app.screen, Screen::Browser));
     let [
         QueryAction::Threads {
@@ -165,8 +171,8 @@ fn writer_actions_use_current_repository_scope() {
     let repository = sample_repository();
     let mut app = App {
         repository_picker: RepositoryPicker {
-            items: vec![repository],
-            applied: Some(0),
+            items: vec![repository.clone()],
+            applied: Some(repository),
             ..RepositoryPicker::default()
         },
         ..App::default()

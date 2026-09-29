@@ -57,15 +57,12 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
     } else if let Some(error) = &app.repository_picker.error {
         items = vec![ListItem::new(error.clone())];
     }
-    let title = if let Some(index) = app.repository_picker.applied {
-        app.repository_picker
-            .items
-            .get(index)
-            .map(|repository| format!("Repositories · {}", repository.full_name))
-            .unwrap_or_else(|| "Repositories".to_owned())
-    } else {
-        "Repositories · all".to_owned()
-    };
+    let title = app
+        .repository_picker
+        .applied
+        .as_ref()
+        .map(|repository| format!("Repositories · {}", repository.full_name))
+        .unwrap_or_else(|| "Repositories · all".to_owned());
     let mut state = ListState::default();
     if app.repository_picker.error.is_none() {
         state.select(Some(

@@ -4,9 +4,10 @@
 //! together. Cursor zero is the synthetic all-repositories row; later cursor positions map to
 //! zero-based indices in `items`. Moving the cursor does not apply a filter until Enter is pressed.
 //!
-//! `applied` identifies the filter used by thread reads and writer actions. Reads may refresh the
-//! items while that selection remains in effect. The app owns the resulting thread/detail reset,
-//! whereas this module owns repository loading, stale-reply rejection, and cursor bounds.
+//! `applied` retains the repository selected for thread reads and writer actions. It is independent
+//! of refreshed row order, so a newly inserted repository cannot retarget an acquisition command.
+//! The app owns the resulting thread/detail reset, whereas this module owns repository loading,
+//! stale-reply rejection, and cursor bounds.
 //!
 //! A failed refresh retains previously loaded rows and the applied filter. Its error is exposed to
 //! the picker view and returned to the app's status line. Beginning a new read clears that error;
@@ -21,8 +22,8 @@ pub struct RepositoryPicker {
     pub cursor: usize,
     /// Current archive repository rows, excluding the synthetic row.
     pub items: Vec<Repository>,
-    /// Applied item index; `None` selects every repository rather than the highlighted row.
-    pub applied: Option<usize>,
+    /// Applied repository snapshot; `None` explicitly selects every repository.
+    pub applied: Option<Repository>,
     /// Most recently started read identity, used to reject stale replies.
     pub generation: u64,
     /// Whether the current generation is awaiting a result; existing items may remain visible.
@@ -43,7 +44,7 @@ impl RepositoryPicker {
     /// Applies the current generation and returns a failure for the app's status line.
     ///
     /// Stale replies are ignored, including their failures. Success clamps the highlighted row to
-    /// the refreshed picker bounds; it preserves the applied index as the previous app did.
+    /// the refreshed picker bounds; the applied repository remains independent of row order.
     pub fn apply(
         &mut self,
         generation: u64,
@@ -73,3 +74,6 @@ impl RepositoryPicker {
         Some(error)
     }
 }
+
+#[cfg(test)]
+mod tests;

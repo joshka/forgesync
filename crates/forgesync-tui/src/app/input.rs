@@ -156,13 +156,7 @@ impl App {
     /// Builds a thread query from the applied repository filter. A highlighted but unapplied
     /// repository does not change the query scope.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
-        let repositories = self
-            .repository_picker
-            .applied
-            .and_then(|index| self.repository_picker.items.get(index))
-            .map(RepositorySelector::from_repository)
-            .into_iter()
-            .collect();
+        let repositories = self.repository_scope();
         QueryAction::Threads {
             query,
             repositories,
@@ -174,7 +168,7 @@ impl App {
     pub fn repository_scope(&self) -> Vec<RepositorySelector> {
         self.repository_picker
             .applied
-            .and_then(|index| self.repository_picker.items.get(index))
+            .as_ref()
             .map(RepositorySelector::from_repository)
             .into_iter()
             .collect()

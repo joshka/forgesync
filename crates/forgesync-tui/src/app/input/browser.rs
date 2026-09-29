@@ -147,7 +147,12 @@ impl App {
 
     /// Applies a changed repository filter and resets its page and detail together.
     fn select_repository(&mut self) -> Vec<QueryAction> {
-        let selected = self.repository_picker.cursor.checked_sub(1);
+        let selected = self
+            .repository_picker
+            .cursor
+            .checked_sub(1)
+            .and_then(|index| self.repository_picker.items.get(index))
+            .cloned();
         if selected == self.repository_picker.applied {
             return Vec::new();
         }
