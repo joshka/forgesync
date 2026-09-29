@@ -98,13 +98,16 @@ fn maintainer_view_renders_at_terminal_size(
 fn sample_app() -> App {
     let summary = sample_summary();
     let mut app = App {
-        repositories: vec![summary.repository.clone()],
+        repository_picker: crate::app::repositories::RepositoryPicker {
+            items: vec![summary.repository.clone()],
+            ..Default::default()
+        },
         threads: vec![summary.clone()],
         selected_thread: Some(0),
         ..App::default()
     };
-    app.applied_repository = Some(0);
-    app.repository_cursor = 1;
+    app.repository_picker.applied = Some(0);
+    app.repository_picker.cursor = 1;
     app
 }
 

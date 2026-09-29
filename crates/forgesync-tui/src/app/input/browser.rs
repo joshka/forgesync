@@ -109,7 +109,10 @@ impl App {
 
     /// Includes the synthetic all-repositories row in the picker bounds.
     fn navigate_repositories(&mut self, movement: Movement) {
-        self.repository_cursor = movement.position(self.repository_cursor, self.repositories.len());
+        self.repository_picker.cursor = movement.position(
+            self.repository_picker.cursor,
+            self.repository_picker.items.len(),
+        );
     }
 
     /// Invalidates loaded detail when a thread selection changes, even within one page.
@@ -144,12 +147,12 @@ impl App {
 
     /// Applies a changed repository filter and resets its page and detail together.
     fn select_repository(&mut self) -> Vec<QueryAction> {
-        let selected = self.repository_cursor.checked_sub(1);
-        if selected == self.applied_repository {
+        let selected = self.repository_picker.cursor.checked_sub(1);
+        if selected == self.repository_picker.applied {
             return Vec::new();
         }
         self.status = None;
-        self.applied_repository = selected;
+        self.repository_picker.applied = selected;
         self.page_offset = 0;
         self.detail = None;
         vec![self.thread_action(self.search_query.clone(), 0)]

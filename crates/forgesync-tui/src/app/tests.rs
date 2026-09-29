@@ -21,6 +21,7 @@ use forgesync_store::clusters::{
 use forgesync_store::reads::{ThreadPage, ThreadSummary};
 
 use super::{App, Focus, QueryAction, QueryMessage, Screen};
+use crate::app::repositories::RepositoryPicker;
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {
@@ -95,14 +96,17 @@ fn repository_picker_applies_the_highlighted_repository() {
         provider_data: ProviderData::new(),
     };
     let mut app = App {
-        repositories: vec![repository],
-        repository_cursor: 1,
+        repository_picker: RepositoryPicker {
+            items: vec![repository],
+            cursor: 1,
+            ..RepositoryPicker::default()
+        },
         ..App::default()
     };
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
 
-    assert_eq!(app.applied_repository, Some(0));
+    assert_eq!(app.repository_picker.applied, Some(0));
     assert!(matches!(app.screen, Screen::Browser));
     let [
         QueryAction::Threads {
@@ -160,8 +164,11 @@ fn maintainer_keys_target_the_selected_cluster_member() {
 fn writer_actions_use_current_repository_scope() {
     let repository = sample_repository();
     let mut app = App {
-        repositories: vec![repository],
-        applied_repository: Some(0),
+        repository_picker: RepositoryPicker {
+            items: vec![repository],
+            applied: Some(0),
+            ..RepositoryPicker::default()
+        },
         ..App::default()
     };
 

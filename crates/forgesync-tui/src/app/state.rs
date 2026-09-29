@@ -80,20 +80,8 @@ impl App {
         generation: u64,
         result: Result<Vec<super::Repository>, String>,
     ) {
-        if generation != self.repository_generation {
-            return;
-        }
-        self.repositories_loading = false;
-        match result {
-            Ok(repositories) => {
-                self.repository_error = None;
-                self.repositories = repositories;
-                self.repository_cursor = self.repository_cursor.min(self.repositories.len());
-            }
-            Err(error) => {
-                self.repository_error = Some(error.clone());
-                self.status = Some(error);
-            }
+        if let Some(error) = self.repository_picker.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
@@ -265,10 +253,7 @@ impl App {
 
     /// Advances repository generation so older read results cannot replace this request.
     pub fn begin_repositories(&mut self) -> u64 {
-        self.repository_generation += 1;
-        self.repositories_loading = true;
-        self.repository_error = None;
-        self.repository_generation
+        self.repository_picker.begin()
     }
 
     /// Starts a new thread-list generation and invalidates the selected detail; replies from an

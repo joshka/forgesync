@@ -47,17 +47,19 @@ pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
 fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items = vec![ListItem::new("All repositories")];
     items.extend(
-        app.repositories
+        app.repository_picker
+            .items
             .iter()
             .map(|repository| ListItem::new(repository.full_name.clone())),
     );
-    if app.repositories_loading && app.repositories.is_empty() {
+    if app.repository_picker.loading && app.repository_picker.items.is_empty() {
         items = vec![ListItem::new("Loading repositories…")];
-    } else if let Some(error) = &app.repository_error {
+    } else if let Some(error) = &app.repository_picker.error {
         items = vec![ListItem::new(error.clone())];
     }
-    let title = if let Some(index) = app.applied_repository {
-        app.repositories
+    let title = if let Some(index) = app.repository_picker.applied {
+        app.repository_picker
+            .items
             .get(index)
             .map(|repository| format!("Repositories · {}", repository.full_name))
             .unwrap_or_else(|| "Repositories".to_owned())
@@ -65,9 +67,11 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
         "Repositories · all".to_owned()
     };
     let mut state = ListState::default();
-    if app.repository_error.is_none() {
+    if app.repository_picker.error.is_none() {
         state.select(Some(
-            app.repository_cursor.min(items.len().saturating_sub(1)),
+            app.repository_picker
+                .cursor
+                .min(items.len().saturating_sub(1)),
         ));
     }
     let block = pane_block(&title, app.focus == Focus::Repositories);

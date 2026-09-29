@@ -40,12 +40,8 @@ pub enum Focus {
 pub struct App {
     pub screen: Screen,
     pub focus: Focus,
-    pub repository_cursor: usize,
-    pub repositories: Vec<Repository>,
-    pub applied_repository: Option<usize>,
-    pub repository_generation: u64,
-    pub repositories_loading: bool,
-    pub repository_error: Option<String>,
+    /// Repository choices, applied scope, and pending repository read state.
+    pub repository_picker: repositories::RepositoryPicker,
     pub threads: Vec<ThreadSummary>,
     pub selected_thread: Option<usize>,
     pub page_offset: u64,
@@ -136,6 +132,7 @@ pub enum QueryMessage {
 }
 
 mod input;
+pub mod repositories;
 mod state;
 
 /// Moves a bounded selection by one row without underflow or overshoot.

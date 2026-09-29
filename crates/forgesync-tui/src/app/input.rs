@@ -157,8 +157,9 @@ impl App {
     /// repository does not change the query scope.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self
-            .applied_repository
-            .and_then(|index| self.repositories.get(index))
+            .repository_picker
+            .applied
+            .and_then(|index| self.repository_picker.items.get(index))
             .map(RepositorySelector::from_repository)
             .into_iter()
             .collect();
@@ -171,8 +172,9 @@ impl App {
 
     /// Returns the applied repository filter for actions that need the same scope as browsing.
     pub fn repository_scope(&self) -> Vec<RepositorySelector> {
-        self.applied_repository
-            .and_then(|index| self.repositories.get(index))
+        self.repository_picker
+            .applied
+            .and_then(|index| self.repository_picker.items.get(index))
             .map(RepositorySelector::from_repository)
             .into_iter()
             .collect()
