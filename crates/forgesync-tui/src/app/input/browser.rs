@@ -10,188 +10,159 @@
 use super::{App, Focus, KeyCode, QueryAction, RepositorySelector};
 use crate::app::{PAGE_SIZE, ThreadSelector, move_index};
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum Edge {
+/// A navigation intent interpreted against the active pane's own bounds.
+#[derive(Clone, Copy)]
+enum Movement {
+    Step(i8),
+    Page(i8),
     Start,
     End,
 }
 
+impl Movement {
+    /// Computes a bounded position; detail scrolling supplies its own maximum.
+    fn position(self, current: usize, maximum: usize) -> usize {
+        match self {
+            Self::Step(direction) => move_index(current, maximum, direction),
+            Self::Page(direction) if direction < 0 => current.saturating_sub(10),
+            Self::Page(_) => current.saturating_add(10).min(maximum),
+            Self::Start => 0,
+            Self::End => maximum,
+        }
+    }
+}
+
 impl App {
-    /// Maps browser keys to navigation or a query action without blocking on I/O.
+    /// Maps browser keys to named actions without blocking on archive I/O.
     pub fn handle_browser_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
-            KeyCode::Char('r') => {
-                self.status = None;
-                vec![self.thread_action(self.search_query.clone(), self.page_offset)]
-            }
-            KeyCode::Char('n') => self
-                .next_offset
-                .map(|offset| vec![self.thread_action(self.search_query.clone(), offset)])
-                .unwrap_or_default(),
-            KeyCode::Char('p') if self.page_offset > 0 => {
-                let offset = self.page_offset.saturating_sub(u64::from(PAGE_SIZE));
-                vec![self.thread_action(self.search_query.clone(), offset)]
-            }
-            KeyCode::Tab => {
-                self.focus = self.next_focus();
-                Vec::new()
-            }
-            KeyCode::BackTab => {
-                self.focus = self.previous_focus();
-                Vec::new()
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.move_selection(-1);
-                Vec::new()
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.move_selection(1);
-                Vec::new()
-            }
-            KeyCode::PageUp => {
-                self.move_page(-1);
-                Vec::new()
-            }
-            KeyCode::PageDown => {
-                self.move_page(1);
-                Vec::new()
-            }
-            KeyCode::Home => {
-                self.move_to_edge(Edge::Start);
-                Vec::new()
-            }
-            KeyCode::End => {
-                self.move_to_edge(Edge::End);
-                Vec::new()
-            }
+            KeyCode::Char('r') => self.reload_threads(),
+            KeyCode::Char('n') => self.next_thread_page(),
+            KeyCode::Char('p') => self.previous_thread_page(),
+            KeyCode::Tab => self.advance_focus(),
+            KeyCode::BackTab => self.retreat_focus(),
+            KeyCode::Up | KeyCode::Char('k') => self.navigate(Movement::Step(-1)),
+            KeyCode::Down | KeyCode::Char('j') => self.navigate(Movement::Step(1)),
+            KeyCode::PageUp => self.navigate(Movement::Page(-1)),
+            KeyCode::PageDown => self.navigate(Movement::Page(1)),
+            KeyCode::Home => self.navigate(Movement::Start),
+            KeyCode::End => self.navigate(Movement::End),
             KeyCode::Enter => self.select(),
             _ => Vec::new(),
         }
     }
 
-    /// Cycles focus through repository, thread, and detail panes.
-    fn next_focus(&self) -> Focus {
-        match self.focus {
+    /// Clears a prior status before reloading the currently displayed query page.
+    fn reload_threads(&mut self) -> Vec<QueryAction> {
+        self.status = None;
+        vec![self.thread_action(self.search_query.clone(), self.page_offset)]
+    }
+
+    /// Requests the server-provided next local page when one exists.
+    fn next_thread_page(&mut self) -> Vec<QueryAction> {
+        self.next_offset
+            .map(|offset| vec![self.thread_action(self.search_query.clone(), offset)])
+            .unwrap_or_default()
+    }
+
+    /// Requests the preceding page, keeping the first page stable.
+    fn previous_thread_page(&mut self) -> Vec<QueryAction> {
+        if self.page_offset == 0 {
+            return Vec::new();
+        }
+        let offset = self.page_offset.saturating_sub(u64::from(PAGE_SIZE));
+        vec![self.thread_action(self.search_query.clone(), offset)]
+    }
+
+    /// Advances focus without changing selection or requesting data.
+    fn advance_focus(&mut self) -> Vec<QueryAction> {
+        self.focus = match self.focus {
             Focus::Repositories => Focus::Threads,
             Focus::Threads => Focus::Detail,
             Focus::Detail => Focus::Repositories,
-        }
+        };
+        Vec::new()
     }
 
-    /// Cycles focus through the browser panes in reverse order.
-    fn previous_focus(&self) -> Focus {
-        match self.focus {
+    /// Retreats focus without changing selection or requesting data.
+    fn retreat_focus(&mut self) -> Vec<QueryAction> {
+        self.focus = match self.focus {
             Focus::Repositories => Focus::Detail,
             Focus::Threads => Focus::Repositories,
             Focus::Detail => Focus::Threads,
-        }
+        };
+        Vec::new()
     }
 
-    /// Moves the active pane selection while invalidating stale detail where needed.
-    fn move_selection(&mut self, direction: i8) {
+    /// Applies navigation using the active pane's selection and invalidation contract.
+    fn navigate(&mut self, movement: Movement) -> Vec<QueryAction> {
         match self.focus {
-            Focus::Repositories => {
-                let max = self.repositories.len();
-                self.repository_cursor = move_index(self.repository_cursor, max, direction);
-            }
-            Focus::Threads => {
-                let max = self.threads.len().saturating_sub(1);
-                if !self.threads.is_empty() {
-                    let next = move_index(self.selected_thread.unwrap_or(0), max, direction);
-                    self.selected_thread = Some(next);
-                    self.invalidate_detail();
-                }
-            }
-            Focus::Detail => {
-                self.detail_scroll = if direction < 0 {
-                    self.detail_scroll.saturating_sub(1)
-                } else {
-                    self.detail_scroll.saturating_add(1)
-                };
-            }
+            Focus::Repositories => self.navigate_repositories(movement),
+            Focus::Threads => self.navigate_threads(movement),
+            Focus::Detail => self.navigate_detail(movement),
         }
+        Vec::new()
     }
 
-    /// Moves by one visible page while keeping the selection in range.
-    fn move_page(&mut self, direction: i8) {
-        match self.focus {
-            Focus::Detail => {
-                self.detail_scroll = if direction < 0 {
-                    self.detail_scroll.saturating_sub(10)
-                } else {
-                    self.detail_scroll.saturating_add(10)
-                };
-            }
-            Focus::Repositories => {
-                let max = self.repositories.len();
-                let step = 10usize;
-                self.repository_cursor = if direction < 0 {
-                    self.repository_cursor.saturating_sub(step)
-                } else {
-                    self.repository_cursor.saturating_add(step).min(max)
-                };
-            }
-            Focus::Threads if !self.threads.is_empty() => {
-                let max = self.threads.len().saturating_sub(1);
-                let current = self.selected_thread.unwrap_or(0);
-                let next = if direction < 0 {
-                    current.saturating_sub(10)
-                } else {
-                    current.saturating_add(10).min(max)
-                };
-                self.selected_thread = Some(next);
-                self.invalidate_detail();
-            }
-            Focus::Threads => {}
-        }
+    /// Includes the synthetic all-repositories row in the picker bounds.
+    fn navigate_repositories(&mut self, movement: Movement) {
+        self.repository_cursor = movement.position(self.repository_cursor, self.repositories.len());
     }
 
-    /// Moves the active selection to the first or final item.
-    fn move_to_edge(&mut self, edge: Edge) {
-        let end = edge == Edge::End;
-        match self.focus {
-            Focus::Repositories => {
-                self.repository_cursor = if end { self.repositories.len() } else { 0 };
+    /// Invalidates loaded detail when a thread selection changes, even within one page.
+    fn navigate_threads(&mut self, movement: Movement) {
+        if self.threads.is_empty() {
+            // Preserve Home/End scrolling when the thread list has no selection.
+            if matches!(movement, Movement::Start | Movement::End) {
+                self.navigate_detail(movement);
             }
-            Focus::Threads if !self.threads.is_empty() => {
-                self.selected_thread = Some(if end { self.threads.len() - 1 } else { 0 });
-                self.invalidate_detail();
-            }
-            Focus::Threads | Focus::Detail => {
-                self.detail_scroll = if end { u16::MAX } else { 0 };
-            }
+            return;
         }
+        let maximum = self.threads.len() - 1;
+        let current = self.selected_thread.unwrap_or(0);
+        self.selected_thread = Some(movement.position(current, maximum));
+        self.invalidate_detail();
+    }
+
+    /// Saturates scrolling here; rendering clamps the requested position to visible content.
+    fn navigate_detail(&mut self, movement: Movement) {
+        let position = movement.position(usize::from(self.detail_scroll), usize::from(u16::MAX));
+        self.detail_scroll = u16::try_from(position).expect("position is bounded by u16::MAX");
     }
 
     /// Opens the selected item according to the active browser pane.
     fn select(&mut self) -> Vec<QueryAction> {
         match self.focus {
-            Focus::Repositories => {
-                let selected = self.repository_cursor.checked_sub(1);
-                if selected != self.applied_repository {
-                    self.status = None;
-                    self.applied_repository = selected;
-                    self.page_offset = 0;
-                    self.detail = None;
-                    return vec![self.thread_action(self.search_query.clone(), 0)];
-                }
-            }
-            Focus::Threads => {
-                let Some(summary) = self
-                    .selected_thread
-                    .and_then(|index| self.threads.get(index))
-                else {
-                    return Vec::new();
-                };
-                let selector = ThreadSelector::new(
-                    RepositorySelector::from_repository(&summary.repository),
-                    summary.discussion.id.number(),
-                );
-                self.focus = Focus::Detail;
-                return vec![QueryAction::Detail(selector)];
-            }
-            Focus::Detail => {}
+            Focus::Repositories => self.select_repository(),
+            Focus::Threads => self.select_thread(),
+            Focus::Detail => Vec::new(),
         }
-        Vec::new()
+    }
+
+    /// Applies a changed repository filter and resets its page and detail together.
+    fn select_repository(&mut self) -> Vec<QueryAction> {
+        let selected = self.repository_cursor.checked_sub(1);
+        if selected == self.applied_repository {
+            return Vec::new();
+        }
+        self.status = None;
+        self.applied_repository = selected;
+        self.page_offset = 0;
+        self.detail = None;
+        vec![self.thread_action(self.search_query.clone(), 0)]
+    }
+
+    /// Requests detail for an existing selection and transfers focus to its pane.
+    fn select_thread(&mut self) -> Vec<QueryAction> {
+        let Some(summary) = self
+            .selected_thread
+            .and_then(|index| self.threads.get(index))
+        else {
+            return Vec::new();
+        };
+        let repository = RepositorySelector::from_repository(&summary.repository);
+        let selector = ThreadSelector::new(repository, summary.discussion.id.number());
+        self.focus = Focus::Detail;
+        vec![QueryAction::Detail(selector)]
     }
 }
