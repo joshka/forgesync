@@ -58,8 +58,9 @@ impl App {
 
     /// Toggles dismissal based on the currently loaded summary, without optimistic local mutation.
     fn toggle_selected_cluster(&self) -> Vec<QueryAction> {
-        self.clusters
-            .get(self.selected_cluster)
+        self.cluster_list
+            .items
+            .get(self.cluster_list.selected)
             .map(|cluster| {
                 vec![QueryAction::DismissCluster {
                     id: cluster.id,
@@ -71,11 +72,11 @@ impl App {
 
     /// Moves within the loaded cluster page without starting a detail query.
     fn move_cluster_selection(&mut self, direction: i8) -> Vec<QueryAction> {
-        if direction > 0 && self.clusters.is_empty() {
+        if direction > 0 && self.cluster_list.items.is_empty() {
             return Vec::new();
         }
-        let last = self.clusters.len().saturating_sub(1);
-        self.selected_cluster = move_index(self.selected_cluster, last, direction);
+        let last = self.cluster_list.items.len().saturating_sub(1);
+        self.cluster_list.selected = move_index(self.cluster_list.selected, last, direction);
         Vec::new()
     }
 
@@ -99,7 +100,8 @@ impl App {
 
     /// Requests dismissal or restoration for the cluster whose detail is currently displayed.
     fn toggle_open_cluster(&self) -> Vec<QueryAction> {
-        self.cluster_detail
+        self.cluster_detail_pane
+            .data
             .as_ref()
             .map(|detail| {
                 vec![QueryAction::DismissCluster {
@@ -114,26 +116,29 @@ impl App {
     fn move_member_selection(&mut self, direction: i8) -> Vec<QueryAction> {
         if direction > 0
             && self
-                .cluster_detail
+                .cluster_detail_pane
+                .data
                 .as_ref()
                 .is_none_or(|detail| detail.members.is_empty())
         {
             return Vec::new();
         }
         let last = self
-            .cluster_detail
+            .cluster_detail_pane
+            .data
             .as_ref()
             .map_or(0, |detail| detail.members.len().saturating_sub(1));
-        self.selected_cluster_member = move_index(self.selected_cluster_member, last, direction);
+        self.cluster_detail_pane.selected_member =
+            move_index(self.cluster_detail_pane.selected_member, last, direction);
         Vec::new()
     }
 
     /// Builds a local maintainer action for the currently selected cluster member.
     fn cluster_member_action(&self, code: KeyCode) -> Vec<QueryAction> {
-        let Some(detail) = &self.cluster_detail else {
+        let Some(detail) = &self.cluster_detail_pane.data else {
             return Vec::new();
         };
-        let Some(member) = detail.members.get(self.selected_cluster_member) else {
+        let Some(member) = detail.members.get(self.cluster_detail_pane.selected_member) else {
             return Vec::new();
         };
         let reference = ThreadSelector::new(

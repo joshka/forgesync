@@ -15,7 +15,8 @@ use super::{
 /// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
-        .clusters
+        .cluster_list
+        .items
         .iter()
         .map(|cluster| {
             let lifecycle = match cluster.lifecycle {
@@ -36,9 +37,9 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
             ))
         })
         .collect();
-    if app.clusters_loading && items.is_empty() {
+    if app.cluster_list.loading && items.is_empty() {
         items.push(ListItem::new("Loading clusters…"));
-    } else if let Some(error) = &app.clusters_error {
+    } else if let Some(error) = &app.cluster_list.error {
         items = vec![ListItem::new(error.clone())];
     } else if items.is_empty() {
         items.push(ListItem::new(
@@ -46,8 +47,8 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
         ));
     }
     let mut state = ListState::default();
-    if app.clusters_error.is_none() && !app.clusters.is_empty() {
-        state.select(Some(app.selected_cluster));
+    if app.cluster_list.error.is_none() && !app.cluster_list.items.is_empty() {
+        state.select(Some(app.cluster_list.selected));
     }
     frame.render_stateful_widget(
         List::new(items)
@@ -60,18 +61,18 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
 
 /// Draws one cluster and its member decisions.
 pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut lines = if app.cluster_detail_loading && app.cluster_detail.is_none() {
+    let mut lines = if app.cluster_detail_pane.loading && app.cluster_detail_pane.data.is_none() {
         vec![Line::from("Loading cluster neighbors…")]
-    } else if let Some(error) = &app.cluster_detail_error {
+    } else if let Some(error) = &app.cluster_detail_pane.error {
         vec![Line::from(error.clone())]
-    } else if let Some(detail) = &app.cluster_detail {
-        cluster_detail_lines(detail, app.selected_cluster_member)
+    } else if let Some(detail) = &app.cluster_detail_pane.data {
+        cluster_detail_lines(detail, app.cluster_detail_pane.selected_member)
     } else {
         vec![Line::from(
             "Select a cluster to inspect its members and neighbor scores.",
         )]
     };
-    if app.cluster_detail_loading && app.cluster_detail.is_some() {
+    if app.cluster_detail_pane.loading && app.cluster_detail_pane.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(

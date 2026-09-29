@@ -20,8 +20,6 @@
 //! or runtime. [`failures::RunFailureSummary`] is a safe presentation projection for selecting a
 //! run retry; the engine and store retain the complete ledger and decide what work is retryable.
 
-use forgesync_store::clusters::{ClusterDetail, ClusterSummary};
-
 /// Bounded thread-page size used by browser paging; independent of the CLI default.
 const PAGE_SIZE: u32 = 100;
 
@@ -73,16 +71,10 @@ pub struct App {
     pub coverage_panel: coverage::CoveragePanel,
     /// Failed-run choices, retry selection, and pending ledger refresh.
     pub failure_list: failures::FailureList,
-    pub clusters: Vec<ClusterSummary>,
-    pub selected_cluster: usize,
-    pub clusters_generation: u64,
-    pub clusters_loading: bool,
-    pub clusters_error: Option<String>,
-    pub cluster_detail: Option<ClusterDetail>,
-    pub cluster_detail_generation: u64,
-    pub cluster_detail_loading: bool,
-    pub cluster_detail_error: Option<String>,
-    pub selected_cluster_member: usize,
+    /// Scoped cluster choices, highlight, and pending refresh.
+    pub cluster_list: clusters::ClusterList,
+    /// Selected cluster membership and its independent detail refresh.
+    pub cluster_detail_pane: clusters::ClusterDetailPane,
     /// Current writer generation and its transient label/progress display.
     pub operation: operation::OperationDisplay,
     pub search_query: Option<String>,
@@ -92,6 +84,7 @@ pub struct App {
     pub quit: bool,
 }
 
+pub mod clusters;
 pub mod coverage;
 pub mod detail;
 pub mod failures;
@@ -113,3 +106,6 @@ fn move_index(current: usize, max: usize, direction: i8) -> usize {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod test_data;

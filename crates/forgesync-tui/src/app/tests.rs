@@ -7,23 +7,17 @@
 //! transition case when a new key changes navigation or launches work.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::identity::{
-    GitHubHost, ProviderId, RepositoryId, RunId, ThreadId, ThreadNumber,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, RunId};
 use forgesync_core::provider_data::ProviderData;
-use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
-use forgesync_store::clusters::{
-    ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
-    ClusterSummary,
-};
-use forgesync_store::reads::{ThreadPage, ThreadSummary};
+use forgesync_store::reads::ThreadPage;
 
 use super::{App, Focus, Screen};
 use crate::app::messages::QueryMessage;
 use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
+use crate::app::test_data::{sample_cluster_detail, sample_repository};
 use crate::app::threads::{ThreadList, ThreadReply};
 use crate::query::QueryAction;
 
@@ -155,7 +149,10 @@ fn opening_keyword_search_returns_to_the_browser() {
 fn maintainer_keys_target_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
-        cluster_detail: Some(sample_cluster_detail()),
+        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
+            data: Some(sample_cluster_detail()),
+            ..Default::default()
+        },
         ..App::default()
     };
 
@@ -205,7 +202,10 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
     let detail = sample_cluster_detail();
     let mut app = App {
         screen: Screen::Clusters,
-        clusters: vec![detail.cluster],
+        cluster_list: crate::app::clusters::ClusterList {
+            items: vec![detail.cluster],
+            ..Default::default()
+        },
         failure_list: crate::app::failures::FailureList {
             items: vec![crate::app::failures::RunFailureSummary {
                 id: 23,
@@ -293,67 +293,4 @@ fn stale_operation_progress_cannot_replace_current_progress() {
         progress,
     });
     assert!(app.operation.progress().is_none());
-}
-
-fn sample_repository() -> Repository {
-    Repository {
-        id: RepositoryId::new(
-            GitHubHost::parse("github.com").expect("host"),
-            ProviderId::new("41").expect("repository ID"),
-        ),
-        owner: "owner".to_owned(),
-        name: "repo".to_owned(),
-        full_name: "owner/repo".to_owned(),
-        default_branch: Some("main".to_owned()),
-        updated_at: None,
-        provider_data: ProviderData::new(),
-    }
-}
-
-fn sample_cluster_detail() -> ClusterDetail {
-    let repository = sample_repository();
-    let timestamp = UtcTimestamp::parse("2026-09-29T00:00:00Z").expect("timestamp");
-    let discussion = Discussion {
-        id: ThreadId::new(
-            repository.id.clone(),
-            ProviderId::new("1001").expect("thread ID"),
-            ThreadNumber::new(7).expect("thread number"),
-        ),
-        kind: ThreadKind::Issue,
-        state: SourceState::Open,
-        title: "Selected neighbor".to_owned(),
-        body: None,
-        html_url: None,
-        created_at: timestamp,
-        updated_at: timestamp,
-        closed_at: None,
-        labels: Vec::new(),
-        assignees: Vec::new(),
-        provider_data: ProviderData::new(),
-    };
-    ClusterDetail {
-        cluster: ClusterSummary {
-            id: 17,
-            repository: repository.clone(),
-            title: "Cluster title".to_owned(),
-            lifecycle: ClusterLifecycle::Active,
-            dismissed: false,
-            dismissal_reason: None,
-            representative: None,
-            active_member_count: 1,
-            excluded_member_count: 0,
-            last_run_id: Some(2),
-            updated_at: timestamp,
-        },
-        members: vec![ClusterMember {
-            summary: ThreadSummary {
-                repository,
-                discussion,
-                coverage: Vec::new(),
-            },
-            role: ClusterMemberRole::Representative,
-            state: ClusterMemberState::Active,
-            score_to_representative: Some(1.0),
-        }],
-    }
 }

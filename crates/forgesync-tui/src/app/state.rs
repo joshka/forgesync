@@ -26,7 +26,11 @@ impl App {
 
     /// Schedules reads needed to show archive changes after a writer completes.
     pub fn refresh_after_operation(&mut self) -> Vec<QueryAction> {
-        let cluster_detail_id = self.cluster_detail.as_ref().map(|detail| detail.cluster.id);
+        let cluster_detail_id = self
+            .cluster_detail_pane
+            .data
+            .as_ref()
+            .map(|detail| detail.cluster.id);
         let mut actions = vec![
             QueryAction::Repositories,
             self.thread_action(self.search_query.clone(), self.thread_list.offset),
@@ -37,13 +41,8 @@ impl App {
             },
         ];
         if let Some(id) = cluster_detail_id {
-            self.cluster_detail_generation += 1;
-            self.cluster_detail_loading = true;
-            self.cluster_detail_error = None;
-            actions.push(QueryAction::ClusterDetail {
-                generation: self.cluster_detail_generation,
-                id,
-            });
+            let generation = self.cluster_detail_pane.begin(id);
+            actions.push(QueryAction::ClusterDetail { generation, id });
         }
         actions
     }
@@ -115,22 +114,8 @@ impl App {
 
     /// Keeps the cluster cursor within the latest generated page.
     fn apply_clusters(&mut self, generation: u64, result: Result<Box<ClusterPage>, String>) {
-        if generation != self.clusters_generation {
-            return;
-        }
-        self.clusters_loading = false;
-        match result {
-            Ok(page) => {
-                self.clusters_error = None;
-                self.clusters = page.items;
-                self.selected_cluster = self
-                    .selected_cluster
-                    .min(self.clusters.len().saturating_sub(1));
-            }
-            Err(error) => {
-                self.clusters_error = Some(error.clone());
-                self.status = Some(error);
-            }
+        if let Some(error) = self.cluster_list.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
@@ -140,24 +125,8 @@ impl App {
         generation: u64,
         result: Result<Box<ClusterDetail>, String>,
     ) {
-        if generation != self.cluster_detail_generation {
-            return;
-        }
-        self.cluster_detail_loading = false;
-        match result {
-            Ok(detail) => {
-                self.cluster_detail_error = None;
-                self.cluster_detail = Some(*detail);
-                self.selected_cluster_member = self.selected_cluster_member.min(
-                    self.cluster_detail
-                        .as_ref()
-                        .map_or(0, |detail| detail.members.len().saturating_sub(1)),
-                );
-            }
-            Err(error) => {
-                self.cluster_detail_error = Some(error.clone());
-                self.status = Some(error);
-            }
+        if let Some(error) = self.cluster_detail_pane.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
@@ -198,19 +167,14 @@ impl App {
 
     /// Starts a new cluster-list generation for the current scope.
     pub fn begin_clusters(&mut self) -> u64 {
-        self.clusters_generation += 1;
-        self.clusters_loading = true;
-        self.clusters_error = None;
-        self.clusters_generation
+        self.cluster_list.begin()
     }
 
     /// Requests the selected cluster only when a valid selection exists.
     pub fn begin_cluster_detail(&mut self) -> Option<(u64, u64)> {
-        let cluster_id = self.clusters.get(self.selected_cluster)?.id;
-        self.cluster_detail_generation += 1;
-        self.cluster_detail_loading = true;
-        self.cluster_detail_error = None;
-        Some((self.cluster_detail_generation, cluster_id))
+        let cluster_id = self.cluster_list.items.get(self.cluster_list.selected)?.id;
+        let generation = self.cluster_detail_pane.begin(cluster_id);
+        Some((generation, cluster_id))
     }
 
     /// Reserves the single active writer slot. `None` leaves existing progress untouched when an

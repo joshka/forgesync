@@ -83,11 +83,17 @@ fn maintainer_view_renders_at_terminal_size(
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = App {
         screen,
-        clusters: vec![cluster.clone()],
-        cluster_detail: Some(ClusterDetail {
-            cluster,
-            members: Vec::new(),
-        }),
+        cluster_list: crate::app::clusters::ClusterList {
+            items: vec![cluster.clone()],
+            ..Default::default()
+        },
+        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
+            data: Some(ClusterDetail {
+                cluster,
+                members: Vec::new(),
+            }),
+            ..Default::default()
+        },
         ..App::default()
     };
     terminal
