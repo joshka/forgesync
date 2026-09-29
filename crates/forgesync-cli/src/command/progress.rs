@@ -1,6 +1,6 @@
 //! # Human acquisition progress at the process boundary
 //!
-//! `ProgressReporter` owns the bounded channel and terminal task shared by sync and retry.
+//! [`ProgressReporter`] owns the bounded channel and terminal task shared by sync and retry.
 //! Commands hand the engine a sender, await acquisition, then finish reporting before rendering
 //! their final result. JSON and quiet commands do not install a reporter.
 //!

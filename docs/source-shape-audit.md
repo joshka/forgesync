@@ -47,6 +47,18 @@ read-only execution. The execution owner keeps the request, recipe, and optional
 closes the archive before rendering and retains cancellation for engine retrieval. Module docs
 correct the stale offline claim for service-backed semantic queries.
 
+Retry now has a command-local request owner and typed boundary failures. Its outer method closes the
+archive once before rendering. Sync and retry share a progress owner that drains before result
+output and aborts on unexpected drop. Engine retry planning names failure selection, repository
+resolution, scope merging, and deterministic ordering; recorded inclusion facts form one concept
+instead of behavioral boolean parameters.
+
+The thread SQL projection and update input live with their column mappings in a private module,
+using ordinary public items within that implementation boundary. Their docs explain independent
+content/evidence positions and the optional evidence advance. Observation children import external
+dependencies directly. The source clock columns retain deliberate crate visibility within the public
+observation module, with their SQL shape invariant documented.
+
 Remaining review surfaces:
 
 - Broader function and state review beyond the selected traversal and diagnostic slices.
@@ -111,8 +123,8 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 - Continue routing remaining child imports through their actual owners.
 - Document remaining private representations, policy constants, and TUI state fields with their
   contracts; inspect short module introductions for missing relationships rather than adding words.
-- Review CLI retry result branches, TUI result application, refresh cluster traversal, embedding
-  batch scheduling, and sync run coordination against the dispatch and state-owner rules.
+- Review CLI sync preparation, TUI result application, refresh cluster traversal, embedding batch
+  scheduling, and sync run coordination against the dispatch and state-owner rules.
 - Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
   expose named cases without loops. Review catalog-validation loops separately: checking a complete
   fixture catalog is a different contract from selecting multiple behavioral scenarios.

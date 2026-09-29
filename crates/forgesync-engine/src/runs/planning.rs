@@ -1,14 +1,14 @@
 //! # Resolve durable failures into deterministic retry requests
 //!
-//! `RetryPlanner` borrows one run detail and the caller's family restriction. It selects unresolved
-//! failures, resolves each repository from durable identity or the matching job before parsing a
-//! target, and combines work with the same repository and thread-state scope.
+//! [`RetryPlanner`] borrows one run detail and the caller's family restriction. It selects
+//! unresolved failures, resolves each repository from durable identity or the matching job before
+//! parsing a target, and combines work with the same repository and thread-state scope.
 //!
-//! `RecordedSelection` decodes the original run's scope once. A family-specific failure requests
+//! [`RecordedSelection`] decodes the original run's scope once. A family-specific failure requests
 //! only that child family; a failure without a family restores the original inclusion flags. A
 //! failure's explicit open/closed/all key takes precedence over the original thread-state scope.
 //!
-//! This module performs no provider I/O and changes no ledger records. The returned `RetryPlan`
+//! This module performs no provider I/O and changes no ledger records. The returned [`RetryPlan`]
 //! orders scopes and failure IDs deterministically. Missing or malformed recorded flags default
 //! to false, while an unresolvable target and an empty selection remain typed engine errors.
 

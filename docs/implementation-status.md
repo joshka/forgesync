@@ -950,3 +950,29 @@ Validation for this batch passes: focused store transaction, CLI, outcome, and r
 nightly formatting; workspace Clippy with warnings denied; all workspace tests and doctests; the CLI
 build without default features; strict public/private Rustdoc; rumdl; and changed-page Markdown
 linting. Remaining completion requirements stay open in the source-shape audit.
+
+## Continued maintenance: retry planning and task ownership
+
+CLI retry now uses a request owner for run/family selection. One outer method opens and closes the
+archive around typed planning/client/acquisition failures, then renders the established exit status.
+Sync and retry share a bounded advisory progress owner; its finish operation closes local delivery
+before draining, and dropping it aborts the terminal task. Named lifecycle tests cover quiet/JSON
+suppression, completion without a retained sender, and unexpected owner drop.
+
+Engine retry planning now interprets the original request in `RecordedSelection`, eliminating the
+behavioral boolean parameters. Separate methods select failures, resolve repositories in the
+original fallback order, merge matching scopes, and order the result. The existing fourteen sync
+scenarios pass, including the selected-family retry scenario. Named decoding cases cover missing,
+malformed, valid selective, all-family, and unknown recorded scope.
+
+Private canonical thread SQL representations move from the observation module root to their owning
+column-mapping module. They document source versus evidence high-water positions and when an update
+advances complete evidence. External dependencies are imported at their owners throughout the
+observation implementation. All seven observation transaction scenarios pass.
+
+Current-tree validation passes: nightly formatting, workspace Clippy with warnings denied, all
+workspace tests and doctests, the CLI build without default features, strict public/private Rustdoc,
+rumdl, and changed-page Markdown linting. Six recorded-selection cases and five progress lifecycle
+cases pass. Generated retry, planning, progress, and SQL-update documentation was read for its
+ownership and lifecycle contracts. The production-function inventory remains at zero missing
+comments; broader documentation depth and source-shape requirements remain open.

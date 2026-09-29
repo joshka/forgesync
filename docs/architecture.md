@@ -34,9 +34,12 @@ selected metadata/review jobs, and `family_job` holds their IDs, accumulated res
 ledger writes. `metadata` reserves and applies the head observation before review acquisition.
 
 Within the store, `observations/apply` selects a canonical parent and applies its independently
-ordered evidence; `observations/thread_rows` owns the payload binding map. `families/application`
-checks reserved generations and applies complete membership or incomplete coverage inside the
-transaction opened by `families/finish`. These owners borrow the transaction and never commit it.
+ordered evidence; `observations/thread_rows` owns the payload binding map and its private read/write
+representations. `StoredThreadObservation` keeps canonical content and complete-evidence positions
+independent. `ThreadPayloadUpdate` makes an optional evidence advance explicit.
+`families/application` checks reserved generations and applies complete membership or incomplete
+coverage inside the transaction opened by `families/finish`. These owners borrow the transaction and
+never commit it.
 
 Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its stage
 methods preserve independent reports. TUI `query/operations` owns task and message lifetimes, while
@@ -56,6 +59,12 @@ without making provider requests, preserving configuration versus initialization
 `command/interruption` scopes the Ctrl-C listener and lends its token to command workflows; engine
 operations retain ownership of interrupted reports and durable cleanup. CLI `reports/detail` and TUI
 `view/detail` build named presentation sections from loaded projections.
+
+CLI `command/progress` owns the bounded advisory channel and stderr task shared by sync and retry.
+It closes local delivery before draining and aborts the task when its command owner is dropped.
+`command/retry` owns durable failure selection and closes its archive before rendering any outcome.
+Engine `runs/planning` interprets recorded scope, resolves failure repositories, and merges and
+orders minimal retry requests without provider I/O; `runs` executes those requests through sync.
 
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.

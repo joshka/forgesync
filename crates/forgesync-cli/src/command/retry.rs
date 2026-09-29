@@ -1,6 +1,6 @@
 //! # Retry work recorded as failed
 //!
-//! `RetryRequest` selects a durable run and optional evidence families. Its run method opens the
+//! [`RetryRequest`] selects a durable run and optional evidence families. Its run method opens the
 //! writable archive, obtains a retry plan, constructs only the required host clients, and executes
 //! the plan. A new report preserves prior run history and may describe partial success.
 //!
@@ -9,9 +9,9 @@
 //! precedes credential discovery and provider acquisition.
 //!
 //! The outer run method owns archive closure for both planning and acquisition failures.
-//! `RetryFailure` retains the failed boundary until rendering, including the distinct cancellation
-//! status before acquisition. `ProgressReporter` supplies advisory stderr events; final exit status
-//! comes from the retry report's ordered run outcomes.
+//! [`RetryFailure`] retains the failed boundary until rendering, including the distinct
+//! cancellation status before acquisition. [`ProgressReporter`] supplies advisory stderr events;
+//! final exit status comes from the retry report's ordered run outcomes.
 
 use std::path::Path;
 use std::process::ExitCode;

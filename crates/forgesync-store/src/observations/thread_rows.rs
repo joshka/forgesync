@@ -1,12 +1,12 @@
 //! # SQL rows for canonical discussion application
 //!
 //! These helpers translate normalized discussions and stored clocks at the transaction boundary.
-//! `IncomingThread::insert` creates a row, `load_thread_observation` reconstructs the current
-//! source and evidence positions, and `update_thread_payload` writes the selected canonical
+//! [`IncomingThread::insert`] creates a row, [`load_thread_observation`] reconstructs the current
+//! source and evidence positions, and [`update_thread_payload`] writes the selected canonical
 //! snapshot.
 //!
-//! `StoredThreadObservation` retains separate canonical and complete-evidence positions for that
-//! decision. `ThreadPayloadUpdate` carries the selected snapshot and optional evidence advance
+//! [`StoredThreadObservation`] retains separate canonical and complete-evidence positions for that
+//! decision. [`ThreadPayloadUpdate`] carries the selected snapshot and optional evidence advance
 //! into the update statement. Neither representation escapes the observation implementation.
 //!
 //! The application module owns ordering policy; this file owns column mapping and bound SQL.

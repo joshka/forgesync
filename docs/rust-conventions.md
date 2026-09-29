@@ -122,3 +122,8 @@ Making these public would expose invariants rather than simplify a private imple
 When such a helper is moved into a private module, use ordinary `pub` there and import its owning
 module directly. Do not replace restricted visibility mechanically or publish SQL state to satisfy a
 style preference.
+
+Background presentation tasks need an owner just as archive connections do. Keep their channel and
+join handle together, state who closes delivery, drain before terminal rendering, and abort on
+unexpected owner drop. Advisory progress must not change acquisition results or block archive
+writes. A task extracted only to shorten a function is insufficient if its lifetime remains hidden.
