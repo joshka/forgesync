@@ -2,6 +2,10 @@
 
 ## Current position
 
+- TUI action dispatch now delegates to an execution owner with shared cancellation and services.
+  Scheduling and progress forwarding remain separate; local decisions have named methods rather
+  than boolean behavior parameters. All 20 TUI state and rendering cases passed.
+
 - Canonical storage now separates parent selection from payload/evidence application and child
   reservation checks from complete membership replacement. All seven observation ordering, replay,
   completeness, and rollback regressions passed, together with store Clippy.

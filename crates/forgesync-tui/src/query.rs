@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+mod action;
 mod operations;
 mod reads;
 
