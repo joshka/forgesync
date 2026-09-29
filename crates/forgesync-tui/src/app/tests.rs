@@ -20,9 +20,10 @@ use forgesync_store::clusters::{
 };
 use forgesync_store::reads::{ThreadPage, ThreadSummary};
 
-use super::{App, Focus, QueryAction, QueryMessage, Screen};
+use super::{App, Focus, QueryMessage, Screen};
 use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
+use crate::query::QueryAction;
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {

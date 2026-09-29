@@ -14,8 +14,6 @@ use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadSummary};
 use forgesync_store::runs::RunStatus;
 
-use crate::query::QueryAction;
-
 const PAGE_SIZE: u32 = 100;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

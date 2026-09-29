@@ -8,7 +8,12 @@
 //! Centralizing the application step prevents stale results or failed operations from being
 //! silently treated as a successful empty page.
 
-use super::{App, QueryAction, QueryMessage};
+use forgesync_engine::sync::SyncProgress;
+use forgesync_store::clusters::{ClusterDetail, ClusterPage};
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage};
+
+use super::{App, QueryMessage, RunFailureSummary};
+use crate::query::QueryAction;
 
 impl App {
     /// Starts the repository picker and first discussion page on browser entry.
@@ -90,7 +95,7 @@ impl App {
         &mut self,
         generation: u64,
         offset: u64,
-        result: Result<Box<super::ThreadPage>, String>,
+        result: Result<Box<ThreadPage>, String>,
     ) {
         if generation != self.thread_generation {
             return;
@@ -116,7 +121,7 @@ impl App {
     }
 
     /// Shows the selected discussion only if it still belongs to the current list.
-    fn apply_detail(&mut self, generation: u64, result: Result<Box<super::ThreadDetail>, String>) {
+    fn apply_detail(&mut self, generation: u64, result: Result<Box<ThreadDetail>, String>) {
         if generation != self.detail_generation {
             return;
         }
@@ -136,11 +141,7 @@ impl App {
     }
 
     /// Replaces the coverage view for its latest request generation.
-    fn apply_coverage(
-        &mut self,
-        generation: u64,
-        result: Result<Box<super::ArchiveStatus>, String>,
-    ) {
+    fn apply_coverage(&mut self, generation: u64, result: Result<Box<ArchiveStatus>, String>) {
         if generation != self.coverage_generation {
             return;
         }
@@ -158,11 +159,7 @@ impl App {
     }
 
     /// Keeps the failure cursor within the latest result set.
-    fn apply_failures(
-        &mut self,
-        generation: u64,
-        result: Result<Vec<super::RunFailureSummary>, String>,
-    ) {
+    fn apply_failures(&mut self, generation: u64, result: Result<Vec<RunFailureSummary>, String>) {
         if generation != self.failures_generation {
             return;
         }
@@ -183,7 +180,7 @@ impl App {
     }
 
     /// Keeps the cluster cursor within the latest generated page.
-    fn apply_clusters(&mut self, generation: u64, result: Result<Box<super::ClusterPage>, String>) {
+    fn apply_clusters(&mut self, generation: u64, result: Result<Box<ClusterPage>, String>) {
         if generation != self.clusters_generation {
             return;
         }
@@ -207,7 +204,7 @@ impl App {
     fn apply_cluster_detail(
         &mut self,
         generation: u64,
-        result: Result<Box<super::ClusterDetail>, String>,
+        result: Result<Box<ClusterDetail>, String>,
     ) {
         if generation != self.cluster_detail_generation {
             return;
@@ -231,7 +228,7 @@ impl App {
     }
 
     /// Ignores progress from an action that has already finished or been replaced.
-    fn apply_operation_progress(&mut self, generation: u64, progress: super::SyncProgress) {
+    fn apply_operation_progress(&mut self, generation: u64, progress: SyncProgress) {
         self.operation.update_progress(generation, progress);
     }
 
