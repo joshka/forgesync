@@ -2,6 +2,12 @@
 
 use super::*;
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Edge {
+    Start,
+    End,
+}
+
 impl App {
     pub(super) fn handle_browser_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
@@ -42,11 +48,11 @@ impl App {
                 Vec::new()
             }
             KeyCode::Home => {
-                self.move_to_edge(false);
+                self.move_to_edge(Edge::Start);
                 Vec::new()
             }
             KeyCode::End => {
-                self.move_to_edge(true);
+                self.move_to_edge(Edge::End);
                 Vec::new()
             }
             KeyCode::Enter => self.select(),
@@ -127,7 +133,8 @@ impl App {
         }
     }
 
-    fn move_to_edge(&mut self, end: bool) {
+    fn move_to_edge(&mut self, edge: Edge) {
+        let end = edge == Edge::End;
         match self.focus {
             Focus::Repositories => {
                 self.repository_cursor = if end { self.repositories.len() } else { 0 };
