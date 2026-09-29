@@ -36,9 +36,9 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     let first = thread_id(&repository.id, "thread-1", 1);
     let second = thread_id(&repository.id, "thread-2", 2);
     let third = thread_id(&repository.id, "thread-3", 3);
-    for (thread, number) in [(&first, 1), (&second, 2), (&third, 3)] {
-        apply_thread(&archive, thread, number).await;
-    }
+    apply_thread(&archive, &first, 1).await;
+    apply_thread(&archive, &second, 2).await;
+    apply_thread(&archive, &third, 3).await;
     let at = timestamp("2035-01-01T00:00:00Z");
     let lease = archive
         .acquire_archive_lease(at, Duration::from_secs(3600))

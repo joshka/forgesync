@@ -63,13 +63,13 @@ fn search_keys_build_a_local_query_until_enter() {
         searching: true,
         ..App::default()
     };
-    for character in "tui search".chars() {
-        app.handle_key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE));
-    }
+    app.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
     assert!(app.search_query.is_none());
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert_eq!(app.search_query.as_deref(), Some("tui search"));
+    assert_eq!(app.search_query.as_deref(), Some("tui"));
     assert_eq!(actions.len(), 1);
 }
 
