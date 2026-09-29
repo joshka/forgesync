@@ -11,10 +11,12 @@
 //!
 //! These pure transformations never modify archive state or source observations.
 
-use super::{
-    CandidateEdge, ClusterCandidate, ClusterMemberCandidate, ClusterOptions,
-    EmbeddingSearchDocument, HashMap, stable_thread_id_cmp,
-};
+use std::collections::HashMap;
+
+use forgesync_store::embeddings::EmbeddingSearchDocument;
+
+use super::{CandidateEdge, ClusterCandidate, ClusterMemberCandidate, ClusterOptions};
+use crate::exact_search::stable_thread_id_cmp;
 
 /// Builds connected groups without exceeding the configured size.
 pub fn bounded_components(

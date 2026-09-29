@@ -8,12 +8,16 @@
 //! reader inspect threshold and transitive-membership behavior without following database
 //! transactions or CLI rendering.
 
+use std::collections::HashMap;
+
+use forgesync_store::embeddings::EmbeddingSearchDocument;
+use tokio_util::sync::CancellationToken;
+
 use super::components::{bounded_components, format_clusters};
 use super::evidence::CandidateEvidence;
-use super::{
-    CancellationToken, ClusterCandidate, ClusterOptions, EmbeddingSearchDocument, EngineError,
-    HashMap, stable_thread_id_cmp,
-};
+use super::{ClusterCandidate, ClusterOptions};
+use crate::error::EngineError;
+use crate::exact_search::stable_thread_id_cmp;
 
 /// Builds sparse candidate components from current discussion vectors and references.
 pub fn build_cluster_candidates(

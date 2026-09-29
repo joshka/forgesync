@@ -9,13 +9,19 @@
 //! cancellation token and generation ID keep long-running results tied to the request that
 //! started them.
 
-use tokio::sync::mpsc;
+use std::sync::Arc;
+
+use forgesync_core::identity::GitHubHost;
+use forgesync_engine::sync::SyncProgress;
+use forgesync_github::transport::GitHubClient;
+use forgesync_store::archive::Archive;
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::{self, Sender};
+use tokio_util::sync::CancellationToken;
 
 use super::action::execute_operation;
-use super::{
-    ActiveOperation, App, Arc, Archive, CancellationToken, GitHubClient, GitHubHost, Handle,
-    QueryAction, QueryMessage, QueryTasks, Sender, SyncProgress,
-};
+use super::{ActiveOperation, QueryAction, QueryTasks};
+use crate::app::{App, QueryMessage};
 
 /// Starts one writer operation and reports progress through the UI message channel.
 pub fn start_operation(

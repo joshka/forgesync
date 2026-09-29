@@ -4,13 +4,14 @@
 //! and `ClusterBuildReport` reports what was generated. List and detail requests support
 //! inspection of stored clusters.
 //!
-//! `candidates` groups plausible relationships, `build` commits a derived generation, `decisions`
+//! `candidates` validates stable input, `evidence` selects eligible relationships, `references`
+//! interprets explicit mentions, and `components` applies bounded grouping and representative
+//! policy. `build` commits a derived generation, `decisions`
 //! applies local maintainer choices, and `lease` keeps competing operations from writing the same
 //! analysis concurrently. The store owns durable generations and decision events; this module owns
 //! analysis policy and workflow boundaries. Cluster actions affect the local archive only.
 
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
@@ -32,7 +33,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::documents::now_utc;
 use crate::error::EngineError;
-use crate::exact_search::{cosine_similarity, stable_thread_id_cmp};
 use crate::inspect::{checked_page, resolve_repositories};
 use crate::reference::{RepositorySelector, ThreadSelector};
 

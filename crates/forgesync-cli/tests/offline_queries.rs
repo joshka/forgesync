@@ -164,6 +164,34 @@ async fn search_thread_inspect_and_status_run_offline_with_stable_json() {
     remove_archive(&path);
 }
 
+/// Human detail keeps source content ahead of completeness limits and current timeline evidence.
+#[tokio::test]
+async fn thread_detail_human_sections_keep_source_coverage_and_timeline_order() {
+    let path = temporary_archive_path();
+    seed_archive(&path).await;
+    let output = forgesync()
+        .args(["thread", "show", "example/project#17", "--archive"])
+        .arg(&path)
+        .env_remove("GITHUB_TOKEN")
+        .env_remove("GH_TOKEN")
+        .output()
+        .expect("show human detail offline");
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).expect("UTF-8 human detail");
+    assert_eq!(
+        text,
+        concat!(
+            "example/project#17 — Issues OR cache timeout\n",
+            "Kind: issue\nState: open\nUpdated: 2026-09-20T10:00:00Z\n",
+            "URL: https://github.com/example/project/issues/17\n\n",
+            "A cache issue appears after a network timeout.\n\n",
+            "Coverage:\n  threads: complete\n  comments: missing\n\n",
+            "Current timeline:\n  2026-09-19T10:00:00Z: repository-17#17 opened: Issues OR cache timeout\n",
+        )
+    );
+    remove_archive(&path);
+}
+
 async fn seed_archive(path: &PathBuf) {
     let archive = Archive::create(path).await.expect("create archive");
     let repository = Repository {

@@ -5,7 +5,9 @@
 - The function/state ownership pass covers all twelve surveyed areas. The maintainability plan now
   records the implemented owners, focused evidence, and reasons for retaining linear SQL and simple
   display mappings. Reusable rules cover shared eligibility policy, transaction ownership, and
-  cursor advancement after post-query filtering. Workspace Clippy passed; final gates are running.
+  cursor advancement after post-query filtering. Workspace tests, Clippy, strict Rustdoc including
+  private items, nightly formatting, the CLI build without default features, rumdl, and Markdownlint
+  passed.
 - Semantic pages now separate bound candidate/vector queries, typed candidate rows, evidence
   hydration, and document-level chunk validation. Raw candidate order owns cursor advancement even
   for rejected vectors. Store Clippy and the embedding retry regression passed.
@@ -78,9 +80,8 @@
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
 - Next action: **Run the hosted platform matrix before preparing a release**.
-- Next maintainability pass: review the remaining restricted visibility in public modules for
-  brittle cross-module data access, starting with observation storage helpers and TUI state
-  ownership; split only where a concept gains a clearer owner.
+- Future maintainability reviews should follow the completed ownership decisions and retained
+  linear-code rationale in the plan; apply those inspection signals when adding new behavior.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.

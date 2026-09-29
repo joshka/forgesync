@@ -8,12 +8,21 @@
 //! drawing or mutating navigation directly, which keeps query completion order visible to the
 //! state machine.
 
-use super::{
-    App, Arc, Archive, ClusterListRequest, Handle, QueryMessage, QueryTasks, RepositorySelector,
-    SearchMode, SearchRequest, Sender, ThreadFilters, ThreadListRequest, ThreadSelector,
-    ThreadSort, ThreadStateFilter, archive_status, list_clusters, list_repositories, list_threads,
-    load_failures, search_threads, show_cluster, show_thread,
+use std::sync::Arc;
+
+use forgesync_engine::clustering::{ClusterListRequest, list_clusters, show_cluster};
+use forgesync_engine::inspect::{
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status,
+    list_repositories, list_threads, show_thread,
 };
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::search::{SearchMode, SearchRequest, search_threads};
+use forgesync_store::archive::Archive;
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::Sender;
+
+use super::{QueryTasks, load_failures};
+use crate::app::{App, QueryMessage};
 
 /// Starts an archive-only repository read and tags its result with the current generation.
 pub fn start_repositories(

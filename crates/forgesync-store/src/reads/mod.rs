@@ -17,7 +17,7 @@ use forgesync_core::content::{
 };
 use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
 use forgesync_core::identity::{
-    CommitSha, GitHubHost, RepositoryId, ReviewThreadId, ThreadId, ThreadReference,
+    CommitSha, RepositoryId, ReviewThreadId, ThreadId, ThreadReference,
 };
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;

@@ -10,12 +10,16 @@
 //!
 //! This is derived analysis over stored vectors, without archive writes or provider requests.
 
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+
+use forgesync_store::embeddings::EmbeddingSearchDocument;
+use tokio_util::sync::CancellationToken;
+
 use super::references::{deterministic_reference_edges, overlap_ratio, title_tokens};
-use super::{
-    BinaryHeap, CancellationToken, CandidateEdge, ClusterOptions, EmbeddingSearchDocument,
-    EngineError, HIGH_CONFIDENCE_SCORE, HashMap, HashSet, MIN_TITLE_OVERLAP, Neighbor, Ordering,
-    cosine_similarity,
-};
+use super::{CandidateEdge, ClusterOptions, HIGH_CONFIDENCE_SCORE, MIN_TITLE_OVERLAP, Neighbor};
+use crate::error::EngineError;
+use crate::exact_search::cosine_similarity;
 
 /// Pairwise evidence selected under one validated clustering policy.
 ///

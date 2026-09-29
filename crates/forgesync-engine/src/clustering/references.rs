@@ -10,9 +10,12 @@
 //!
 //! Title tokens also provide the evidence guard against weak semantic matches.
 
+use std::collections::{HashMap, HashSet};
+
+use forgesync_store::embeddings::EmbeddingSearchDocument;
+
 use super::{
-    EARLY_BODY_REFERENCE_BYTES, EmbeddingSearchDocument, HashMap, HashSet, MIN_TITLE_OVERLAP,
-    REFERENCE_SCORE, THREAD_REFERENCE, TITLE_TOKEN,
+    EARLY_BODY_REFERENCE_BYTES, MIN_TITLE_OVERLAP, REFERENCE_SCORE, THREAD_REFERENCE, TITLE_TOKEN,
 };
 
 /// Adds stable reference-based links independently of vector ranking.

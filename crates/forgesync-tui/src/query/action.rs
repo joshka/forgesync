@@ -9,15 +9,24 @@
 //! action semantics only. The app consumes the returned status text through a terminal message;
 //! it never reads or mutates this execution context while work is running.
 
-use tokio::sync::mpsc::Sender;
-
-use super::{
-    Archive, CancellationToken, ClusterOptions, DocumentRecipe, GitHubClient, GitHubHost,
-    OperationOutcome, QueryAction, RefreshRequest, RefreshSyncOptions, RepositorySelector,
-    RetryReport, SyncProgress, SyncRequest, SyncThreadScope, archive_status, dismiss_cluster,
-    exclude_cluster_member, include_cluster_member, plan_run_retry, refresh, restore_cluster,
-    run_retry, set_canonical_cluster_member, sync_repositories,
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::GitHubHost;
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::clustering::{
+    ClusterOptions, dismiss_cluster, exclude_cluster_member, include_cluster_member,
+    restore_cluster, set_canonical_cluster_member,
 };
+use forgesync_engine::inspect::archive_status;
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::refresh::{RefreshRequest, RefreshSyncOptions, refresh};
+use forgesync_engine::runs::{RetryReport, plan_run_retry, run_retry};
+use forgesync_engine::sync::{SyncProgress, SyncRequest, SyncThreadScope, sync_repositories};
+use forgesync_github::transport::GitHubClient;
+use forgesync_store::archive::Archive;
+use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
+
+use super::QueryAction;
 
 /// Runs the selected engine mutation with cancellation and a writable archive.
 pub async fn execute_operation(
