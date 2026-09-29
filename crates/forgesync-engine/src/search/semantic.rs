@@ -32,96 +32,142 @@ pub async fn semantic_candidates(
     }
     let repositories = resolve_repositories(archive, &request.filters.repositories).await?;
     let limit = NonZeroU32::new(EMBEDDING_READ_PAGE).expect("non-zero page size");
-    let mut cursor = None;
-    let first_page = loop {
-        let page = archive
-            .embedding_search_page(&EmbeddingDocumentQuery {
-                repositories: &repositories,
-                kind: request.filters.kind,
-                state: store_state_filter(request.filters.state),
-                endpoint: client.endpoint_identity(),
-                model: client.model(),
-                recipe,
-                after_document_id: cursor,
-                limit,
-            })
-            .await?;
-        let has_expected_dimension = page.items.iter().any(|document| {
-            document.chunks.first().is_some_and(|first| {
-                client
-                    .dimensions()
-                    .is_none_or(|dimensions| first.vector.dimensions() == dimensions)
-            })
-        });
-        if has_expected_dimension {
-            break page;
-        }
-        let Some(next_cursor) = page.next_document_id else {
-            return Err(EngineError::SemanticVectorsUnavailable);
-        };
-        cursor = Some(next_cursor);
-    };
-
-    let query_text = request.query.trim().to_owned();
-    let mut query_vectors = client.embed(&[query_text], cancellation).await?;
-    let query_vector = query_vectors
-        .pop()
-        .ok_or(EngineError::EmbeddingServiceUnavailable)?;
-    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
-    let mut ranked = Vec::with_capacity(candidate_limit);
-    let mut next_cursor = first_page.next_document_id;
-    let mut compatible_documents =
-        count_dimension_compatible(&first_page.items, query_vector.dimensions());
-    let mut scored = score_page_bounded(
-        query_vector.clone(),
-        first_page.items,
-        sort,
-        candidate_limit,
+    let source = SemanticSource {
+        archive,
+        request,
+        recipe,
+        client,
+        repositories,
+        limit,
         cancellation,
-    )
-    .await?;
-    merge_scored_pages(
-        &mut ranked,
-        std::mem::take(&mut scored),
-        store_sort(sort),
-        candidate_limit,
-    );
+    };
+    let first_page = source.first_compatible_page().await?;
+    let query = source.query_vector().await?;
+    let mut ranking = SemanticRanking {
+        query,
+        sort: request.filters.sort.unwrap_or(ThreadSort::Relevance),
+        limit: candidate_limit,
+        ranked: Vec::with_capacity(candidate_limit),
+        compatible_documents: 0,
+    };
+    let mut next = first_page.next_document_id;
+    ranking.add(first_page.items, cancellation).await?;
+    while let Some(cursor) = next {
+        let page = source.page(Some(cursor)).await?;
+        next = page.next_document_id;
+        ranking.add(page.items, cancellation).await?;
+    }
+    ranking.finish()
+}
 
-    while let Some(after_document_id) = next_cursor {
-        if cancellation.is_cancelled() {
+/// Immutable candidate scope shared by the availability probe and full scoring traversal.
+struct SemanticSource<'a> {
+    archive: &'a Archive,
+    request: &'a SearchRequest,
+    recipe: DocumentRecipe,
+    client: &'a EmbeddingClient,
+    repositories: Vec<forgesync_core::identity::RepositoryId>,
+    limit: NonZeroU32,
+    cancellation: &'a CancellationToken,
+}
+
+impl SemanticSource<'_> {
+    /// Reads a raw keyset page using the same compatibility and filter scope throughout a search.
+    async fn page(
+        &self,
+        cursor: Option<i64>,
+    ) -> Result<forgesync_store::embeddings::EmbeddingDocumentPage, EngineError> {
+        if self.cancellation.is_cancelled() {
             return Err(EngineError::SearchCancelled);
         }
-        let page = archive
-            .embedding_search_page(&EmbeddingDocumentQuery {
-                repositories: &repositories,
-                kind: request.filters.kind,
-                state: store_state_filter(request.filters.state),
-                endpoint: client.endpoint_identity(),
-                model: client.model(),
-                recipe,
-                after_document_id: Some(after_document_id),
-                limit,
-            })
-            .await?;
-        next_cursor = page.next_document_id;
-        compatible_documents = compatible_documents.saturating_add(count_dimension_compatible(
-            &page.items,
-            query_vector.dimensions(),
-        ));
-        let page_scores = score_page_bounded(
-            query_vector.clone(),
-            page.items,
-            sort,
-            candidate_limit,
+        let query = EmbeddingDocumentQuery {
+            repositories: &self.repositories,
+            kind: self.request.filters.kind,
+            state: store_state_filter(self.request.filters.state),
+            endpoint: self.client.endpoint_identity(),
+            model: self.client.model(),
+            recipe: self.recipe,
+            after_document_id: cursor,
+            limit: self.limit,
+        };
+        Ok(self.archive.embedding_search_page(&query).await?)
+    }
+
+    /// Avoids sending query text to the service when no eligible archived document exists.
+    async fn first_compatible_page(
+        &self,
+    ) -> Result<forgesync_store::embeddings::EmbeddingDocumentPage, EngineError> {
+        let mut cursor = None;
+        loop {
+            let page = self.page(cursor).await?;
+            let compatible = page.items.iter().any(|document| {
+                document.chunks.first().is_some_and(|chunk| {
+                    self.client
+                        .dimensions()
+                        .is_none_or(|size| chunk.vector.dimensions() == size)
+                })
+            });
+            if compatible {
+                return Ok(page);
+            }
+            cursor = Some(
+                page.next_document_id
+                    .ok_or(EngineError::SemanticVectorsUnavailable)?,
+            );
+        }
+    }
+
+    /// Generates exactly one query vector after archived candidate availability is established.
+    async fn query_vector(&self) -> Result<EmbeddingVector, EngineError> {
+        let text = self.request.query.trim().to_owned();
+        let mut vectors = self.client.embed(&[text], self.cancellation).await?;
+        vectors
+            .pop()
+            .ok_or(EngineError::EmbeddingServiceUnavailable)
+    }
+}
+
+/// Bounded accumulated ranking and compatibility evidence for one generated query vector.
+struct SemanticRanking {
+    query: EmbeddingVector,
+    sort: ThreadSort,
+    limit: usize,
+    ranked: Vec<ScoredThread>,
+    compatible_documents: usize,
+}
+
+impl SemanticRanking {
+    /// Scores one page and merges it under the global result bound without losing availability.
+    async fn add(
+        &mut self,
+        documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
+        cancellation: &CancellationToken,
+    ) -> Result<(), EngineError> {
+        self.compatible_documents =
+            self.compatible_documents
+                .saturating_add(count_dimension_compatible(
+                    &documents,
+                    self.query.dimensions(),
+                ));
+        let scores = score_page_bounded(
+            self.query.clone(),
+            documents,
+            self.sort,
+            self.limit,
             cancellation,
         )
         .await?;
-        merge_scored_pages(&mut ranked, page_scores, store_sort(sort), candidate_limit);
+        merge_scored_pages(&mut self.ranked, scores, store_sort(self.sort), self.limit);
+        Ok(())
     }
-    if compatible_documents == 0 {
-        return Err(EngineError::SemanticVectorsUnavailable);
+
+    /// Distinguishes an empty ranking from an unavailable compatible vector collection.
+    fn finish(self) -> Result<Vec<ScoredThread>, EngineError> {
+        if self.compatible_documents == 0 {
+            return Err(EngineError::SemanticVectorsUnavailable);
+        }
+        Ok(self.ranked)
     }
-    Ok(ranked)
 }
 
 /// Counts vectors matching the selected model and query dimension.
