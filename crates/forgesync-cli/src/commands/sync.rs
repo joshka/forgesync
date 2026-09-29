@@ -78,3 +78,54 @@ pub(super) async fn sync_command(
         Err(error) => render_engine_error(json, "sync", error),
     }
 }
+
+pub(super) struct SyncCliRequest<'a> {
+    pub(super) path: &'a std::path::Path,
+    pub(super) json: bool,
+    pub(super) verbose: u8,
+    pub(super) repositories: Vec<RepositorySelector>,
+    pub(super) all: bool,
+    pub(super) state: Option<SyncThreadStateArg>,
+    pub(super) with: Vec<SyncIncludeArg>,
+}
+
+pub(super) async fn sync_from_cli(request: SyncCliRequest<'_>) -> ExitCode {
+    let SyncCliRequest {
+        repositories,
+        all,
+        state,
+        with,
+        ..
+    } = request;
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let interrupt_cancellation = cancellation.clone();
+    let interrupt_task = tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            interrupt_cancellation.cancel();
+        }
+    });
+    let sync_request = SyncRequest {
+        repositories,
+        all,
+        scope: match state {
+            None => SyncThreadScope::Default,
+            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+        },
+        include_comments: with.contains(&SyncIncludeArg::Comments),
+        include_reviews: with.contains(&SyncIncludeArg::Reviews),
+        include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
+        parent_run: None,
+    };
+    let result = sync_command(
+        request.path,
+        sync_request,
+        request.json,
+        request.verbose,
+        &cancellation,
+    )
+    .await;
+    interrupt_task.abort();
+    result
+}

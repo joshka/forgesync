@@ -24,7 +24,7 @@ use refresh::{RefreshCommandRequest, refresh_command};
 use retry::retry_command;
 use run::run_command;
 use search::{SearchCommandRequest, search_command};
-use sync::sync_command;
+use sync::{SyncCliRequest, sync_from_cli};
 use thread::thread_command;
 #[cfg(feature = "tui")]
 use tui::{TuiCommandRequest, tui_command};
@@ -70,30 +70,16 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             state,
             with,
         } => {
-            let cancellation = tokio_util::sync::CancellationToken::new();
-            let interrupt_cancellation = cancellation.clone();
-            let interrupt_task = tokio::spawn(async move {
-                if tokio::signal::ctrl_c().await.is_ok() {
-                    interrupt_cancellation.cancel();
-                }
-            });
-            let request = SyncRequest {
+            sync_from_cli(SyncCliRequest {
+                path: &path,
+                json: args.json,
+                verbose: args.verbose,
                 repositories,
                 all,
-                scope: match state {
-                    None => SyncThreadScope::Default,
-                    Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
-                    Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
-                    Some(SyncThreadStateArg::All) => SyncThreadScope::All,
-                },
-                include_comments: with.contains(&SyncIncludeArg::Comments),
-                include_reviews: with.contains(&SyncIncludeArg::Reviews),
-                include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
-                parent_run: None,
-            };
-            let result = sync_command(&path, request, args.json, args.verbose, &cancellation).await;
-            interrupt_task.abort();
-            result
+                state,
+                with,
+            })
+            .await
         }
         Command::Refresh {
             repositories,
