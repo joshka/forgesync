@@ -46,10 +46,11 @@ Remaining review surfaces:
 
 - Broader function and state review beyond the selected traversal and diagnostic slices.
 - Review additional store operations beyond the reservation, staging, and freshness slices.
-- Restricted visibility and imports routed through parent module aliases.
-- Public API examples and deeper documentation contracts across all crates, including rendered docs.
-- Tool currency. Workspace dependency audits, including aggressive updates, report no outdated
-  dependencies in this checkout.
+- Restricted visibility and imports routed through parent module aliases, including the engine
+  root's passthrough exports of store DTO collections.
+- Deeper module and item documentation contracts across all crates. All six crate introductions now
+  have expanded entry guidance and have been reviewed in rendered Rustdoc.
+- Hosted behavior of the refreshed CI actions. Local workflow syntax validation passes.
 - Hosted Linux, Intel macOS, and Windows validation; local checks cannot establish those results.
 
 Retain simple domain mappings and linear SQL binding maps when splitting them increases navigation.
@@ -60,19 +61,19 @@ Review exceptions on their actual contracts rather than using line counts as pro
 These requirements preserve the full maintainer request. A passing compiler or a selected slice is
 not evidence for every row. Keep this checklist open until its scope has actually been reviewed.
 
-| Requirement                                              | Current evidence                                                            | Remaining work                                                                                   |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Meaningful small modules, broad shallow navigation       | Six crate module maps and selected vertical slices                          | Inspect current long functions and multi-effect match arms throughout the workspace              |
-| Command/state ownership and top-down reading             | Unified CLI command tree; workflow and transaction owners                   | Review remaining CLI and engine orchestration, TUI result application, and presentation branches |
-| Domain types for related inputs; no behavioral bools     | Embedding policy and family membership expectations                         | Review every remaining bool parameter and broad signature for an intentional contract            |
-| Explicit local imports and deliberate visibility         | No `use super::*`; changed workflow imports name owners                     | Remove remaining parent import preludes and document public-boundary exceptions                  |
-| Every application function documented                    | Syntax inventory found two missing production comments; both corrected      | Recheck after subsequent changes; assess depth rather than presence alone                        |
-| All modules and items teach their role and relationships | Expanded roots, workflow modules, examples, and API contracts               | Review remaining private type/constant docs, field contracts, module maps, and rendered pages    |
-| Linear nearby tests with clear scenarios                 | Split suites and direct keyboard/cluster setup                              | Inspect remaining scenario branches and fixture burden; preserve meaningful data-driven cases    |
-| Current dependencies and tools                           | Compatible and aggressive dependency audits report no outdated dependencies | Verify CI tool/action versions and native tool setup against current upstream releases           |
-| Reusable guidance recorded                               | Linked documentation and Rust conventions guides                            | Record any additional recurring findings at the owning guide                                     |
-| Formatting and local gates                               | Previous follow-up passed every local gate                                  | Rerun focused and workspace gates for each subsequent implementation batch                       |
-| Hosted platform evidence                                 | Native smoke/package matrix is configured                                   | Obtain current Linux, Intel macOS, and Windows execution results                                 |
+| Requirement                                              | Current evidence                                                         | Remaining work                                                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Meaningful small modules, broad shallow navigation       | Six crate module maps and selected vertical slices                       | Inspect current long functions and multi-effect match arms throughout the workspace              |
+| Command/state ownership and top-down reading             | Unified CLI command tree; workflow and transaction owners                | Review remaining CLI and engine orchestration, TUI result application, and presentation branches |
+| Domain types for related inputs; no behavioral bools     | Embedding policy and family membership expectations                      | Review every remaining bool parameter and broad signature for an intentional contract            |
+| Explicit local imports and deliberate visibility         | No `use super::*`; changed workflow imports name owners                  | Remove remaining parent import preludes and document public-boundary exceptions                  |
+| Every application function documented                    | Syntax inventory found two missing production comments; both corrected   | Recheck after subsequent changes; assess depth rather than presence alone                        |
+| All modules and items teach their role and relationships | Expanded roots, workflow modules, examples, and API contracts            | Review remaining private type/constant docs, field contracts, module maps, and rendered pages    |
+| Linear nearby tests with clear scenarios                 | Split suites and direct keyboard/cluster setup                           | Inspect remaining scenario branches and fixture burden; preserve meaningful data-driven cases    |
+| Current dependencies and tools                           | Full direct/transitive aggressive audit reports no outdated dependencies | CI actions refreshed against upstream; native tools checked and nightly refreshed                |
+| Reusable guidance recorded                               | Linked documentation and Rust conventions guides                         | Record any additional recurring findings at the owning guide                                     |
+| Formatting and local gates                               | Previous follow-up passed every local gate                               | Rerun focused and workspace gates for each subsequent implementation batch                       |
+| Hosted platform evidence                                 | Native smoke/package matrix is configured                                | Obtain current Linux, Intel macOS, and Windows execution results                                 |
 
 The syntax inventory distinguishes production functions from tests and trait implementations. It
 measures actual function bodies, excluding braces in strings. The initial continuation found 38
@@ -81,3 +82,36 @@ inspection candidates, not defects by themselves: simple error-code tables, DTO 
 linear SQL binding maps may remain. The item pass also found undocumented private representations
 and policy constants; trait-associated aliases inherit their trait contract. Documentation presence
 and line counts do not establish documentation quality.
+
+### Current tool evidence
+
+Checked on 2026-09-29: rumdl 0.2.77 matches the
+[upstream release](https://github.com/rvben/rumdl/releases/tag/v0.2.77); actionlint 1.7.12 matches
+[its upstream release](https://github.com/rhysd/actionlint/releases/tag/v1.7.12).
+The npm registry reports markdownlint-cli2 0.23.3, matching the installed command. Nightly is
+refreshed to 2026-09-29, with rustc 1.101.0-nightly and its matching rustfmt. The repository's Rust
+1.98.1 toolchain remains its deliberate build and validation baseline.
+
+CI and release workflows now use checkout v7, setup-python v7, upload-artifact v7, and
+download-artifact v8. The upstream usage and input contracts preserve this repository's checkout,
+Python setup, and zipped artifact transfer:
+[checkout](https://github.com/actions/checkout/blob/v7/README.md),
+[setup-python](https://github.com/actions/setup-python/blob/v7/README.md),
+[upload-artifact](https://github.com/actions/upload-artifact/blob/v7/README.md), and
+[download-artifact](https://github.com/actions/download-artifact/blob/v8/README.md).
+Actionlint passes both workflow files. Hosted execution remains separate evidence.
+
+### Next concrete review targets
+
+- Remove engine-root passthrough exports and route child imports through their actual owners.
+- Document remaining private representations, policy constants, and TUI state fields with their
+  contracts; inspect short module introductions for missing relationships rather than adding words.
+- Review CLI search/retry result branches, TUI result application, refresh cluster traversal,
+  embedding batch scheduling, and sync run coordination against the dispatch and state-owner rules.
+- Replace the outcome serialization and invalid-reference test loops with named cases, and write
+  enumeration replay scenarios linearly. Review catalog-validation loops separately: checking a
+  complete fixture catalog is a different contract from selecting multiple behavioral scenarios.
+
+These targets are entries into the full checklist above, not a replacement or narrower definition of
+completion. The final current-tree local gates pass for this batch; hosted execution and the
+remaining semantic review are still required evidence.

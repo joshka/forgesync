@@ -76,7 +76,9 @@ introduce the concept and point to its children. Use named leaf files for the ac
 ## Public APIs and dependencies
 
 Crate roots teach the primary path and expose concept modules. Re-export only a small primary API;
-do not flatten every module into the root. Prefer `pub` for items meant to be used outside their
+do not flatten every module into the root. Do not forward another crate's DTO collection from the
+root as a substitute for its owning modules; workflow signatures can name those original types
+without creating a second apparent owner. Prefer `pub` for items meant to be used outside their
 module, and restrict the enclosing module when those items are implementation details. Treat
 repeated `pub(crate)` or `pub(super)` as a prompt to examine ownership and data flow, not as the
 default way to draw a seam. Keep restricted visibility when changing it would expose internals of a

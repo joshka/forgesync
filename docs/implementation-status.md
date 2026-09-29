@@ -901,6 +901,31 @@ remain deliberate. Parent imports that existed only to supply child input module
 two missing production function comments found by the syntax inventory are added.
 
 Focused evidence: all seven store observation transaction tests and all fourteen engine sync
-scenarios pass; the twenty TUI tests passed before the final guard-preserving adjustment. Workspace
-validation for this continuation follows. The full completion checklist and remaining inventory are
-in `docs/source-shape-audit.md`; the maintainability goal remains open.
+scenarios pass. The full workspace gates then pass, including all twenty TUI tests after preserving
+the empty-list navigation guards. The full completion checklist and remaining inventory are in
+`docs/source-shape-audit.md`; the maintainability goal remains open.
+
+### Crate entry documentation and CI tools
+
+All six crate roots now teach their boundaries and lifecycle. Store, engine, GitHub, CLI, and TUI
+have new compiled first-use examples; core's construction example remains in place with stronger
+domain context. The examples pass workspace doctests and strict public/private Rustdoc. The six
+rendered introductions were reviewed in a browser for their maps, examples, and effect boundaries.
+README and installation requirements now explicitly distinguish offline keyword reads from
+service-backed semantic query vectors.
+
+The full aggressive direct/transitive dependency audit reports no outdated dependencies in all six
+workspace crates. CI action versions are refreshed against upstream contracts; actionlint passes.
+Local rumdl, Markdown linting, and refreshed nightly formatting pass. CI now denies missing public
+docs, Rustdoc warnings, and broken links and includes private items in its documentation build. The
+restored multiword keyboard-input scenario preserves the original test coverage without a loop.
+
+Remaining work includes private item and field documentation, long function/branch review, parent
+import preludes and root DTO passthrough exports, and hosted platform results. The completion
+checklist remains open; this entry is evidence for the completed slices only.
+
+Final current-tree validation for this batch passes: refreshed nightly formatting, workspace Clippy
+with warnings denied, all workspace tests and doctests, the CLI build without default features,
+strict public/private Rustdoc, rumdl, changed-page markdownlint, and both actionlint workflows. The
+production-function comment inventory reports zero missing comments outside inherited trait
+implementations; semantic documentation depth remains a separate review requirement.
