@@ -20,7 +20,7 @@ use archive::archive_command;
 use cluster::{ClusterCliRequest, cluster_from_cli};
 use embed::{EmbedCliRequest, embed_from_cli};
 use github::{github_api_base_url, github_clients_for_selectors, render_github_client_setup_error};
-use refresh::{RefreshCliRequest, refresh_from_cli};
+use refresh::refresh_from_cli;
 use retry::retry_command;
 use run::run_command;
 use search::search_command;
@@ -48,28 +48,8 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             .await
         }
         Command::Sync(sync_args) => sync_from_cli(sync_args, &path, output, args.verbose).await,
-        Command::Refresh {
-            repositories,
-            no_sync,
-            state,
-            with,
-            analyze,
-            force,
-        } => {
-            refresh_from_cli(RefreshCliRequest {
-                archive_path: &path,
-                repositories,
-                no_sync,
-                state,
-                with,
-                analyze,
-                force,
-                embedding_service: config.embeddings,
-                recipe: config.documents.recipe,
-                json: output,
-                verbose: args.verbose,
-            })
-            .await
+        Command::Refresh(refresh_args) => {
+            refresh_from_cli(refresh_args, &path, output, args.verbose, config).await
         }
         Command::Embed {
             repositories,

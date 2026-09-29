@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 mod archive;
 mod cluster;
+mod refresh;
 mod run;
 mod search;
 mod sync;
@@ -10,6 +11,7 @@ mod values;
 
 pub use archive::ArchiveCommand;
 pub use cluster::ClusterCommand;
+pub use refresh::RefreshArgs;
 pub use run::RunCommand;
 pub use search::SearchArgs;
 pub use sync::SyncArgs;
@@ -78,26 +80,7 @@ pub enum Command {
     /// Acquire GitHub discussions into the local archive.
     Sync(SyncArgs),
     /// Sync a repository and run explicitly selected local analysis stages.
-    Refresh {
-        /// Repository scope shared by sync, embedding, and clustering stages.
-        #[arg(value_name = "OWNER/REPO", required = true)]
-        repositories: Vec<RepositorySelector>,
-        /// Skip GitHub acquisition and analyze only the local archive.
-        #[arg(long, action = ArgAction::SetTrue)]
-        no_sync: bool,
-        /// Select open threads, closed threads, or a complete all-state enumeration.
-        #[arg(long, value_enum)]
-        state: Option<SyncThreadStateArg>,
-        /// Add selected evidence families to the sync stage.
-        #[arg(long = "with", value_enum, value_delimiter = ',')]
-        with: Vec<SyncIncludeArg>,
-        /// Explicitly select model-backed stages; clustering uses stored vectors.
-        #[arg(long, value_enum, value_delimiter = ',')]
-        analyze: Vec<RefreshAnalysisArg>,
-        /// Force embedding requests even when compatible vectors are stored.
-        #[arg(long, action = ArgAction::SetTrue)]
-        force: bool,
-    },
+    Refresh(RefreshArgs),
     /// Build deterministic documents and store compatible embeddings for local discussions.
     Embed {
         /// One or more registered repositories to embed.

@@ -77,12 +77,9 @@ fn refresh_analysis_stages_are_explicit_and_comma_separated(
     #[case] expected_analysis: Vec<RefreshAnalysisArg>,
 ) {
     let args = CliArgs::try_parse_from(arguments).expect("refresh arguments should parse");
-    let Command::Refresh {
-        no_sync, analyze, ..
-    } = args.command
-    else {
+    let Command::Refresh(refresh) = args.command else {
         panic!("expected refresh command");
     };
-    assert_eq!(no_sync, expected_no_sync);
-    assert_eq!(analyze, expected_analysis);
+    assert_eq!(refresh.no_sync, expected_no_sync);
+    assert_eq!(refresh.analyze, expected_analysis);
 }

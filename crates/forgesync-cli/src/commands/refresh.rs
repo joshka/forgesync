@@ -2,21 +2,13 @@
 
 use super::*;
 
-pub(super) struct RefreshCliRequest<'a> {
-    pub(super) archive_path: &'a std::path::Path,
-    pub(super) repositories: Vec<RepositorySelector>,
-    pub(super) no_sync: bool,
-    pub(super) state: Option<SyncThreadStateArg>,
-    pub(super) with: Vec<SyncIncludeArg>,
-    pub(super) analyze: Vec<RefreshAnalysisArg>,
-    pub(super) force: bool,
-    pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
-    pub(super) recipe: DocumentRecipe,
-    pub(super) json: OutputMode,
-    pub(super) verbose: u8,
-}
-
-pub(super) async fn refresh_from_cli(request: RefreshCliRequest<'_>) -> ExitCode {
+pub(super) async fn refresh_from_cli(
+    args: RefreshArgs,
+    path: &std::path::Path,
+    json: OutputMode,
+    verbose: u8,
+    config: ForgesyncConfig,
+) -> ExitCode {
     let cancellation = tokio_util::sync::CancellationToken::new();
     let interrupt_cancellation = cancellation.clone();
     let interrupt_task = tokio::spawn(async move {
@@ -24,55 +16,29 @@ pub(super) async fn refresh_from_cli(request: RefreshCliRequest<'_>) -> ExitCode
             interrupt_cancellation.cancel();
         }
     });
-    let result = refresh_command(RefreshCommandRequest {
-        archive_path: request.archive_path,
-        repositories: request.repositories,
-        no_sync: request.no_sync,
-        state: request.state,
-        with: request.with,
-        analyze: request.analyze,
-        force: request.force,
-        embedding_service: request.embedding_service,
-        recipe: request.recipe,
-        json: request.json,
-        verbose: request.verbose,
-        cancellation: &cancellation,
-    })
-    .await;
+    let result = refresh_command(args, path, json, verbose, config, &cancellation).await;
     interrupt_task.abort();
     result
 }
 
-pub(super) struct RefreshCommandRequest<'a> {
-    pub(super) archive_path: &'a std::path::Path,
-    pub(super) repositories: Vec<RepositorySelector>,
-    pub(super) no_sync: bool,
-    pub(super) state: Option<SyncThreadStateArg>,
-    pub(super) with: Vec<SyncIncludeArg>,
-    pub(super) analyze: Vec<RefreshAnalysisArg>,
-    pub(super) force: bool,
-    pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
-    pub(super) recipe: DocumentRecipe,
-    pub(super) json: OutputMode,
-    pub(super) verbose: u8,
-    pub(super) cancellation: &'a tokio_util::sync::CancellationToken,
-}
-
-pub(super) async fn refresh_command(request: RefreshCommandRequest<'_>) -> ExitCode {
-    let RefreshCommandRequest {
-        archive_path,
+async fn refresh_command(
+    args: RefreshArgs,
+    path: &std::path::Path,
+    json: OutputMode,
+    verbose: u8,
+    config: ForgesyncConfig,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> ExitCode {
+    let RefreshArgs {
         repositories,
         no_sync,
         state,
         with,
         analyze,
         force,
-        embedding_service,
-        recipe,
-        json,
-        verbose,
-        cancellation,
-    } = request;
+    } = args;
+    let embedding_service = config.embeddings;
+    let recipe = config.documents.recipe;
     if no_sync && analyze.is_empty() {
         return usage_error("refresh requires sync or at least one --analyze stage");
     }
@@ -87,7 +53,7 @@ pub(super) async fn refresh_command(request: RefreshCommandRequest<'_>) -> ExitC
         return usage_error("--state and --with require the refresh sync stage");
     }
 
-    let archive = match Archive::open_read_write(archive_path).await {
+    let archive = match Archive::open_read_write(path).await {
         Ok(archive) => archive,
         Err(error) => return render_store_error(json, "refresh", error),
     };
