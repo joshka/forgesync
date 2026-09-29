@@ -8,14 +8,23 @@
 //! owns only their place in the refresh workflow and how their outcomes contribute to the stage
 //! report.
 
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_store::archive::Archive;
+use forgesync_store::reads::ThreadSummary;
+use tokio_util::sync::CancellationToken;
+
 use super::status::{keep_first_failure, stage_failure};
 use super::{
-    Archive, CancellationToken, DocumentRecipe, EmbeddingClient, EmbeddingReport,
     RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStageFailure, RefreshStageStatus,
-    RepositorySelector, ThreadFilters, ThreadListRequest, ThreadSelector, ThreadSort,
-    ThreadStateFilter, embed_documents, list_threads, materialize_thread_document,
 };
-use crate::embeddings::EmbeddingPolicy;
+use crate::documents::materialize_thread_document;
+use crate::embedding_client::EmbeddingClient;
+use crate::embeddings::{EmbeddingPolicy, EmbeddingReport, embed_documents};
+use crate::error::EngineError;
+use crate::inspect::{
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, list_threads,
+};
+use crate::reference::{RepositorySelector, ThreadSelector};
 
 /// Materializes repositories independently, retaining successful pages and the first stage failure.
 ///
@@ -90,8 +99,8 @@ impl RepositoryEmbeddings<'_> {
     async fn materialize(
         &mut self,
         repository: &RepositorySelector,
-        threads: Vec<forgesync_store::reads::ThreadSummary>,
-    ) -> Vec<forgesync_core::document::Document> {
+        threads: Vec<ThreadSummary>,
+    ) -> Vec<Document> {
         let mut documents = Vec::with_capacity(threads.len());
         for thread in threads {
             let number = thread.discussion.id.number();
@@ -111,11 +120,7 @@ impl RepositoryEmbeddings<'_> {
     }
 
     /// Accounts for a successfully materialized document before vector generation begins.
-    fn record_document(
-        &mut self,
-        documents: &mut Vec<forgesync_core::document::Document>,
-        document: forgesync_core::document::Document,
-    ) {
+    fn record_document(&mut self, documents: &mut Vec<Document>, document: Document) {
         documents.push(document);
         self.report.documents_materialized = self.report.documents_materialized.saturating_add(1);
     }
@@ -125,7 +130,7 @@ impl RepositoryEmbeddings<'_> {
         &mut self,
         repository: &RepositorySelector,
         number: u64,
-        error: crate::error::EngineError,
+        error: EngineError,
     ) {
         self.report.document_failures.push(RefreshDocumentFailure {
             repository: repository.as_url(),
@@ -136,7 +141,7 @@ impl RepositoryEmbeddings<'_> {
     }
 
     /// Embeds one nonempty page, retaining completed batches even when later work fails.
-    async fn embed(&mut self, documents: &[forgesync_core::document::Document]) {
+    async fn embed(&mut self, documents: &[Document]) {
         if documents.is_empty() {
             return;
         }

@@ -7,8 +7,11 @@
 //! The methods update state or start a query; they do not draw widgets. Keeping browser input
 //! beside its navigation semantics makes it easier to see what each key means on each screen.
 
-use super::{App, Focus, KeyCode, QueryAction, RepositorySelector};
-use crate::app::{PAGE_SIZE, ThreadSelector, move_index};
+use crossterm::event::KeyCode;
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+
+use crate::app::{App, Focus, PAGE_SIZE, move_index};
+use crate::query::QueryAction;
 
 /// A navigation intent interpreted against the active pane's own bounds.
 #[derive(Clone, Copy)]

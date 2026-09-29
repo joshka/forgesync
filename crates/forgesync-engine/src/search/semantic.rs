@@ -8,15 +8,29 @@
 //! embedding service once compatible archived candidates are found. Keyword search is the offline
 //! alternative. Compatibility checks reject vectors left behind by model or recipe changes.
 
+use std::num::NonZeroU32;
+use std::sync::Arc;
+
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::embedding::EmbeddingVector;
+use forgesync_core::identity::RepositoryId;
+use forgesync_store::archive::Archive;
+use forgesync_store::embeddings::{
+    EmbeddingDocumentPage, EmbeddingDocumentQuery, EmbeddingSearchDocument,
+};
+use forgesync_store::reads::FamilyCoverageSummary;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::CancellationToken;
+
 use super::ranking::result_page;
 use super::{
-    Arc, Archive, CancellationToken, DocumentRecipe, EMBEDDING_READ_PAGE, EXACT_SEARCH_SLOTS,
-    EXACT_WORKER_LIMIT, EmbeddingClient, EmbeddingDocumentQuery, EmbeddingVector, EngineError,
-    FamilyCoverageSummary, NonZeroU32, OwnedSemaphorePermit, ResultPageRequest, ScoredThread,
-    SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
-    Semaphore, ThreadSort, merge_scored_pages, resolve_repositories, score_embedding_page,
-    store_sort, store_state_filter,
+    EMBEDDING_READ_PAGE, EXACT_SEARCH_SLOTS, EXACT_WORKER_LIMIT, ResultPageRequest, SearchHit,
+    SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
 };
+use crate::embedding_client::EmbeddingClient;
+use crate::error::EngineError;
+use crate::exact_search::{ScoredThread, merge_scored_pages, score_embedding_page};
+use crate::inspect::{ThreadSort, resolve_repositories, store_sort, store_state_filter};
 
 /// Ranks current dimension-compatible chunks with exact cosine similarity.
 pub async fn semantic_candidates(
@@ -66,17 +80,14 @@ struct SemanticSource<'a> {
     request: &'a SearchRequest,
     recipe: DocumentRecipe,
     client: &'a EmbeddingClient,
-    repositories: Vec<forgesync_core::identity::RepositoryId>,
+    repositories: Vec<RepositoryId>,
     limit: NonZeroU32,
     cancellation: &'a CancellationToken,
 }
 
 impl SemanticSource<'_> {
     /// Reads a raw keyset page using the same compatibility and filter scope throughout a search.
-    async fn page(
-        &self,
-        cursor: Option<i64>,
-    ) -> Result<forgesync_store::embeddings::EmbeddingDocumentPage, EngineError> {
+    async fn page(&self, cursor: Option<i64>) -> Result<EmbeddingDocumentPage, EngineError> {
         if self.cancellation.is_cancelled() {
             return Err(EngineError::SearchCancelled);
         }
@@ -94,9 +105,7 @@ impl SemanticSource<'_> {
     }
 
     /// Avoids sending query text to the service when no eligible archived document exists.
-    async fn first_compatible_page(
-        &self,
-    ) -> Result<forgesync_store::embeddings::EmbeddingDocumentPage, EngineError> {
+    async fn first_compatible_page(&self) -> Result<EmbeddingDocumentPage, EngineError> {
         let mut cursor = None;
         loop {
             let page = self.page(cursor).await?;
@@ -140,7 +149,7 @@ impl SemanticRanking {
     /// Scores one page and merges it under the global result bound without losing availability.
     async fn add(
         &mut self,
-        documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
+        documents: Vec<EmbeddingSearchDocument>,
         cancellation: &CancellationToken,
     ) -> Result<(), EngineError> {
         self.compatible_documents =
@@ -171,10 +180,7 @@ impl SemanticRanking {
 }
 
 /// Counts vectors matching the selected model and query dimension.
-pub fn count_dimension_compatible(
-    documents: &[forgesync_store::embeddings::EmbeddingSearchDocument],
-    dimensions: u32,
-) -> usize {
+pub fn count_dimension_compatible(documents: &[EmbeddingSearchDocument], dimensions: u32) -> usize {
     documents
         .iter()
         .filter(|document| {
@@ -189,7 +195,7 @@ pub fn count_dimension_compatible(
 /// Scores one archive page within the exact-search worker limit.
 pub async fn score_page_bounded(
     query: EmbeddingVector,
-    documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
+    documents: Vec<EmbeddingSearchDocument>,
     sort: ThreadSort,
     limit: usize,
     cancellation: &CancellationToken,

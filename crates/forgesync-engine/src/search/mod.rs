@@ -1,34 +1,30 @@
-//! # Offline keyword, semantic, and hybrid search
+//! # Archived keyword, semantic, and hybrid search
 //!
 //! `SearchRequest` selects scope, mode, ranking, and pagination. `SearchHit` and
 //! `SearchResultPage` include provenance so callers can distinguish keyword, semantic, and
 //! combined evidence. `search_threads` and `retrieve_threads` are the engine entry points.
 //!
 //! `keyword` supplies text candidates, `semantic` scores compatible vectors, and `ranking`
-//! combines and pages results. Search reads the local archive; it does not silently acquire
-//! discussions or generate embeddings. Mode and fallback policy remain explicit so a result's
-//! meaning is understandable to CLI and TUI users.
+//! combines and pages results. Search reads archived discussions and stored document vectors.
+//! Keyword search stays offline; semantic and hybrid search send query text to the configured
+//! embedding service. They never refresh source discussions or persist new document vectors.
+//! Mode and fallback policy remain explicit so callers can explain availability and network use.
 
 use std::collections::HashMap;
-use std::num::NonZeroU32;
 use std::sync::{Arc, OnceLock};
 
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::embedding::EmbeddingVector;
 use forgesync_core::identity::ThreadId;
 use forgesync_store::archive::Archive;
-use forgesync_store::embeddings::EmbeddingDocumentQuery;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadQuery, ThreadSummary};
 use serde::Serialize;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
-use crate::exact_search::{
-    ScoredThread, merge_scored_pages, score_embedding_page, stable_thread_id_cmp,
-};
+use crate::exact_search::{ScoredThread, stable_thread_id_cmp};
 use crate::inspect::{
     ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
 };
