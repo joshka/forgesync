@@ -5,7 +5,7 @@ use super::*;
 pub(super) async fn sync_command(
     archive_path: &std::path::Path,
     request: SyncRequest,
-    json: bool,
+    json: OutputMode,
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> ExitCode {
@@ -36,7 +36,7 @@ pub(super) async fn sync_command(
     };
 
     let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
-    let progress_task = if verbose > 0 && !json {
+    let progress_task = if verbose > 0 && !json.is_json() {
         Some(tokio::spawn(async move {
             while let Some(progress) = progress_receiver.recv().await {
                 let repository = progress.repository.as_deref().unwrap_or("sync");
@@ -81,7 +81,7 @@ pub(super) async fn sync_command(
 
 pub(super) struct SyncCliRequest<'a> {
     pub(super) path: &'a std::path::Path,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
     pub(super) repositories: Vec<RepositorySelector>,
     pub(super) all: bool,

@@ -7,7 +7,7 @@ pub(super) struct ClusterCliRequest<'a> {
     pub(super) command: ClusterCommand,
     pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
 }
 
@@ -38,7 +38,7 @@ pub(super) async fn cluster_command(
     command: ClusterCommand,
     mut embedding_service: crate::config::EmbeddingServiceConfig,
     recipe: DocumentRecipe,
-    json: bool,
+    json: OutputMode,
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> ExitCode {
@@ -93,7 +93,7 @@ pub(super) async fn cluster_command(
                     min_cluster_size: usize::try_from(min_cluster_size).unwrap_or(usize::MAX),
                 },
             };
-            if verbose > 0 && !json {
+            if verbose > 0 && !json.is_json() {
                 eprintln!(
                     "forgesync: building local clusters for {} using stored vectors",
                     request.repository.as_url()
@@ -212,7 +212,7 @@ pub(super) async fn cluster_command(
 }
 
 pub(super) async fn mutate_cluster<F>(
-    json: bool,
+    json: OutputMode,
     command: &'static str,
     cluster_id: u64,
     action: &'static str,

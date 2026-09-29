@@ -64,7 +64,7 @@ pub(super) enum GitHubClientSetupError {
 }
 
 pub(super) fn render_github_client_setup_error(
-    json: bool,
+    json: OutputMode,
     command: &str,
     error: GitHubClientSetupError,
 ) -> ExitCode {

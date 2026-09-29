@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) async fn run_command(
     path: &std::path::Path,
-    json: bool,
+    json: OutputMode,
     verbose: u8,
     command: RunCommand,
 ) -> ExitCode {

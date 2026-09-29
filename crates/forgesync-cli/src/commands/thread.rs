@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) async fn thread_command(
     path: &std::path::Path,
-    json: bool,
+    json: OutputMode,
     command: ThreadCommand,
 ) -> ExitCode {
     match command {

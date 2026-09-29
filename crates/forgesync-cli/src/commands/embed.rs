@@ -8,7 +8,7 @@ pub(super) struct EmbedCommandRequest<'a> {
     pub(super) service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
     pub(super) force: bool,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
     pub(super) cancellation: &'a tokio_util::sync::CancellationToken,
 }
@@ -68,7 +68,7 @@ pub(super) async fn embed_command(request: EmbedCommandRequest<'_>) -> ExitCode 
         .into_iter()
         .collect::<Vec<_>>();
     repositories.sort_by_key(RepositorySelector::as_url);
-    if verbose > 0 && !json {
+    if verbose > 0 && !json.is_json() {
         eprintln!(
             "forgesync: embedding discussions in {} repository(s)",
             repositories.len()
@@ -125,7 +125,7 @@ pub(super) struct EmbedCliRequest<'a> {
     pub(super) path: &'a std::path::Path,
     pub(super) service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
     pub(super) repositories: Vec<RepositorySelector>,
     pub(super) force: bool,

@@ -2,17 +2,17 @@
 
 use super::*;
 
-pub(crate) fn render_thread_page(json: bool, command: &str, page: &ThreadPage) -> ExitCode {
+pub(crate) fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
     let output = ThreadPageOutput::from(page);
     render_success(json, command, &output, thread_page_summary)
 }
 
-pub(crate) fn render_search_page(json: bool, page: &SearchResultPage) -> ExitCode {
+pub(crate) fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
     let output = SearchPageOutput::from(page);
     render_success(json, "search", &output, search_page_summary)
 }
 
-pub(crate) fn render_thread_detail(json: bool, detail: &ThreadDetail) -> ExitCode {
+pub(crate) fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
     let output = ThreadDetailOutput::from(detail);
     render_success(json, "thread show", &output, thread_detail_summary)
 }

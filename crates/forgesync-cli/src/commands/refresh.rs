@@ -12,7 +12,7 @@ pub(super) struct RefreshCliRequest<'a> {
     pub(super) force: bool,
     pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
 }
 
@@ -53,7 +53,7 @@ pub(super) struct RefreshCommandRequest<'a> {
     pub(super) force: bool,
     pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) verbose: u8,
     pub(super) cancellation: &'a tokio_util::sync::CancellationToken,
 }
@@ -131,7 +131,7 @@ pub(super) async fn refresh_command(request: RefreshCommandRequest<'_>) -> ExitC
         include_reviews: with.contains(&SyncIncludeArg::Reviews),
         include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
     });
-    if verbose > 0 && !json {
+    if verbose > 0 && !json.is_json() {
         eprintln!("forgesync: refreshing {}", repositories.len());
     }
     let request = RefreshRequest {

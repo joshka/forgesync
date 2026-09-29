@@ -94,7 +94,7 @@ where
         Ok(config) => config,
         Err(error) => {
             return render_error_with_status(
-                args.json,
+                OutputMode::from(args.json),
                 "configuration",
                 error.code(),
                 &error.to_string(),
@@ -110,7 +110,7 @@ where
         Ok(runtime) => runtime,
         Err(error) => {
             return render_error(
-                args.json,
+                OutputMode::from(args.json),
                 "startup",
                 "runtime_unavailable",
                 &format!("could not start async runtime: {error}"),
@@ -155,8 +155,26 @@ fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigE
     ForgesyncConfig::load(args.config.as_deref())
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum OutputMode {
+    Text,
+    Json,
+}
+
+impl From<bool> for OutputMode {
+    fn from(json: bool) -> Self {
+        if json { Self::Json } else { Self::Text }
+    }
+}
+
+impl OutputMode {
+    const fn is_json(self) -> bool {
+        matches!(self, Self::Json)
+    }
+}
+
 fn render_success<T>(
-    json: bool,
+    json: OutputMode,
     command: &str,
     data: &T,
     human: impl FnOnce(&T) -> String,
@@ -168,7 +186,7 @@ where
 }
 
 fn render_result<T>(
-    json: bool,
+    json: OutputMode,
     command: &str,
     data: &T,
     human: impl FnOnce(&T) -> String,
@@ -178,7 +196,7 @@ where
     T: Serialize,
 {
     let mut stdout = std::io::stdout().lock();
-    let result = if json {
+    let result = if json.is_json() {
         let envelope = JsonEnvelope::success(command, data);
         serde_json::to_writer(&mut stdout, &envelope)
             .and_then(|()| writeln!(stdout).map_err(serde_json::Error::io))
@@ -192,11 +210,11 @@ where
     }
 }
 
-fn render_store_error(json: bool, command: &str, error: StoreError) -> ExitCode {
+fn render_store_error(json: OutputMode, command: &str, error: StoreError) -> ExitCode {
     render_error(json, command, error.code(), &error.to_string())
 }
 
-fn render_engine_error(json: bool, command: &str, error: EngineError) -> ExitCode {
+fn render_engine_error(json: OutputMode, command: &str, error: EngineError) -> ExitCode {
     let code = error.code();
     let message = error.to_string();
     let status = if code == "operation_cancelled" {
@@ -207,18 +225,18 @@ fn render_engine_error(json: bool, command: &str, error: EngineError) -> ExitCod
     render_error_with_status(json, command, code, &message, status)
 }
 
-fn render_error(json: bool, command: &str, code: &str, message: &str) -> ExitCode {
+fn render_error(json: OutputMode, command: &str, code: &str, message: &str) -> ExitCode {
     render_error_with_status(json, command, code, message, ExitCode::FAILURE)
 }
 
 fn render_error_with_status(
-    json: bool,
+    json: OutputMode,
     command: &str,
     code: &str,
     message: &str,
     exit_status: ExitCode,
 ) -> ExitCode {
-    if json {
+    if json.is_json() {
         let envelope = JsonEnvelope::<serde_json::Value>::failure(command, code, message);
         if serde_json::to_writer(std::io::stdout().lock(), &envelope).is_ok() {
             let _ = writeln!(std::io::stdout().lock());

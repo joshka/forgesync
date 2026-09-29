@@ -33,9 +33,10 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
     let Some(path) = args.archive else {
         return usage_error("--archive PATH is required for local archive commands");
     };
+    let output = OutputMode::from(args.json);
 
     match args.command {
-        Command::Archive { command } => archive_command(&path, args.json, command).await,
+        Command::Archive { command } => archive_command(&path, output, command).await,
         Command::Search {
             query,
             repositories,
@@ -49,7 +50,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
         } => {
             search_command(SearchCommandRequest {
                 path: &path,
-                json: args.json,
+                json: output,
                 service: config.embeddings,
                 recipe: config.documents.recipe,
                 query,
@@ -72,7 +73,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
         } => {
             sync_from_cli(SyncCliRequest {
                 path: &path,
-                json: args.json,
+                json: output,
                 verbose: args.verbose,
                 repositories,
                 all,
@@ -99,7 +100,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
                 force,
                 embedding_service: config.embeddings,
                 recipe: config.documents.recipe,
-                json: args.json,
+                json: output,
                 verbose: args.verbose,
             })
             .await
@@ -120,7 +121,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
                 path: &path,
                 service: config.embeddings,
                 recipe: config.documents.recipe,
-                json: args.json,
+                json: output,
                 verbose: args.verbose,
                 repositories,
                 force,
@@ -141,18 +142,18 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
                 command,
                 embedding_service: config.embeddings,
                 recipe: config.documents.recipe,
-                json: args.json,
+                json: output,
                 verbose: args.verbose,
             })
             .await
         }
-        Command::Thread { command } => thread_command(&path, args.json, command).await,
-        Command::Run { command } => run_command(&path, args.json, args.verbose, command).await,
+        Command::Thread { command } => thread_command(&path, output, command).await,
+        Command::Run { command } => run_command(&path, output, args.verbose, command).await,
         #[cfg(feature = "tui")]
         Command::Tui => {
             tui_command(TuiCommandRequest {
                 path: &path,
-                json: args.json,
+                json: output,
                 verbose: args.verbose,
             })
             .await

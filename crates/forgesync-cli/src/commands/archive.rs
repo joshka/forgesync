@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) async fn archive_command(
     path: &std::path::Path,
-    json: bool,
+    json: OutputMode,
     command: ArchiveCommand,
 ) -> ExitCode {
     match command {

@@ -6,7 +6,7 @@ pub(super) async fn retry_command(
     archive_path: &std::path::Path,
     run_id: RunId,
     families: Vec<forgesync_core::coverage::EvidenceFamily>,
-    json: bool,
+    json: OutputMode,
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> ExitCode {
@@ -102,7 +102,7 @@ pub(super) async fn retry_command(
     }
 
     let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
-    let progress_task = if verbose > 0 && !json {
+    let progress_task = if verbose > 0 && !json.is_json() {
         Some(tokio::spawn(async move {
             while let Some(progress) = progress_receiver.recv().await {
                 let repository = progress.repository.as_deref().unwrap_or("retry");

@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) struct SearchCommandRequest<'a> {
     pub(super) path: &'a std::path::Path,
-    pub(super) json: bool,
+    pub(super) json: OutputMode,
     pub(super) service: crate::config::EmbeddingServiceConfig,
     pub(super) recipe: DocumentRecipe,
     pub(super) query: String,
