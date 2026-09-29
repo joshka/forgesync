@@ -2,28 +2,14 @@
 
 use super::*;
 
-pub(super) struct SearchCommandRequest<'a> {
-    pub(super) path: &'a std::path::Path,
-    pub(super) json: OutputMode,
-    pub(super) service: crate::config::EmbeddingServiceConfig,
-    pub(super) recipe: DocumentRecipe,
-    pub(super) query: String,
-    pub(super) repositories: Vec<RepositorySelector>,
-    pub(super) kind: Option<ThreadKindArg>,
-    pub(super) state: ThreadStateArg,
-    pub(super) mode: SearchModeArg,
-    pub(super) keyword_fallback: bool,
-    pub(super) sort: Option<ThreadSortArg>,
-    pub(super) limit: u32,
-    pub(super) offset: u64,
-}
-
-pub(super) async fn search_command(request: SearchCommandRequest<'_>) -> ExitCode {
-    let SearchCommandRequest {
-        path,
-        json,
-        service,
-        recipe,
+pub(super) async fn search_command(
+    args: SearchArgs,
+    path: &std::path::Path,
+    json: OutputMode,
+    service: crate::config::EmbeddingServiceConfig,
+    recipe: DocumentRecipe,
+) -> ExitCode {
+    let SearchArgs {
         query,
         repositories,
         kind,
@@ -33,7 +19,7 @@ pub(super) async fn search_command(request: SearchCommandRequest<'_>) -> ExitCod
         sort,
         limit,
         offset,
-    } = request;
+    } = args;
     let mode = match mode {
         SearchModeArg::Keyword => SearchMode::Keyword,
         SearchModeArg::AdvancedFts => SearchMode::AdvancedFts,

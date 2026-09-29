@@ -23,7 +23,7 @@ use github::{github_api_base_url, github_clients_for_selectors, render_github_cl
 use refresh::{RefreshCliRequest, refresh_from_cli};
 use retry::retry_command;
 use run::run_command;
-use search::{SearchCommandRequest, search_command};
+use search::search_command;
 use sync::{SyncCliRequest, sync_from_cli};
 use thread::thread_command;
 #[cfg(feature = "tui")]
@@ -37,32 +37,14 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
 
     match args.command {
         Command::Archive { command } => archive_command(&path, output, command).await,
-        Command::Search {
-            query,
-            repositories,
-            kind,
-            state,
-            mode,
-            keyword_fallback,
-            sort,
-            limit,
-            offset,
-        } => {
-            search_command(SearchCommandRequest {
-                path: &path,
-                json: output,
-                service: config.embeddings,
-                recipe: config.documents.recipe,
-                query,
-                repositories,
-                kind,
-                state,
-                mode,
-                keyword_fallback,
-                sort,
-                limit,
-                offset,
-            })
+        Command::Search(args) => {
+            search_command(
+                args,
+                &path,
+                output,
+                config.embeddings,
+                config.documents.recipe,
+            )
             .await
         }
         Command::Sync {
