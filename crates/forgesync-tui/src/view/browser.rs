@@ -127,14 +127,15 @@ fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let block = pane_block("Discussion detail", app.focus == Focus::Detail);
     let inner_height = block.inner(area).height;
     let max_scroll = lines.len().saturating_sub(usize::from(inner_height));
-    app.detail_scroll = app
-        .detail_scroll
+    app.detail_pane.scroll = app
+        .detail_pane
+        .scroll
         .min(u16::try_from(max_scroll).unwrap_or(u16::MAX));
     frame.render_widget(
         Paragraph::new(Text::from(lines))
             .block(block)
             .wrap(Wrap { trim: false })
-            .scroll((app.detail_scroll, 0)),
+            .scroll((app.detail_pane.scroll, 0)),
         area,
     );
 }

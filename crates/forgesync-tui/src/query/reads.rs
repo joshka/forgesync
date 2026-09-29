@@ -118,7 +118,7 @@ pub fn start_detail(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let generation = app.begin_detail();
+    let generation = app.detail_pane.begin();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {

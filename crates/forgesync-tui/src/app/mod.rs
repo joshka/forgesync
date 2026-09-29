@@ -70,11 +70,8 @@ pub struct App {
     pub repository_picker: repositories::RepositoryPicker,
     /// Discussion page, selection, pagination, and pending read state.
     pub thread_list: threads::ThreadList,
-    pub detail: Option<ThreadDetail>,
-    pub detail_generation: u64,
-    pub detail_loading: bool,
-    pub detail_error: Option<String>,
-    pub detail_scroll: u16,
+    /// Selected discussion projection, read lifecycle, and requested scroll position.
+    pub detail_pane: detail::DetailPane,
     pub coverage: Option<ArchiveStatus>,
     pub coverage_generation: u64,
     pub coverage_loading: bool,
@@ -150,6 +147,7 @@ pub enum QueryMessage {
     },
 }
 
+pub mod detail;
 mod input;
 pub mod operation;
 pub mod repositories;

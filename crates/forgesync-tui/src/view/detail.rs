@@ -18,10 +18,10 @@ use super::{
 
 /// Builds the ordered summary and timeline lines for one discussion.
 pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
-    let Some(detail) = app.detail.as_ref() else {
-        let text = if app.detail_loading {
+    let Some(detail) = app.detail_pane.content() else {
+        let text = if app.detail_pane.is_loading() {
             "Loading selected discussion…"
-        } else if let Some(error) = app.detail_error.as_deref() {
+        } else if let Some(error) = app.detail_pane.error() {
             return vec![Line::from(error.to_owned())];
         } else {
             "Select a discussion and press Enter to inspect it."

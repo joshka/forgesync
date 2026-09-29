@@ -128,13 +128,14 @@ impl App {
         let maximum = self.thread_list.items.len() - 1;
         let current = self.thread_list.selected.unwrap_or(0);
         self.thread_list.selected = Some(movement.position(current, maximum));
-        self.invalidate_detail();
+        self.detail_pane.invalidate();
     }
 
     /// Saturates scrolling here; rendering clamps the requested position to visible content.
     fn navigate_detail(&mut self, movement: Movement) {
-        let position = movement.position(usize::from(self.detail_scroll), usize::from(u16::MAX));
-        self.detail_scroll = u16::try_from(position).expect("position is bounded by u16::MAX");
+        let position =
+            movement.position(usize::from(self.detail_pane.scroll), usize::from(u16::MAX));
+        self.detail_pane.scroll = u16::try_from(position).expect("position is bounded by u16::MAX");
     }
 
     /// Opens the selected item according to the active browser pane.
@@ -160,7 +161,7 @@ impl App {
         self.status = None;
         self.repository_picker.applied = selected;
         self.thread_list.offset = 0;
-        self.detail = None;
+        self.detail_pane.invalidate();
         vec![self.thread_action(self.search_query.clone(), 0)]
     }
 

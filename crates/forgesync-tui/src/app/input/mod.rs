@@ -184,14 +184,4 @@ impl App {
             Vec::new()
         }
     }
-
-    /// Advances the detail generation as well as clearing it, so an earlier read cannot restore
-    /// content for a thread that is no longer selected.
-    pub fn invalidate_detail(&mut self) {
-        self.detail_generation += 1;
-        self.detail = None;
-        self.detail_loading = false;
-        self.detail_error = None;
-        self.detail_scroll = 0;
-    }
 }

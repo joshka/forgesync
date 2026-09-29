@@ -36,13 +36,13 @@ fn resizing_clamps_detail_scroll_to_visible_content() {
     let backend = TestBackend::new(50, 14);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = sample_app();
-    app.detail = Some(sample_detail());
+    app.detail_pane.state = crate::app::detail::DetailState::Ready(Box::new(sample_detail()));
     app.focus = crate::app::Focus::Detail;
-    app.detail_scroll = u16::MAX;
+    app.detail_pane.scroll = u16::MAX;
     terminal
         .draw(|frame| draw(frame, &mut app))
         .expect("draw small browser");
-    let small_offset = app.detail_scroll;
+    let small_offset = app.detail_pane.scroll;
 
     terminal
         .resize(Rect::new(0, 0, 140, 40))
@@ -50,7 +50,7 @@ fn resizing_clamps_detail_scroll_to_visible_content() {
     terminal
         .draw(|frame| draw(frame, &mut app))
         .expect("draw resized browser");
-    assert!(app.detail_scroll <= small_offset);
+    assert!(app.detail_pane.scroll <= small_offset);
 }
 
 #[rstest::rstest]

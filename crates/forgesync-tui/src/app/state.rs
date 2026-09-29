@@ -95,21 +95,8 @@ impl App {
 
     /// Shows the selected discussion only if it still belongs to the current list.
     fn apply_detail(&mut self, generation: u64, result: Result<Box<ThreadDetail>, String>) {
-        if generation != self.detail_generation {
-            return;
-        }
-        self.detail_loading = false;
-        match result {
-            Ok(detail) => {
-                self.detail_error = None;
-                self.detail = Some(*detail);
-                self.detail_scroll = 0;
-            }
-            Err(error) => {
-                self.detail_error = Some(error.clone());
-                self.detail = None;
-                self.status = Some(error);
-            }
+        if let Some(error) = self.detail_pane.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
@@ -221,18 +208,8 @@ impl App {
     /// older list must not restore a stale selection after the scope changes.
     pub fn begin_threads(&mut self) -> u64 {
         let generation = self.thread_list.begin();
-        self.invalidate_detail();
+        self.detail_pane.invalidate();
         generation
-    }
-
-    /// Invalidates an older detail request when the selected discussion changes.
-    pub fn begin_detail(&mut self) -> u64 {
-        self.detail_generation += 1;
-        self.detail_loading = true;
-        self.detail_error = None;
-        self.detail = None;
-        self.detail_scroll = 0;
-        self.detail_generation
     }
 
     /// Starts a new coverage generation and clears the previous loading error.
