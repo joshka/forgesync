@@ -47,6 +47,10 @@ handler, and key routing delegates to browser and triage screen modules. Store o
 integration suites and CLI contract suites are grouped by scenario; CLI arguments are grouped by
 command. The architecture map and Rust conventions describe the resulting navigation paths.
 
+The CLI dispatcher now constructs command requests and delegates execution to the corresponding
+search, sync, refresh, embedding, cluster, or TUI module. Provider setup, cancellation, and archive
+opening remain with the command that needs them.
+
 Validation of the combined migration on this checkout:
 
 - `rumdl check .` and Markdownlint CLI with the global config: passed.
@@ -56,9 +60,9 @@ Validation of the combined migration on this checkout:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
-Next: review the remaining 350–500 line files for mixed ownership and audit long dispatch arms and
-behavioral booleans. Review GraphQL page acquisition for a further split only if it improves local
-understanding beyond the new normalization boundary.
+Next: review remaining 350–500 line files for mixed ownership and audit behavioral booleans. Review
+GraphQL page acquisition for a further split only if it improves local understanding beyond the new
+normalization boundary.
 
 ## P0.1 evidence
 
