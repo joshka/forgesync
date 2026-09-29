@@ -6,6 +6,8 @@
 //!
 //! `applied` retains the repository selected for thread reads and writer actions. It is independent
 //! of refreshed row order, so a newly inserted repository cannot retarget an acquisition command.
+//! Matching provider identity updates its metadata, including renames; a temporarily absent row
+//! retains the applied target instead of broadening the scope to every repository.
 //! The app owns the resulting thread/detail reset, whereas this module owns repository loading,
 //! stale-reply rejection, and cursor bounds.
 //!
@@ -62,10 +64,22 @@ impl RepositoryPicker {
 
     /// Replaces loaded choices and clamps the highlight, preserving the applied filter.
     fn replace(&mut self, items: Vec<Repository>) -> Option<String> {
+        self.refresh_applied(&items);
         self.error = None;
         self.items = items;
         self.cursor = self.cursor.min(self.items.len());
         None
+    }
+
+    /// Refreshes selected metadata by stable identity without changing or broadening the target.
+    fn refresh_applied(&mut self, items: &[Repository]) {
+        let Some(applied) = &self.applied else {
+            return;
+        };
+        let Some(current) = items.iter().find(|repository| repository.id == applied.id) else {
+            return;
+        };
+        self.applied = Some(current.clone());
     }
 
     /// Retains existing rows while exposing the same safe error to the picker and status line.

@@ -112,3 +112,22 @@ fn failed_refresh_retains_rows_and_the_applied_scope(mut selected_picker: Reposi
         "https://github.com/owner/selected"
     );
 }
+
+#[rstest]
+fn renamed_repository_updates_the_applied_scope_by_provider_identity(
+    mut selected_picker: RepositoryPicker,
+) {
+    let mut renamed = selected_picker.items[0].clone();
+    renamed.name = "renamed".to_owned();
+    renamed.full_name = "owner/renamed".to_owned();
+    let generation = selected_picker.begin();
+    let error = selected_picker.apply(generation, Ok(vec![renamed]));
+    assert_eq!(error, None);
+    let app = App {
+        repository_picker: selected_picker,
+        ..App::default()
+    };
+    let scope = app.repository_scope();
+    assert_eq!(scope.len(), 1);
+    assert_eq!(scope[0].as_url(), "https://github.com/owner/renamed");
+}
