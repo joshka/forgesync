@@ -6,16 +6,15 @@
 //!
 //! Embeddings are derived from a document and service identity. A source observation alone does
 //! not make an old vector current. Search checks compatibility before using stored vectors, while
-//! this workflow produces the compatible material when requested. `chunks` owns deterministic text
+//! this workflow produces the compatible material when requested. `selection` owns duplicate
+//! detection, cache lookup, and selected/skipped accounting. `chunks` owns deterministic text
 //! splitting and per-chunk reuse checks; scheduling and fenced persistence remain here.
 
-use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
+use std::collections::VecDeque;
 use std::time::Duration;
 
-use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::document::Document;
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::identity::ThreadId;
 use forgesync_store::archive::Archive;
 use forgesync_store::embeddings::EmbeddingChunkInput;
 use serde::Serialize;
@@ -23,8 +22,9 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 mod chunks;
+mod selection;
 
-use chunks::{DocumentChunk, chunk_document, compatible_chunks};
+use selection::{EmbeddingSelection, EmbeddingTask};
 
 use crate::documents::now_utc;
 use crate::embedding_client::{EmbeddingClient, EmbeddingClientError};
@@ -79,14 +79,6 @@ pub struct EmbeddingBatchFailure {
     pub message: String,
 }
 
-/// Pending model input tied to the immutable source document used for fenced persistence.
-struct EmbeddingTask {
-    /// Shared full document identity and content hash, retained across its separate chunks.
-    document: Arc<Document>,
-    /// Deterministic position and text requested from the service.
-    chunk: DocumentChunk,
-}
-
 /// Ordered pending inputs constrained by both service count and aggregate byte budgets.
 struct EmbeddingBatch {
     /// Input order must match returned vector order; persistence rejects count mismatches.
@@ -104,50 +96,9 @@ pub async fn embed_documents(
     policy: EmbeddingPolicy,
     cancellation: &CancellationToken,
 ) -> Result<EmbeddingReport, EngineError> {
-    let mut report = EmbeddingReport {
-        documents: 0,
-        chunks_selected: 0,
-        chunks_embedded: 0,
-        chunks_skipped: 0,
-        failed_batches: Vec::new(),
-        cancelled: false,
-    };
-    let mut tasks = Vec::new();
-    let mut seen = HashSet::<(ThreadId, DocumentRecipe, String)>::new();
-    for document in documents {
-        let identity = (
-            document.source_identity.clone(),
-            document.recipe,
-            document.content_hash.clone(),
-        );
-        if !seen.insert(identity) {
-            continue;
-        }
-        report.documents = report.documents.saturating_add(1);
-        let chunks = chunk_document(&document.text, client.max_input_bytes())?;
-        let count = u32::try_from(chunks.len()).map_err(|_| EngineError::InvalidEmbeddingInput)?;
-        report.chunks_selected = report.chunks_selected.saturating_add(chunks.len());
-        if count == 0 {
-            continue;
-        }
-        let existing = archive
-            .embedding_chunks(document, client.endpoint_identity(), client.model(), count)
-            .await?;
-        let document = Arc::new(document.clone());
-        if policy == EmbeddingPolicy::Replace {
-            tasks.extend(chunks.into_iter().map(|chunk| EmbeddingTask {
-                document: Arc::clone(&document),
-                chunk,
-            }));
-        } else {
-            let compatible = compatible_chunks(existing, chunks, count, client.dimensions());
-            tasks.extend(compatible.pending.into_iter().map(|chunk| EmbeddingTask {
-                document: Arc::clone(&document),
-                chunk,
-            }));
-            report.chunks_skipped = report.chunks_skipped.saturating_add(compatible.skipped);
-        }
-    }
+    let selection = EmbeddingSelection::collect(archive, client, documents, policy).await?;
+    let mut report = selection.report;
+    let tasks = selection.tasks;
     if tasks.is_empty() {
         return Ok(report);
     }

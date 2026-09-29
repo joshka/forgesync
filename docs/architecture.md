@@ -166,3 +166,9 @@ with current document input. Its value identity includes position, total count, 
 embedding workflow uses those values to schedule requests and persist vectors under a writer fence;
 chunk construction itself performs no provider or archive I/O. Nearby chunk and request-batch tests
 cover their separate contracts.
+
+Engine `embeddings/selection::EmbeddingSelection` owns source-version deduplication, service-scoped
+archive reads, and selected/reusable chunk accounting before writer lease acquisition. Pending
+`EmbeddingTask` values retain a shared full document with each chunk for later fenced persistence.
+The public coordinator consumes the selected report and tasks, then owns lease execution and
+release.

@@ -1365,3 +1365,18 @@ Private task and batch fields explain retained source identity and service-respo
 Focused embedding cases, workspace Clippy, workspace tests/doctests, the CLI build without default
 features, strict public/private Rustdoc, and nightly formatting pass. Batch selection, scheduling,
 and lease ownership remain the next embedding execution work.
+
+## Continued maintenance: embedding document selection
+
+`EmbeddingSelection` now owns source-version deduplication, current chunk selection, stored-vector
+reuse, and selected/skipped accounting. `EmbeddingTask` lives beside the phase that constructs it
+and retains the full source document needed for fenced persistence. The coordinator reads as
+selection followed by lease acquisition, execution, and release. Selection remains read-only and
+precedes the writer lease; replacement preserves the existing archive-read error contract.
+
+Focused embedding cases pass, including the integration retry scenario that retains successful
+batches and requests only missing chunks. Scheduling and persistence ownership remain open in the
+embedding execution batch.
+
+Current-tree workspace Clippy, all workspace tests/doctests, the CLI build without default features,
+strict public/private Rustdoc, nightly formatting, and changed-page rumdl/Markdown linting pass.

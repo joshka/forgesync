@@ -12,7 +12,8 @@
 use std::sync::Arc;
 
 use crate::embeddings::chunks::DocumentChunk;
-use crate::embeddings::{EmbeddingTask, make_batches};
+use crate::embeddings::make_batches;
+use crate::embeddings::selection::EmbeddingTask;
 
 #[test]
 fn request_batches_obey_count_and_combined_byte_limits() {
