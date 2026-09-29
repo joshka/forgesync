@@ -4,8 +4,8 @@
 
 - The maintainability migration has split crate roots and the largest workflow modules into named
   concepts. Review-thread normalization, core identities, embedding client concerns, and TUI queries
-  have smaller owners. The next slice is to review large integration suites and remaining complex
-  dispatch arms. See the [maintainability plan](maintainability-plan.md).
+  have smaller owners. Store and CLI integration suites are grouped by scenario, CLI arguments by
+  command, and TUI keys by screen. See the [maintainability plan](maintainability-plan.md).
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
@@ -42,8 +42,10 @@ The crate roots now expose named concept modules. CLI command families, engine s
 search, and clustering, GitHub resource and transport code, store operations, and TUI state and
 rendering are grouped by behavior. Large unit suites were moved beside their owners. The
 review-thread suite, its normalization, TUI query operations, core identities, and embedding client
-concerns received the same treatment in the latest slices. TUI read dispatch now names each query
-handler. The architecture map and Rust conventions describe the resulting navigation paths.
+concerns received the same treatment in the latest slices. TUI read dispatch names each query
+handler, and key routing delegates to browser and triage screen modules. Store observation and read
+integration suites and CLI contract suites are grouped by scenario; CLI arguments are grouped by
+command. The architecture map and Rust conventions describe the resulting navigation paths.
 
 Validation of the combined migration on this checkout:
 
@@ -54,7 +56,7 @@ Validation of the combined migration on this checkout:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
-Next: revisit large integration suites by behavior and audit remaining long dispatch arms and
+Next: review the remaining 350–500 line files for mixed ownership and audit long dispatch arms and
 behavioral booleans. Review GraphQL page acquisition for a further split only if it improves local
 understanding beyond the new normalization boundary.
 
