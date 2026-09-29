@@ -3,10 +3,9 @@
 ## Current position
 
 - The maintainability migration has split crate roots and the largest workflow modules into named
-  concepts. Review-thread tests now live beside acquisition; TUI reads and operations have separate
-  files. The next slice is to simplify remaining mixed-purpose GitHub review-thread acquisition,
-  embedding client, core identities, and large integration suites. See the
-  [maintainability plan](maintainability-plan.md).
+  concepts. Review-thread normalization, core identities, embedding client concerns, and TUI queries
+  have smaller owners. The next slice is to review large integration suites and remaining complex
+  dispatch arms. See the [maintainability plan](maintainability-plan.md).
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
@@ -42,9 +41,9 @@
 The crate roots now expose named concept modules. CLI command families, engine sync, refresh,
 search, and clustering, GitHub resource and transport code, store operations, and TUI state and
 rendering are grouped by behavior. Large unit suites were moved beside their owners. The
-review-thread suite and TUI query operations received the same treatment in the latest slices. TUI
-read dispatch now names each query handler. The architecture map and Rust conventions describe the
-resulting navigation paths.
+review-thread suite, its normalization, TUI query operations, core identities, and embedding client
+concerns received the same treatment in the latest slices. TUI read dispatch now names each query
+handler. The architecture map and Rust conventions describe the resulting navigation paths.
 
 Validation of the combined migration on this checkout:
 
@@ -55,9 +54,9 @@ Validation of the combined migration on this checkout:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
-Next: split review-thread acquisition by page fetching and normalization, then inspect the embedding
-client and core identity grouping for reader-local concepts. Revisit large integration suites by
-behavior and audit remaining long dispatch arms and behavioral booleans.
+Next: revisit large integration suites by behavior and audit remaining long dispatch arms and
+behavioral booleans. Review GraphQL page acquisition for a further split only if it improves local
+understanding beyond the new normalization boundary.
 
 ## P0.1 evidence
 

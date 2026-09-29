@@ -11,7 +11,7 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Let a module own one recognizable concept. Split by the reason code changes, not a target line
   count. A file near 200–350 lines is easy to scan; review files past 500 lines for mixed ownership.
 - Put the central type or operation first, followed by its methods and local helpers in
-  caller-before- callee order where possible. Put tests close to the behavior they prove.
+  caller-before-callee order where possible. Put tests close to the behavior they prove.
 - Keep command `match` arms short. Delegate substantial work to named operations; keep a visible
   branch when the branch itself expresses the domain rule.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
