@@ -1,12 +1,23 @@
-//! # State machine for interactive browsing
+//! # Coordinate interactive browsing and background results
 //!
-//! `App` is the single source of current screen, focus, selection, loaded data, and pending query
-//! messages. `Screen` and `Focus` make navigation modes explicit; `QueryMessage` carries
-//! asynchronous results back to the state machine.
+//! [`App`] keeps the active screen, browser focus, loaded projections, search draft, and status
+//! line. [`Screen`] selects the workflow being shown; [`Focus`] chooses the browser pane whose
+//! selection responds to navigation. Switching an inspection screen does not apply a new filter.
 //!
-//! `input` maps keys to actions, and `state` applies data or transitions. Drawing code reads the
-//! current app state through `view` but should not initiate archive operations. This split keeps a
-//! user action traceable from key event to query request, result, and rendered screen.
+//! [`repositories::RepositoryPicker`] owns repository choices, the applied scope, and its read
+//! lifecycle. [`operation::OperationDisplay`] owns idle/running writer presentation. The other
+//! projections remain coordinated here so a scope or thread selection change invalidates the
+//! corresponding detail rather than leaving an unrelated result visible.
+//!
+//! `input` maps keys to named actions. `state` starts generations and applies [`QueryMessage`]
+//! results only when they still belong to the requested panel. Query tasks perform archive work
+//! asynchronously; the drawing code reads state without initiating archive operations. This path
+//! keeps a key event traceable through request, result, and rendered screen.
+//!
+//! Construct the app with [`Default::default`], request its initial repository/thread reads, and
+//! feed current-generation replies through `apply`. The app does not own a terminal, archive pool,
+//! or runtime. [`RunFailureSummary`] is a safe presentation projection for selecting a run retry;
+//! the engine and store retain the complete ledger and decide what work is retryable.
 
 use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;
@@ -14,26 +25,43 @@ use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadSummary};
 use forgesync_store::runs::RunStatus;
 
+/// Bounded thread-page size used by browser paging; independent of the CLI default.
 const PAGE_SIZE: u32 = 100;
 
+/// Active browsing or maintainer workflow; each screen interprets navigation in its own scope.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Screen {
     #[default]
+    /// Repository picker, discussion list, and selected discussion detail.
     Browser,
+    /// Archive-wide evidence completeness and diagnostic counts.
     Coverage,
+    /// Recent failed or partial runs that can be selected for retry.
     Failures,
+    /// Duplicate clusters for the currently applied repository scope.
     Clusters,
+    /// One cluster and its members, with local triage decisions.
     ClusterDetail,
 }
 
+/// Browser pane that receives movement and selection keys; retained across inspection screens.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Focus {
     #[default]
+    /// Highlight repository choices without applying a filter until selection.
     Repositories,
+    /// Move discussion selection and invalidate any previous detail.
     Threads,
+    /// Scroll the selected discussion without changing the list selection.
     Detail,
 }
 
+/// Coordination state consumed by input, asynchronous query dispatch, and rendering.
+///
+/// Default state shows the browser with repository focus and no loaded projections. Reads carry
+/// independent generations so a late result cannot overwrite a newer scope or selection. Writer
+/// execution lives in query tasks; only its presentation and keyboard cancellation intent live
+/// here.
 #[derive(Debug, Default)]
 pub struct App {
     pub screen: Screen,
@@ -80,10 +108,14 @@ pub struct App {
     pub quit: bool,
 }
 
+/// Safe run-list projection that keeps retry selection separate from the complete failure ledger.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunFailureSummary {
+    /// Archive-local run identity used when requesting a selected retry.
     pub id: u64,
+    /// Durable run state displayed beside its failure summaries.
     pub status: RunStatus,
+    /// Safe human-readable job and failure summaries; never raw provider payloads.
     pub entries: Vec<String>,
 }
 
