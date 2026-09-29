@@ -1,7 +1,8 @@
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;
 use forgesync_github::transport::GitHubClient;
-use forgesync_store::{Archive, RunDetail, RunRecord};
+use forgesync_store::archive::Archive;
+use forgesync_store::runs::{RunDetail, RunRecord};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 

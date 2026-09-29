@@ -4,7 +4,7 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_github::transport::GitHubClient;
-use forgesync_store::Archive;
+use forgesync_store::archive::Archive;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;

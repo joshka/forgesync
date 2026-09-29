@@ -1,10 +1,13 @@
+//! Exclusive archive writer leases.
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use crate::{Archive, StoreError};
+use crate::archive::Archive;
+use crate::error::StoreError;
 
 /// Opaque fencing identity for one active archive writer.
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,3 +1,5 @@
+//! Parent thread observations and their application results.
+
 use std::cmp::Ordering;
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
@@ -8,9 +10,10 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::ordering::compare_observation_order;
-use crate::{Archive, StoreError};
 
 /// The disposition of an observation or family reservation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

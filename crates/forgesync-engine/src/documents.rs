@@ -4,7 +4,10 @@ use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread, Thread
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{Archive, DocumentWrite, StagedItem, ThreadDetail};
+use forgesync_store::archive::Archive;
+use forgesync_store::documents::DocumentWrite;
+use forgesync_store::observations::StagedItem;
+use forgesync_store::reads::ThreadDetail;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -112,11 +115,11 @@ pub async fn materialize_thread_document(
 pub(crate) fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|_| forgesync_store::StoreError::ClockOutOfRange)?;
+        .map_err(|_| forgesync_store::error::StoreError::ClockOutOfRange)?;
     let micros = i64::try_from(elapsed.as_micros())
-        .map_err(|_| forgesync_store::StoreError::ClockOutOfRange)?;
+        .map_err(|_| forgesync_store::error::StoreError::ClockOutOfRange)?;
     UtcTimestamp::from_unix_microseconds(micros)
-        .map_err(forgesync_store::StoreError::InvalidCreatedAt)
+        .map_err(forgesync_store::error::StoreError::InvalidCreatedAt)
         .map_err(Into::into)
 }
 
@@ -270,7 +273,8 @@ mod tests {
     };
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
-    use forgesync_store::{StagedItem, ThreadDetail, ThreadSummary};
+    use forgesync_store::observations::StagedItem;
+    use forgesync_store::reads::{ThreadDetail, ThreadSummary};
     use serde_json::json;
 
     use super::build_document;

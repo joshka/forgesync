@@ -1,7 +1,11 @@
+//! Archive integrity and health checks.
+
 use serde::Serialize;
 use sqlx::SqliteConnection;
 
-use crate::{Archive, ArchiveDiagnostics, StoreError};
+use crate::archive::Archive;
+use crate::diagnostics::ArchiveDiagnostics;
+use crate::error::StoreError;
 
 /// Result of one local archive health check.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

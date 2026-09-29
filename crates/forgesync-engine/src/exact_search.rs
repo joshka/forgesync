@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_store::{EmbeddingSearchDocument, ThreadSort, ThreadSummary};
+use forgesync_store::embeddings::EmbeddingSearchDocument;
+use forgesync_store::reads::{ThreadSort, ThreadSummary};
 use tokio_util::sync::CancellationToken;
 
 use crate::EngineError;
@@ -137,9 +138,8 @@ mod tests {
     use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
-    use forgesync_store::{
-        EmbeddingSearchDocument, StoredEmbeddingChunk, ThreadSort, ThreadSummary,
-    };
+    use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk};
+    use forgesync_store::reads::{ThreadSort, ThreadSummary};
     use tokio_util::sync::CancellationToken;
 
     use super::{cosine_similarity, score_embedding_page};

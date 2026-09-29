@@ -1,3 +1,5 @@
+//! Child resource-family observations and membership.
+
 use std::collections::BTreeMap;
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
@@ -8,6 +10,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::{Row, SqliteConnection};
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{
     FamilyObservationResult, FamilyReservation, ObservationDisposition, StagedItem,
@@ -16,7 +20,6 @@ use crate::observations::{
     write_coverage,
 };
 use crate::ordering::compare_observation_order;
-use crate::{Archive, StoreError};
 
 struct StagedPage {
     index: i64,

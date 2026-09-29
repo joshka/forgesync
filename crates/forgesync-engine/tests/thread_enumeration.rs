@@ -6,9 +6,9 @@ use forgesync_core::coverage::{CoverageState, EvidenceFamily, FailureKind};
 use forgesync_core::identity::GitHubHost;
 use forgesync_engine::{RepositorySelector, enumerate_repository_threads};
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
-use forgesync_store::{
-    Archive, RepositoryThreadScanStatus, ThreadQuery, ThreadSort, ThreadStateFilter,
-};
+use forgesync_store::archive::Archive;
+use forgesync_store::enumeration::RepositoryThreadScanStatus;
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};

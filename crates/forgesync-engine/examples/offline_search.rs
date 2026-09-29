@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use forgesync_engine::{SearchMode, SearchRequest, ThreadFilters, search_threads};
-use forgesync_store::Archive;
+use forgesync_store::archive::Archive;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

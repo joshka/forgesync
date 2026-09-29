@@ -10,9 +10,10 @@ use forgesync_github::resources::{
     ThreadListState, fetch_repository, fetch_thread_page_in_scope, thread_list_url_in_scope,
 };
 use forgesync_github::transport::GitHubClient;
-use forgesync_store::{
-    Archive, ArchiveLeaseToken, RepositoryThreadScan, RepositoryThreadScanStatus, StoreError,
-};
+use forgesync_store::archive::Archive;
+use forgesync_store::enumeration::{RepositoryThreadScan, RepositoryThreadScanStatus};
+use forgesync_store::error::StoreError;
+use forgesync_store::leases::ArchiveLeaseToken;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 

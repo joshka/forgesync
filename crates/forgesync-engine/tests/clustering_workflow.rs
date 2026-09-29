@@ -14,7 +14,8 @@ use forgesync_engine::{
     ClusterBuildRequest, ClusterLifecycle, ClusterListRequest, ClusterOptions, EngineError,
     RepositorySelector, build_clusters, list_clusters,
 };
-use forgesync_store::{Archive, EmbeddingChunkInput};
+use forgesync_store::archive::Archive;
+use forgesync_store::embeddings::EmbeddingChunkInput;
 use tokio_util::sync::CancellationToken;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
@@ -148,7 +149,7 @@ fn document(thread: &ThreadId, number: u64, updated_at: UtcTimestamp) -> Documen
 
 async fn save_document_vector(
     archive: &Archive,
-    lease: &forgesync_store::ArchiveLeaseToken,
+    lease: &forgesync_store::leases::ArchiveLeaseToken,
     document: &Document,
     endpoint: &str,
     model: &str,

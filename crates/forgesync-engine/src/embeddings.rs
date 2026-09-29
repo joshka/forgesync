@@ -5,7 +5,8 @@ use std::time::Duration;
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::embedding::EmbeddingVector;
 use forgesync_core::identity::ThreadId;
-use forgesync_store::{Archive, EmbeddingChunkInput, StoredEmbeddingChunk};
+use forgesync_store::archive::Archive;
+use forgesync_store::embeddings::{EmbeddingChunkInput, StoredEmbeddingChunk};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio::task::JoinSet;
@@ -151,7 +152,7 @@ async fn process_batches(
     archive: &Archive,
     client: &EmbeddingClient,
     tasks: Vec<EmbeddingTask>,
-    lease: &forgesync_store::ArchiveLeaseToken,
+    lease: &forgesync_store::leases::ArchiveLeaseToken,
     lease_duration: Duration,
     cancellation: &CancellationToken,
     report: &mut EmbeddingReport,
@@ -221,7 +222,7 @@ async fn persist_batch(
     client: &EmbeddingClient,
     batch: EmbeddingBatch,
     vectors: Vec<EmbeddingVector>,
-    lease: &forgesync_store::ArchiveLeaseToken,
+    lease: &forgesync_store::leases::ArchiveLeaseToken,
     lease_duration: Duration,
 ) -> Result<(), EngineError> {
     if batch.tasks.len() != vectors.len() {

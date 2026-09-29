@@ -1,3 +1,5 @@
+//! Sync runs, jobs, and family failure records.
+
 use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure};
 use forgesync_core::identity::{RepositoryId, RunId};
@@ -7,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::Row;
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{evidence_family_name, repository_row_id};
-use crate::{Archive, StoreError};
 
 /// Durable terminal or active state of one sync run.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

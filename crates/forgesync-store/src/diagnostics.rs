@@ -1,3 +1,5 @@
+//! Archive health and pending work diagnostics.
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use forgesync_core::coverage::EvidenceFamily;
@@ -5,10 +7,11 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::Row;
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::migration::{
     MIGRATOR, current_schema_version, supported_schema_version, validate_migration_history,
 };
-use crate::{Archive, StoreError};
 
 /// Read-only details about archive compatibility, pending work, and the writer lease.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

@@ -2,8 +2,9 @@ use forgesync_core::identity::{ObservationSequence, RepositoryId};
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::{Archive, StoreError};
 
 impl Archive {
     /// Returns the last successfully completed closed-thread sweep watermark.

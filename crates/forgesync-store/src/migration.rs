@@ -1,3 +1,5 @@
+//! Ordered schema migration reports.
+
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
 

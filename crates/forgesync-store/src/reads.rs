@@ -1,3 +1,5 @@
+//! Offline discussion queries and detail records.
+
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 
@@ -13,7 +15,10 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
-use crate::{Archive, ArchiveDiagnostics, ArchiveInfo, StagedItem, StoreError};
+use crate::archive::{Archive, ArchiveInfo};
+use crate::diagnostics::ArchiveDiagnostics;
+use crate::error::StoreError;
+use crate::observations::StagedItem;
 
 /// Source-state filter for a local discussion query.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

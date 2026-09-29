@@ -3,7 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{Archive, StoreError};
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 

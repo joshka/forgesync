@@ -1,3 +1,5 @@
+//! Embedding chunks, search inputs, and write operations.
+
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 
@@ -9,12 +11,13 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::reads::{
-    ThreadStateFilter, coverage_for_kind, load_thread_coverage, push_discussion_filters,
-    push_repository_scope,
+    ThreadStateFilter, ThreadSummary, coverage_for_kind, load_thread_coverage,
+    push_discussion_filters, push_repository_scope,
 };
-use crate::{Archive, StoreError, ThreadSummary};
 
 /// One current embedding chunk read from the archive.
 #[derive(Clone, Debug, PartialEq)]

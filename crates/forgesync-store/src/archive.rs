@@ -1,3 +1,5 @@
+//! Explicit SQLite archive lifecycle and metadata.
+
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

@@ -7,7 +7,7 @@ use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::Archive;
+use forgesync_store::archive::Archive;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 

@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{Archive, StoreError};
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);

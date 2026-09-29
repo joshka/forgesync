@@ -15,11 +15,16 @@ use forgesync_github::resources::{
 };
 use forgesync_github::review_threads::{GraphqlCursor, fetch_review_thread_page};
 use forgesync_github::transport::GitHubClient;
-use forgesync_store::{
-    Archive, ArchiveLeaseToken, ChildFamilyFailureScope, ChildFamilyObservation,
-    ObservationDisposition, RepositoryThreadScanStatus, RunFailureInput, RunFailureScope,
-    RunRecord, StagedItem, StoreError, SyncJobCompletion, SyncJobRecord, SyncJobStatus,
-    ThreadQuery, ThreadSort, ThreadStateFilter,
+use forgesync_store::archive::Archive;
+use forgesync_store::enumeration::RepositoryThreadScanStatus;
+use forgesync_store::error::StoreError;
+use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::leases::ArchiveLeaseToken;
+use forgesync_store::observations::{ObservationDisposition, StagedItem};
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
+use forgesync_store::runs::{
+    ChildFamilyFailureScope, RunFailureInput, RunFailureScope, RunRecord, SyncJobCompletion,
+    SyncJobRecord, SyncJobStatus,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -119,7 +124,7 @@ pub struct SyncReport {
     /// Persisted repository-family job records.
     pub jobs: Vec<SyncJobRecord>,
     /// Persisted failures, including failures before repository identity resolution.
-    pub failures: Vec<forgesync_store::RunFailureRecord>,
+    pub failures: Vec<forgesync_store::runs::RunFailureRecord>,
     /// Number of repositories selected by this request.
     pub repositories_selected: u64,
     /// Number of jobs that reached a terminal state.

@@ -5,12 +5,14 @@ use std::time::Duration;
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{RepositoryId, ThreadId};
-use forgesync_store::{
-    Archive, ArchiveLeaseToken, ClusterDetail, ClusterGenerationInput, ClusterGenerationResult,
-    ClusterInput, ClusterListQuery as StoreClusterListQuery, ClusterMemberInput, ClusterPage,
-    EmbeddingDocumentQuery, EmbeddingSearchDocument, ThreadQuery, ThreadSort, ThreadStateFilter,
-    ThreadSummary,
+use forgesync_store::archive::Archive;
+use forgesync_store::clusters::{
+    ClusterDetail, ClusterGenerationInput, ClusterGenerationResult, ClusterInput,
+    ClusterListQuery as StoreClusterListQuery, ClusterMemberInput, ClusterPage,
 };
+use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocument};
+use forgesync_store::leases::ArchiveLeaseToken;
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter, ThreadSummary};
 use regex::Regex;
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -487,7 +489,7 @@ async fn execute_cluster_build(
     )
     .await?;
     let vector_threads = u64::try_from(documents.len())
-        .map_err(|_| forgesync_store::StoreError::IntegerOutOfRange)?;
+        .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?;
     if documents.len() > usize::try_from(eligible_threads).unwrap_or(usize::MAX) {
         return Err(EngineError::InvalidClusterInput);
     }
@@ -510,7 +512,7 @@ async fn execute_cluster_build(
         return Err(EngineError::ClusteringCancelled);
     }
     let candidate_edges = u64::try_from(candidate_edges)
-        .map_err(|_| forgesync_store::StoreError::IntegerOutOfRange)?;
+        .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?;
     let clusters = candidates
         .into_iter()
         .map(|cluster| ClusterInput {
@@ -575,9 +577,9 @@ async fn count_open_threads(
         total = total
             .checked_add(
                 u64::try_from(page.items.len())
-                    .map_err(|_| forgesync_store::StoreError::IntegerOutOfRange)?,
+                    .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?,
             )
-            .ok_or(forgesync_store::StoreError::IntegerOutOfRange)?;
+            .ok_or(forgesync_store::error::StoreError::IntegerOutOfRange)?;
         let Some(next_offset) = page.next_offset else {
             return Ok(total);
         };
@@ -651,7 +653,7 @@ async fn build_cluster_candidates_bounded(
 async fn finish_cluster_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
-    operation: Result<T, forgesync_store::StoreError>,
+    operation: Result<T, forgesync_store::error::StoreError>,
 ) -> Result<T, EngineError> {
     finish_cluster_lease_result(archive, lease, operation.map_err(Into::into)).await
 }
@@ -659,10 +661,12 @@ async fn finish_cluster_lease<T>(
 async fn finish_cluster_decision_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
-    operation: Result<T, forgesync_store::StoreError>,
+    operation: Result<T, forgesync_store::error::StoreError>,
 ) -> Result<T, EngineError> {
     let operation = operation.map_err(|error| match error {
-        forgesync_store::StoreError::ClusterMemberMissing => EngineError::InvalidClusterDecision,
+        forgesync_store::error::StoreError::ClusterMemberMissing => {
+            EngineError::InvalidClusterDecision
+        }
         error => error.into(),
     });
     finish_cluster_lease_result(archive, lease, operation).await
@@ -682,7 +686,7 @@ async fn finish_cluster_lease_result<T>(
                 if released {
                     Ok(())
                 } else {
-                    Err(forgesync_store::StoreError::ArchiveLeaseLost.into())
+                    Err(forgesync_store::error::StoreError::ArchiveLeaseLost.into())
                 }
             }),
         Err(error) => Err(error),
@@ -996,7 +1000,8 @@ mod tests {
     use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
-    use forgesync_store::{EmbeddingSearchDocument, StoredEmbeddingChunk, ThreadSummary};
+    use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk};
+    use forgesync_store::reads::ThreadSummary;
     use tokio_util::sync::CancellationToken;
 
     use super::{ClusterOptions, build_cluster_candidates};

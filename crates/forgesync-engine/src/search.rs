@@ -5,10 +5,10 @@ use std::sync::{Arc, OnceLock};
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
 use forgesync_core::identity::ThreadId;
-use forgesync_store::{
-    Archive, EmbeddingDocumentQuery, FamilyCoverageSummary, StoreError, ThreadPage, ThreadQuery,
-    ThreadSummary,
-};
+use forgesync_store::archive::Archive;
+use forgesync_store::embeddings::EmbeddingDocumentQuery;
+use forgesync_store::error::StoreError;
+use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadQuery, ThreadSummary};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
@@ -467,7 +467,7 @@ async fn semantic_candidates(
 }
 
 fn count_dimension_compatible(
-    documents: &[forgesync_store::EmbeddingSearchDocument],
+    documents: &[forgesync_store::embeddings::EmbeddingSearchDocument],
     dimensions: u32,
 ) -> usize {
     documents
@@ -483,7 +483,7 @@ fn count_dimension_compatible(
 
 async fn score_page_bounded(
     query: EmbeddingVector,
-    documents: Vec<forgesync_store::EmbeddingSearchDocument>,
+    documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
     sort: ThreadSort,
     limit: usize,
     cancellation: &CancellationToken,

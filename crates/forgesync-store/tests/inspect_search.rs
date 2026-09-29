@@ -10,10 +10,10 @@ use forgesync_core::identity::{
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{
-    Archive, StagedItem, StoreError, ThreadQuery, ThreadSort, ThreadStateFilter,
-    ThreadTimelineEvent,
-};
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
+use forgesync_store::observations::StagedItem;
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter, ThreadTimelineEvent};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
@@ -503,7 +503,7 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
     remove_archive(&path);
 }
 
-async fn query(archive: &Archive, expression: &str) -> forgesync_store::ThreadPage {
+async fn query(archive: &Archive, expression: &str) -> forgesync_store::reads::ThreadPage {
     archive
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),

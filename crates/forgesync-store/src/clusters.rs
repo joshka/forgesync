@@ -1,3 +1,5 @@
+//! Durable cluster generations and local maintainer decisions.
+
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::num::NonZeroU32;
@@ -10,9 +12,10 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqliteConnection};
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::reads::{coverage_for_kind, load_thread_coverage};
-use crate::{Archive, StoreError, ThreadSummary};
+use crate::reads::{ThreadSummary, coverage_for_kind, load_thread_coverage};
 
 /// One generated member and its default score to the graph representative.
 #[derive(Clone, Debug)]

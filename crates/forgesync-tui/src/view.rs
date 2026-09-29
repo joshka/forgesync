@@ -646,7 +646,7 @@ mod tests {
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_engine::{ClusterDetail, ClusterLifecycle, ClusterSummary};
-    use forgesync_store::{ThreadDetail, ThreadSummary};
+    use forgesync_store::reads::{ThreadDetail, ThreadSummary};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::layout::Rect;

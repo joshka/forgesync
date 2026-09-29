@@ -2,9 +2,11 @@ use std::num::NonZeroU32;
 
 use forgesync_core::content::{Repository, ThreadKind};
 use forgesync_core::identity::{RepositoryId, ThreadReference};
-use forgesync_store::{
-    Archive, ArchiveStatus, StoreError, ThreadDetail, ThreadPage, ThreadQuery,
-    ThreadSort as StoreThreadSort, ThreadStateFilter as StoreThreadStateFilter,
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
+use forgesync_store::reads::{
+    ArchiveStatus, ThreadDetail, ThreadPage, ThreadQuery, ThreadSort as StoreThreadSort,
+    ThreadStateFilter as StoreThreadStateFilter,
 };
 use serde::Serialize;
 

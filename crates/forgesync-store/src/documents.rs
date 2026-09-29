@@ -1,11 +1,14 @@
+//! Versioned discussion document persistence.
+
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::identity::ThreadId;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::Row;
 
+use crate::archive::Archive;
+use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::{Archive, StoreError};
 
 /// Result of saving a versioned retrieval document.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

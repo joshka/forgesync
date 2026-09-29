@@ -12,10 +12,12 @@ use forgesync_core::observation::{
 };
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{
-    Archive, ChildFamilyObservation, ObservationDisposition, StagedItem, StoreError,
-    compare_observation_order, compare_revision_observation_order,
-    observation_sequence_order_value,
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
+use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::observations::{ObservationDisposition, StagedItem};
+use forgesync_store::ordering::{
+    compare_observation_order, compare_revision_observation_order, observation_sequence_order_value,
 };
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};

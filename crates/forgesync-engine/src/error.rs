@@ -1,6 +1,6 @@
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};
-use forgesync_store::StoreError;
+use forgesync_store::error::StoreError;
 use thiserror::Error;
 
 use crate::embedding_client::EmbeddingClientError;

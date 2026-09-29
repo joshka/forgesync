@@ -13,7 +13,7 @@ use forgesync_engine::{
     set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::transport::GitHubClient;
-use forgesync_store::Archive;
+use forgesync_store::archive::Archive;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinHandle;

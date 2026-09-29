@@ -793,7 +793,7 @@ mod tests {
         ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
         ClusterSummary, SyncProgress, SyncProgressStatus, ThreadSummary,
     };
-    use forgesync_store::ThreadPage;
+    use forgesync_store::reads::ThreadPage;
 
     use super::{App, Focus, QueryAction, QueryMessage, Screen};
 

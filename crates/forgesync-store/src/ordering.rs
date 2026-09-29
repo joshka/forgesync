@@ -1,9 +1,11 @@
+//! Canonical source and acquisition ordering.
+
 use std::cmp::Ordering;
 
 use forgesync_core::identity::ObservationSequence;
 use forgesync_core::observation::SourceClock;
 
-use crate::StoreError;
+use crate::error::StoreError;
 
 /// Orders canonical observations by provider source clock, then acquisition sequence.
 pub fn compare_observation_order(

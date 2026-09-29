@@ -20,7 +20,9 @@ use forgesync_engine::{
     sync_repositories,
 };
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
-use forgesync_store::{Archive, SyncJobStatus, ThreadQuery};
+use forgesync_store::archive::Archive;
+use forgesync_store::reads::ThreadQuery;
+use forgesync_store::runs::SyncJobStatus;
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
@@ -1695,15 +1697,15 @@ async fn mount_comments(server: &MockServer, number: u64, comments: Vec<serde_js
         .await;
 }
 
-async fn thread_summary(archive: &Archive, number: u64) -> forgesync_store::ThreadSummary {
+async fn thread_summary(archive: &Archive, number: u64) -> forgesync_store::reads::ThreadSummary {
     archive
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),
             kind: None,
-            state: forgesync_store::ThreadStateFilter::All,
+            state: forgesync_store::reads::ThreadStateFilter::All,
             match_expression: None,
             updated_since: None,
-            sort: forgesync_store::ThreadSort::Updated,
+            sort: forgesync_store::reads::ThreadSort::Updated,
             limit: NonZeroU32::new(1000).expect("positive limit"),
             offset: 0,
         })
@@ -1716,7 +1718,7 @@ async fn thread_summary(archive: &Archive, number: u64) -> forgesync_store::Thre
 }
 
 fn comment_coverage(
-    summary: &forgesync_store::ThreadSummary,
+    summary: &forgesync_store::reads::ThreadSummary,
 ) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
@@ -1726,7 +1728,7 @@ fn comment_coverage(
 }
 
 fn review_coverage(
-    summary: &forgesync_store::ThreadSummary,
+    summary: &forgesync_store::reads::ThreadSummary,
 ) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
@@ -1736,7 +1738,7 @@ fn review_coverage(
 }
 
 fn review_thread_coverage(
-    summary: &forgesync_store::ThreadSummary,
+    summary: &forgesync_store::reads::ThreadSummary,
 ) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
@@ -1759,7 +1761,7 @@ async fn comment_bodies(archive: &Archive, number: u64) -> Vec<String> {
 async fn review_members(
     archive: &Archive,
     number: u64,
-) -> Vec<forgesync_store::StagedItem<Review>> {
+) -> Vec<forgesync_store::observations::StagedItem<Review>> {
     let summary = thread_summary(archive, number).await;
     archive
         .child_family_members::<Review>(&summary.discussion.id, EvidenceFamily::Reviews)
@@ -1770,7 +1772,7 @@ async fn review_members(
 async fn review_thread_members(
     archive: &Archive,
     number: u64,
-) -> Vec<forgesync_store::StagedItem<ReviewThread>> {
+) -> Vec<forgesync_store::observations::StagedItem<ReviewThread>> {
     let summary = thread_summary(archive, number).await;
     archive
         .child_family_members::<ReviewThread>(&summary.discussion.id, EvidenceFamily::ReviewThreads)
@@ -1839,10 +1841,10 @@ async fn thread_count(archive: &Archive) -> usize {
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),
             kind: None,
-            state: forgesync_store::ThreadStateFilter::All,
+            state: forgesync_store::reads::ThreadStateFilter::All,
             match_expression: None,
             updated_since: None,
-            sort: forgesync_store::ThreadSort::Updated,
+            sort: forgesync_store::reads::ThreadSort::Updated,
             limit: NonZeroU32::new(20).expect("positive limit"),
             offset: 0,
         })

@@ -1,3 +1,5 @@
+//! Typed archive operation failures.
+
 use std::path::PathBuf;
 
 use thiserror::Error;

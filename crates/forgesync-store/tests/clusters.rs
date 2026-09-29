@@ -10,9 +10,10 @@ use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, T
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::{
-    Archive, ClusterGenerationInput, ClusterInput, ClusterLifecycle, ClusterListQuery,
-    ClusterMemberInput, ClusterMemberRole, ClusterMemberState,
+use forgesync_store::archive::Archive;
+use forgesync_store::clusters::{
+    ClusterGenerationInput, ClusterInput, ClusterLifecycle, ClusterListQuery, ClusterMemberInput,
+    ClusterMemberRole, ClusterMemberState,
 };
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
@@ -260,7 +261,7 @@ async fn invalid_member_decisions_and_incomplete_counts_are_rejected() {
         .expect_err("canonical choice must be a cluster member");
     assert!(matches!(
         error,
-        forgesync_store::StoreError::ClusterMemberMissing
+        forgesync_store::error::StoreError::ClusterMemberMissing
     ));
 
     archive
