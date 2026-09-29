@@ -32,7 +32,7 @@ use crate::command::github::{
 use crate::command::interruption::CommandInterruption;
 use crate::command::progress::ProgressReporter;
 use crate::command::values::{SyncIncludeArg, SyncThreadStateArg};
-use crate::reports::{outcome_exit_code, sync_summary};
+use crate::reports::sync::{outcome_exit_code, sync_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
 /// Acquire GitHub discussions into the local archive.

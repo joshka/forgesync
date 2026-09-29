@@ -25,7 +25,7 @@ use super::interruption::CommandInterruption;
 use super::thread::thread_filters;
 use crate::command::values::{SearchModeArg, ThreadKindArg, ThreadSortArg, ThreadStateArg};
 use crate::config::EmbeddingServiceConfig;
-use crate::reports::render_search_page;
+use crate::reports::threads::render_search_page;
 use crate::{OutputMode, render_engine_error, render_error_with_status, render_store_error};
 
 /// Search archived discussions with local keyword or optional semantic ranking.

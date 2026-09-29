@@ -27,7 +27,8 @@ use super::github::{
     GitHubClientSetupError, github_clients_for_selectors, render_github_client_setup_error,
 };
 use super::progress::ProgressReporter;
-use crate::reports::{SyncFailure, outcome_exit_code, retry_summary};
+use crate::reports::runs::{RetryCancellation, retry_summary};
+use crate::reports::sync::outcome_exit_code;
 use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
 /// Exact durable failure selection for one CLI retry invocation.
@@ -133,7 +134,7 @@ fn render_setup_error(output: OutputMode, error: GitHubClientSetupError) -> Exit
 
 /// Reports interruption before provider acquisition using the command's established status 130.
 fn render_cancelled(output: OutputMode) -> ExitCode {
-    let failure = SyncFailure {
+    let failure = RetryCancellation {
         code: "operation_cancelled",
         message: "retry was cancelled before acquisition began".to_owned(),
     };

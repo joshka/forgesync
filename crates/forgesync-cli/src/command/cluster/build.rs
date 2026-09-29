@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::command::cluster::ClusterBuildArgs;
 use crate::config::EmbeddingServiceConfig;
-use crate::reports::cluster_build_summary;
+use crate::reports::clusters::cluster_build_summary;
 use crate::{
     OutputMode, render_engine_error, render_error_with_status, render_result, render_store_error,
 };

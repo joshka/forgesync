@@ -17,7 +17,7 @@ use forgesync_engine::refresh::{RefreshStageFailure, RefreshStageStatus, embed_r
 use forgesync_store::archive::Archive;
 
 use crate::config::ForgesyncConfig;
-use crate::reports::{EmbeddingOutput, embedding_summary};
+use crate::reports::embedding::{EmbeddingOutput, embedding_summary};
 use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
 
 /// Build documents and store compatible embeddings for local discussions.

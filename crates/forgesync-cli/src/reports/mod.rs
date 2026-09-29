@@ -1,65 +1,23 @@
-//! # Human summaries and report adapters
+//! # Present workflow results at the CLI boundary
 //!
-//! Report types collect the outcome data command handlers need to present. Child modules format
-//! archive status, thread views, sync and refresh stages, embeddings, clusters, and run history.
+//! Each child module owns human wording and any command-specific JSON DTO for its workflow.
+//! `archive` presents lifecycle and health results; `threads` and `detail` adapt discussion views;
+//! `sync` presents acquisition/refresh outcomes and exit policy. `embedding`, `clusters`, and
+//! `runs` keep their derived-data, local-decision, and durable-ledger output close to their
+//! formatters.
 //!
-//! Presentation belongs here rather than in the engine. Commands can select human or JSON output
-//! without changing workflow policy, and readers can find terminal wording without following
-//! network or database operations.
+//! Commands import the owning report module directly. This root supplies no formatter prelude or
+//! unrelated output types, so locating a DTO also locates its presentation contract. Engine/store
+//! reports remain distinct from these process DTOs; JSON fields are deliberate command output,
+//! while human summaries may condense the same evidence into a readable account.
+//!
+//! Report code performs no acquisition, archive write, or process configuration resolution. The
+//! command owns cleanup and invokes presentation after its archive and advisory progress close.
 
-use forgesync_core::document::DocumentRecipe;
-use forgesync_engine::embeddings::EmbeddingReport;
-use forgesync_engine::refresh::{RefreshDocumentFailure, RefreshStageFailure, RefreshStageStatus};
-use forgesync_store::archive::ArchiveInfo;
-use forgesync_store::migration::MigrationReport;
-use serde::Serialize;
-
-mod archive;
-mod clusters;
-mod detail;
-mod embedding;
-mod runs;
-mod sync;
-mod threads;
-
-pub use archive::{archive_status_summary, archive_summary, doctor_summary, migration_summary};
-pub use clusters::{
-    cluster_build_summary, cluster_decision_summary, cluster_detail_summary, cluster_page_summary,
-};
-pub use embedding::embedding_summary;
-pub use runs::{retry_summary, run_detail_summary, run_list_summary};
-pub use sync::{outcome_exit_code, refresh_status_name, refresh_summary, sync_summary};
-pub use threads::{family_name, render_search_page, render_thread_detail, render_thread_page};
-
-#[derive(Serialize)]
-pub struct SyncFailure {
-    pub code: &'static str,
-    pub message: String,
-}
-
-#[derive(Serialize)]
-pub struct EmbeddingOutput {
-    pub repositories: Vec<String>,
-    pub recipe: DocumentRecipe,
-    pub endpoint: String,
-    pub model: String,
-    pub dimensions: Option<u32>,
-    pub status: RefreshStageStatus,
-    pub report: EmbeddingReport,
-    pub documents_materialized: usize,
-    pub document_failures: Vec<RefreshDocumentFailure>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub failure: Option<RefreshStageFailure>,
-}
-
-#[derive(Serialize)]
-pub struct ClusterDecisionOutput {
-    pub cluster_id: u64,
-    pub action: &'static str,
-}
-
-#[derive(Serialize)]
-pub struct MigrationOutput {
-    pub migration: MigrationReport,
-    pub archive: ArchiveInfo,
-}
+pub mod archive;
+pub mod clusters;
+pub mod detail;
+pub mod embedding;
+pub mod runs;
+pub mod sync;
+pub mod threads;

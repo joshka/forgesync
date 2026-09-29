@@ -7,12 +7,30 @@
 //! The archive lifecycle remains explicit in `command/archive`; this module only presents the
 //! typed result. Keep wording aligned with actual schema and health reports rather than inferring
 //! success from an opened handle.
+//!
+//! [`MigrationOutput`] pairs explicit migration steps with the resulting archive metadata. Status
+//! and doctor summaries consume store projections; they never infer an upgrade from a successful
+//! open. Commands close archive resources before presenting these values.
 
 use forgesync_store::archive::ArchiveInfo;
 use forgesync_store::health::DoctorReport;
+use forgesync_store::migration::MigrationReport;
+use serde::Serialize;
 
 use crate::output::ArchiveStatusOutput;
-use crate::reports::{MigrationOutput, family_name};
+use crate::reports::threads::family_name;
+
+/// Migration outcome paired with archive identity and counts after the explicit upgrade.
+///
+/// This CLI DTO keeps migration details and the resulting archive together for JSON and human
+/// rendering. It is built after migration completes and does not itself open or alter the archive.
+#[derive(Debug, Serialize)]
+pub struct MigrationOutput {
+    /// Ordered migration steps and schema versions reported by the store.
+    pub migration: MigrationReport,
+    /// Archive metadata observed after those steps completed.
+    pub archive: ArchiveInfo,
+}
 
 /// Formats archive identity, counts, and diagnostics for a local status command.
 pub fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {

@@ -18,7 +18,7 @@ use forgesync_engine::error::EngineError;
 use forgesync_engine::reference::ThreadSelector;
 use forgesync_store::archive::Archive;
 
-use crate::reports::{ClusterDecisionOutput, cluster_decision_summary};
+use crate::reports::clusters::{ClusterDecisionOutput, cluster_decision_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success};
 
 /// Records a local dismissal and optional rationale without changing GitHub.

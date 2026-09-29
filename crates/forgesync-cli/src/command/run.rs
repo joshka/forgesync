@@ -18,7 +18,7 @@ use forgesync_store::archive::Archive;
 
 use super::retry::RetryRequest;
 use crate::command::values::RunFamilyArg;
-use crate::reports::{run_detail_summary, run_list_summary};
+use crate::reports::runs::{run_detail_summary, run_list_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success, usage_error};
 
 /// Durable sync-run operations.

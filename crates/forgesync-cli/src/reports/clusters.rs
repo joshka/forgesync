@@ -6,11 +6,23 @@
 //! A generated suggestion and a local decision have different meanings. Terminal wording should
 //! preserve that distinction so a reader knows whether they are seeing analysis output or an
 //! explicit choice.
+//!
+//! [`ClusterDecisionOutput`] identifies a successfully recorded action for command JSON and human
+//! confirmation. Build/page/detail functions consume their engine/store reports directly. They
+//! format local evidence and decisions without sending GitHub write-back or recomputing clusters.
 
 use forgesync_engine::clustering::ClusterBuildReport;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage};
+use serde::Serialize;
 
-use crate::reports::ClusterDecisionOutput;
+/// Recorded local maintainer action, separate from a generated cluster suggestion.
+#[derive(Debug, Serialize)]
+pub struct ClusterDecisionOutput {
+    /// Archive-local cluster identity affected by the successful decision.
+    pub cluster_id: u64,
+    /// Stable action label chosen by the command, such as dismiss, restore, or exclude.
+    pub action: &'static str,
+}
 
 /// Summarizes the generated cluster count and coverage for human output.
 pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
@@ -109,4 +121,24 @@ pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
 /// Confirms the local maintainer action recorded for a cluster.
 pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
     format!("Cluster #{}: {}", output.cluster_id, output.action)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Small command DTOs retain their serialized field contract when ownership changes.
+
+    #[test]
+    fn decision_json_retains_archive_identity_and_action() {
+        let output = crate::reports::clusters::ClusterDecisionOutput {
+            cluster_id: 17,
+            action: "dismiss",
+        };
+
+        let json = serde_json::to_value(output).expect("decision JSON");
+
+        assert_eq!(
+            json,
+            serde_json::json!({"cluster_id": 17, "action": "dismiss"})
+        );
+    }
 }

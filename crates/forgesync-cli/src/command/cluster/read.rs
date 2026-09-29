@@ -13,7 +13,7 @@ use forgesync_engine::clustering::{ClusterListRequest, list_clusters, show_clust
 use forgesync_store::archive::Archive;
 
 use crate::command::cluster::ClusterListArgs;
-use crate::reports::{cluster_detail_summary, cluster_page_summary};
+use crate::reports::clusters::{cluster_detail_summary, cluster_page_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success};
 
 /// Lists generated clusters from a read-only archive handle.

@@ -15,7 +15,7 @@ use forgesync_engine::inspect::archive_status;
 use forgesync_store::archive::Archive;
 
 use crate::output::ArchiveStatusOutput;
-use crate::reports::{
+use crate::reports::archive::{
     MigrationOutput, archive_status_summary, archive_summary, doctor_summary, migration_summary,
 };
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, render_success};

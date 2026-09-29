@@ -1151,3 +1151,15 @@ also names the values owner directly. Module visibility retains the private comm
 
 All-target/all-feature compilation and all thirty-three CLI unit tests pass after the import change.
 The remaining report facade and its unrelated output DTOs are the next ownership review surface.
+
+## Continued maintenance: report module ownership
+
+Report formatters are imported through their workflow modules rather than a root export facade.
+Embedding, cluster-decision, migration, and retry-interruption DTOs now live with their presentation
+code. Each DTO and field documents its process meaning and separation from domain/store evidence.
+The retry-only interruption payload has a descriptive name, retaining its JSON fields. Module
+introductions explain these relationships and the embedding summary's failure precedence.
+
+All thirty-five CLI unit tests and fourteen CLI contract tests pass. Workspace Clippy, all workspace
+tests/doctests, the build without default features, strict public/private Rustdoc, rumdl, and
+changed-page Markdown linting pass. DTO relocation preserves the serialized output contract.
