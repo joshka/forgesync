@@ -11,6 +11,36 @@
 //! `output` defines stable JSON envelopes, and `reports` writes concise terminal summaries.
 //! `run_from` is the reusable process entry point; `main` supplies the actual argument stream and
 //! exit status.
+//!
+//! # Invoke the process boundary
+//!
+//! Use [`run_from`] only when a caller needs the complete CLI behavior, including stream output,
+//! configuration resolution, tracing setup, and exit status. Pass the program name as the first
+//! argument. Engine APIs are the better entry point when another Rust component needs a structured
+//! result without process effects.
+//!
+//! ```no_run
+//! let status = forgesync_cli::run_from(["forgesync", "--help"]);
+//! assert_eq!(status, std::process::ExitCode::SUCCESS);
+//! ```
+//!
+//! # Follow one command
+//!
+//! Parsed command types and their execution live together in private `command` modules. Execution
+//! resolves configuration, opens the required archive mode, creates explicit provider services when
+//! needed, runs an engine operation, and closes the archive before rendering its result. [`output`]
+//! owns JSON envelopes; private `reports` owns human summaries. Errors are translated at this
+//! boundary so libraries retain typed causes and the process presents stable codes.
+//!
+//! [`config`] describes layered local settings and validation. [`credentials`] resolves secrets at
+//! the application boundary; credentials never belong in reports, tracing fields, or stored
+//! provider payloads. The default `tui` feature includes terminal browsing. Building without
+//! default features retains the noninteractive archive, inspection, acquisition, search, and
+//! cluster commands.
+//!
+//! The Rust command wiring is an evolving application implementation. Documented CLI envelopes and
+//! persisted archive behavior are maintained deliberately, without development-era argument
+//! aliases.
 
 mod command;
 pub mod config;

@@ -4,7 +4,8 @@
 
 - Rust 1.98 or newer to build from source.
 - GitHub CLI (`gh`) or `GITHUB_TOKEN` for commands that contact GitHub.
-- An OpenAI-compatible embedding service and its API key only for embedding operations.
+- An OpenAI-compatible embedding service and its API key for embedding generation and semantic or
+  hybrid query vectors. Keyword search and local cluster inspection do not need that service.
 
 Forgesync is a native CLI for Linux, macOS, and Windows. The source build uses the bundled SQLite
 library; `archive doctor` checks the SQLite build, FTS5, and foreign-key enforcement at runtime.

@@ -11,6 +11,39 @@
 //! blocking the event loop, and `view` draws the current screen. The `run` entry point coordinates
 //! terminal setup, events, and cleanup. `TuiError` carries failures to the caller for user-facing
 //! reporting.
+//!
+//! # Launch and own the terminal session
+//!
+//! [`run`] consumes an opened archive and restores the terminal before returning. It also stops its
+//! background read and writer tasks and closes the handle. Call it from a Tokio runtime with
+//! standard input and output connected to a terminal. The returned [`TuiError`] belongs to the
+//! caller's process error policy; this crate does not install a tracing subscriber or select an
+//! exit code.
+//!
+//! ```no_run
+//! use std::collections::HashMap;
+//!
+//! use forgesync_store::archive::Archive;
+//!
+//! # async fn browse() -> Result<(), Box<dyn std::error::Error>> {
+//! let archive = Archive::open_read_write("archive.sqlite3").await?;
+//! // Empty provider clients permit local browsing; acquisition actions need configured clients.
+//! forgesync_tui::run(archive, HashMap::new()).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Follow an interaction
+//!
+//! The private `app` module maps keys to typed actions and owns screen state. `query` schedules
+//! work, forwards progress, and tags results with a generation. `app` discards results from
+//! superseded requests before updating state. `view` renders that state and never starts archive
+//! operations. Local reads remain responsive while a writer runs; quitting requests cancellation
+//! and waits for its cleanup instead of abandoning a durable operation.
+//!
+//! The default browser is local, while explicit sync and refresh actions may contact configured
+//! providers. Local cluster decisions update the archive and never write to GitHub. The CLI's `tui`
+//! feature controls whether the launcher is included; this crate itself owns the terminal behavior.
 
 mod app;
 mod query;

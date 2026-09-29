@@ -16,6 +16,44 @@
 //! Domain types come from `forgesync_core`; SQL rows and conversion rules remain here. The engine
 //! coordinates provider calls outside transactions and invokes these explicit archive methods only
 //! when it has an observation or local decision to persist.
+//!
+//! # Choose the archive lifetime
+//!
+//! Use [`archive::Archive::create`] for a new database, [`archive::Archive::open_read_only`] for
+//! inspection, and [`archive::Archive::open_read_write`] for an existing compatible database that
+//! will receive writes. Migration is an explicit operation in [`migration`]; opening an old archive
+//! does not silently upgrade it. Close the handle after its readers and workflows finish.
+//!
+//! # Inspect an existing archive
+//!
+//! This example performs no provider request and does not create a missing database. The counts and
+//! coverage describe stored evidence; they do not imply that GitHub has been checked recently.
+//!
+//! ```no_run
+//! use forgesync_store::archive::Archive;
+//!
+//! # async fn inspect() -> Result<(), forgesync_store::error::StoreError> {
+//! let archive = Archive::open_read_only("archive.sqlite3").await?;
+//! let status = archive.archive_status().await?;
+//! println!(
+//!     "{} repositories, {} discussions",
+//!     status.repositories, status.threads
+//! );
+//! archive.close().await;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Write through observations
+//!
+//! Acquisition writes follow [`observations`] and [`families`], rather than ad hoc row replacement.
+//! Reserve ordering before provider I/O, stage provisional child pages, and finalize completeness
+//! explicitly. A failed or incomplete collection preserves earlier complete membership. Coordinated
+//! writers use [`leases`] to fence every durable phase; the engine manages that workflow.
+//!
+//! Rust APIs are still evolving. Ordered migrations and observation semantics are deliberate
+//! archive contracts; implementation types and module paths are not a promise of a stable external
+//! SDK.
 
 pub mod archive;
 mod checkpoints;
