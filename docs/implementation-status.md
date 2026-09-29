@@ -976,3 +976,20 @@ rumdl, and changed-page Markdown linting. Six recorded-selection cases and five 
 cases pass. Generated retry, planning, progress, and SQL-update documentation was read for its
 ownership and lifecycle contracts. The production-function inventory remains at zero missing
 comments; broader documentation depth and source-shape requirements remain open.
+
+## Continued maintenance: terminal picker and writer state
+
+`RepositoryPicker` groups loaded choices, highlighted row, applied filter, and read lifecycle. It
+owns beginning and applying repository reads, rejects stale results, and retains rows on failure.
+Grouping exposed an applied-selection bug: the previous list index could retarget a writer when a
+refresh inserted or reordered rows. Applied selection now retains the repository value instead. Four
+regression scenarios cover inserted rows, empty refresh, stale failure, and failed refresh.
+
+`OperationDisplay` owns the writer generation and an idle/running state. Running work carries a
+required label and optional progress; input and the footer read those facts through named methods.
+The display refuses a second writer, ignores stale completion, clears transient state on failure,
+and cannot accept late progress after completion. Four direct state scenarios cover those contracts,
+alongside the existing app keyboard and rendering tests. All twenty-eight TUI tests pass.
+
+The module map and recurring selection/lifecycle rules are updated. Other terminal panels and the
+remaining workspace review surfaces stay open in the source-shape audit.

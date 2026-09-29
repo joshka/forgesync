@@ -127,3 +127,9 @@ Background presentation tasks need an owner just as archive connections do. Keep
 join handle together, state who closes delivery, drain before terminal rendering, and abort on
 unexpected owner drop. Advisory progress must not change acquisition results or block archive
 writes. A task extracted only to shorten a function is insufficient if its lifetime remains hidden.
+
+Selection indices are presentation positions, not durable operation targets. Keep the highlighted
+row separate from the applied domain selection, and retain the selected identity or value across
+refreshes. Reordered or empty results must not silently retarget a write or broaden its scope. When
+multiple fields describe one lifecycle, use a state type that keeps their valid combinations
+explicit, such as idle versus running work with a required label and optional progress.

@@ -59,6 +59,12 @@ content/evidence positions and the optional evidence advance. Observation childr
 dependencies directly. The source clock columns retain deliberate crate visibility within the public
 observation module, with their SQL shape invariant documented.
 
+Terminal repository state now has a `RepositoryPicker` owner. Highlight and applied scope are
+separate, and the applied repository is retained across reordered or empty refreshes. This fixes an
+index-based targeting risk while keeping stale replies and failed refreshes isolated. A documented
+idle/running writer display replaces independent busy, label, and progress fields; it cannot retain
+active progress after completion. The other terminal panels still need equivalent ownership review.
+
 Remaining review surfaces:
 
 - Broader function and state review beyond the selected traversal and diagnostic slices.

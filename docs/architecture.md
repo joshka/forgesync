@@ -83,3 +83,17 @@ only borrow its connection.
 Reuse is a separate read. `MembershipExpectation` names the independent evidence available from the
 parent, and `FamilyFreshness` verifies source clock, review head when required, complete coverage,
 and canonical membership count. None of these reads promote staged pages or change coverage.
+
+## Terminal picker and writer display state
+
+`app/repositories` owns repository rows, highlight, applied scope, and the pending read generation.
+The synthetic all-repositories row is a cursor position; the applied filter retains a repository
+value independently of refreshed row order. The owner rejects stale replies, clamps cursor bounds,
+and retains loaded rows when a refresh fails. App coordination resets thread and detail state when
+the user applies a new scope.
+
+`app/operation` owns the displayed writer generation and an idle/running enum. A running state
+contains its required label and optional progress snapshot. Input reads whether cancellation is
+needed before quitting; the view reads presentation facts. Query tasks still own execution and
+cancellation. The display accepts current-generation progress only while running, and completion
+clears transient state before returning the status to the app.
