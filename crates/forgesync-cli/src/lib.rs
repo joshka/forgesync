@@ -18,8 +18,8 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, ClusterCommand, Command, LogFormat, RefreshAnalysisArg, RefreshArgs,
-    RunCommand, RunFamilyArg, SearchArgs, SearchModeArg, SyncArgs, SyncIncludeArg,
+    ArchiveCommand, CliArgs, ClusterCommand, Command, EmbedArgs, LogFormat, RefreshAnalysisArg,
+    RefreshArgs, RunCommand, RunFamilyArg, SearchArgs, SearchModeArg, SyncArgs, SyncIncludeArg,
     SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::error::ErrorKind;

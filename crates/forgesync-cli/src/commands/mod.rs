@@ -18,7 +18,7 @@ mod tui;
 
 use archive::archive_command;
 use cluster::{ClusterCliRequest, cluster_from_cli};
-use embed::{EmbedCliRequest, embed_from_cli};
+use embed::embed_from_cli;
 use github::{github_api_base_url, github_clients_for_selectors, render_github_client_setup_error};
 use refresh::refresh_from_cli;
 use retry::retry_command;
@@ -51,36 +51,8 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
         Command::Refresh(refresh_args) => {
             refresh_from_cli(refresh_args, &path, output, args.verbose, config).await
         }
-        Command::Embed {
-            repositories,
-            force,
-            endpoint,
-            model,
-            api_key_env,
-            dimensions,
-            max_input_bytes,
-            max_batch_input_bytes,
-            batch_size,
-            concurrency,
-        } => {
-            embed_from_cli(EmbedCliRequest {
-                path: &path,
-                service: config.embeddings,
-                recipe: config.documents.recipe,
-                json: output,
-                verbose: args.verbose,
-                repositories,
-                force,
-                endpoint,
-                model,
-                api_key_env,
-                dimensions,
-                max_input_bytes,
-                max_batch_input_bytes,
-                batch_size,
-                concurrency,
-            })
-            .await
+        Command::Embed(embed_args) => {
+            embed_from_cli(embed_args, &path, output, args.verbose, config).await
         }
         Command::Cluster { command } => {
             cluster_from_cli(ClusterCliRequest {
