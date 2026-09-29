@@ -372,5 +372,4 @@ struct GraphqlReviewThreadNode {
 }
 
 #[cfg(test)]
-#[path = "review_threads/tests.rs"]
 mod tests;

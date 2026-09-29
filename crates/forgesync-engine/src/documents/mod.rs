@@ -284,5 +284,4 @@ fn review_state_label(state: &ReviewState) -> &str {
 }
 
 #[cfg(test)]
-#[path = "documents/tests.rs"]
 mod tests;
