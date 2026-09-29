@@ -12,6 +12,9 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
+#[cfg(feature = "tui")]
+use std::io::IsTerminal;
+
 use args::{
     ArchiveCommand, CliArgs, ClusterCommand, Command, RefreshAnalysisArg, RunCommand, RunFamilyArg,
     SearchModeArg, SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
@@ -509,12 +512,42 @@ async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
             if args.json {
                 return usage_error("--json is not supported by the interactive tui command");
             }
-            match Archive::open_read_only(&path).await {
-                Ok(archive) => match forgesync_tui::run(archive).await {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(error) => render_error(false, "tui", error.code(), &error.to_string()),
-                },
-                Err(error) => render_store_error(false, "tui", error),
+            if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+                return render_error(
+                    false,
+                    "tui",
+                    "tui_requires_terminal",
+                    "the tui command requires an interactive terminal",
+                );
+            }
+            let archive = match Archive::open_read_write(&path).await {
+                Ok(archive) => archive,
+                Err(error) => return render_store_error(false, "tui", error),
+            };
+            let registered = match archive.list_repositories().await {
+                Ok(registered) => registered,
+                Err(error) => {
+                    archive.close().await;
+                    return render_store_error(false, "tui", error);
+                }
+            };
+            let selectors = registered
+                .iter()
+                .map(RepositorySelector::from_repository)
+                .collect::<Vec<_>>();
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let clients =
+                match github_clients_for_selectors(&selectors, args.verbose, &cancellation).await {
+                    Ok(clients) => clients,
+                    Err(error) => {
+                        archive.close().await;
+                        return render_github_client_setup_error(false, "tui", error);
+                    }
+                };
+            let result = forgesync_tui::run(archive, clients).await;
+            match result {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => render_error(false, "tui", error.code(), &error.to_string()),
             }
         }
     }

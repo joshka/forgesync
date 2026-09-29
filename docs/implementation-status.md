@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P5.2 — Maintainer actions and live progress**.
+- Next task: **P6.1 — V2 scope and packaging**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -20,6 +20,7 @@
 - Complete: **P4.1 — Versioned documents**.
 - Complete: **P4.2 — Embeddings**.
 - Complete: **P5.1 — Read-only browser**.
+- Complete: **P5.2 — Maintainer actions and live progress**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -622,6 +623,44 @@ Validation:
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 - Markdownlint on changed documentation: passed, 0 issues.
 
+## P5.2 evidence
+
+Added generated-cluster and member browsing to the TUI, including lifecycle, local dismissal,
+member inclusion state, canonical role, and generated neighbor scores. Cluster dismissal/restore,
+member exclude/include, and canonical selection call the same engine methods used by CLI commands.
+The failures view now selects a durable run for explicit retry through `plan_run_retry` and
+`run_retry`.
+
+The CLI opens the existing archive read-write and resolves GitHub clients at the CLI boundary.
+`s` calls `sync_repositories`; `R` calls the shared `refresh` API for full GitHub evidence; `t`
+retries the selected run. These actions run in background Tokio tasks. Engine progress remains
+non-blocking under a slow terminal, and the TUI reports actual complete, partial, failed, deferred,
+and interrupted results. Pressing `q` or `Ctrl+C` during work cancels through a token and waits for
+the engine's terminal report, leaving the result visible before exit.
+
+Before remote work starts, the TUI checks read-only archive diagnostics and displays the active
+writer owner and expiry. A lease race is surfaced with the latest owner information. Local cluster
+decisions use the same fenced engine calls and report the same contention.
+
+The behavior follows Gitcrawl's selected action, local-decision, and progress references, including
+`TestTUIRunMenuItemCoversNonExternalActions`, `TestTUIUpdateRefreshMessageBranches`,
+`TestTUILocalActionsMutateStore`, `TestTUIClusterMemberOverrideActions`, and
+`TestSyncProgressWriterPublishesPrivateSanitizedSnapshot`. TUI reducer tests cover selected
+repository scope for sync/refresh, selected cluster member decisions, selected-run retry, stale
+progress rejection, cancellation requests, and visible failures. Ratatui `TestBackend` fixtures
+cover browser, cluster, member, and failure screens at 40×10 and 140×40. Engine integration tests
+continue to verify durable retries, refresh outcomes, cluster decisions, and archive fencing.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 147 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed; TUI remains optional.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/tui.md
+  docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -647,7 +686,7 @@ Validation:
 | P4.4 — Clustering and maintainer decisions | Complete | Bounded deterministic graph, durable stable IDs, local decisions, partial-coverage safety |
 | P4.5 — Refresh composition | Complete | Optional shared-engine stages, durable partial reports, explicit model selection |
 | P5.1 — Read-only browser | Complete | Responsive background queries, repository/thread detail, local search, coverage and failure views |
-| P5.2 — Maintainer actions/live progress | Not started | Engine-backed actions, durable progress, and active writer ownership |
+| P5.2 — Maintainer actions/live progress | Complete | Engine-backed cluster decisions, sync/retry/refresh, non-blocking progress, and writer ownership |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |
 
 A task is complete only when its acceptance checks pass. Keep deferred capabilities absent from code,

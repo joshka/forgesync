@@ -1,5 +1,8 @@
 use forgesync_core::{SourceState, ThreadKind};
-use forgesync_engine::{ArchiveStatus, ThreadDetail, ThreadTimelineEvent};
+use forgesync_engine::{
+    ArchiveStatus, ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
+    ThreadDetail, ThreadTimelineEvent,
+};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -24,6 +27,8 @@ pub(crate) fn draw(frame: &mut Frame<'_>, app: &mut App) {
         Screen::Browser => draw_browser(frame, sections[1], app),
         Screen::Coverage => draw_coverage(frame, sections[1], app),
         Screen::Failures => draw_failures(frame, sections[1], app),
+        Screen::Clusters => draw_clusters(frame, sections[1], app),
+        Screen::ClusterDetail => draw_cluster_detail(frame, sections[1], app),
     }
     draw_footer(frame, sections[2], app);
 }
@@ -33,6 +38,8 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
         Screen::Browser => "Browse",
         Screen::Coverage => "Coverage",
         Screen::Failures => "Failures",
+        Screen::Clusters => "Clusters",
+        Screen::ClusterDetail => "Cluster members",
     };
     let query = app
         .search_query
@@ -50,11 +57,36 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let text = if app.searching {
         format!(" Search: {}▏  Enter search · Esc cancel", app.search_input)
+    } else if app.operation_busy {
+        let label = app.operation_label.as_deref().unwrap_or("action");
+        let cancel_hint = app
+            .status
+            .as_deref()
+            .filter(|status| status.starts_with("Cancellation requested"))
+            .unwrap_or("q cancel");
+        if let Some(progress) = &app.operation_progress {
+            format!(
+                " {label} · {:?} · {}/{} jobs · {} threads · {} comments · {} · {cancel_hint}",
+                progress.status,
+                progress.completed_jobs,
+                progress.total_jobs,
+                progress.threads_seen,
+                progress.comments_seen,
+                progress.repository.as_deref().unwrap_or("all repositories")
+            )
+        } else {
+            format!(" {label} starting… · {cancel_hint}")
+        }
     } else if let Some(status) = &app.status {
         format!(" {status}  ·  q quit")
     } else {
-        " Tab focus · Enter select · / search · c coverage · f failures · n/p page · q quit"
-            .to_owned()
+        match app.screen {
+            Screen::Browser => " Tab focus · Enter select · / search · g clusters · s sync · R refresh · c coverage · f failures · q quit".to_owned(),
+            Screen::Coverage => " c reload · g clusters · s sync · R refresh · f failures · Esc back · q quit".to_owned(),
+            Screen::Failures => " ↑/↓ select · t retry selected run · g clusters · Esc back · q quit".to_owned(),
+            Screen::Clusters => " ↑/↓ select · Enter members · d dismiss/restore · g reload · Esc back · q quit".to_owned(),
+            Screen::ClusterDetail => " ↑/↓ select · e exclude · i include · k canonical · d dismiss/restore · Esc clusters · q quit".to_owned(),
+        }
     };
     frame.render_widget(
         Paragraph::new(text).style(Style::default().fg(Color::Gray)),
@@ -355,56 +387,227 @@ fn coverage_lines(status: &ArchiveStatus) -> Vec<Line<'static>> {
         Line::from(format!(
             "Writer lease: {}",
             if status.diagnostics.lease.held {
-                "held by another or active process"
+                "held"
             } else {
                 "available"
             }
         )),
     ]);
+    if status.diagnostics.lease.held {
+        let expires_at = status
+            .diagnostics
+            .lease
+            .expires_at
+            .format_rfc3339()
+            .unwrap_or_else(|_| "unknown expiry".to_owned());
+        lines.push(Line::from(format!(
+            "Writer owner: {} · expires {expires_at}",
+            status
+                .diagnostics
+                .lease
+                .owner_id
+                .as_deref()
+                .unwrap_or("unknown")
+        )));
+    }
     lines
 }
 
 fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut lines = if app.failures_loading && app.failures.is_empty() {
-        vec![Line::from("Loading recent run failures…")]
-    } else if let Some(error) = &app.failures_error {
-        vec![Line::from(error.clone())]
-    } else if app.failures.is_empty() {
-        vec![Line::from(
-            "No incomplete or failed runs in the recent run window.",
-        )]
+    if area.width >= COMPACT_WIDTH {
+        let panes = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
+            .split(area);
+        draw_failure_list(frame, panes[0], app);
+        draw_failure_detail(frame, panes[1], app);
     } else {
-        let mut lines = Vec::new();
-        for run in &app.failures {
-            lines.push(
-                Line::from(format!("Run #{} · {:?}", run.id, run.status)).style(
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            );
-            if run.entries.is_empty() {
-                lines.push(Line::from("  No unresolved failure details recorded."));
-            } else {
-                lines.extend(
-                    run.entries
-                        .iter()
-                        .map(|entry| Line::from(format!("  {entry}"))),
-                );
-            }
-            lines.push(Line::from(""));
+        let panes = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
+            .split(area);
+        draw_failure_list(frame, panes[0], app);
+        draw_failure_detail(frame, panes[1], app);
+    }
+}
+
+fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let mut items = app
+        .failures
+        .iter()
+        .map(|run| ListItem::new(format!("Run #{} · {:?}", run.id, run.status)))
+        .collect::<Vec<_>>();
+    if app.failures_loading && items.is_empty() {
+        items.push(ListItem::new("Loading recent runs…"));
+    } else if let Some(error) = &app.failures_error {
+        items = vec![ListItem::new(error.clone())];
+    } else if items.is_empty() {
+        items.push(ListItem::new("No incomplete or failed runs"));
+    }
+    let mut state = ListState::default();
+    if app.failures_error.is_none() && !app.failures.is_empty() {
+        state.select(Some(app.selected_failure));
+    }
+    frame.render_stateful_widget(
+        List::new(items)
+            .block(pane_block("Recent runs", true))
+            .highlight_style(selected_style()),
+        area,
+        &mut state,
+    );
+}
+
+fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let lines = if let Some(run) = app.failures.get(app.selected_failure) {
+        let mut lines = vec![
+            Line::from(format!("Run #{} · {:?}", run.id, run.status)).style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::from(""),
+        ];
+        if run.entries.is_empty() {
+            lines.push(Line::from("No unresolved failure details recorded."));
+        } else {
+            lines.extend(run.entries.iter().map(|entry| Line::from(entry.clone())));
         }
         lines
+    } else if let Some(error) = &app.failures_error {
+        vec![Line::from(error.clone())]
+    } else {
+        vec![Line::from(
+            "Select an incomplete run to inspect or retry its unresolved work.",
+        )]
     };
-    if app.failures_loading && !app.failures.is_empty() {
+    frame.render_widget(
+        Paragraph::new(Text::from(lines))
+            .block(pane_block("Unresolved work", true))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let mut items: Vec<ListItem<'_>> = app
+        .clusters
+        .iter()
+        .map(|cluster| {
+            let lifecycle = match cluster.lifecycle {
+                ClusterLifecycle::Active => "active",
+                ClusterLifecycle::Retired => "retired",
+            };
+            let dismissed = if cluster.dismissed {
+                " · dismissed"
+            } else {
+                ""
+            };
+            ListItem::new(format!(
+                "{} · {} · {} active / {} excluded{dismissed}",
+                cluster.title,
+                lifecycle,
+                cluster.active_member_count,
+                cluster.excluded_member_count
+            ))
+        })
+        .collect();
+    if app.clusters_loading && items.is_empty() {
+        items.push(ListItem::new("Loading clusters…"));
+    } else if let Some(error) = &app.clusters_error {
+        items = vec![ListItem::new(error.clone())];
+    } else if items.is_empty() {
+        items.push(ListItem::new(
+            "No generated clusters in this repository scope",
+        ));
+    }
+    let mut state = ListState::default();
+    if app.clusters_error.is_none() && !app.clusters.is_empty() {
+        state.select(Some(app.selected_cluster));
+    }
+    frame.render_stateful_widget(
+        List::new(items)
+            .block(pane_block("Generated clusters · neighbors", true))
+            .highlight_style(selected_style()),
+        area,
+        &mut state,
+    );
+}
+
+fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    let mut lines = if app.cluster_detail_loading && app.cluster_detail.is_none() {
+        vec![Line::from("Loading cluster neighbors…")]
+    } else if let Some(error) = &app.cluster_detail_error {
+        vec![Line::from(error.clone())]
+    } else if let Some(detail) = &app.cluster_detail {
+        cluster_detail_lines(detail, app.selected_cluster_member)
+    } else {
+        vec![Line::from(
+            "Select a cluster to inspect its members and neighbor scores.",
+        )]
+    };
+    if app.cluster_detail_loading && app.cluster_detail.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(pane_block("Recent failures and unfinished work", true))
+            .block(pane_block("Cluster members and neighbors", true))
             .wrap(Wrap { trim: false }),
         area,
     );
+}
+
+fn cluster_detail_lines(detail: &ClusterDetail, selected_member: usize) -> Vec<Line<'static>> {
+    let cluster = &detail.cluster;
+    let mut lines = vec![
+        Line::from(format!("Cluster #{} · {}", cluster.id, cluster.title)).style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Line::from(format!(
+            "{} · {} active · {} excluded{}",
+            cluster.repository.full_name,
+            cluster.active_member_count,
+            cluster.excluded_member_count,
+            if cluster.dismissed {
+                " · dismissed"
+            } else {
+                ""
+            }
+        )),
+        Line::from(""),
+        Line::from("Members and neighbor scores")
+            .style(Style::default().add_modifier(Modifier::BOLD)),
+    ];
+    lines.extend(detail.members.iter().enumerate().map(|(index, member)| {
+        let state = match member.state {
+            ClusterMemberState::Active => "included",
+            ClusterMemberState::Excluded => "excluded",
+            ClusterMemberState::Removed => "removed",
+        };
+        let role = match member.role {
+            ClusterMemberRole::Canonical => "canonical",
+            ClusterMemberRole::Representative => "representative",
+            ClusterMemberRole::Related => "related",
+        };
+        let score = member
+            .score_to_representative
+            .map(|score| format!(" · score {score:.3}"))
+            .unwrap_or_default();
+        let discussion = &member.summary.discussion;
+        let line = Line::from(format!(
+            "{} #{} {} · {role} · {state}{score}",
+            if index == selected_member { "›" } else { " " },
+            discussion.id.number().get(),
+            discussion.title
+        ));
+        if index == selected_member {
+            line.style(selected_style())
+        } else {
+            line
+        }
+    }));
+    lines
 }
 
 fn pane_block(title: &str, focused: bool) -> Block<'_> {
@@ -442,12 +645,13 @@ mod tests {
         Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, SourceState,
         ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
     };
+    use forgesync_engine::{ClusterDetail, ClusterLifecycle, ClusterSummary};
     use forgesync_store::{ThreadDetail, ThreadSummary};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::layout::Rect;
 
-    use crate::app::App;
+    use crate::app::{App, Screen};
 
     use super::draw;
 
@@ -483,6 +687,47 @@ mod tests {
             .draw(|frame| draw(frame, &mut app))
             .expect("draw resized browser");
         assert!(app.detail_scroll <= small_offset);
+    }
+
+    #[test]
+    fn cluster_and_failure_views_render_at_narrow_and_wide_sizes() {
+        let thread = sample_summary();
+        let cluster = ClusterSummary {
+            id: 3,
+            repository: thread.repository.clone(),
+            title: "Related discussions".to_owned(),
+            lifecycle: ClusterLifecycle::Active,
+            dismissed: false,
+            dismissal_reason: None,
+            representative: None,
+            active_member_count: 1,
+            excluded_member_count: 0,
+            last_run_id: Some(1),
+            updated_at: thread.discussion.updated_at,
+        };
+        for (screen, width, height) in [
+            (Screen::Clusters, 40, 10),
+            (Screen::Clusters, 140, 40),
+            (Screen::ClusterDetail, 40, 10),
+            (Screen::ClusterDetail, 140, 40),
+            (Screen::Failures, 40, 10),
+            (Screen::Failures, 140, 40),
+        ] {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).expect("test terminal");
+            let mut app = App {
+                screen,
+                clusters: vec![cluster.clone()],
+                cluster_detail: Some(ClusterDetail {
+                    cluster: cluster.clone(),
+                    members: Vec::new(),
+                }),
+                ..App::default()
+            };
+            terminal
+                .draw(|frame| draw(frame, &mut app))
+                .expect("draw maintainer view");
+        }
     }
 
     fn sample_app() -> App {

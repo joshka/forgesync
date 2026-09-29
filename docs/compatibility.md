@@ -76,7 +76,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | Documents and embeddings | retain | P4.1 adds versioned deterministic inputs and configurable source-evidence recipes; P4.2 adds validated OpenAI-compatible vectors; P4.3 adds paged exact cosine and RRF with explicit keyword fallback; keyword use needs no model | internal/documents/; internal/vector/exact_test.go; P4.1–P4.3 |
 | Related threads and clustering | retain | Bounded deterministic graph; stable IDs; incomplete coverage cannot retire unseen clusters | internal/cluster/build_test.go; internal/cli/cluster_graph_scoring_test.go; P4.4 |
 | Local maintainer decisions | retain | Canonical, excluded-member, and dismissed state survives generated updates; no GitHub writes | internal/store/clusters_test.go; P4.4/P5.2 |
-| Ratatui browser and actions | retain | Background engine queries, stale-result suppression, terminal restore; browser usage is in [tui.md](tui.md) | internal/cli/tui_*.go; P5.1/P5.2 |
+| Ratatui browser and maintainer actions | retain | Background engine operations, stale-result suppression, local cluster decisions, progress, and terminal restore; usage is in [tui.md](tui.md) | internal/cli/tui_*.go; P5.1/P5.2 |
 | Repository metrics and analytics | defer | No historical metrics schema or dashboard without a later scope decision | proposal PRs 206/216; not baseline requirements |
 | Owner-directed erasure | defer | Cluster member exclusion is selected; archive-wide purge and snapshot policy are not | proposal PR 217; no baseline table |
 | PR files, commits, checks, workflow runs | defer | No deep PR-detail tables or API requests in v2 | internal/store/pull_requests_test.go; selected plan P3.1 |

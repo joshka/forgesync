@@ -8,9 +8,11 @@ rust-version.workspace = true
 crossterm.workspace = true
 forgesync-core = { path = "../forgesync-core" }
 forgesync-engine = { path = "../forgesync-engine" }
+forgesync-github = { path = "../forgesync-github" }
 forgesync-store = { path = "../forgesync-store" }
 ratatui.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 
 [dev-dependencies]

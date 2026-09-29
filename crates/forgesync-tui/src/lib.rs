@@ -6,21 +6,27 @@ mod app;
 mod query;
 mod view;
 
+use std::collections::HashMap;
 use std::io::{self, IsTerminal};
 use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyEventKind};
+use forgesync_core::GitHubHost;
+use forgesync_github::GitHubClient;
 use forgesync_store::Archive;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-use app::App;
+use app::{App, QueryMessage};
 use query::{QueryTasks, start_query};
 
-/// Runs the interactive archive browser and closes its read-only archive handle on exit.
-pub async fn run(archive: Archive) -> Result<(), TuiError> {
+/// Runs the interactive archive browser and closes its writable archive handle on exit.
+pub async fn run(
+    archive: Archive,
+    github_clients: HashMap<GitHubHost, GitHubClient>,
+) -> Result<(), TuiError> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         archive.close().await;
         return Err(TuiError::NotTerminal);
@@ -33,9 +39,16 @@ pub async fn run(archive: Archive) -> Result<(), TuiError> {
         }
     };
     let archive = Arc::new(archive);
+    let github_clients = Arc::new(github_clients);
     let mut tasks = QueryTasks::default();
     let terminal_result = ratatui::run(|terminal| {
-        run_event_loop(terminal, Arc::clone(&archive), &runtime, &mut tasks)
+        run_event_loop(
+            terminal,
+            Arc::clone(&archive),
+            Arc::clone(&github_clients),
+            &runtime,
+            &mut tasks,
+        )
     });
 
     tasks.stop().await;
@@ -48,18 +61,41 @@ pub async fn run(archive: Archive) -> Result<(), TuiError> {
 fn run_event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     archive: Arc<Archive>,
+    github_clients: Arc<HashMap<GitHubHost, GitHubClient>>,
     runtime: &Handle,
     tasks: &mut QueryTasks,
 ) -> io::Result<()> {
     let (sender, mut receiver) = mpsc::channel(16);
     let mut app = App::default();
     for action in app.initial_actions() {
-        start_query(action, &mut app, &archive, runtime, &sender, tasks);
+        start_query(
+            action,
+            &mut app,
+            &archive,
+            &github_clients,
+            runtime,
+            &sender,
+            tasks,
+        );
     }
 
     while !app.quit {
         while let Ok(message) = receiver.try_recv() {
+            let operation_finished = matches!(message, QueryMessage::OperationFinished { .. });
             app.apply(message);
+            if operation_finished {
+                for action in app.refresh_after_operation() {
+                    start_query(
+                        action,
+                        &mut app,
+                        &archive,
+                        &github_clients,
+                        runtime,
+                        &sender,
+                        tasks,
+                    );
+                }
+            }
         }
 
         terminal.draw(|frame| view::draw(frame, &mut app))?;
@@ -68,7 +104,15 @@ fn run_event_loop(
             && matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat)
         {
             for action in app.handle_key(key) {
-                start_query(action, &mut app, &archive, runtime, &sender, tasks);
+                start_query(
+                    action,
+                    &mut app,
+                    &archive,
+                    &github_clients,
+                    runtime,
+                    &sender,
+                    tasks,
+                );
             }
         }
     }

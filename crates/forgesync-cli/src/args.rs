@@ -175,7 +175,7 @@ pub enum Command {
         #[command(subcommand)]
         command: RunCommand,
     },
-    /// Browse the local archive in an interactive terminal.
+    /// Browse and maintain the local archive in an interactive terminal.
     #[cfg(feature = "tui")]
     Tui,
 }

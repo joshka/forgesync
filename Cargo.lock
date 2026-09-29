@@ -785,10 +785,12 @@ dependencies = [
  "crossterm",
  "forgesync-core",
  "forgesync-engine",
+ "forgesync-github",
  "forgesync-store",
  "ratatui",
  "thiserror",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
