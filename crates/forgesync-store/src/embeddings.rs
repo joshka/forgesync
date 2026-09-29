@@ -10,7 +10,6 @@
 //! document version. The engine owns service calls and batching; this module owns their durable
 //! local result.
 
-use std::collections::HashMap;
 use std::num::NonZeroU32;
 
 use forgesync_core::content::ThreadKind;
@@ -19,15 +18,14 @@ use forgesync_core::embedding::EmbeddingVector;
 use forgesync_core::identity::RepositoryId;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
-use sqlx::{QueryBuilder, Row, Sqlite};
+use sqlx::Row;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::reads::{
-    ThreadStateFilter, ThreadSummary, coverage_for_kind, load_thread_coverage,
-    push_discussion_filters, push_repository_scope,
-};
+use crate::reads::{ThreadStateFilter, ThreadSummary};
+
+mod read;
 
 /// One current embedding chunk read from the archive.
 #[derive(Clone, Debug, PartialEq)]
@@ -104,139 +102,6 @@ pub struct EmbeddingWrite {
 }
 
 impl Archive {
-    /// Reads one bounded page of current documents with complete embedding chunks.
-    pub async fn embedding_search_page(
-        &self,
-        query: &EmbeddingDocumentQuery<'_>,
-    ) -> Result<EmbeddingDocumentPage, StoreError> {
-        let mut statement = QueryBuilder::<Sqlite>::new(
-            "SELECT DISTINCT d.id AS document_id, t.id AS thread_id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM embeddings e JOIN documents d ON d.id = e.document_id JOIN threads t ON t.id = d.thread_id JOIN repositories r ON r.id = t.repository_id WHERE e.endpoint = ",
-        );
-        statement
-            .push_bind(query.endpoint)
-            .push(" AND e.model = ")
-            .push_bind(query.model)
-            .push(" AND e.document_hash = d.content_hash AND d.recipe = ")
-            .push_bind(query.recipe.as_str())
-            .push(" AND d.recipe_version = ")
-            .push_bind(i64::from(DocumentRecipe::VERSION))
-            .push(" AND d.source_updated_at_us = t.updated_at_us");
-        if query.recipe == DocumentRecipe::DiscussionEnriched {
-            statement.push(
-                " AND d.built_at_us >= COALESCE((SELECT MAX(c.observed_at_us) FROM family_coverage c WHERE c.thread_id = t.id AND c.family IN ('comments', 'reviews', 'review_threads')), 0)",
-            );
-        }
-        push_repository_scope(&mut statement, query.repositories);
-        push_discussion_filters(&mut statement, query.kind, query.state);
-        if let Some(after_document_id) = query.after_document_id {
-            statement.push(" AND d.id > ").push_bind(after_document_id);
-        }
-        let limit = i64::from(query.limit.get());
-        statement.push(" ORDER BY d.id LIMIT ").push_bind(limit);
-        let candidates = statement.build().fetch_all(&self.reader).await?;
-        if candidates.is_empty() {
-            return Ok(EmbeddingDocumentPage {
-                items: Vec::new(),
-                next_document_id: None,
-            });
-        }
-
-        let mut candidate_rows = Vec::with_capacity(candidates.len());
-        let mut document_ids = Vec::with_capacity(candidates.len());
-        let mut thread_ids = Vec::with_capacity(candidates.len());
-        for row in candidates {
-            let document_id: i64 = row.try_get("document_id")?;
-            let thread_id: i64 = row.try_get("thread_id")?;
-            document_ids.push(document_id);
-            thread_ids.push(thread_id);
-            candidate_rows.push((
-                document_id,
-                thread_id,
-                row.try_get::<String, _>("repository_json")?,
-                row.try_get::<String, _>("discussion_json")?,
-            ));
-        }
-        let coverage_by_thread = load_thread_coverage(&self.reader, &thread_ids).await?;
-        let mut summaries = HashMap::with_capacity(candidate_rows.len());
-        for (_, thread_id, repository_json, discussion_json) in &candidate_rows {
-            let repository = serde_json::from_str(repository_json)?;
-            let discussion = serde_json::from_str(discussion_json)?;
-            let coverage = coverage_for_kind(&discussion, coverage_by_thread.get(thread_id));
-            if query.recipe == DocumentRecipe::DiscussionEnriched
-                && coverage.iter().any(|coverage| coverage.is_stale())
-            {
-                continue;
-            }
-            summaries.insert(
-                *thread_id,
-                ThreadSummary {
-                    repository,
-                    discussion,
-                    coverage,
-                },
-            );
-        }
-
-        let mut vector_statement = QueryBuilder::<Sqlite>::new(
-            "SELECT e.document_id, e.chunk_index, e.chunk_count, e.chunk_hash, e.dimensions, e.vector_le FROM embeddings e JOIN documents d ON d.id = e.document_id WHERE e.endpoint = ",
-        );
-        vector_statement
-            .push_bind(query.endpoint)
-            .push(" AND e.model = ")
-            .push_bind(query.model)
-            .push(" AND e.document_hash = d.content_hash AND d.recipe = ")
-            .push_bind(query.recipe.as_str())
-            .push(" AND d.recipe_version = ")
-            .push_bind(i64::from(DocumentRecipe::VERSION))
-            .push(" AND e.document_id IN (");
-        for (index, document_id) in document_ids.iter().enumerate() {
-            if index > 0 {
-                vector_statement.push(", ");
-            }
-            vector_statement.push_bind(document_id);
-        }
-        vector_statement.push(") ORDER BY e.document_id, e.chunk_index");
-        let vector_rows = vector_statement.build().fetch_all(&self.reader).await?;
-        let mut chunks_by_document: HashMap<i64, Vec<StoredEmbeddingChunk>> = HashMap::new();
-        let mut invalid_documents = std::collections::HashSet::new();
-        for row in vector_rows {
-            let document_id: i64 = row.try_get("document_id")?;
-            match decode_embedding_chunk(row) {
-                Ok(chunk) => chunks_by_document
-                    .entry(document_id)
-                    .or_default()
-                    .push(chunk),
-                Err(_) => {
-                    invalid_documents.insert(document_id);
-                }
-            }
-        }
-
-        let mut items = Vec::with_capacity(candidate_rows.len());
-        for (document_id, thread_id, _, _) in &candidate_rows {
-            let Some(summary) = summaries.remove(thread_id) else {
-                continue;
-            };
-            let Some(chunks) = chunks_by_document.remove(document_id) else {
-                continue;
-            };
-            if invalid_documents.contains(document_id) || !complete_chunk_set(&chunks) {
-                continue;
-            }
-            items.push(EmbeddingSearchDocument { summary, chunks });
-        }
-        let last_document_id = candidate_rows.last().map(|(document_id, ..)| *document_id);
-        let next_document_id = (candidate_rows.len()
-            == usize::try_from(query.limit.get()).unwrap_or(usize::MAX))
-        .then_some(last_document_id)
-        .flatten();
-
-        Ok(EmbeddingDocumentPage {
-            items,
-            next_document_id,
-        })
-    }
-
     /// Lists persisted chunks matching the current document and service identity.
     pub async fn embedding_chunks(
         &self,

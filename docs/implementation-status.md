@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Semantic pages now separate bound candidate/vector queries, typed candidate rows, evidence
+  hydration, and document-level chunk validation. Raw candidate order owns cursor advancement even
+  for rejected vectors. Store Clippy and the embedding retry regression passed.
+
 - CLI retry reuses shared provider setup while preserving cancellation JSON and exit status.
   Embed and refresh execution belongs to their parsed command types; argument overrides and
   refresh selection validation now have named methods. CLI Clippy passed.
