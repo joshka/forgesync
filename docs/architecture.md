@@ -38,6 +38,10 @@ ordered evidence; `observations/thread_rows` owns the payload binding map. `fami
 checks reserved generations and applies complete membership or incomplete coverage inside the
 transaction opened by `families/finish`. These owners borrow the transaction and never commit it.
 
+Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its
+stage methods preserve independent reports. TUI `query/operations` owns task and message lifetimes,
+while `query/action` owns the selected action request and terminal status.
+
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose

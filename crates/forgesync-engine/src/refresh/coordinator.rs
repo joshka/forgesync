@@ -32,96 +32,153 @@ pub async fn refresh(
     progress: Option<mpsc::Sender<SyncProgress>>,
 ) -> Result<RefreshReport, EngineError> {
     validate_request(request)?;
+    let execution = RefreshExecution {
+        archive,
+        github_clients,
+        embedding_client,
+        request,
+        cancellation,
+        progress,
+        repositories: unique_repositories(&request.repositories),
+    };
+    Ok(execution.run().await)
+}
 
-    let repositories = unique_repositories(&request.repositories);
-    let mut selected = Vec::with_capacity(1 + request.analysis.len());
-    if request.sync.is_some() {
-        selected.push(RefreshStageKind::Sync);
-    }
-    if request.analysis.contains(&RefreshAnalysisStage::Embeddings) {
-        selected.push(RefreshStageKind::Embeddings);
-    }
-    if request.analysis.contains(&RefreshAnalysisStage::Clusters) {
-        selected.push(RefreshStageKind::Clusters);
-    }
+/// One validated refresh with shared services and a stable repository selection.
+///
+/// Stages run in dependency order and retain independent reports. A failed stage does not erase
+/// acquired source evidence or prevent another explicitly selected stage from reporting its result.
+struct RefreshExecution<'a> {
+    archive: &'a Archive,
+    github_clients: &'a std::collections::HashMap<GitHubHost, GitHubClient>,
+    embedding_client: Option<&'a EmbeddingClient>,
+    request: &'a RefreshRequest,
+    cancellation: &'a CancellationToken,
+    progress: Option<mpsc::Sender<SyncProgress>>,
+    repositories: Vec<RepositorySelector>,
+}
 
-    let sync = if let Some(options) = request.sync {
-        let sync_request = SyncRequest {
-            repositories: repositories.clone(),
-            all: false,
-            scope: options.scope,
-            include_comments: options.include_comments,
-            include_reviews: options.include_reviews,
-            include_review_threads: options.include_review_threads,
-            parent_run: None,
+impl RefreshExecution<'_> {
+    /// Runs acquisition before derived analysis and computes the combined outcome last.
+    async fn run(&self) -> RefreshReport {
+        let mut report = RefreshReport {
+            selected: self.selected(),
+            sync: self.sync().await,
+            embeddings: self.embeddings().await,
+            clusters: self.clusters().await,
+            remaining: Vec::new(),
+            outcome: OperationOutcome::Complete,
         };
-        let stage = match sync_repositories(
-            archive,
-            github_clients,
-            &sync_request,
-            cancellation,
-            progress,
-        )
-        .await
+        report.remaining = remaining_stages(&report);
+        report.outcome = refresh_outcome(&report);
+        report
+    }
+
+    /// Lists selected stages in their execution order, regardless of caller selection order.
+    fn selected(&self) -> Vec<RefreshStageKind> {
+        let mut selected = Vec::with_capacity(1 + self.request.analysis.len());
+        if self.request.sync.is_some() {
+            selected.push(RefreshStageKind::Sync);
+        }
+        if self
+            .request
+            .analysis
+            .contains(&RefreshAnalysisStage::Embeddings)
         {
-            Ok(report) => stage_from_sync_report(report),
-            Err(error) => RefreshStage::failed(stage_failure(&error)),
-        };
-        Some(stage)
-    } else {
-        None
-    };
+            selected.push(RefreshStageKind::Embeddings);
+        }
+        if self
+            .request
+            .analysis
+            .contains(&RefreshAnalysisStage::Clusters)
+        {
+            selected.push(RefreshStageKind::Clusters);
+        }
+        selected
+    }
 
-    let embeddings = if request.analysis.contains(&RefreshAnalysisStage::Embeddings) {
-        Some(match embedding_client {
-            Some(client) => {
-                embed_repositories(
-                    archive,
-                    &repositories,
-                    client,
-                    request.recipe,
-                    request.force_embeddings,
-                    cancellation,
-                )
-                .await
-            }
-            None => RefreshStage::failed(RefreshStageFailure {
-                code: "embedding_service_unavailable",
-                message: "embedding analysis requires a valid configured embedding service"
-                    .to_owned(),
-            }),
-        })
-    } else {
-        None
-    };
-
-    let clusters = if request.analysis.contains(&RefreshAnalysisStage::Clusters) {
-        Some(
-            build_repository_clusters(
-                archive,
-                &repositories,
-                request.embedding_identity.as_ref(),
-                request.recipe,
-                request.cluster_options,
-                cancellation,
+    /// Runs the selected sync stage and retains its partial result.
+    async fn sync(&self) -> Option<RefreshStage<SyncReport>> {
+        if let Some(options) = self.request.sync {
+            let sync_request = SyncRequest {
+                repositories: self.repositories.clone(),
+                all: false,
+                scope: options.scope,
+                include_comments: options.include_comments,
+                include_reviews: options.include_reviews,
+                include_review_threads: options.include_review_threads,
+                parent_run: None,
+            };
+            let stage = match sync_repositories(
+                self.archive,
+                self.github_clients,
+                &sync_request,
+                self.cancellation,
+                self.progress.clone(),
             )
-            .await,
-        )
-    } else {
-        None
-    };
+            .await
+            {
+                Ok(report) => stage_from_sync_report(report),
+                Err(error) => RefreshStage::failed(stage_failure(&error)),
+            };
+            Some(stage)
+        } else {
+            None
+        }
+    }
 
-    let mut report = RefreshReport {
-        selected,
-        sync,
-        embeddings,
-        clusters,
-        remaining: Vec::new(),
-        outcome: OperationOutcome::Complete,
-    };
-    report.remaining = remaining_stages(&report);
-    report.outcome = refresh_outcome(&report);
-    Ok(report)
+    /// Runs the selected embeddings stage and retains its partial result.
+    async fn embeddings(&self) -> Option<RefreshStage<RefreshEmbeddingReport>> {
+        if self
+            .request
+            .analysis
+            .contains(&RefreshAnalysisStage::Embeddings)
+        {
+            Some(match self.embedding_client {
+                Some(client) => {
+                    embed_repositories(
+                        self.archive,
+                        &self.repositories,
+                        client,
+                        self.request.recipe,
+                        self.request.force_embeddings,
+                        self.cancellation,
+                    )
+                    .await
+                }
+                None => RefreshStage::failed(RefreshStageFailure {
+                    code: "embedding_service_unavailable",
+                    message: "embedding analysis requires a valid configured embedding service"
+                        .to_owned(),
+                }),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Runs the selected clusters stage and retains its partial result.
+    async fn clusters(&self) -> Option<RefreshStage<Vec<super::RefreshClusterRepository>>> {
+        if self
+            .request
+            .analysis
+            .contains(&RefreshAnalysisStage::Clusters)
+        {
+            Some(
+                build_repository_clusters(
+                    self.archive,
+                    &self.repositories,
+                    self.request.embedding_identity.as_ref(),
+                    self.request.recipe,
+                    self.request.cluster_options,
+                    self.cancellation,
+                )
+                .await,
+            )
+        } else {
+            None
+        }
+    }
 }
 
 /// Materializes current repository documents and embeds their missing compatible chunks.

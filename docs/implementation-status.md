@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Refresh stages share a validated execution owner and keep acquisition, embeddings, and clusters
+  in separate methods. Engine Clippy passed; the focused refresh regression preserves completed
+  acquisition when derived analysis cannot run.
+
 - Thread reads now give `ThreadQuery` ownership of bound SQL and deterministic sorting. Stored
   row decoding and page coverage assembly have separate named phases; pagination behavior remains
   covered by the inspect/search regressions.
