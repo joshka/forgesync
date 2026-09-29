@@ -1,4 +1,15 @@
-//! Archive identities.
+//! Local archive identities for runs and acquisition order.
+//!
+//! [`RunId`] names one durable workflow run. [`ObservationSequence`] orders locally acquired
+//! evidence when source clocks alone cannot distinguish observations. Both wrap positive integers
+//! and reject zero when constructed or deserialized.
+//!
+//! These IDs are assigned by store operations, not by GitHub. A sequence records local acquisition
+//! order; it is not a source update time or a substitute for collection completeness. The store
+//! uses it with [`crate::observation::SourceClock`] when deciding which observation is canonical.
+//!
+//! Use this module when passing a selected run to inspection or retry, or when retaining the
+//! sequence reserved before acquisition. SQL range checks still belong to the store boundary.
 
 use std::num::NonZeroU64;
 

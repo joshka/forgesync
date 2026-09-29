@@ -1,7 +1,12 @@
-//! Typed workflow failures.
+//! # Workflow errors across provider and store boundaries
 //!
-//! Workflow errors retain typed archive, provider, and request failures. Preserve the cause when
-//! presenting a partial outcome to a frontend.
+//! `EngineError` collects failures that can arise while coordinating GitHub acquisition, archive
+//! application, derived analysis, and offline queries. It is the engine-facing error type, leaving
+//! transport and SQL details to their owning crates.
+//!
+//! Reports preserve partial success where a workflow can continue. This error represents failures
+//! that prevent the requested operation or stage from completing and should retain enough context
+//! for CLI diagnostics and retry decisions.
 
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};

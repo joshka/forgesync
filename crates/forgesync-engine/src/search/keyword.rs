@@ -1,4 +1,11 @@
-//! Keyword search behavior.
+//! # Build and retrieve keyword candidates
+//!
+//! Keyword helpers turn user text into a safe full-text expression and request candidate threads
+//! from the archive. They also form result pages or a permitted fallback when semantic work cannot
+//! complete.
+//!
+//! The store owns bound SQL and full-text storage. This module owns search interpretation and the
+//! shape of keyword evidence used by `ranking`.
 
 use super::ranking::result_page;
 use super::{

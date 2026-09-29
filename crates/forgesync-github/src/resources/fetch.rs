@@ -1,4 +1,18 @@
-//! Resource endpoints and pagination URLs.
+//! Construct and fetch the selected GitHub REST resource page.
+//!
+//! Each `fetch_*` operation takes a configured [`crate::transport::GitHubClient`] and explicit
+//! cancellation. URL builders form first-page endpoints from checked repository and thread scope;
+//! subsequent pages come from transport-validated pagination links. Scope checks reject a thread
+//! whose repository identity differs from the selected repository.
+//!
+//! The returned page contains normalized resources, not an archive transaction. The engine
+//! controls when to persist a page and cursor, and whether a family has reached its final page.
+//! This matters for child collections: an interrupted page sequence must not replace older
+//! complete membership.
+//!
+//! Use `fetch_repository` before thread enumeration when current repository name or identity is
+//! needed. Use the family-specific fetch functions for later comment, metadata, and review jobs
+//! rather than treating all resources as interchangeable provider JSON.
 
 use super::normalize::{
     normalize_comment, normalize_issue, normalize_pull_request, normalize_repository,

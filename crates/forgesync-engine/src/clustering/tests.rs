@@ -1,3 +1,11 @@
+//! # Cluster candidate policy
+//!
+//! These tests document safeguards in the candidate graph: weak title evidence, cross-kind
+//! relationships, repository-scoped references, fanout, and maximum component size. The exact
+//! fixture relationships matter because transitive grouping can make a plausible pair produce an
+//! implausible cluster. Read these alongside `candidates` before changing thresholds or union
+//! behavior; a new candidate rule should have a small example that explains the intended grouping.
+
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::Coverage;
 use forgesync_core::embedding::EmbeddingVector;

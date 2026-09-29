@@ -1,4 +1,11 @@
-//! Sanitized embedding client failures.
+//! # Typed embedding-service failures
+//!
+//! `EmbeddingClientError` distinguishes request, response, and vector-validation problems. The
+//! workflow uses this information to report failed batches without treating malformed service
+//! output as a valid empty embedding.
+//!
+//! This error belongs at the adapter boundary. Engine-level reports can classify it, while the
+//! client keeps protocol details out of archive and search modules.
 
 use forgesync_core::embedding::EmbeddingVectorError;
 use thiserror::Error;

@@ -1,4 +1,12 @@
-//! Refresh coordinator behavior.
+//! # Run the ordered refresh workflow
+//!
+//! `refresh` validates a request, determines unique repositories, runs acquisition, then performs
+//! requested derived stages. Helper functions convert sync results into stage reports and preserve
+//! the first meaningful failure.
+//!
+//! The ordering matters because documents, embeddings, and clusters depend on archived evidence.
+//! Each stage reports its own completion, so a later failure does not erase earlier progress.
+//! Provider I/O remains outside archive transactions.
 
 use super::clusters::build_repository_clusters;
 use super::embeddings::{collect_embedding_repositories, embedding_status};

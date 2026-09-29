@@ -1,4 +1,12 @@
-//! Run failures operations.
+//! # Record failures at the unit of work that failed
+//!
+//! These `Archive` methods persist provider or application failures with enough scope to identify
+//! the affected run, job, thread, and family. A failed child collection should not erase
+//! successful work elsewhere in the same run.
+//!
+//! The engine uses these records for partial reports and retries. Storing failure scope explicitly
+//! avoids inferring it from missing rows, which cannot distinguish an unrequested resource from
+//! one that was attempted and failed.
 
 use super::{
     Archive, ArchiveLeaseToken, ChildFamilyFailureScope, RunFailureInput, RunFailureScope,

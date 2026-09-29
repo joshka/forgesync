@@ -1,7 +1,13 @@
-//! Duplicate cluster generation and maintainer decisions.
+//! # Duplicate-cluster analysis and triage requests
 //!
-//! Build duplicate groups from local search evidence and expose them for maintainer triage. Cluster
-//! generation and durable decisions have separate lifecycles.
+//! `ClusterOptions` tunes candidate generation. `ClusterBuildRequest` selects the archive scope
+//! and `ClusterBuildReport` reports what was generated. List and detail requests support
+//! inspection of stored clusters.
+//!
+//! `candidates` groups plausible relationships, `build` commits a derived generation, `decisions`
+//! applies local maintainer choices, and `lease` keeps competing operations from writing the same
+//! analysis concurrently. The store owns durable generations and decision events; this module owns
+//! analysis policy and workflow boundaries. Cluster actions affect the local archive only.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};

@@ -1,3 +1,10 @@
+//! # CLI process contract
+//!
+//! This suite groups process-level command behavior by area. Its child modules cover archive
+//! lifecycle, configuration, status, sync, run history, and shell exit behavior. The tests invoke
+//! the compiled CLI and inspect output, so they establish the user-visible contract rather than
+//! implementation details of argument parsing.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

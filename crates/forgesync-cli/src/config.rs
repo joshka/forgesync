@@ -1,7 +1,12 @@
-//! Application configuration.
+//! # Load local application configuration
 //!
-//! Resolve file-backed application settings into typed values before constructing clients.
-//! Configuration loading belongs to the CLI boundary, not the engine or provider crates.
+//! `ForgesyncConfig` groups archive, document, and embedding-service settings. Nested config types
+//! supply defaults and validation for the parts of the app that need them; `ConfigError` reports
+//! malformed or unusable configuration.
+//!
+//! The CLI resolves config before constructing requests. Store and engine libraries receive
+//! explicit values and never reach into the process environment, which makes their behavior
+//! repeatable for a given input.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;

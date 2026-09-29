@@ -1,4 +1,10 @@
-//! Strict embedding response decoding and vector validation.
+//! # Validate embedding responses before persistence
+//!
+//! `EmbeddingResponse` is the accepted shape of one service response. `validate_response` checks
+//! its relation to the submitted input, including vector count and usable numeric contents.
+//!
+//! Only validated vectors should reach `embeddings` or the store. Keeping response checks here
+//! prevents a transport success status from being mistaken for a usable search representation.
 
 use forgesync_core::embedding::EmbeddingVector;
 use serde::Deserialize;

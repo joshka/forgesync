@@ -1,4 +1,10 @@
-//! Embedding command presentation.
+//! # Explain embedding materialization results
+//!
+//! Embedding output summarizes completed documents or chunks and failed batches. It translates a
+//! structured engine report into a short terminal account of derived-data work.
+//!
+//! A failure here does not invalidate archived GitHub observations. The summary should make
+//! partial completion and the next actionable scope visible without exposing service payloads.
 
 use crate::reports::{EmbeddingOutput, refresh_status_name};
 

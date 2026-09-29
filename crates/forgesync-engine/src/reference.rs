@@ -1,7 +1,11 @@
-//! Repository and thread selector parsing.
+//! # Parse user-facing repository and thread selectors
 //!
-//! Parse repository and thread selectors before opening a workflow. Checked selectors keep host,
-//! owner, repository, and thread identity distinct.
+//! `RepositorySelector` and `ThreadSelector` turn command input into scoped domain identities.
+//! Their parsing errors identify malformed or ambiguous references before a workflow starts
+//! provider or archive work.
+//!
+//! Selectors are user-facing requests, not provider DTOs or SQL keys. The CLI parses them once,
+//! then engine workflows resolve them through the appropriate archive or GitHub boundary.
 
 use std::str::FromStr;
 

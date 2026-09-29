@@ -1,3 +1,9 @@
+//! # Status command contract
+//!
+//! These cases check what an operator sees when inspecting an existing archive. Status should
+//! describe schema, work, and coverage without triggering acquisition or migration. The assertions
+//! belong at the process boundary because wording and JSON shape are CLI-owned.
+
 use super::{forgesync, temporary_archive_path};
 
 #[test]

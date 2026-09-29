@@ -1,4 +1,12 @@
-//! Browser screen rendering.
+//! # Draw repository and discussion browsing
+//!
+//! `draw_browser` arranges the current repository, thread list, and selected discussion detail in
+//! terminal space. It uses `App` selections and loaded projections to show where the user is in
+//! the archive.
+//!
+//! The engine constructs the underlying offline view; this module chooses layout, labels, and
+//! focus cues. It should render loading and failure state from the app rather than silently
+//! implying an empty archive.
 
 use super::{
     App, COMPACT_WIDTH, Color, Constraint, Direction, Focus, Frame, Layout, Line, List, ListItem,

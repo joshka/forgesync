@@ -1,4 +1,11 @@
-//! Pull requests sync work.
+//! # Select and run pull-request evidence jobs
+//!
+//! These helpers identify pull-request targets, run their requested evidence work, and accumulate
+//! per-thread outcomes. Family completion is recorded with the appropriate run-job scope.
+//!
+//! Pull requests need review and review-thread handling beyond ordinary issue comments. This
+//! module coordinates that branch while the individual family modules own pagination and the store
+//! enforces completeness.
 
 use super::metadata::sync_thread_pull_request_metadata;
 use super::review_threads::sync_thread_review_threads;

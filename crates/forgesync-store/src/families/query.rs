@@ -1,4 +1,11 @@
-//! Child-family query operations.
+//! # Read child-family collection state
+//!
+//! These `Archive` methods expose the coverage and staged or completed state needed by inspection
+//! and retry workflows. They translate database records into domain-facing results instead of
+//! making the engine reason about staging tables.
+//!
+//! Keep a family's coverage independent from parent-thread coverage: a current parent snapshot
+//! does not prove that comments, reviews, or review threads were collected successfully.
 
 use sqlx::Row;
 

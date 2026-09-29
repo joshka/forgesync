@@ -1,3 +1,11 @@
+//! # Terminal rendering bounds
+//!
+//! These tests render browser and maintainer screens at different terminal sizes and check
+//! scrolling after resize. They protect layout behavior that is difficult to infer from widget
+//! construction alone. Sample app data supplies a visible discussion and cluster state for the
+//! renderer. Add a focused size or state case when changing geometry, clipping, or selection cues
+//! so failures name the affected screen.
+
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
 use forgesync_core::provider_data::ProviderData;

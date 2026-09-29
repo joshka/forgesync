@@ -1,3 +1,9 @@
+//! # Transaction rollback cases
+//!
+//! These cases force failures during observation application and inspect the archive afterward.
+//! They establish which writes are atomic and which prior evidence remains. A future store change
+//! should leave a failed transaction visible as failure, not as partially canonical content.
+
 use super::{
     ChildFamilyObservation, CollectionCompleteness, CommitSha, CoverageState, EvidenceFamily,
     SourceClock, create_archive_with_repository, discussion, item, json, remove_archive, reserve,

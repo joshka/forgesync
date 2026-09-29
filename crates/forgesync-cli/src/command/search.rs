@@ -1,4 +1,10 @@
-//! Search arguments and local retrieval process behavior.
+//! # Search the local archive
+//!
+//! `SearchArgs` selects query text, repository scope, mode, ranking, and output shape. Its run
+//! method creates an engine search request and renders a page of hits with provenance.
+//!
+//! Search remains offline. Keyword and semantic results use stored documents and embeddings; this
+//! command does not fetch GitHub data or call the embedding service behind the user's back.
 
 use std::process::ExitCode;
 

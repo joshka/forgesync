@@ -1,3 +1,9 @@
+//! # Observation transaction integration
+//!
+//! This suite groups parent application, ordering, child-family completion, and rollback cases.
+//! The store decides which acquired evidence becomes canonical and keeps incomplete attempts
+//! visible. Child modules isolate each invariant while sharing the on-disk archive setup.
+
 use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};

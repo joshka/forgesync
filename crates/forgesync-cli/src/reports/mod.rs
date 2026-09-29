@@ -1,4 +1,11 @@
-//! Human-readable command reports and JSON output shapes.
+//! # Human summaries and report adapters
+//!
+//! Report types collect the outcome data command handlers need to present. Child modules format
+//! archive status, thread views, sync and refresh stages, embeddings, clusters, and run history.
+//!
+//! Presentation belongs here rather than in the engine. Commands can select human or JSON output
+//! without changing workflow policy, and readers can find terminal wording without following
+//! network or database operations.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embeddings::EmbeddingReport;

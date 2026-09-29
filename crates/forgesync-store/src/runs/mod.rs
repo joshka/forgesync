@@ -1,7 +1,13 @@
-//! Sync runs, jobs, and family failure records.
+//! # Durable workflow runs, jobs, and failures
 //!
-//! Persist run history and per-job outcomes for resumable workflows. A failed family remains
-//! visible in the run record so retry planning can select only missing work.
+//! A `RunRecord` describes an engine invocation; `SyncJobRecord` describes one unit of sync work
+//! within it. `RunDetail` and `RunFailureRecord` expose what succeeded or failed. Completion and
+//! failure input types carry the fields needed for a terminal update.
+//!
+//! `lifecycle` creates and finishes records, `failures` stores isolated errors, and `query` serves
+//! run history and retry planning. This ledger is separate from source observations: a failed job
+//! can be retried without pretending that its missing evidence was acquired. CLI reports and
+//! engine retry logic use these records to explain partial success.
 
 use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure};

@@ -1,4 +1,12 @@
-//! Lease cluster behavior.
+//! # Bound cluster writes to one archive owner
+//!
+//! Lease helpers acquire or finish the archive coordination required around cluster builds and
+//! decision changes. They ensure success and failure paths both release or record ownership
+//! appropriately.
+//!
+//! The lease spans workflow coordination, while individual store writes use their own
+//! transactions. These helpers keep cleanup near the operation that needs it without hiding the
+//! analysis or decision steps.
 
 use super::{Archive, ArchiveLeaseToken, EngineError, now_utc};
 

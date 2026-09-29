@@ -1,7 +1,16 @@
-//! Credential wrapper with redacted diagnostic output.
+//! Credential value passed from the application boundary to GitHub transport.
 //!
-//! A token is supplied by the application boundary. Its debug representation is redacted to keep
-//! credentials out of routine diagnostics.
+//! [`GitHubToken`] rejects an empty or whitespace-containing value. Its `Debug` implementation
+//! redacts the secret, while [`GitHubToken::expose`] deliberately returns it for an authorization
+//! header. Redacted debug output does not make other formatting or accidental logging safe.
+//!
+//! The CLI resolves credentials from its configured sources and constructs this type. The
+//! transport attaches it only to destinations accepted by its trusted-origin checks. Resource
+//! fetching never reads process environment variables directly.
+//!
+//! Use this module when building a provider client, not when deciding which credential source
+//! wins. Keep token handling separate from repository and host identity in
+//! `forgesync-core::identity`.
 
 use std::fmt;
 

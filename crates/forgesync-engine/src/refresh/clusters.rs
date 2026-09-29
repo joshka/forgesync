@@ -1,4 +1,11 @@
-//! Refresh clusters behavior.
+//! # Add cluster analysis to a refresh
+//!
+//! This stage selects the refreshed repository scope and invokes cluster building after
+//! acquisition. It returns a cluster report or stage failure without rewriting the source
+//! observations already stored.
+//!
+//! The coordinator decides whether the stage is requested and when it runs. Candidate policy
+//! remains in `clustering`; this module adapts that operation to the refresh report's stage model.
 
 use super::status::{keep_first_failure, stage_failure};
 use super::{

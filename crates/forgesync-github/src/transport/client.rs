@@ -1,4 +1,16 @@
-//! Client transport behavior.
+//! Execute bounded provider requests through one trusted [`crate::transport::GitHubClient`].
+//!
+//! Construction checks configuration and creates an HTTP client with automatic redirects disabled.
+//! GET and POST methods validate destinations, acquire concurrency permits, and decode bounded
+//! JSON. `perform_once` handles one attempt; retry policy in the parent module decides whether and
+//! when to repeat it.
+//!
+//! This layer owns request I/O, not provider resource meaning. `resources` and `review_threads`
+//! choose endpoints and deserialize typed DTOs. Responses carry a validated next-page URL when
+//! available; the caller still decides whether the complete resource family has been acquired.
+//!
+//! Keep authorization attached to the configured origin. A redirect or pagination link to another
+//! origin must fail before it can receive the token, even if the link came from GitHub's response.
 
 use tracing::Instrument;
 

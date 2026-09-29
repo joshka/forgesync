@@ -1,4 +1,16 @@
-//! Retry transport behavior.
+//! Classify transient API failures and compute bounded retry delays.
+//!
+//! HTTP status and selected rate-limit response content determine
+//! [`crate::error::ApiFailureKind`]. `Retry-After` supplies a delay hint when valid; otherwise the
+//! configured policy produces bounded backoff. The client also enforces a total request budget and
+//! caller cancellation.
+//!
+//! This module does not replay a workflow job or archive transaction. It only decides whether a
+//! single HTTP request may be attempted again. An engine retry of an incomplete family uses
+//! durable run and coverage state, which is a separate decision.
+//!
+//! Keep provider-specific error text out of logs and public reports. The failure category and safe
+//! short diagnostic are sufficient for callers to decide whether work can continue.
 
 use super::{
     ApiFailureKind, Duration, RETRY_AFTER, RetryPolicy, StatusCode, SystemTime, UNIX_EPOCH,

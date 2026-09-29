@@ -1,3 +1,9 @@
+//! # Process and exit contract
+//!
+//! These cases run the executable as a shell user would and inspect status and streams. They
+//! protect the distinction between a successful report, a partial outcome, and an error.
+//! Lower-level engine reports are tested elsewhere; this file covers their process presentation.
+
 use super::{Archive, forgesync, remove_archive, temporary_archive_path};
 
 #[test]

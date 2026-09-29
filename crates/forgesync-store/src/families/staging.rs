@@ -1,4 +1,12 @@
-//! Child-family staging operations.
+//! # Stage and validate paginated child evidence
+//!
+//! Staging stores fetched pages under a reserved family observation. Page-set helpers load them,
+//! count items, validate expected indexes, and merge members for finalization. Keeping those
+//! checks here lets `finish` work from a coherent set rather than trusting a caller's page count.
+//!
+//! A page is provisional until the whole collection is complete. Repeated or interrupted provider
+//! work must not expose staged rows as canonical child membership. The engine can record progress
+//! while preserving the last complete view.
 
 use sqlx::Row;
 

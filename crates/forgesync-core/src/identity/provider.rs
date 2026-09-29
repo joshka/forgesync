@@ -1,4 +1,15 @@
-//! Provider identities.
+//! Opaque provider IDs and checked commit revisions.
+//!
+//! [`ProviderId`] retains an identifier issued by GitHub without assuming it is numeric or
+//! repository-local. [`CommitSha`] requires a full supported hexadecimal revision so pull-request
+//! head context and review evidence can refer to the same revision unambiguously.
+//!
+//! The provider normalization layer constructs these values from REST or GraphQL responses.
+//! Archive keys and display numbers are separate types in sibling identity modules. Do not derive
+//! ordering from an opaque provider ID or infer a commit from a branch name.
+//!
+//! Use these constructors at the provider boundary; use their string views only for serialization,
+//! transport parameters, or user-facing diagnostics that are safe to display.
 
 use std::fmt;
 

@@ -1,3 +1,9 @@
+//! # Offline CLI query contract
+//!
+//! These cases run thread inspection and search against a local archive. They demonstrate that
+//! read commands can present archived content without provider credentials or network access.
+//! Assertions cover process output and exit status; store and engine suites cover query mechanics.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

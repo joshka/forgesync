@@ -1,4 +1,8 @@
-//! Comments workflow contracts.
+//! # Comment acquisition scenarios
+//!
+//! These cases exercise paginated comment collection through the engine and store. They focus on
+//! completeness, failure scope, and canonical membership after interruption. A partial page set
+//! should remain recorded as an attempt without replacing a prior complete family.
 
 use super::{
     Archive, CancellationToken, CoverageState, EngineError, FailureKind, Mock, MockServer,

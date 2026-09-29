@@ -1,4 +1,10 @@
-//! Clusters screen rendering.
+//! # Draw duplicate clusters and their decisions
+//!
+//! Cluster renderers show a page of suggested groups and the selected group's members, roles, and
+//! local triage state. They consume stored projections already loaded into `App`.
+//!
+//! A proposal and a maintainer decision should look distinguishable. Layout here explains the
+//! current cluster state; key handling and persistence remain in app input and query operations.
 
 use super::{
     App, ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState, Color, Frame,

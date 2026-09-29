@@ -1,4 +1,12 @@
-//! Build cluster behavior.
+//! # Build and inspect a cluster generation
+//!
+//! `build_clusters` gathers eligible archived threads, computes candidates, and commits a
+//! generation through store methods. Its report separates completed work from failures so the
+//! caller can explain the outcome.
+//!
+//! `list_clusters` reads stored results rather than recomputing similarities. Candidate
+//! construction lives below in `candidates`; generation persistence belongs to the store. This
+//! separation makes the analysis choice and the durable write visible at different entry points.
 
 use super::{
     Arc, Archive, ArchiveLeaseToken, CLUSTER_LEASE_DURATION, CLUSTER_PAGE_SIZE,

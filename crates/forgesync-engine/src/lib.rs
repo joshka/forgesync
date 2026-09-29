@@ -1,11 +1,20 @@
 #![forbid(unsafe_code)]
 
-//! Workflows over an already opened local archive.
+//! # Local-first application workflows
 //!
-//! [`sync`] acquires provider resources and applies observations; [`refresh`] coordinates sync and
-//! selected analysis. [`inspect`] and [`search`] answer local reads. [`clustering`] creates and
-//! manages duplicate groups, while [`runs`] plans retry work. Frontends provide the archive,
-//! clients, requests, and cancellation; this crate does not resolve process configuration.
+//! The engine coordinates provider acquisition, archive writes, offline inspection, search,
+//! embeddings, and cluster analysis. It accepts an already opened `Archive`; the caller chooses
+//! whether that handle is writable and supplies cancellation for long-running work. The engine
+//! never owns CLI argument parsing or terminal rendering.
+//!
+//! `sync` and `enumeration` acquire source evidence through the GitHub adapter. `refresh` composes
+//! acquisition with optional derived analysis. `documents`, `embeddings`, and `clustering` build
+//! local search and triage material from archived discussions. `inspect`, `search`, and `runs`
+//! expose offline reads and retry workflows. Provider DTOs are normalized before they reach the
+//! store; SQL row details do not escape the store.
+//!
+//! Workflows return typed reports that preserve partial success. A failed discussion or resource
+//! family should be visible without discarding successful work from the same run.
 
 pub mod clustering;
 pub mod documents;

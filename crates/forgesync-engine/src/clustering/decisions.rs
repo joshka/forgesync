@@ -1,4 +1,12 @@
-//! Decisions cluster behavior.
+//! # Apply local maintainer choices to clusters
+//!
+//! Show, dismiss, restore, exclude, include, and canonical-selection operations resolve a stored
+//! cluster then call focused archive decision methods. These actions change the local triage
+//! interpretation of a generation.
+//!
+//! Decision work is separate from automatic candidate building so a rebuild does not masquerade as
+//! a human judgment. The store records events; this module validates the workflow request and
+//! reports its result to callers.
 
 use super::{
     Archive, CLUSTER_LEASE_DURATION, ClusterDetail, EngineError, ThreadSelector,

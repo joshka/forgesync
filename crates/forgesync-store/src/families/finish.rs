@@ -1,4 +1,12 @@
-//! Child-family finish operations.
+//! # Finalize a staged child-family observation
+//!
+//! Finishing checks the reserved sequence and staged pages, then applies the collection outcome.
+//! Complete membership may become canonical only after page validation; incomplete collection
+//! still records the acquisition result without erasing earlier complete members.
+//!
+//! The engine calls this after pagination ends or fails. The store owns the transaction that makes
+//! the outcome and membership agree, so a subsequent read never has to guess whether a
+//! half-applied page set is authoritative.
 
 use sqlx::Row;
 

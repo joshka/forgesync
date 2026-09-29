@@ -1,4 +1,11 @@
-//! Coverage archive reads.
+//! # Read family completeness for a discussion
+//!
+//! These helpers load coverage records and map them into summaries by evidence family. The result
+//! lets a thread detail report what has been collected and what remains incomplete.
+//!
+//! Coverage is not inferred from child counts. Zero comments in a complete collection and zero
+//! stored comments after a failed collection mean different things; the explicit coverage row
+//! preserves that distinction for CLI and TUI readers.
 
 use sqlx::Row;
 

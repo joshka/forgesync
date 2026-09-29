@@ -1,4 +1,10 @@
-//! Runs command presentation.
+//! # Explain durable workflow attempts
+//!
+//! Run summaries present history, per-job detail, failure status, and retry outcomes. Status-name
+//! helpers keep terminal labels aligned across list and detail views.
+//!
+//! A run is an attempt, while coverage describes acquired evidence. These reports should make the
+//! difference clear when a job partially succeeded or a later retry completed the missing work.
 
 use forgesync_engine::runs::RetryReport;
 use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};

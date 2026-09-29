@@ -1,8 +1,13 @@
-//! Canonical source and acquisition ordering.
+//! # Decide which observation becomes canonical
 //!
-//! These comparators implement the archive replacement policy. Source clocks, acquisition
-//! sequences, and revision context remain distinct so callers do not accidentally fall back to
-//! last-write-wins.
+//! The comparison functions order observations using source revision information and local
+//! acquisition sequence. They are shared by parent-thread and child-family application, so
+//! concurrent or delayed fetches use the same policy.
+//!
+//! Source time is not simply a last-write-wins wall clock: missing or equal source revisions need
+//! a deterministic local tie break, while stale provider data should not replace newer canonical
+//! evidence. Keep this rule centralized because a subtle change here affects every refresh and
+//! retry path.
 
 use std::cmp::Ordering;
 

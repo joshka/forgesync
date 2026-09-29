@@ -1,4 +1,11 @@
-//! Run query operations.
+//! # Inspect run history and retryable failures
+//!
+//! These `Archive` reads assemble recent runs, job detail, and failures for CLI reporting and
+//! engine retry planning. They expose typed projections from the ledger instead of making callers
+//! join workflow tables.
+//!
+//! A retry should be based on recorded failure scope and the current archive state. Querying is
+//! side-effect-free; starting a new run belongs to `lifecycle` and the engine coordinator.
 
 use sqlx::Row;
 

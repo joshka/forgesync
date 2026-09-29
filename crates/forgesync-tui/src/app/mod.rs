@@ -1,3 +1,13 @@
+//! # State machine for interactive browsing
+//!
+//! `App` is the single source of current screen, focus, selection, loaded data, and pending query
+//! messages. `Screen` and `Focus` make navigation modes explicit; `QueryMessage` carries
+//! asynchronous results back to the state machine.
+//!
+//! `input` maps keys to actions, and `state` applies data or transitions. Drawing code reads the
+//! current app state through `view` but should not initiate archive operations. This split keeps a
+//! user action traceable from key event to query request, result, and rendered screen.
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
 use forgesync_core::identity::RunId;

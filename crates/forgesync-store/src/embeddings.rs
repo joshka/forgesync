@@ -1,7 +1,14 @@
-//! Embedding chunks, search inputs, and write operations.
+//! # Persist embedding chunks and select compatible work
 //!
-//! Store document chunks with their embedding model identity and query them for local similarity
-//! search. Model and recipe metadata prevent vectors from incompatible spaces being compared.
+//! `EmbeddingWrite` and `EmbeddingChunkInput` carry vectors generated for a document.
+//! `StoredEmbeddingChunk` is the local read form. `EmbeddingDocumentQuery`,
+//! `EmbeddingSearchDocument`, and `EmbeddingDocumentPage` select documents that need or can use
+//! embeddings.
+//!
+//! Embedding data is derived from a document, model identity, and dimensions. Reads must keep
+//! incompatible vectors out of a search, while writes must associate chunks with the correct
+//! document version. The engine owns service calls and batching; this module owns their durable
+//! local result.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;

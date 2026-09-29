@@ -1,4 +1,10 @@
-//! Interpret keys as navigation and maintainer actions.
+//! # Route key events to the active screen
+//!
+//! The input dispatcher reads the current `App` screen and focus, then sends a key to the relevant
+//! browser or triage handler. Shared navigation and exit behavior stays at this level.
+//!
+//! `browser` owns thread navigation; `triage` owns cluster and decision interactions. A handler
+//! may request asynchronous work through app/query state, but drawing remains in `view`.
 
 use super::{App, Focus, KeyCode, KeyEvent, KeyModifiers, QueryAction, RepositorySelector, Screen};
 

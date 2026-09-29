@@ -1,7 +1,12 @@
-//! Typed archive operation failures.
+//! # Store failures at the SQLite boundary
 //!
-//! Match [`StoreError`] variants when recovery depends on the cause, such as an explicit migration
-//! or read-only handle. Do not use error text as a stable machine interface.
+//! `StoreError` is the typed failure surface for opening archives, validating inputs, applying
+//! observations, and reading projections. It keeps database-specific causes in the store while
+//! giving the engine enough structure to report or retry failures.
+//!
+//! Conversion helpers here classify failures before they cross into workflow code. Callers should
+//! propagate these errors rather than flattening them into a success-shaped empty result,
+//! especially when a transaction or staged collection did not finish.
 
 use std::path::PathBuf;
 

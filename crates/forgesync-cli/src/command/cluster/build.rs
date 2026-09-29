@@ -1,4 +1,12 @@
-//! Build a deterministic cluster generation from stored evidence.
+//! # Run cluster generation from CLI options
+//!
+//! This module converts build arguments into an engine `ClusterBuildRequest`, opens the archive
+//! for the required write, and renders the build report. Candidate scoring and grouping remain in
+//! the engine.
+//!
+//! Keeping this flow separate from read and decision commands makes its derived-data side effects
+//! visible. A failed build should be reported from its structured outcome rather than treated as
+//! an empty cluster list.
 
 use std::path::Path;
 use std::process::ExitCode;

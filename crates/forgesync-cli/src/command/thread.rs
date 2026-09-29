@@ -1,4 +1,12 @@
-//! Local thread inspection commands and their process behavior.
+//! # Inspect archived discussions
+//!
+//! `ThreadCommand` groups list and show operations over existing local content. Filter conversion
+//! maps CLI choices into engine inspection types; the engine and store own the actual read
+//! projection.
+//!
+//! These commands do not acquire content. A detail view includes canonical discussion data and
+//! family coverage so readers can see both what is known and which child evidence remains
+//! incomplete.
 
 use std::path::Path;
 use std::process::ExitCode;

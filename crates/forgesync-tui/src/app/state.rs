@@ -1,4 +1,12 @@
-//! Apply query and operation results to terminal state.
+//! # Apply query results and maintain selection
+//!
+//! State methods receive `QueryMessage` values, update loaded pages or detail, and keep selection
+//! valid as data changes. This is the point where asynchronous archive results become visible app
+//! state.
+//!
+//! Input asks for work and `query` performs it; `view` only reads the resulting state.
+//! Centralizing the application step prevents stale results or failed operations from being
+//! silently treated as a successful empty page.
 
 use super::{App, QueryAction, QueryMessage};
 

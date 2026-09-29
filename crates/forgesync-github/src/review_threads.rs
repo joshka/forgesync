@@ -1,7 +1,18 @@
-//! GraphQL review-thread acquisition and nested pagination.
+//! GraphQL review-thread acquisition with nested comment pagination.
 //!
-//! Review threads require GraphQL and nested pagination. The cursor and page result let the caller
-//! resume collection without treating an incomplete page set as complete review evidence.
+//! [`fetch_review_thread_page`] fetches one outer review-thread page. A thread on that page can
+//! itself have additional comment pages; this module finishes those nested connections before
+//! returning a normalized [`GraphqlReviewThreadPage`]. [`GraphqlCursor`] holds the outer
+//! continuation position.
+//!
+//! The caller supplies the repository, pull request, and current head SHA. The scope check
+//! prevents a thread from being attached to another repository. Cursor validation rejects a
+//! provider claim of more pages without a usable next cursor, and repeated nested cursors are
+//! treated as invalid pagination rather than an infinite loop.
+//!
+//! The engine records review threads as a head-bound evidence family. Returning one complete outer
+//! page does not mean the family is complete until every outer page has been acquired and applied.
+//! Transport owns the HTTP request; `normalize` owns GraphQL-to-domain conversion.
 
 use std::collections::{BTreeMap, HashSet};
 

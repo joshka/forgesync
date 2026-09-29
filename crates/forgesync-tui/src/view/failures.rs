@@ -1,4 +1,11 @@
-//! Failures screen rendering.
+//! # Draw recorded acquisition failures
+//!
+//! `draw_failures` presents run and family failures associated with archive work. It uses the
+//! app's loaded failure projection so a reader can connect incomplete coverage to the failed unit
+//! of work.
+//!
+//! Rendering is read-only. Retry and refresh are workflow operations outside this view; the
+//! screen's job is to make recorded failure scope clear.
 
 use super::{
     App, COMPACT_WIDTH, Color, Constraint, Direction, Frame, Layout, Line, List, ListItem,

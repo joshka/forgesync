@@ -1,3 +1,10 @@
+//! # Sync command contract
+//!
+//! These cases invoke selected acquisition options and inspect the resulting process report.
+//! Independent failures should remain visible alongside completed jobs. Provider and store suites
+//! own pagination and transaction details; this suite protects user-facing selection and outcome
+//! behavior.
+
 use super::{
     Archive, Duration, SystemTime, UNIX_EPOCH, UtcTimestamp, forgesync, remove_archive,
     temporary_archive_path,

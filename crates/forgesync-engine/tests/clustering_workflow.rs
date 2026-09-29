@@ -1,3 +1,10 @@
+//! # Cluster workflow integration
+//!
+//! These cases build and inspect cluster generations against a real local archive. They cover the
+//! path from candidate analysis through durable membership and local decisions. Pure candidate
+//! rules live beside `clustering/candidates`; this suite checks the boundaries between engine and
+//! store.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;

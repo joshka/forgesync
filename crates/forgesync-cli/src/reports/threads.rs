@@ -1,4 +1,11 @@
-//! Threads command presentation.
+//! # Render local discussion views
+//!
+//! Thread report functions select human or JSON presentation for list pages, search hits, and
+//! detail. They consume engine and store projections so the formatting path stays free of provider
+//! calls and SQL.
+//!
+//! Detail output includes source content and evidence coverage. Search output includes result
+//! provenance, helping users understand whether a hit came from text, vectors, or both.
 
 use std::process::ExitCode;
 

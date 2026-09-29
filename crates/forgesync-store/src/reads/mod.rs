@@ -1,7 +1,13 @@
-//! Offline discussion queries and detail records.
+//! # Offline thread projections
 //!
-//! Local read models for discussion lists and detail views. Query types describe filters and
-//! pagination; returned summaries are archive projections rather than provider DTOs.
+//! `ThreadQuery` selects scope, state, sort, and pagination; `ThreadPage` and `ThreadSummary`
+//! return list results. `ThreadDetail` and timeline types assemble the discussion and its
+//! observations for show operations. Coverage summaries explain which resource families are
+//! complete or partial.
+//!
+//! `query` owns filtered list SQL, `detail` assembles a thread, and `coverage` reads evidence
+//! state. These are projections over the archive, not provider fetches. Engine inspection and
+//! search can use them without opening a network client or understanding SQL row layouts.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;

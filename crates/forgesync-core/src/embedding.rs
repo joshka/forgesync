@@ -1,7 +1,21 @@
-//! Checked embedding vectors used by semantic search.
+//! Validated vectors at the boundary of semantic retrieval.
 //!
-//! Use [`EmbeddingVector::new`] at the boundary of an embedding service or archive read. It rejects
-//! unusable coordinates before similarity calculations consume them.
+//! [`EmbeddingVector`] owns finite, nonempty, nonzero-norm `f32` components. Construct it with
+//! [`EmbeddingVector::new`] after receiving service output, optionally checking the model's
+//! expected dimension. The little-endian methods encode the archive representation and validate it
+//! again on read. [`EmbeddingVectorError`] distinguishes malformed dimensions, numeric values, and
+//! bytes.
+//!
+//! The vector does not carry a model name or document recipe. The engine and store pair it with
+//! that metadata before exact similarity comparison, so vectors from incompatible spaces are not
+//! mixed. Validation here keeps later search math from silently ranking NaN or empty inputs.
+//!
+//! ```
+//! use forgesync_core::embedding::EmbeddingVector;
+//! let vector = EmbeddingVector::new(vec![0.5, -0.25], Some(2))?;
+//! assert_eq!(vector.dimensions(), 2);
+//! # Ok::<(), forgesync_core::embedding::EmbeddingVectorError>(())
+//! ```
 
 use thiserror::Error;
 

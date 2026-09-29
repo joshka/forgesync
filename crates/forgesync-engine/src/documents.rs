@@ -1,7 +1,12 @@
-//! Discussion document construction and materialization.
+//! # Build the text used by local search
 //!
-//! Construct and materialize versioned discussion text for retrieval. The recipe is part of the
-//! identity of derived content, so changing a recipe does not silently reuse old embeddings.
+//! `build_document` turns an offline `ThreadDetail` into a recipe-defined text document.
+//! Materialization helpers read a thread and save the resulting document in the archive;
+//! `DocumentBuildReport` describes the work done.
+//!
+//! A document is derived from acquired evidence. It can be rebuilt when the source changes or the
+//! recipe changes, without refetching GitHub. Keeping text assembly here makes search input
+//! reviewable independently of vector service calls and SQL persistence.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

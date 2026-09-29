@@ -1,4 +1,11 @@
-//! Jobs sync work.
+//! # Coordinate independent thread sync jobs
+//!
+//! `run_jobs` schedules selected thread work and aggregates its outcomes into a structured report.
+//! It keeps cancellation and failure isolation at the job boundary so one provider or store error
+//! does not erase successful threads.
+//!
+//! The family modules perform individual acquisitions. This coordinator decides which work runs
+//! and how progress is reported; the store's run ledger records durable job status.
 
 use super::comments::run_comment_job;
 use super::pull_requests::run_pull_request_jobs;

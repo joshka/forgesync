@@ -1,4 +1,11 @@
-//! Observation repository operations.
+//! # Resolve repository identity for observations
+//!
+//! A normalized thread belongs to a repository and provider host. These `Archive` helpers find or
+//! create the local repository row needed before a thread observation can be applied.
+//!
+//! The identity conversion is kept next to the write boundary so engine code deals in domain
+//! repository identifiers rather than SQL row IDs. Repository scope is also used by enumeration,
+//! search, and reporting, so incorrect resolution would affect more than a single thread write.
 
 use super::{
     Archive, ArchiveLeaseToken, Repository, StoreError, UtcTimestamp, require_active_archive_lease,

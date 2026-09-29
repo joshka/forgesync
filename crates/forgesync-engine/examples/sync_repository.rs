@@ -1,3 +1,55 @@
+//! # Assemble a GitHub acquisition workflow outside the CLI
+//!
+//! This example shows what a caller must supply to run the engine's repository sync directly. It
+//! wires an existing writable archive, a repository selector, a host-specific GitHub client, a sync
+//! request, and a cancellation token into `sync_repositories`. Its purpose is to make the
+//! application boundary concrete for another executable or integration that wants engine behavior
+//! with its own startup and presentation policy.
+//!
+//! ## What this demonstrates
+//!
+//! The caller reads `GITHUB_TOKEN` and creates the authenticated client. The engine receives that
+//! client in a map keyed by `GitHubHost`, so provider selection is explicit rather than discovered
+//! from the process environment. This example accepts GitHub.com repositories only and fixes the
+//! API base URL to `https://api.github.com/`; enterprise endpoint and credential resolution belong to a more
+//! complete caller such as the CLI.
+//!
+//! `Archive::open_read_write` requires an existing archive. `SyncRequest` selects one repository
+//! with the default thread scope: open threads and the durable closed-thread sweep. Comments,
+//! reviews, and review threads are requested as independent evidence families, with
+//! pull-request-specific work applied where relevant. `parent_run: None` starts this as a top-level
+//! attempt rather than a child of another workflow. The engine owns acquisition, failure isolation,
+//! and durable run reporting; the store owns observation ordering and the completeness rules for
+//! committing child membership.
+//!
+//! The token makes cancellation an explicit input. This minimal program never cancels it or
+//! installs a signal handler, and passing `None` for progress means it waits for the terminal
+//! report. A richer caller can cancel during shutdown and consume progress while the same workflow
+//! runs.
+//!
+//! ## Run it
+//!
+//! Create the archive explicitly first, then supply a token through your shell's credential setup
+//! and run the example. The token must have access to the selected repository:
+//!
+//! ```sh
+//! cargo run -p forgesync-cli -- --archive ./archive.sqlite archive init
+//! cargo run -p forgesync-engine --example sync_repository -- ./archive.sqlite ratatui/ratatui
+//! ```
+//!
+//! The example reads `GITHUB_TOKEN` from the environment; it does not load the CLI config or invoke
+//! a credential helper. It performs GitHub reads and local archive writes, including a durable run
+//! and acquired observations. It does not generate embeddings or cluster analysis.
+//!
+//! ## Interpret the result
+//!
+//! The printed line includes the run ID, structured outcome, and counts of observed threads,
+//! comments, and pages. It is a compact demonstration, not a complete failure report: inspect the
+//! `SyncReport` and run detail when building a caller that needs per-job diagnostics. A returned
+//! report can describe partial success, so the absence of a propagated error alone does not
+//! establish complete coverage. Compare `offline_search` for a read-only consumer of the evidence
+//! this workflow stores.
+
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -12,6 +64,7 @@ use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
+/// Acquires one repository's selected evidence and prints its terminal run summary.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut arguments = env::args_os().skip(1);

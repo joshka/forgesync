@@ -1,3 +1,10 @@
+//! # Archive command contract
+//!
+//! These cases exercise explicit archive creation and maintenance through the executable. They
+//! check observable output and state so a command refactor cannot silently create, migrate, or
+//! repair on a read path. The store unit and integration suites cover lower-level database
+//! invariants.
+
 use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]

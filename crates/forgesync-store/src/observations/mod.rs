@@ -1,8 +1,15 @@
-//! Parent thread observations and their application results.
+//! # Ordered source observations and coverage
 //!
-//! Apply normalized thread observations according to source and acquisition order. Results report
-//! whether incoming evidence became canonical, was retained only as history, or was rejected as
-//! ambiguous.
+//! A thread observation is evidence acquired at a particular local sequence with a source clock.
+//! `ObservationDisposition` tells callers whether it became canonical; `ThreadObservationResult`
+//! reports the application. `FamilyReservation`, `FamilyObservationResult`, and `StagedItem`
+//! support child-family acquisition without conflating it with the parent snapshot.
+//!
+//! `sequence` allocates durable local order, `apply` commits a parent snapshot, `repository`
+//! resolves its scope, and `coverage` records what was actually obtained. Source update time and
+//! acquisition order have different jobs: an older provider revision should not displace newer
+//! canonical content merely because it arrived later. The engine decides when to fetch; the store
+//! enforces these ordering and completeness rules.
 
 use std::cmp::Ordering;
 

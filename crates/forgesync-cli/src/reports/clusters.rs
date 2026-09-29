@@ -1,4 +1,11 @@
-//! Clusters command presentation.
+//! # Explain cluster generations and triage
+//!
+//! These summaries present build counts, list pages, cluster detail, and recorded maintainer
+//! decisions. Their input types come from the engine and store projections, not raw SQL.
+//!
+//! A generated suggestion and a local decision have different meanings. Terminal wording should
+//! preserve that distinction so a reader knows whether they are seeing analysis output or an
+//! explicit choice.
 
 use forgesync_engine::clustering::ClusterBuildReport;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage};

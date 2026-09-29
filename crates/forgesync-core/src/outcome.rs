@@ -1,8 +1,15 @@
-//! Structured outcomes for complete, partial, deferred, interrupted, and failed work.
+//! Structured terminal status for local and provider-backed workflows.
 //!
-//! Operation outcomes retain the difference between completed work, partial work, deferral,
-//! interruption, and failure. Frontends can render or serialize that distinction without inspecting
-//! error text.
+//! [`OperationOutcome`] distinguishes complete, partial, deferred, interrupted, and failed work. A
+//! workflow can commit useful pages and still report a partial result; reducing that state to an
+//! `Err` or a success boolean would lose the retry and presentation information.
+//!
+//! Engine reports carry this value with counts and per-family failures. CLI and TUI map it to
+//! human text, JSON, and process status without parsing diagnostic strings. Store run records
+//! preserve the same distinction for later inspection and retry planning.
+//!
+//! Use this enum to describe the outcome of an operation as a whole. Use [`crate::coverage`] for
+//! the state of each evidence family, and typed errors for a call that cannot return a report.
 
 use serde::{Deserialize, Serialize};
 

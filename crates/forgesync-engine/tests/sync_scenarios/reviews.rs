@@ -1,4 +1,8 @@
-//! Reviews workflow contracts.
+//! # Pull-request review scenarios
+//!
+//! These cases cover reviews and review threads as separately acquired families. Pagination, head
+//! context, and completeness decide whether new membership can become canonical. Parent
+//! pull-request metadata alone must not imply that either review family is complete.
 
 use super::{
     Archive, CoverageState, EvidenceFamily, Mock, MockServer, OperationOutcome, RepositorySelector,

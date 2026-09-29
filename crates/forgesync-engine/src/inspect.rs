@@ -1,7 +1,11 @@
-//! Offline archive inspection requests.
+//! # Offline archive inspection requests
 //!
-//! Read archive status, discussion lists, and details without provider access. Requests make
-//! filtering and pagination explicit so CLI and TUI share one read workflow.
+//! Inspection types select thread state, sorting, and repository scope. The functions read archive
+//! status, repository lists, thread pages, and thread detail through store projections.
+//!
+//! These operations stay local and read-only. The CLI and TUI can share them without sharing
+//! argument parsing or terminal code; an inspect call does not initialize or refresh the archive.
+//! Filters here express user intent while the store owns SQL implementation.
 
 use std::num::NonZeroU32;
 

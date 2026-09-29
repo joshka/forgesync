@@ -1,3 +1,9 @@
+//! # Child-family transaction cases
+//!
+//! These cases reserve, stage, and finish independently paginated evidence. They protect the rule
+//! that incomplete collection cannot replace prior complete membership. Coverage records the
+//! attempt even when its staged pages are not canonical.
+
 use super::{
     ChildFamilyObservation, CollectionCompleteness, CommitSha, CoverageState, EvidenceFamily,
     IncompleteReason, ObservationDisposition, SourceClock, create_archive_with_repository,

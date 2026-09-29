@@ -1,3 +1,13 @@
+//! # Manage asynchronous archive requests
+//!
+//! `QueryAction` identifies a requested read or local operation. `QueryTasks` owns in-flight tasks
+//! and their lifecycle, including cancellation on drop. `start_query` dispatches work and sends a
+//! typed result back to the app.
+//!
+//! `reads` contains local inspection calls and `operations` contains actions that change local
+//! archive state. The event loop stays responsive while a query runs, and the app remains the
+//! owner of how results affect navigation.
+
 use std::sync::Arc;
 
 mod operations;

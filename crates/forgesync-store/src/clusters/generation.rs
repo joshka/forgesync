@@ -1,4 +1,13 @@
-//! Generation for durable clusters.
+//! # Store one derived cluster generation
+//!
+//! Generation methods translate engine candidates into durable cluster and member rows. They
+//! resolve archived thread identities before inserting relationships, so a cluster points at known
+//! discussions rather than inventing source content.
+//!
+//! The generation is derived from a particular archive state and analysis policy. This module owns
+//! the database write boundary; candidate scoring and grouping live in the engine. Triage
+//! decisions remain a separate concern in `decisions` and must be interpreted when later
+//! generations are queried.
 
 use std::fmt::Write as _;
 

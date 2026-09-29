@@ -1,3 +1,9 @@
+//! # Cluster persistence integration
+//!
+//! These cases store generations, memberships, and maintainer decisions, then inspect their
+//! projections. They separate derived cluster proposals from local human actions. Engine tests own
+//! candidate scoring; this suite protects durable representation and query behavior.
+
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

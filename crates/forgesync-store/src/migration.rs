@@ -1,7 +1,12 @@
-//! Ordered schema migration reports.
+//! # Ordered schema changes and migration reporting
 //!
-//! Migrations are ordered and immutable. Inspect pending changes separately from applying them so
-//! callers can present an explicit archive upgrade.
+//! `AppliedMigration` and `MigrationReport` describe version changes made by an explicit migration
+//! operation. Migration files are ordered, immutable history of the on-disk schema; this module
+//! checks and applies them.
+//!
+//! Opening an archive does not migrate it. Keeping the migration path separate lets status and
+//! doctor identify an old schema without unexpectedly changing it, and lets the CLI report exactly
+//! what an authorized migration did.
 
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};

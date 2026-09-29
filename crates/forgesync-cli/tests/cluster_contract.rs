@@ -1,3 +1,10 @@
+//! # Cluster CLI contract
+//!
+//! These cases exercise generated cluster listing and local maintainer actions through the
+//! executable. The distinction between machine proposals and recorded choices is part of the
+//! command contract. Engine candidate tests and store decision tests cover the underlying analysis
+//! and persistence.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

@@ -1,3 +1,13 @@
+//! # Durable positions for resumable acquisition
+//!
+//! Checkpoint methods on `Archive` retain the position reached by provider enumeration. The engine
+//! reads these positions before resuming work and advances them only after the related archive
+//! updates have succeeded. This keeps a failed refresh from being mistaken for completed coverage.
+//!
+//! These methods store progress, not the discussion content itself. Thread observations and
+//! child-family staging live in their own modules; a checkpoint tells the next run where to begin
+//! looking again.
+
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;

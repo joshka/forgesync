@@ -1,4 +1,11 @@
-//! Refresh status behavior.
+//! # Convert stage errors into stable report status
+//!
+//! Status helpers classify an `EngineError`, preserve the first failure, and determine which
+//! stages remain. Keeping these rules in one place avoids subtly different partial-success
+//! behavior in sync, embedding, and cluster branches.
+//!
+//! A stage status is an account of attempted work. It should not imply that unrequested stages
+//! ran, or that a successful earlier stage is undone by a later failure.
 
 use super::{
     EngineError, OperationOutcome, RefreshReport, RefreshStageFailure, RefreshStageKind,

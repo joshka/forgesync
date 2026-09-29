@@ -1,3 +1,9 @@
+//! # Configuration command contract
+//!
+//! These cases show how CLI options, local settings, and environment inputs select a workflow.
+//! They inspect process behavior at the boundary where library requests are constructed. Keep
+//! expectations here when a setting changes user-visible precedence or diagnostics.
+
 use super::{
     Archive, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, forgesync,
     remove_archive, temporary_archive_path,

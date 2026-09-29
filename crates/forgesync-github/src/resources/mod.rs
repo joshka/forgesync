@@ -1,7 +1,18 @@
-//! REST acquisition and normalization for repositories, threads, comments, and reviews.
+//! REST resource families and their page-oriented acquisition results.
 //!
-//! Fetch REST discussion and child-resource pages as typed provider data. Pagination remains
-//! explicit so the engine can preserve partial collection and checkpoint semantics.
+//! The public fetch functions in `fetch` request repositories, issue and pull-request discussions,
+//! comments, pull-request metadata, and reviews. `normalize` converts provider DTOs into checked
+//! `forgesync-core::content` values. [`RestThreadPage`], [`RestCommentPage`], and
+//! [`RestReviewPage`] return one page plus continuation context; [`ThreadListState`] selects the
+//! enumeration scope.
+//!
+//! The engine calls these functions while recording durable cursors and per-family outcomes. A
+//! page can be valid even when a later page fails. Do not turn a page result into complete
+//! collection membership until the engine and store have verified the whole selected page set.
+//!
+//! Provider response structs remain local to this module. Archive rows, CLI JSON shapes, and
+//! domain observations belong to other crates. The REST functions do not write to SQLite or choose
+//! a credential.
 
 use std::collections::BTreeMap;
 

@@ -1,3 +1,11 @@
+//! # Review-thread collection shape
+//!
+//! These tests cover nested review comments, thread resolution state, and complete pagination
+//! results. Review threads have a separate family boundary from reviews and parent pull-request
+//! metadata. A normalization change should preserve comment membership and completeness so the
+//! store does not commit a misleading canonical family. The fixture makes provider nesting
+//! explicit without asking readers to infer it from DTO declarations.
+
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadNumber};
 use forgesync_core::provider_data::ProviderData;

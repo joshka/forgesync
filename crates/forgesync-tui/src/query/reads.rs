@@ -1,4 +1,12 @@
-//! Local archive reads and their response messages.
+//! # Load browser and triage projections
+//!
+//! Read starters fetch repositories, thread pages, detail, coverage, failures, clusters, and
+//! cluster detail through engine/store APIs. `ThreadRead` keeps a thread selection attached to its
+//! result.
+//!
+//! These calls are local archive reads. They return messages for `App` to apply rather than
+//! drawing or mutating navigation directly, which keeps query completion order visible to the
+//! state machine.
 
 use super::{
     App, Arc, Archive, ClusterListRequest, Handle, QueryMessage, QueryTasks, RepositorySelector,

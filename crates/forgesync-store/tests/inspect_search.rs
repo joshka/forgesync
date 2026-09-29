@@ -1,3 +1,9 @@
+//! # Store read and search integration
+//!
+//! This suite groups local projections over an archive: detail, filtered lists, full-text search,
+//! and migration-sensitive reads. Its child modules isolate SQL-facing behavior so a failure
+//! points to the affected read path. Engine and CLI suites cover request policy and presentation.
+
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

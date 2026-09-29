@@ -1,4 +1,11 @@
-//! Coverage screen rendering.
+//! # Draw acquired evidence coverage
+//!
+//! `draw_coverage` presents which discussion resource families are complete, partial, or missing
+//! for the selected thread. It uses explicit stored coverage instead of inferring completeness
+//! from visible child counts.
+//!
+//! This screen helps a reader decide whether missing content is genuinely absent or simply not yet
+//! acquired. Data loading lives in `query/reads`, and selection lives in `App`.
 
 use super::{
     App, ArchiveStatus, Frame, Line, Modifier, Paragraph, Rect, Style, Text, Wrap, family_name,

@@ -1,7 +1,14 @@
-//! Coordinated sync and analysis stages.
+//! # Coordinate sync and optional local analysis
 //!
-//! Coordinate a selected sync followed by requested local analysis stages. Each stage records its
-//! own outcome, allowing a frontend to explain partial completion and continue independent work.
+//! `RefreshRequest` combines repository scope, sync options, and selected analysis stages.
+//! `RefreshStage`, status, kind, and failure types describe each stage separately, so a caller can
+//! see which work completed, failed, or remained unstarted.
+//!
+//! `coordinator` runs the workflow, `embeddings` selects embedding scope and aggregates reports,
+//! `clusters` invokes cluster generation, and `status` keeps stage-outcome rules together.
+//! Acquisition and derived work are distinct: successful sync evidence survives a later analysis
+//! failure. The CLI presents this structured report rather than inferring an overall result from a
+//! single boolean.
 
 use std::collections::HashSet;
 

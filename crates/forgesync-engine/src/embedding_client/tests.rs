@@ -1,3 +1,11 @@
+//! # Embedding protocol and validation
+//!
+//! These tests cover ordered vector responses, malformed indexes or values, and a credential-
+//! bearing redirect. They use a local server or response fixture to show the adapter behavior at
+//! the HTTP boundary. A successful status is not enough: the response must match the requested
+//! inputs before the engine stores vectors. Preserve the redirect case when changing client
+//! configuration because authentication must not be forwarded to a different destination.
+
 use std::time::Duration;
 
 use reqwest::Url;

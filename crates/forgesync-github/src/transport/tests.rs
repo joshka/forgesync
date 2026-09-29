@@ -1,3 +1,11 @@
+//! # HTTP retry and credential behavior
+//!
+//! These tests use a local mock server to establish which failures are retryable, which are
+//! terminal, and when a provider wait exceeds the available budget. They also observe bearer-token
+//! handling on requests. Retry policy belongs at transport rather than in sync jobs because all
+//! GitHub resources share it. Keep status and timing expectations explicit when changing backoff
+//! or rate-limit behavior.
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

@@ -1,7 +1,12 @@
-//! Archive integrity and health checks.
+//! # Health checks and repair guidance
 //!
-//! Health checks inspect archive metadata and integrity locally. The report is suitable for a
-//! doctor command; it does not repair or refresh provider data.
+//! `HealthCheck` describes an individual condition and `DoctorReport` collects the archive's
+//! findings. `Archive` methods inspect schema, persisted work, and other local state that might
+//! need attention.
+//!
+//! The doctor path reports problems rather than silently repairing them. Commands can present the
+//! recommended next action while creation, migration, retry, and refresh remain explicit
+//! operations with their own side effects.
 
 use serde::Serialize;
 use sqlx::SqliteConnection;

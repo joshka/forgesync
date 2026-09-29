@@ -1,3 +1,10 @@
+//! # Focused sync scenarios
+//!
+//! This test module divides the engine sync workflow by evidence family and follow-on stage.
+//! Enumeration, comments, reviews, documents, embeddings, refresh, and retry each have their own
+//! fixture path. Read the relevant child before changing a workflow; the top-level sync suite
+//! covers the full orchestration.
+
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::path::PathBuf;

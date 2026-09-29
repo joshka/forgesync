@@ -1,4 +1,11 @@
-//! Durable run commands and their process behavior.
+//! # Inspect run history and failed jobs
+//!
+//! `RunCommand` owns list and show requests for the durable workflow ledger. Its run method opens
+//! an existing archive, asks the engine for run projections, and chooses human or JSON output.
+//!
+//! Run records explain attempts and partial failures; discussion coverage explains acquired source
+//! evidence. Keeping both concepts visible helps users decide whether to inspect, retry, or
+//! refresh.
 
 use std::path::Path;
 use std::process::ExitCode;

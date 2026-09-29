@@ -1,7 +1,17 @@
-//! Typed provider and transport failures.
+//! Typed failures at the provider and transport boundary.
 //!
-//! Provider failures are classified for retry and user diagnostics. Callers should branch on
-//! [`ApiFailureKind`] rather than parse an HTTP or GraphQL message.
+//! [`GitHubError`] distinguishes configuration, origin, transport, HTTP, pagination, GraphQL, and
+//! provider-data failures. [`ApiFailureKind`] classifies an API response for retry and reporting
+//! without requiring callers to inspect response text.
+//!
+//! The transport creates errors from requests and responses; resource modules add context when a
+//! provider payload lacks required fields or violates a relationship. The engine turns these
+//! errors into structured family failures and partial run reports. A failure after earlier pages
+//! have been committed does not imply that the whole run had no useful result.
+//!
+//! Error values deliberately avoid storing credentials, headers, discussion bodies, or raw
+//! payloads. Match variants or categories when making a retry decision; displayed messages are
+//! diagnostics, not a stable machine protocol.
 
 use std::time::Duration;
 

@@ -1,4 +1,11 @@
-//! Archive lifecycle commands and their process behavior.
+//! # Create, inspect, migrate, and diagnose archives
+//!
+//! `ArchiveCommand` groups operations whose primary subject is the local database. Its run method
+//! selects the explicit archive lifecycle action and renders the resulting status or diagnostic
+//! report.
+//!
+//! Create, open, and migrate have different side effects. This command is where a user explicitly
+//! asks for them; ordinary read commands must not silently create or change an archive.
 
 use std::path::Path;
 use std::process::ExitCode;

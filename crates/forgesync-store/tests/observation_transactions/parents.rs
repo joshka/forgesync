@@ -1,3 +1,9 @@
+//! # Parent observation cases
+//!
+//! These cases apply normalized discussion snapshots and inspect the resulting canonical thread
+//! state. They protect identity mapping and transactional application. Child resources are
+//! independent families; a parent write should not silently claim their coverage.
+
 use super::{
     CollectionCompleteness, CoverageState, EvidenceFamily, ObservationDisposition, Ordering,
     SourceClock, StoreError, compare_revision_observation_order, create_archive_with_repository,

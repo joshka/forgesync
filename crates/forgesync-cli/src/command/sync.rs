@@ -1,4 +1,12 @@
-//! Sync arguments and provider acquisition process behavior.
+//! # Acquire selected GitHub evidence
+//!
+//! `SyncArgs` carries repository and discussion scope, included families, and process options. Its
+//! run method resolves credentials and clients, opens a writable archive, then calls the engine
+//! with an explicit sync request.
+//!
+//! The report preserves per-thread and per-family failures. A partial run may still contain useful
+//! committed observations, and output should show that distinction instead of collapsing the run
+//! into one success flag.
 
 use std::process::ExitCode;
 

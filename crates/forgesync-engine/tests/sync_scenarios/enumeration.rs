@@ -1,4 +1,8 @@
-//! Enumeration workflow contracts.
+//! # Enumeration scenarios
+//!
+//! These cases cover repository thread discovery and scan coverage during sync. A completed scan
+//! and an interrupted one must produce different durable evidence. Child-family completeness
+//! remains an independent question after enumeration.
 
 use super::{
     Archive, CancellationToken, Duration, GitHubClient, GitHubClientConfig, GitHubHost, HashMap,

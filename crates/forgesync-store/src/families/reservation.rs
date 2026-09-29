@@ -1,4 +1,11 @@
-//! Child-family reservation operations.
+//! # Reserve ordering before child-family I/O
+//!
+//! Reservation allocates an observation sequence before the engine asks GitHub for pages. That
+//! sequence gives the later complete or incomplete result a stable acquisition position, even when
+//! provider calls finish out of order.
+//!
+//! The reservation is a durable precursor, not a declaration of complete coverage. `staging` adds
+//! pages and `finish` decides which result can change canonical membership.
 
 use sqlx::Row;
 

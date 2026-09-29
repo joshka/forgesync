@@ -1,7 +1,12 @@
-//! Repository thread scan progress and checkpoints.
+//! # Record repository thread-scan coverage
 //!
-//! A repository scan has its own checkpoint and completion state. Resuming a partial scan does not
-//! claim that the repository has a complete current thread set.
+//! `RepositoryThreadScan` and its status report what a repository-wide enumeration actually
+//! covered. An engine enumeration run writes this evidence after visiting provider pages; later
+//! work can tell complete scans from interrupted ones.
+//!
+//! This is distinct from a thread observation. Knowing that a repository was scanned does not
+//! imply every child resource family of every thread is complete. Store these scopes independently
+//! so status and retry paths describe the work that really happened.
 
 use forgesync_core::coverage::Failure;
 use forgesync_core::identity::{ObservationSequence, RepositoryId};

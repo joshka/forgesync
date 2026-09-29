@@ -1,4 +1,12 @@
-//! Query archive reads.
+//! # Filter and page archived threads
+//!
+//! `Archive` list methods build bounded SQL queries over repository scope, state, and sort
+//! criteria. Query-builder helpers apply common discussion filters consistently across list and
+//! search paths.
+//!
+//! Pagination and counts belong here so the engine receives stable `ThreadPage` values rather than
+//! database cursors. The caller chooses filters; this module owns SQL parameter binding and row
+//! conversion.
 
 use sqlx::Row;
 

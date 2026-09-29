@@ -1,4 +1,11 @@
-//! Failure and cluster screen actions.
+//! # Handle cluster triage input
+//!
+//! Triage input moves through cluster lists and detail, and triggers explicit local decisions
+//! where the UI offers them. It uses the selected cluster identity from `App` rather than
+//! reconstructing one from displayed text.
+//!
+//! The engine and store own the decision effect. This module owns the user's interaction path and
+//! the state transition after an operation returns.
 
 use super::{App, KeyCode, QueryAction, RepositorySelector};
 use crate::app::{RunId, ThreadSelector, move_index};

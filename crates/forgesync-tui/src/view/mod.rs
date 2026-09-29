@@ -1,4 +1,12 @@
-//! Terminal rendering organized by screen.
+//! # Draw the current app screen
+//!
+//! The top-level `draw` function chooses a screen renderer from `App` state. `browser` draws
+//! repository and discussion navigation, `coverage` and `failures` expose evidence and work
+//! status, and `clusters` draws duplicate triage views.
+//!
+//! View functions format already loaded data. They should not start queries or change durable
+//! decisions. This keeps a frame deterministic for a given app state and lets input and data
+//! loading remain independently understandable.
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_store::clusters::{

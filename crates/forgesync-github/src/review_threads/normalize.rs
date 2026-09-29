@@ -1,4 +1,16 @@
-//! Convert complete GraphQL review-thread pages into domain content.
+//! Convert fully acquired GraphQL review threads into domain evidence.
+//!
+//! The parent module completes nested comment pagination before calling this converter. It then
+//! checks provider IDs, line and file context, thread state, and comment identity before
+//! constructing `forgesync-core::content::ReviewThread` values.
+//!
+//! Normalization does not fetch another page or write the archive. It assumes that the caller has
+//! delivered the complete comment connection for one review thread; a partially paged connection
+//! must remain an acquisition failure, not a smaller apparently complete thread.
+//!
+//! Use this module when tracing a GraphQL field into normalized review evidence. The engine ties
+//! the result to a pull-request head, and the store decides whether that head-bound family can
+//! replace current membership.
 
 use super::{
     Comment, CommentId, CommitSha, GitHubError, GraphqlComment, GraphqlReviewThread, ProviderData,

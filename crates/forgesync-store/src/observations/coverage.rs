@@ -1,4 +1,12 @@
-//! Observation coverage operations.
+//! # Persist evidence coverage separately from content
+//!
+//! Coverage writes describe which evidence family was observed, whether collection completed, and
+//! why it may be incomplete. They accompany observations but must not be inferred from the mere
+//! presence of a discussion or child row.
+//!
+//! Inspection and retry depend on this distinction. A source item may be current while a family is
+//! missing or partial, and an incomplete acquisition must remain visible without replacing a known
+//! complete membership.
 
 use super::{
     Archive, Coverage, CoverageState, EvidenceFamily, StoreError, ThreadId, evidence_family_name,

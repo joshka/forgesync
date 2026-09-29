@@ -1,15 +1,16 @@
 #![forbid(unsafe_code)]
 
-//! Process interface for the Forgesync application.
+//! # Forgesync command-line application
 //!
-//! [`run_from`] parses one invocation, resolves application configuration and credentials, runs
-//! the requested workflow, renders output, and selects a process exit code. The binary entry point
-//! delegates here. Library callers normally use [`forgesync_engine`] for workflows and
-//! [`forgesync_store`] for archive access; this crate is useful when embedding the complete CLI.
+//! This crate turns user arguments and local configuration into explicit engine workflows. The CLI
+//! owns process concerns: parsing, credential discovery, tracing setup, exit codes, and human or
+//! JSON presentation. Library crates receive opened archives and typed requests; they do not read
+//! process configuration or choose how to print results.
 //!
-//! The private command tree owns parsing and execution. [`config`] and [`credentials`] resolve
-//! local process inputs, and [`output`] defines the versioned JSON envelope. These process DTOs are
-//! separate from domain and archive types.
+//! `command` groups verbs by user task. `config` and `credentials` resolve local settings,
+//! `output` defines stable JSON envelopes, and `reports` writes concise terminal summaries.
+//! `run_from` is the reusable process entry point; `main` supplies the actual argument stream and
+//! exit status.
 
 mod command;
 pub mod config;

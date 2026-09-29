@@ -1,7 +1,12 @@
-//! Local embedding batches and persistence.
+//! # Materialize and persist document vectors
 //!
-//! Batch local documents for embedding and persist the results. Reports retain per-batch failures
-//! so a partial run can be diagnosed and retried.
+//! `embed_documents` selects recipe-compatible documents, sends bounded batches through
+//! `EmbeddingClient`, and stores the returned chunks. `EmbeddingReport` counts completed work and
+//! `EmbeddingBatchFailure` retains partial failure details.
+//!
+//! Embeddings are derived from a document and service identity. A source observation alone does
+//! not make an old vector current. Search checks compatibility before using stored vectors, while
+//! this workflow produces the compatible material when requested.
 
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;

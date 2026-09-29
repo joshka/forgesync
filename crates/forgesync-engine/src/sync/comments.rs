@@ -1,4 +1,12 @@
-//! Comments sync work.
+//! # Acquire one discussion's comments
+//!
+//! Comment synchronization pages through the provider adapter, stages child observations, and
+//! finishes the family with complete or incomplete coverage. The result includes enough detail for
+//! the job report to explain partial acquisition.
+//!
+//! A reported comment count is a hint, not proof that all pages were fetched. Failure handling
+//! records the incomplete reason while preserving any earlier complete canonical membership in the
+//! store.
 
 use super::support::{count_failure, progress_status, send_progress, store_state_filter};
 use super::{

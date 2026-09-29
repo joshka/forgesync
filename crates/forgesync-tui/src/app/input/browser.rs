@@ -1,4 +1,11 @@
-//! Browser navigation and selection.
+//! # Handle archive browser navigation
+//!
+//! These `App` methods move through repository and thread lists, open details, change focus, and
+//! request related coverage or failure data. They interpret keys according to the browser's
+//! current selection.
+//!
+//! The methods update state or start a query; they do not draw widgets. Keeping browser input
+//! beside its navigation semantics makes it easier to see what each key means on each screen.
 
 use super::{App, Focus, KeyCode, QueryAction, RepositorySelector};
 use crate::app::{PAGE_SIZE, ThreadSelector, move_index};

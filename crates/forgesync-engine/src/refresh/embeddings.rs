@@ -1,4 +1,12 @@
-//! Refresh embeddings behavior.
+//! # Select and summarize refresh embedding work
+//!
+//! Embedding helpers choose repositories with relevant refreshed material, determine stage status,
+//! and combine page or batch reports. They let the coordinator describe partial vector generation
+//! precisely.
+//!
+//! The embedding client owns service protocol and `embeddings` owns materialization. This module
+//! owns only their place in the refresh workflow and how their outcomes contribute to the stage
+//! report.
 
 use super::status::{keep_first_failure, stage_failure};
 use super::{

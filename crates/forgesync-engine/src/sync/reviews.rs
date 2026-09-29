@@ -1,4 +1,11 @@
-//! Reviews sync work.
+//! # Acquire pull-request reviews
+//!
+//! Review sync visits provider pages, normalizes review records, and submits the family
+//! observation to the archive. Failures remain scoped to this family so other thread evidence can
+//! still succeed.
+//!
+//! Reviews and review threads have different membership and coverage. Their separate modules keep
+//! provider pagination, completeness, and retry behavior visible to a maintainer.
 
 use super::comments::incomplete_reason;
 use super::support::record_thread_family_failure;

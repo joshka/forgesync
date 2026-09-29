@@ -1,3 +1,11 @@
+//! # Command parsing contract
+//!
+//! These tests keep global options and command-specific selectors aligned with the CLI vocabulary.
+//! They focus on combinations that could silently change the requested workflow: selected sync
+//! families and explicit refresh analysis stages. The assertions inspect parsed values rather than
+//! running GitHub or opening an archive. When a new flag changes workflow scope, add a nearby
+//! direct parsing example so the mapping from user text to request stays legible.
+
 use clap::Parser;
 
 use super::{CliArgs, ColorChoice, Command, LogFormat, RefreshAnalysisArg, SyncIncludeArg};

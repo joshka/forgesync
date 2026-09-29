@@ -1,7 +1,13 @@
-//! Configured embedding-service transport.
+//! # External embedding-service adapter
 //!
-//! Call an explicitly configured embedding service. The client handles transport and response
-//! validation; archive writes and batch policy belong to [`crate::embeddings`].
+//! `EmbeddingClientConfig` describes the endpoint and model request settings; `EmbeddingClient`
+//! sends document text and returns checked vectors. This is the network boundary for derived
+//! embeddings, distinct from the GitHub source adapter.
+//!
+//! `response` validates shape, count, and dimensions before a vector can enter the archive.
+//! `error` classifies service and validation failures for reports. Workflow batching and
+//! persistence live in `embeddings`, so callers can reason separately about transport and document
+//! selection.
 
 mod error;
 mod response;

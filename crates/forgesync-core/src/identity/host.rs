@@ -1,4 +1,17 @@
-//! Host identities.
+//! Validated GitHub API authority used in provider and archive identity.
+//!
+//! [`GitHubHost::parse`] accepts a host or HTTPS origin and stores a normalized authority.
+//! Rejecting credentials, paths, invalid labels, and unusable ports keeps host-qualified
+//! repository IDs stable and prevents a caller from treating an arbitrary URL as a trusted API
+//! destination.
+//!
+//! The GitHub transport independently validates request and pagination URLs against its configured
+//! origin; this type is the domain identity, not the transport authorization check. A repository
+//! selector uses a host with owner and name, while the store pairs it with the provider repository
+//! ID.
+//!
+//! Use [`GitHubHost::https_origin`] when a displayable origin is needed. Keep token handling in
+//! `forgesync-github::token` and process credential discovery in the CLI.
 
 use std::fmt;
 use std::net::Ipv6Addr;

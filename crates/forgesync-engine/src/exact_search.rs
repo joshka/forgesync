@@ -1,7 +1,11 @@
-//! Exact vector similarity calculation.
+//! # Exact vector scoring for local semantic search
 //!
-//! Compute exact cosine similarity over validated vectors. This is the final ranking primitive
-//! after candidate retrieval, with dimension mismatches represented explicitly.
+//! `ScoredThread` pairs a thread with a similarity score. `cosine_similarity` compares compatible
+//! embedding vectors and returns no score when the inputs cannot be compared.
+//!
+//! The semantic search module uses this bounded local scoring after the store has selected
+//! eligible documents and vectors. Separating the arithmetic from query and ranking policy makes
+//! dimension and numerical behavior easy to inspect.
 
 use std::cmp::Ordering;
 

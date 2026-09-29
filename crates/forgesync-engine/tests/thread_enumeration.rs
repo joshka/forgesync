@@ -1,3 +1,9 @@
+//! # Thread enumeration integration
+//!
+//! These cases verify repository scan scope and completion using provider fixtures and an archive.
+//! Enumeration discovers discussion identities; it does not prove child-family completeness. The
+//! suite protects that boundary and the durable scan status used by later sync work.
+
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

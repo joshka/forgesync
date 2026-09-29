@@ -1,4 +1,15 @@
-//! Response transport behavior.
+//! Bound and classify HTTP responses before provider DTO decoding.
+//!
+//! Successful JSON and error bodies have explicit size limits. The bounded prefix used for failure
+//! classification avoids retaining arbitrary raw provider payloads. HTTP status, rate-limit hints,
+//! redirects, and transport errors become typed failure categories for the retry layer.
+//!
+//! A request slot is acquired with cancellation before network I/O. The transport checks a
+//! redirect target against the trusted origin rather than allowing the HTTP library to follow it
+//! and possibly send authorization elsewhere.
+//!
+//! Resource modules consume the resulting typed value or error. They do not need to reason about
+//! body stream limits, semaphore permits, or retryable network failures.
 
 use super::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
 use super::{

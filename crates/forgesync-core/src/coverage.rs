@@ -1,8 +1,19 @@
-//! Resource-family coverage and structured failures for partial acquisition.
+//! Evidence-family coverage and failures for partial acquisition.
 //!
-//! A workflow records coverage separately for each evidence family. Callers can distinguish a
-//! complete collection from unavailable or deferred evidence, and can report partial success
-//! without inventing an empty collection.
+//! [`EvidenceFamily`] names independently acquired resources. [`CoverageState`] distinguishes
+//! complete membership from an incomplete, unavailable, or deferred collection. [`Coverage`] adds
+//! staleness, which can arise when parent context changes even though old child rows remain
+//! stored. [`Failure`] and its reason enums preserve actionable categories for reports and
+//! retries.
+//!
+//! The engine produces these values while acquiring pages; the store retains them beside canonical
+//! content. A complete empty collection is evidence that no members exist. A missing or incomplete
+//! collection cannot delete previously complete membership. Consumers should inspect coverage
+//! rather than infer it from an empty vector of comments or reviews.
+//!
+//! This module states the domain meaning of coverage. [`crate::observation`] carries the
+//! acquisition clock and completeness claim for one incoming result; the store decides whether
+//! that result can replace current membership.
 
 use serde::{Deserialize, Serialize};
 

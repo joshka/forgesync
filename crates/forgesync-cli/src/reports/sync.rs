@@ -1,4 +1,11 @@
-//! Sync command presentation.
+//! # Explain acquisition and refresh outcomes
+//!
+//! Sync and refresh summaries present counts, family failures, and stage statuses. Exit-code
+//! helpers derive process results from structured outcomes rather than scattered command-specific
+//! booleans.
+//!
+//! Partial success is expected when independent jobs fail. Reporting must preserve successful
+//! committed work and point to failures that can be inspected or retried.
 
 use std::process::ExitCode;
 

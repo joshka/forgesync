@@ -1,3 +1,9 @@
+//! # Observation ordering cases
+//!
+//! These cases compare source revisions and local acquisition sequences under delayed or repeated
+//! fetches. They protect canonical selection from simple last-write-wins behavior. A new ordering
+//! rule should be backed by a fixture where the expected winner is explicit.
+
 use super::{
     ObservationSequence, Ordering, SourceClock, compare_observation_order,
     compare_revision_observation_order, observation_sequence_order_value,

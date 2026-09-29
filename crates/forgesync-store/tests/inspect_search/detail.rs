@@ -1,3 +1,9 @@
+//! # Thread detail projection cases
+//!
+//! These cases assemble canonical discussion content, timeline, and family coverage from stored
+//! rows. They protect the meaning of an offline detail view. Zero child rows and incomplete
+//! coverage must remain distinguishable in the projection.
+
 use super::{
     Archive, CollectionCompleteness, Comment, CommentId, CoverageState, EvidenceFamily,
     ProviderData, ProviderId, SourceClock, SourceState, StagedItem, ThreadKind, ThreadNumber,

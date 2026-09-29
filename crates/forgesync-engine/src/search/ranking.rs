@@ -1,4 +1,11 @@
-//! Ranking search behavior.
+//! # Combine candidate lists into search results
+//!
+//! Ranking helpers page scored candidates, fuse hybrid lists, and assign reciprocal-rank
+//! contributions. They also decide when a semantic failure permits a keyword fallback.
+//!
+//! Candidate generation lives in `keyword` and `semantic`; this module owns the cross-mode
+//! ordering visible to users. The result keeps provenance so a caller can explain why a hit
+//! appeared.
 
 use super::{
     EngineError, HashMap, RRF_CONSTANT, ResultPageRequest, ScoredThread, SearchHit,

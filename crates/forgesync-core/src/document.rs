@@ -1,8 +1,18 @@
-//! Versioned discussion documents used for local retrieval.
+//! Versioned text derived from a discussion for local retrieval.
 //!
-//! A document is a reproducible search input derived from a discussion and a recipe. The recipe
-//! version lets callers recognize when stored text or embeddings need rebuilding after the
-//! construction rules change.
+//! [`DocumentRecipe`] selects which normalized evidence contributes to searchable text.
+//! [`Document`] keeps the resulting text, content hash, and source context together. The engine
+//! constructs it from a stored thread detail; the store persists it separately from the underlying
+//! discussion.
+//!
+//! A recipe version matters because a text-construction change can make old stored embeddings
+//! stale even when the provider discussion has not changed. A document is derived state, not a
+//! replacement for a discussion observation. Embedding compatibility also depends on the model
+//! identity and chunk rules in [`crate::embedding`].
+//!
+//! Use the recipe when materializing or selecting retrieval inputs. Keep rules for which sections
+//! enter the text in `forgesync-engine::documents`; this module defines the value and its
+//! versioned identity rather than fetching child resources.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

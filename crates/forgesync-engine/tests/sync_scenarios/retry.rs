@@ -1,4 +1,8 @@
-//! Retry workflow contracts.
+//! # Retry scenarios
+//!
+//! These cases use recorded run failures to select the work attempted again. They protect precise
+//! scope: a failed family can be retried without repeating unrelated completed work. The previous
+//! attempt remains inspectable in the run ledger.
 
 use super::{
     Archive, CancellationToken, EvidenceFamily, Mock, MockServer, OperationOutcome,

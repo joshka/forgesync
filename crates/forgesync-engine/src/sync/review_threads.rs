@@ -1,4 +1,12 @@
-//! Review threads sync work.
+//! # Acquire pull-request review threads
+//!
+//! Review-thread sync collects paginated thread and comment relationships through the GitHub
+//! adapter and stages them as an independent child family. It finishes with explicit completeness
+//! and pull-request head context.
+//!
+//! A parent pull-request refresh does not imply current review-thread membership. The store
+//! accepts a new canonical family only when the collection is complete, preserving prior evidence
+//! after partial pagination.
 
 use super::comments::incomplete_reason;
 use super::support::record_thread_family_failure;

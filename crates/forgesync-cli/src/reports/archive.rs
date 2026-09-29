@@ -1,4 +1,12 @@
-//! Archive command presentation.
+//! # Explain archive state and maintenance results
+//!
+//! Archive summary functions turn creation, status, migration, and doctor results into readable
+//! terminal output. They expose what changed or needs attention without taking the maintenance
+//! action themselves.
+//!
+//! The archive lifecycle remains explicit in `command/archive`; this module only presents the
+//! typed result. Keep wording aligned with actual schema and health reports rather than inferring
+//! success from an opened handle.
 
 use forgesync_store::archive::ArchiveInfo;
 use forgesync_store::health::DoctorReport;

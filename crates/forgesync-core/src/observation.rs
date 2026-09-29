@@ -1,8 +1,19 @@
-//! Acquisition observations, source clocks, and collection completeness.
+//! Incoming evidence with both source and acquisition context.
 //!
-//! An observation carries both provider time and local acquisition order. Storage uses these clocks
-//! and collection completeness to decide whether incoming evidence may replace the current view;
-//! missing pages never imply deletion.
+//! [`Observation<T>`] pairs normalized content with its evidence family, source clock, local
+//! sequence, acquisition time, and collection completeness. [`SourceClock`] distinguishes valid,
+//! missing, and invalid provider time instead of collapsing them into one optional timestamp.
+//! [`CollectionCompleteness`] distinguishes a finished page set from a partial one;
+//! [`IncompleteReason`] retains why acquisition stopped.
+//!
+//! The engine constructs an observation after provider acquisition, and the store compares it with
+//! current evidence before applying it. Source time and local sequence are different ordering
+//! signals. An incomplete child collection may record progress or failure, but cannot replace
+//! canonical complete membership or imply that absent children were deleted.
+//!
+//! Read [`crate::coverage`] for the resulting family state and `forgesync-store::ordering` for the
+//! archive replacement policy. This module describes the claim carried by incoming evidence, not
+//! the SQL transaction that accepts it.
 
 use serde::{Deserialize, Serialize};
 

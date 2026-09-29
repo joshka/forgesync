@@ -1,7 +1,12 @@
-//! Exclusive archive writer leases.
+//! # Serialize archive work with durable leases
 //!
-//! A writer lease coordinates long-running mutations across processes. Acquire and release it
-//! around a workflow, but do not keep a SQLite transaction open across provider requests.
+//! `ArchiveLeaseToken` proves ownership of a bounded piece of archive work. `Archive` methods
+//! acquire, inspect, and finish leases so concurrent local processes do not both commit the same
+//! coordinated operation.
+//!
+//! Callers pass the token into guarded writes; the guard checks that it still names an active
+//! lease. A lease is a concurrency boundary, not a database transaction across network I/O. The
+//! engine performs provider calls outside transactions and finishes or records failure afterward.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

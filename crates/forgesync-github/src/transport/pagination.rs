@@ -1,4 +1,14 @@
-//! Pagination transport behavior.
+//! Parse REST Link headers into trusted continuation candidates.
+//!
+//! The parser separates header entries without treating punctuation inside quoted values as a new
+//! link. It selects the `next` relation and resolves that target against the request URL. The
+//! client then validates the resulting destination against its configured origin before making
+//! another request.
+//!
+//! Pagination is a transport concern: the engine should see an optional next-page URL rather than
+//! parse header grammar. A malformed or untrusted link is a typed provider failure. Do not infer
+//! that a missing next link proves a prior partial page set was committed; durable checkpoint and
+//! family completeness remain engine and store responsibilities.
 
 use super::{GitHubError, LINK, TrustedOrigin, Url};
 

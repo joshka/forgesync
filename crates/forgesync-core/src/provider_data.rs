@@ -1,8 +1,15 @@
-//! Provider-supplied fields retained alongside normalized domain content.
+//! Provider fields retained outside the normalized domain vocabulary.
 //!
-//! Provider data preserves JSON fields that do not belong in the normalized domain model. Keep
-//! decisions about archive identity, ordering, and coverage in their dedicated types rather than
-//! deriving them from this map.
+//! [`ProviderData`] stores JSON key-value fields that are useful to preserve but do not warrant a
+//! first-class field in [`crate::content`]. Normalization produces the map; archive serialization
+//! retains it beside typed content so a future reader can inspect source details.
+//!
+//! Opaque provider fields do not define archive identity, evidence completeness, or ordering.
+//! Those contracts live in [`crate::identity`], [`crate::coverage`], and [`crate::observation`].
+//! Avoid extracting workflow policy from this map when a checked domain concept exists.
+//!
+//! Use this type for loss-aware retention at the provider boundary. Code that consumes a field as
+//! a stable rule should promote and validate it as a named domain value.
 
 use std::collections::BTreeMap;
 

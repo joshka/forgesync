@@ -1,4 +1,8 @@
-//! Refresh workflow contracts.
+//! # Refresh stage scenarios
+//!
+//! These cases exercise sync followed by selected derived analysis. Each stage has its own report
+//! so a later failure cannot erase earlier committed evidence. Keep assertions explicit about
+//! requested, completed, failed, and unstarted stages.
 
 use super::{
     Archive, CancellationToken, DocumentRecipe, MockServer, OperationOutcome, RefreshAnalysisStage,

@@ -1,7 +1,13 @@
-//! Keyword, semantic, and hybrid search policy.
+//! # Offline keyword, semantic, and hybrid search
 //!
-//! Search local documents with lexical or semantic ranking. Results carry provenance and pagination
-//! information so a frontend can explain how each hit was found.
+//! `SearchRequest` selects scope, mode, ranking, and pagination. `SearchHit` and
+//! `SearchResultPage` include provenance so callers can distinguish keyword, semantic, and
+//! combined evidence. `search_threads` and `retrieve_threads` are the engine entry points.
+//!
+//! `keyword` supplies text candidates, `semantic` scores compatible vectors, and `ranking`
+//! combines and pages results. Search reads the local archive; it does not silently acquire
+//! discussions or generate embeddings. Mode and fallback policy remain explicit so a result's
+//! meaning is understandable to CLI and TUI users.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;

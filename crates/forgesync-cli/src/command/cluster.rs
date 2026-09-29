@@ -1,4 +1,12 @@
-//! Cluster command arguments.
+//! # Cluster commands and their arguments
+//!
+//! `ClusterCommand` selects build, list, show, and local triage actions. Build and list argument
+//! types carry the user scope and output choices before they become engine requests.
+//!
+//! `build` runs derived analysis, `read` presents stored generations, and `decisions` records
+//! maintainer actions. These are separate because proposing a cluster and accepting or dismissing
+//! it have different authorship and persistence. The store records decisions locally; no command
+//! writes back to GitHub.
 
 use std::path::Path;
 use std::process::ExitCode;

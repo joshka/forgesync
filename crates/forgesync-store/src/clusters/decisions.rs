@@ -1,4 +1,12 @@
-//! Decisions for durable clusters.
+//! # Persist local cluster triage
+//!
+//! These `Archive` methods record dismissal, restoration, membership changes, and canonical-thread
+//! choices. A decision changes the local triage view of an existing generation; it does not edit
+//! GitHub or rewrite the source discussion.
+//!
+//! Decision events preserve the maintainer's action so later cluster reads can distinguish an
+//! automatic proposal from an explicit choice. ID conversion and validation stay beside the write
+//! path because malformed or out-of-range identifiers must fail before SQL receives them.
 
 use super::{
     Archive, ArchiveLeaseToken, SqliteConnection, StoreError, ThreadId, UtcTimestamp,

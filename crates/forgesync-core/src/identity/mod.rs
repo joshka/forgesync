@@ -1,8 +1,20 @@
-//! Checked provider and archive identities.
+//! Checked identities for provider objects and local archive work.
 //!
-//! Choose an identifier by meaning: [`GitHubHost`] identifies a provider host, provider IDs and
-//! commit hashes identify source objects, and archive IDs identify local observations or runs.
-//! Constructors validate external strings before they cross a workflow boundary.
+//! Choose a type for the meaning of the ID rather than passing unvalidated strings or bare
+//! numbers. [`GitHubHost`] identifies an API authority; [`RepositoryId`] and [`ThreadId`] combine
+//! provider identity with their parent scope. Comment, review, and review-thread IDs keep child
+//! resources separate. [`ThreadNumber`] is a positive repository-local display number, not a
+//! provider ID.
+//!
+//! [`ProviderId`] is opaque provider identity, while [`CommitSha`] validates a complete
+//! hexadecimal revision. [`RunId`] and [`ObservationSequence`] belong to local archive work and
+//! should not be confused with source timestamps. [`ThreadReference`] is a compact checked locator
+//! for a thread.
+//!
+//! Provider parsing and CLI selectors should validate before constructing these values. A store
+//! method may then rely on the checked shape, but it still decides whether an identified record
+//! exists in its archive. The child files group host, provider, thread, and archive identities so
+//! a reader can find the relevant constructor without a flat crate root.
 
 use thiserror::Error;
 

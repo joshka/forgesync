@@ -1,4 +1,13 @@
-//! Long-running local and provider operations.
+//! # Run explicit TUI operations
+//!
+//! Operation dispatch invokes the selected action, including GitHub sync, refresh, retry, and
+//! local cluster decisions, then sends progress and a terminal result back to the app. It does
+//! not decide which key means which action; that belongs to `app/input`.
+//!
+//! Operations remain distinct from reads because they may perform network I/O, change archive
+//! state, or both. The engine owns the workflow and the store validates durable writes. A
+//! cancellation token and generation ID keep long-running results tied to the request that
+//! started them.
 
 use tokio::sync::mpsc;
 

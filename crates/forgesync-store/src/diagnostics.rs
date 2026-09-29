@@ -1,7 +1,13 @@
-//! Archive health and pending work diagnostics.
+//! # Inspect archive state without repairing it
 //!
-//! Diagnostics describe schema state, active leases, and unfinished work without acquiring provider
-//! data. Use them to explain what an archive needs before scheduling a mutation.
+//! `ArchiveDiagnostics` groups schema, lease, and work information for operator-facing status.
+//! `SchemaDiagnostics` and `PendingMigration` identify database-version state;
+//! `ArchiveLeaseStatus` and `WorkDiagnostics` describe current or stranded work. Family failure
+//! counts make incomplete acquisition visible.
+//!
+//! Diagnostics are observations of an already opened archive. They do not migrate, resume, or
+//! clear work. This separation lets the CLI explain what a repair command would affect before the
+//! user runs it.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

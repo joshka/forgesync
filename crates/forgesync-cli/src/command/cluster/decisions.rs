@@ -1,4 +1,11 @@
-//! Apply local maintainer decisions to generated clusters.
+//! # Run explicit local cluster decisions
+//!
+//! Dismiss, restore, exclude, include, and canonical-selection handlers parse the user's target
+//! and reason, invoke engine decision operations, and present the result. Each action changes
+//! local triage state for a stored cluster.
+//!
+//! These handlers do not construct cluster candidates. Their input is an existing cluster
+//! identity, and their output should make the recorded choice clear in both human and JSON modes.
 
 use std::path::Path;
 use std::process::ExitCode;

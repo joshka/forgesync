@@ -1,7 +1,13 @@
-//! Parsed commands and their process behavior.
+//! # Parse and dispatch user commands
 //!
-//! Parsing and execution live together by feature. Shared provider setup and retry helpers are
-//! private to this command tree; process output and configuration have separate owners.
+//! Each command module owns its argument type and the method that runs it. Archive, thread,
+//! search, run, cluster, sync, embed, and refresh tasks are separate user workflows; dispatch maps
+//! a parsed variant to the owning implementation.
+//!
+//! `github` contains client setup shared by acquisition commands, and `values` maps CLI choices to
+//! domain or engine values. Commands open the required archive mode, build typed requests, invoke
+//! the engine or store, and pass results to `reports`. This boundary keeps Clap syntax and process
+//! policy out of the libraries.
 
 use std::path::PathBuf;
 

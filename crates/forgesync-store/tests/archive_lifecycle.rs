@@ -1,3 +1,9 @@
+//! # Archive lifecycle integration
+//!
+//! These cases cover explicit create, open, and migration behavior against an on-disk SQLite
+//! archive. Opening must not silently create or migrate. This suite tests user-visible lifecycle
+//! rules at the store boundary, including file and schema effects.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

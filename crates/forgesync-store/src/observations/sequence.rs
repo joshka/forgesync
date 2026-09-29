@@ -1,4 +1,12 @@
-//! Observation sequence operations.
+//! # Allocate and convert acquisition sequences
+//!
+//! Observation sequences order local acquisition events independently of provider timestamps.
+//! These helpers allocate the next sequence and convert it safely to the SQLite representation
+//! used by observation and family tables.
+//!
+//! Reserve a sequence before child-family provider I/O when the final result may arrive later. The
+//! ordering policy itself lives in `ordering`; this module ensures all callers persist a
+//! consistent, bounded sequence value.
 
 use super::{
     Archive, ArchiveLeaseToken, ObservationSequence, StoreError, UtcTimestamp, checked_sequence,

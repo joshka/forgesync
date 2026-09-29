@@ -1,3 +1,9 @@
+//! # Shared fixture catalog contract
+//!
+//! This integration suite loads selected reference fixtures into core domain values. It documents
+//! the shapes the implementation expects from provider and archive examples. Keep a case here when
+//! a fixture reveals a domain distinction that downstream normalization must preserve.
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};

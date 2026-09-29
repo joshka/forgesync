@@ -1,7 +1,12 @@
-//! Process output models.
+//! # JSON contracts for command results
 //!
-//! Versioned JSON response shapes and human-readable output adapters. These DTOs are deliberately
-//! distinct from storage rows and domain objects so the process interface can evolve independently.
+//! `JsonEnvelope` and the output projection types define what machine-readable CLI users receive.
+//! They adapt engine and store reports into command-oriented fields while preserving status,
+//! coverage, and partial failure information.
+//!
+//! These shapes are distinct from provider DTOs, domain types, and SQL rows. Human summaries live
+//! in `reports`; command handlers choose the mode. Keep new JSON fields here so their meaning can
+//! be reviewed independently of terminal wording.
 
 use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,

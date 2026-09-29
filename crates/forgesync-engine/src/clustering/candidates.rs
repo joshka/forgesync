@@ -1,4 +1,12 @@
-//! Candidates cluster behavior.
+//! # Form duplicate candidates from thread relationships
+//!
+//! Candidate building uses available similarity evidence and a union-find grouping step to turn
+//! pairwise relationships into cluster proposals. A proposed group is derived analysis, not a
+//! source observation or a maintainer decision.
+//!
+//! The builder returns candidate structures for `build` to persist. Keeping grouping here lets a
+//! reader inspect threshold and transitive-membership behavior without following database
+//! transactions or CLI rendering.
 
 use super::{
     BinaryHeap, CancellationToken, CandidateEdge, ClusterCandidate, ClusterMemberCandidate,

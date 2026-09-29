@@ -1,3 +1,11 @@
+//! # GitHub resource normalization
+//!
+//! Fixture-backed cases show how REST repository and discussion responses become stable domain
+//! identities. They also cover enterprise base paths and pagination links, where a seemingly
+//! harmless URL join can lose provider scope. Read these cases with `resources` and `transport`
+//! before changing URL construction or DTO mapping. The expected values represent the boundary
+//! between provider payloads and normalized core data.
+
 use std::path::Path;
 
 use forgesync_core::content::{Repository, ReviewState, ThreadKind};

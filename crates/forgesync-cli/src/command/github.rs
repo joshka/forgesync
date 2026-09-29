@@ -1,4 +1,11 @@
-//! Github command handling.
+//! # Resolve GitHub clients for acquisition commands
+//!
+//! Client setup combines selected hosts, credential settings, and provider endpoint rules into
+//! typed GitHub adapters. Errors here are presented as configuration or authentication failures
+//! before a sync workflow begins.
+//!
+//! The adapter itself owns HTTP and normalization. This module owns process configuration and
+//! token resolution, so engine code does not read environment variables or local config files.
 
 use std::collections::HashMap;
 use std::process::ExitCode;

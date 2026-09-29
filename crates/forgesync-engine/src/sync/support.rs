@@ -1,4 +1,12 @@
-//! Support sync work.
+//! # Shared sync resolution and failure accounting
+//!
+//! Support functions resolve user selectors, map requested state filters, turn job outcomes into
+//! progress, and record thread-family failures. They centralize cross-family policy without owning
+//! any provider pagination.
+//!
+//! A failure is tied to the thread and family that produced it. This lets the run ledger and
+//! report retain partial success and gives retry a precise target rather than a generic failed-run
+//! flag.
 
 use super::{
     Archive, CLOSED_SWEEP_OVERLAP_MICROSECONDS, DeferredReason, EngineError, EvidenceFamily,

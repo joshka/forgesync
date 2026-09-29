@@ -1,4 +1,12 @@
-//! Observation apply operations.
+//! # Apply a parent discussion observation
+//!
+//! These `Archive` methods validate and persist normalized discussion content from the engine. The
+//! application transaction records the observation and decides whether it can replace canonical
+//! thread state according to source clock and acquisition ordering.
+//!
+//! An observation remains useful evidence even when it does not win canonical selection. Child
+//! comments, reviews, and review threads use `families` because each has its own pagination and
+//! completeness boundary; applying a parent never implies those families are complete.
 
 use sqlx::Row;
 

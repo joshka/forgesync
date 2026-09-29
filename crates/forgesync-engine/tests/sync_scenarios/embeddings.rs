@@ -1,4 +1,8 @@
-//! Embeddings workflow contracts.
+//! # Embedding workflow scenarios
+//!
+//! These cases connect document selection, service response, and durable vector chunks. They
+//! distinguish a usable vector from a successful HTTP response and preserve partial batch
+//! failures. Search compatibility is checked separately from materialization.
 
 use super::{
     Arc, Archive, AtomicUsize, CancellationToken, Document, DocumentRecipe, Duration,

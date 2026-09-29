@@ -1,14 +1,16 @@
 #![forbid(unsafe_code)]
 
-//! Terminal browser for a local Forgesync archive.
+//! # Interactive local archive browser
 //!
-//! The browser starts with local inspection and search. When supplied with GitHub clients, it can
-//! also initiate the engine's sync and refresh workflows and show progress without blocking
-//! navigation. It does not discover credentials or open an archive on its own: the application
-//! passes an already opened handle to [`run`].
+//! The TUI opens a terminal session around an already selected archive and lets a user browse
+//! threads, coverage, failures, and duplicate clusters. It depends on engine and core concepts,
+//! not CLI command modules. The CLI launches it and handles process concerns; this crate owns
+//! interaction and drawing.
 //!
-//! [`run`] requires a terminal on standard input and output and an active Tokio runtime. It owns
-//! the archive handle until the browser exits and closes it during shutdown.
+//! `app` holds navigation state and processes input, `query` runs archive operations without
+//! blocking the event loop, and `view` draws the current screen. The `run` entry point coordinates
+//! terminal setup, events, and cleanup. `TuiError` carries failures to the caller for user-facing
+//! reporting.
 
 mod app;
 mod query;

@@ -1,4 +1,12 @@
-//! Semantic search behavior.
+//! # Score locally stored compatible vectors
+//!
+//! Semantic helpers obtain candidate documents and chunks, reject incompatible dimensions, and
+//! score a bounded page with exact similarity. They return scored threads to the shared ranking
+//! path.
+//!
+//! This is an offline read of previously generated embeddings. It never calls the embedding
+//! service. Compatibility checks are essential because model or recipe changes can leave older
+//! vectors in the archive.
 
 use super::ranking::result_page;
 use super::{

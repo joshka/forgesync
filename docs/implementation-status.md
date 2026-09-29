@@ -2,6 +2,12 @@
 
 ## Current position
 
+- Every Rust module file now opens with a purpose and relationship map, including private workflow
+  leaves and focused test modules. The module docs explain archive ordering, child-family
+  completeness, engine stage boundaries, command ownership, and TUI state flow at their owning
+  layers. `docs/documentation.md` records the rule for future modules and item documentation.
+  Workspace Rustdoc with private items and denied warnings, Clippy, nightly formatting, rumdl, and
+  Markdownlint passed for this documentation pass.
 - The maintainability migration has split crate roots and the largest workflow modules into named
   concepts. Review-thread normalization, core identities, embedding client concerns, and TUI queries
   have smaller owners. Store and CLI integration suites are grouped by scenario, CLI arguments by

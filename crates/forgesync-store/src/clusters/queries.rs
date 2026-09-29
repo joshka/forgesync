@@ -1,4 +1,12 @@
-//! Queries for durable clusters.
+//! # Read clusters for inspection and triage
+//!
+//! These `Archive` methods assemble cluster summaries, membership, and details from stored
+//! generations and local decisions. They return projection types declared in the parent module,
+//! leaving SQL row shapes private.
+//!
+//! Use this path for offline list/show operations in the engine, CLI, and TUI. Queries must
+//! reflect member roles and lifecycle state; callers should not reconstruct those semantics by
+//! joining raw tables themselves.
 
 use sqlx::Row;
 

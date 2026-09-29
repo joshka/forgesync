@@ -1,4 +1,11 @@
-//! Parsed embedding command arguments.
+//! # Generate embeddings on explicit request
+//!
+//! `EmbedArgs` carries repository scope and service settings for a derived-data operation. Its run
+//! method resolves the configured client, asks the engine to embed eligible documents, and renders
+//! completed and failed batches.
+//!
+//! Embedding service calls are distinct from GitHub acquisition. A local search reads stored
+//! vectors; this command is where a user chooses to produce new ones.
 
 use std::collections::HashSet;
 use std::process::ExitCode;

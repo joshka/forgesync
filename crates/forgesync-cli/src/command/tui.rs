@@ -1,4 +1,10 @@
-//! Interactive terminal startup.
+//! # Launch the local terminal browser
+//!
+//! The TUI command opens the selected archive, prepares terminal diagnostics, and hands control to
+//! `forgesync_tui`. It is a process adapter, not the owner of TUI navigation or drawing.
+//!
+//! TUI reads and actions use engine and store boundaries directly. The CLI supplies startup
+//! configuration and handles the returned exit status or error for the shell.
 
 use std::io::IsTerminal;
 use std::process::ExitCode;

@@ -1,7 +1,18 @@
-//! HTTP client configuration, retries, redirects, and pagination safety.
+//! Configured HTTP transport shared by REST and GraphQL acquisition.
 //!
-//! Construct a client from explicit configuration and a supplied token. Transport owns HTTP,
-//! retries, and response classification; it does not open archives or discover process credentials.
+//! [`GitHubClientConfig`] carries the API base URL, timeout, request concurrency, and
+//! [`RetryPolicy`]. [`GitHubClient`] owns the reusable HTTP client, optional token, and trusted
+//! origin. Its request methods return bounded JSON and validated next-page URLs in
+//! [`GitHubResponse`].
+//!
+//! `client` performs requests; `response` bounds and classifies bodies; `pagination` parses Link
+//! headers; `retry` calculates delays and API failure categories. Keep those decisions here so
+//! resource modules do not duplicate transport policy.
+//!
+//! A token may be sent only after destination validation, including redirects and pagination
+//! links. A retry consumes the configured total budget and obeys cancellation. This crate does not
+//! load credentials from the process or start an archive transaction; the CLI supplies
+//! configuration and the engine controls workflow progress.
 
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};

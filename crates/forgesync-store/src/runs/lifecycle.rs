@@ -1,4 +1,12 @@
-//! Run lifecycle operations.
+//! # Begin, advance, and finish durable work
+//!
+//! Lifecycle methods create run and sync-job records, update their status, and close them with
+//! success or failure. The engine calls these at workflow boundaries so interrupted execution
+//! leaves inspectable state.
+//!
+//! A terminal job status records work outcome, not proof that every possible resource family is
+//! complete. Coverage and observations remain the source of truth for acquired evidence; the run
+//! ledger explains how the workflow reached its state.
 
 use super::{
     Archive, ArchiveLeaseToken, EvidenceFamily, OperationOutcome, RepositoryId, RunId, StoreError,

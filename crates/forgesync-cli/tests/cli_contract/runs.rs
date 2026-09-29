@@ -1,3 +1,9 @@
+//! # Run-history command contract
+//!
+//! These cases present durable run and retry information through CLI list and show commands. A run
+//! records an attempt, not complete source coverage. Keep output expectations tied to the stored
+//! ledger so partial failures remain visible after later work.
+
 use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]

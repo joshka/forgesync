@@ -1,4 +1,17 @@
-//! Threads identities.
+//! Scoped identities for repositories, discussions, and child resources.
+//!
+//! [`RepositoryId`] combines host and provider repository ID. [`ThreadId`] adds the
+//! provider-issued discussion ID and a positive repository-local number. [`CommentId`],
+//! [`ReviewId`], and [`ReviewThreadId`] retain their owning thread so a child cannot silently move
+//! to another parent.
+//!
+//! These values join normalized content to observations and archive rows. Provider normalization
+//! constructs them from checked response fields; the store converts them to SQL keys at its
+//! boundary. A repository path may change while its provider identity stays stable, so owner/name
+//! strings are not a substitute for [`RepositoryId`].
+//!
+//! Use the child-specific identity that matches the resource family. [`ThreadNumber`] is for
+//! display and selectors; [`ProviderId`] is the source identity behind a row.
 
 use std::num::NonZeroU64;
 

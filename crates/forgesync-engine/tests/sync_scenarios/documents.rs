@@ -1,4 +1,8 @@
-//! Documents workflow contracts.
+//! # Document materialization scenarios
+//!
+//! These cases build derived search documents from archived discussion evidence. They cover the
+//! boundary between source observations and recipe-shaped text. A recipe or observation change may
+//! require regeneration, while source content remains stored independently.
 
 use super::{
     Archive, MockServer, OperationOutcome, RepositorySelector, SyncThreadScope, ThreadSelector,

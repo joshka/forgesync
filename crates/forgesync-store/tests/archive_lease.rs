@@ -1,3 +1,9 @@
+//! # Archive lease integration
+//!
+//! These cases exercise lease ownership and guarded writes using an on-disk SQLite archive. They
+//! protect coordination across independent operations and rejection of stale ownership. A lease
+//! bounds workflow access; individual writes still use transactions.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

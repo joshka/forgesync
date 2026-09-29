@@ -1,4 +1,18 @@
-//! Provider DTO conversion to normalized domain values.
+//! Convert REST response shapes into checked domain content.
+//!
+//! Repository and discussion normalization establish provider identity, current paths, source
+//! state, and timestamps. Child normalizers attach comments, reviews, reviewer identities, and
+//! pull-request head/base metadata to their checked parent thread. Unknown review states remain
+//! explicit rather than being guessed into approval or dismissal.
+//!
+//! Normalization happens before an observation reaches the store. It validates required provider
+//! fields and retains unmapped fields in `ProviderData`, but it does not decide source ordering,
+//! collection completeness, or canonical archive membership. A JSON decoding failure becomes a
+//! typed provider error without exposing a raw response body.
+//!
+//! When GitHub adds a field, decide whether it changes a domain invariant or is merely retained
+//! provider data. A new resource family also needs engine acquisition and store coverage handling;
+//! adding a DTO alone does not make the archive complete.
 
 use super::{
     BTreeMap, BranchRef, Comment, CommentId, CommitSha, Discussion, GitHubError, GitHubHost,

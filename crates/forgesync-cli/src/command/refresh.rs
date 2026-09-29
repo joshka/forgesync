@@ -1,4 +1,11 @@
-//! Refresh arguments and process behavior.
+//! # Combine sync with requested analysis stages
+//!
+//! `RefreshArgs` describes the acquisition scope and optional document, embedding, or clustering
+//! work. Its run method builds the engine refresh request, supplies clients where needed, and
+//! renders each stage's outcome.
+//!
+//! A stage can fail after earlier evidence has been committed. The command preserves the engine's
+//! structured stage report so the user can tell what succeeded and what remains to retry.
 
 use std::collections::HashMap;
 use std::process::ExitCode;

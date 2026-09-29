@@ -1,3 +1,11 @@
+//! # Domain identity construction
+//!
+//! These cases exercise normalization and rejection at the identity boundary. Host authority
+//! parsing must not admit paths, and provider or numeric IDs must reject values that cannot
+//! represent source identity. Other crates rely on these constructors before persisting or
+//! comparing observations. Keep boundary cases here so store and GitHub tests can use valid
+//! identities without repeating the parsing rules.
+
 use serde_json::json;
 
 use super::{CommitSha, GitHubHost, IdentityError, ProviderId, RepositoryId, RunId, ThreadNumber};

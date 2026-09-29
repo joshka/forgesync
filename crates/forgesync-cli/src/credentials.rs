@@ -1,7 +1,12 @@
-//! GitHub credential discovery at the application boundary.
+//! # Resolve GitHub authentication for the CLI
 //!
-//! Resolve GitHub credentials at the application boundary and return a redacted token. Library
-//! crates receive the token explicitly and never inspect the process environment.
+//! `GitHubCredentialSettings` controls how the process finds a token, and `resolve_github_token`
+//! returns the selected credential or a typed `CredentialError`. Acquisition commands use this
+//! before constructing provider clients.
+//!
+//! Credential lookup belongs here because it is a process concern. The GitHub adapter receives a
+//! token value but does not choose environment variables or print secrets; diagnostics should
+//! describe the missing source without exposing the credential.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

@@ -1,8 +1,60 @@
+//! # Measure exact vector scoring and selection
+//!
+//! This example is a small performance probe for the engine's `cosine_similarity` primitive. It
+//! helps maintainers measure whether straightforward exact scoring is practical at a chosen vector
+//! count and dimension before changing the representation or adding a more complex retrieval
+//! strategy. It runs without an archive, network service, or downloaded model, making the
+//! arithmetic and selection cost easier to investigate in isolation.
+//!
+//! ## What this demonstrates
+//!
+//! A fixed-seed pseudo-random generator constructs reproducible nonzero candidate vectors. The
+//! query alternates positive and negative components. Both use the checked `EmbeddingVector`
+//! constructor, so the scoring loop consumes the same vector type as the engine's semantic search
+//! path.
+//!
+//! The timed region computes cosine similarity for every candidate, retains positive scores, sorts
+//! all retained scores in descending order with candidate ID as the tie break, and keeps at most
+//! twenty results. It therefore measures scoring plus result allocation and full sorting. Vector
+//! generation and validation occur before the timer, while input-size calculation and printing
+//! occur afterward.
+//!
+//! This synthetic loop demonstrates the cost of those operations, not the complete semantic-search
+//! workflow. It excludes SQLite reads, document/chunk matching, model compatibility checks, query
+//! embedding, and the engine's page-bounded search coordination. Use an actual archive workload
+//! when investigating those costs or user-visible latency.
+//!
+//! ## Run it
+//!
+//! Build and run in release mode so debug arithmetic and collection overhead do not dominate:
+//!
+//! ```sh
+//! cargo run --release -p forgesync-engine --example exact-cosine-benchmark -- 10000 1536
+//! ```
+//!
+//! The optional positional arguments are candidate count and vector dimensions; their defaults are
+//! 10,000 and 1,536. Both must be positive integers. Increasing either increases work, and
+//! candidate storage grows approximately with their product. Choose sizes that fit the machine's
+//! available memory before using this as a larger scaling experiment.
+//!
+//! ## Interpret the measurements
+//!
+//! `vectors` and `dimensions` describe the workload. `input_bytes` counts only the candidate `f32`
+//! components; it excludes vector/container overhead, the query, and the score buffer. `elapsed_ms`
+//! is one wall-clock measurement of the timed region. `top_k` is the number retained, which may be
+//! less than twenty if too few candidates have positive similarity.
+//!
+//! Repeat the same invocation on the same machine when comparing changes, and record the build mode
+//! and workload with the result. This executable does not warm up, run repeated samples, or
+//! calculate statistical confidence. Small timing differences may be noise; sustained changes
+//! should be checked with a controlled benchmark before they drive an architectural decision.
+
 use std::time::Instant;
 
 use forgesync_core::embedding::EmbeddingVector;
 use forgesync_engine::exact_search::cosine_similarity;
 
+/// Generates a reproducible workload, times scoring and selection, and prints one measurement.
 fn main() {
     let arguments = std::env::args().collect::<Vec<_>>();
     let count = arguments

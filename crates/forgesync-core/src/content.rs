@@ -1,8 +1,20 @@
-//! Normalized repositories, discussions, comments, reviews, and review threads.
+//! Normalized GitHub discussion content, independent of transport and storage representation.
 //!
-//! These values are the archive-facing shape of a GitHub repository and its discussions. Provider
-//! DTOs are converted to these types before storage; use [`crate::provider_data`] for fields that
-//! must survive normalization without becoming domain concepts.
+//! [`Repository`] identifies the owner and current path. [`Discussion`] is the parent issue or
+//! pull request; [`ThreadKind`] and [`SourceState`] describe its source type and state. Comments,
+//! pull request metadata, reviews, reviewer identities, and review threads are separate child
+//! resources.
+//!
+//! A provider DTO is converted into these values by `forgesync-github` before an observation
+//! reaches the store. The store records each family with its own coverage, so the presence of a
+//! `Discussion` does not imply that all comments or reviews were acquired.
+//! [`crate::provider_data`] retains extra provider fields without making them archive identity or
+//! ordering policy.
+//!
+//! Use this module when inspecting or constructing normalized content. Use [`crate::observation`]
+//! to say when the content was seen, and [`crate::coverage`] to say whether a related collection
+//! is complete. Changes to a child type need the corresponding provider normalization and store
+//! row conversion reviewed together.
 
 use serde::{Deserialize, Serialize};
 

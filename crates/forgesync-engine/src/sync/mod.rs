@@ -1,8 +1,15 @@
-//! Evidence acquisition and archive application.
+//! # Acquire GitHub discussion evidence into an archive
 //!
-//! Acquire selected GitHub resource families and apply them to an already opened archive. Requests
-//! state scope and inclusion explicitly; progress and the final report preserve partial success and
-//! cancellation.
+//! `SyncRequest` selects repositories, thread scope, and evidence families; `SyncReport` and
+//! progress types expose completed, partial, and failed work. The engine receives an already
+//! opened archive and explicit cancellation. It uses the GitHub adapter for transport and
+//! normalization, then the store for ordered observations.
+//!
+//! `jobs` coordinates thread work. `comments`, `reviews`, and `review_threads` own independently
+//! paginated child families; `pull_requests` and `metadata` handle pull-request-specific evidence.
+//! `support` resolves selectors and records scoped failures. An incomplete child collection must
+//! not replace prior complete membership. Per-job failure isolation lets one discussion fail while
+//! other work still commits.
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;

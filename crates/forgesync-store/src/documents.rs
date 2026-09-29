@@ -1,7 +1,12 @@
-//! Versioned discussion document persistence.
+//! # Persist search documents derived from discussions
 //!
-//! Persist discussion documents by recipe and source version. A materializer can replace stale
-//! derived text without changing the underlying discussion observation.
+//! `DocumentWrite` carries the recipe and content of a normalized search document. The engine
+//! builds it from a `ThreadDetail`; archive methods save and retrieve the resulting derived
+//! representation.
+//!
+//! Documents are not provider evidence. A recipe change or a newer discussion observation can
+//! require rebuilding them. Keeping document storage distinct from thread observations makes that
+//! invalidation and regeneration explicit.
 
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::identity::ThreadId;

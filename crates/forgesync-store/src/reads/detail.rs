@@ -1,4 +1,12 @@
-//! Detail archive reads.
+//! # Assemble an offline thread detail
+//!
+//! `Archive` detail methods combine a canonical discussion with timeline events, child resources,
+//! and coverage. The resulting `ThreadDetail` is the store-to-engine read boundary for inspection
+//! and document building.
+//!
+//! This module translates rows and ordering into a coherent view. Consumers should use the
+//! projection rather than issue separate SQL reads that might disagree about canonical
+//! observations or omit an incomplete family.
 
 use sqlx::Row;
 

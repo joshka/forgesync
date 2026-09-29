@@ -1,4 +1,12 @@
-//! Metadata sync work.
+//! # Acquire pull-request metadata for a thread
+//!
+//! Metadata synchronization obtains pull-request-specific fields and applies their normalized
+//! observation to the archive. It is invoked only for a discussion whose kind and requested
+//! evidence make that work relevant.
+//!
+//! The parent discussion and child review families have separate ownership. Keeping this step
+//! distinct prevents a metadata fetch from accidentally asserting that reviews or review threads
+//! were collected.
 
 use super::comments::incomplete_reason;
 use super::support::record_thread_family_failure;

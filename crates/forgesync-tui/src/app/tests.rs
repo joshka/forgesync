@@ -1,3 +1,11 @@
+//! # Interactive state transitions
+//!
+//! These tests demonstrate that keyboard input remains responsive while queries run, and stale
+//! results cannot overwrite a newer selection. They also cover search entry, repository picking,
+//! and targeting the selected cluster member. `App` is the state machine behind the view; these
+//! examples show its user-facing transitions without requiring a terminal renderer. Add a direct
+//! transition case when a new key changes navigation or launches work.
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{

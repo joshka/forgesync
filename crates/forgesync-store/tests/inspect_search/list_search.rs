@@ -1,3 +1,9 @@
+//! # List and search query cases
+//!
+//! These cases cover repository scope, filters, ordering, and pagination in local reads. They keep
+//! SQL behavior aligned with the typed query model. A caller should receive a stable page rather
+//! than reconstructing filter semantics from raw rows.
+
 use super::{
     Archive, CoverageState, EvidenceFamily, GitHubHost, NonZeroU32, SourceState, StoreError,
     ThreadKind, ThreadQuery, ThreadSort, ThreadStateFilter, apply_thread, discussion,

@@ -1,7 +1,13 @@
-//! Repository thread enumeration workflow.
+//! # Enumerate repository discussion identities
 //!
-//! Scan repository discussions and record progress before detailed family acquisition. The result
-//! distinguishes a completed repository scan from one interrupted after a checkpoint.
+//! Enumeration asks the GitHub adapter for repository threads and records scan coverage in the
+//! archive. `ThreadEnumerationReport` tells the caller what was visited and whether the scan
+//! completed.
+//!
+//! This is a discovery workflow, not a full sync of each discussion or child family. Scope-aware
+//! variants allow the sync coordinator to ask for only the identities it needs. The store persists
+//! scan state so a later run can distinguish an empty complete repository from an interrupted
+//! scan.
 
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};

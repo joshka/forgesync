@@ -1,7 +1,13 @@
-//! Run history and retry planning.
+//! # Inspect and retry recorded workflow work
 //!
-//! Inspect prior runs and derive retry scopes from recorded failures. Retry planning is local and
-//! read-only until a caller starts the selected workflow.
+//! `RetryScope`, `RetryPlan`, and `RetryReport` describe which failed jobs can be attempted again
+//! and what happened on retry. List and show operations read the durable run ledger from the
+//! archive.
+//!
+//! Retry uses recorded failure scope and current archive state rather than guessing from missing
+//! content. The new attempt is a workflow with its own report; prior successes and failures remain
+//! inspectable. The store owns ledger persistence, while this module decides what the engine
+//! should run again.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;

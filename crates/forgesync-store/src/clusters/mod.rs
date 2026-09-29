@@ -1,8 +1,14 @@
-//! Durable cluster generations and local maintainer decisions.
+//! # Stored duplicate clusters and maintainer decisions
 //!
-//! Store-generated duplicate clusters and local maintainer decisions live here. A generation
-//! describes computed membership; decisions are separate durable state so rebuilding clusters does
-//! not discard human choices.
+//! A cluster generation is a derived grouping of archived threads. `ClusterGenerationInput`,
+//! `ClusterInput`, and `ClusterMemberInput` describe what the engine proposes to store;
+//! `ClusterGenerationResult` reports the committed generation. Summary and detail types are read
+//! projections for CLI and TUI callers.
+//!
+//! Lifecycle, member state, and member role are separate because a proposed relationship and a
+//! maintainer decision have different meanings. `generation` writes proposed membership, `queries`
+//! reads it, and `decisions` records local triage actions. The engine owns candidate selection;
+//! this module owns persistence and the durable effect of decisions.
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;

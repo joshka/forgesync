@@ -1,4 +1,10 @@
-//! Read generated clusters from the local archive.
+//! # List and show stored clusters
+//!
+//! Read handlers open the archive and ask the engine for persisted cluster pages or detail. They
+//! format the projection without rebuilding analysis or changing decisions.
+//!
+//! List and show are separate entry points because a page is a navigation summary while detail
+//! includes members and current triage state. Both should remain usable offline.
 
 use std::path::Path;
 use std::process::ExitCode;

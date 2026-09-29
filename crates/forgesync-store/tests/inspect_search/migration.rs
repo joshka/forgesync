@@ -1,3 +1,9 @@
+//! # Migration-sensitive read cases
+//!
+//! These cases read archives across supported schema states and explicit migration operations.
+//! They protect the distinction between inspection and mutation. A schema change should preserve
+//! meaningful existing data and make pending migration visible.
+
 use super::{
     Archive, SourceState, SqliteConnectOptions, SqlitePoolOptions, StoreError, ThreadKind,
     apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,

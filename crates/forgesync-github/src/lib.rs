@@ -1,10 +1,20 @@
-//! Read-only GitHub API access and typed provider failures.
+//! Read-only GitHub acquisition and normalization for Forgesync workflows.
 //!
-//! This crate accepts credentials from its caller. Credential discovery and process environment
-//! access belong to the application boundary.
-//! [`transport`] owns HTTP clients and retries. [`resources`] and [`review_threads`] acquire and
-//! normalize the supported REST and GraphQL resource families. [`error`] classifies provider
-//! failures, and [`token`] holds a credential without exposing it in debug output.
+//! This crate accepts an explicitly supplied [`token::GitHubToken`] and transport configuration.
+//! It does not discover credentials, open an archive, or decide when a repository should be
+//! synced. The engine chooses a resource family and cancellation scope, calls this crate, then
+//! hands checked core values to the store.
+//!
+//! The provider boundary has three related layers:
+//!
+//! - [`transport`] owns origin validation, bounded HTTP requests, retries, and page links.
+//! - [`resources`] fetches REST repositories, discussions, comments, metadata, and reviews.
+//! - [`review_threads`] handles GraphQL review threads and nested comment pagination.
+//!
+//! [`error`] preserves failure categories for retries and reports. Provider DTOs stay in the
+//! relevant resource module; normalized domain values leave through `forgesync-core`. A page
+//! result is not a claim that an entire resource family is complete. The engine and store own that
+//! completeness transition, especially when later pages fail.
 
 pub mod error;
 pub mod resources;

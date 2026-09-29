@@ -1,8 +1,13 @@
-//! Explicit SQLite archive lifecycle and metadata.
+//! # Archive lifecycle and database handles
 //!
-//! Create, read-only open, writable open, and migration are distinct operations. Opening validates
-//! the on-disk archive but never creates it, downloads data, or silently migrates it. Pass the
-//! resulting [`Archive`] to local reads or workflow operations.
+//! `Archive` owns the SQLite pools used by every store operation. `ArchiveInfo` describes an
+//! opened archive for status output. Create, read-only open, writable open, and migration are
+//! separate calls so a command can choose its side effects deliberately.
+//!
+//! Use the read-only handle for inspection paths and a writable handle for observations, derived
+//! data, or local decisions. Other modules add focused `impl Archive` methods; this file owns
+//! connection setup and the rules shared by all of them. SQLite pragmas and pool behavior belong
+//! here because they affect every transaction, including concurrency and foreign-key integrity.
 
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};

@@ -24,6 +24,28 @@ their invariant and who constructs them. Fallible operations should explain rele
 partial state, cancellation, retry, and recovery. State the lifecycle of archives, network clients,
 and terminal state at their owning APIs.
 
+Every Rust module file, including private leaves and focused test modules, needs an opening `//!`
+that orients a reader arriving directly from search. Explain what the file contains, when its main
+types or operations are used, who calls them, and how they relate to neighboring modules. A small
+leaf may need roughly ten lines; a crate root or coordinating module may need several sections. Use
+the complexity of the mental model rather than a line quota to decide the depth. A one-line label
+seldom explains a module with multiple types, state transitions, or failure boundaries.
+
+Let documentation settle at the narrowest level that covers its readers. Crate roots explain
+boundaries and the route through the package. Coordinating modules explain workflows and how their
+children divide work. Leaf modules explain their own types and invariants. Item and function docs
+explain the contract, preconditions, effects, and failure meaning specific to that item. Avoid
+copying a shared explanation into every leaf, but do not force a reader to climb to a distant guide
+to learn why a local operation exists. Top-of-file docs should serve as a map for the code below.
+
+Capture durable reasoning while implementing: why a boundary, ordering rule, completeness check, or
+state transition matters to the current design. Include the facts a future maintainer would
+otherwise have to reconstruct by tracing callers, tests, and history. Favor present-tense
+explanations of what is here. Mention a former design or bug only when that history explains a
+current constraint or regression case; do not turn module docs into a change log. An example is
+useful when it clarifies a contract or typical call sequence, especially at crate and public API
+boundaries.
+
 Document application functions and methods in private modules too. A brief name does not tell a
 reader who calls an operation, which state it changes, or why it is separate from neighboring
 operations. Put the useful contract at the function rather than relying on a distant module guide.
@@ -35,6 +57,12 @@ code. Document the difference between a complete collection and an incomplete ob
 distinction controls stored membership. Keep examples practical: opening an existing archive and
 performing an offline read explains more than constructing a type without using it.
 
+Executable examples need their own reader contract. Explain why the example exists, which API
+boundary or design choice it demonstrates, required inputs and setup, how to run it, observable
+effects, and how to interpret its output. State the limits of its coverage where readers might
+otherwise generalize from it. For performance probes, identify the timed region, excluded setup,
+workload, and measurement limits so a sample timing does not imply a full workflow benchmark.
+
 ## Review documentation as a contract
 
 Check changed commands, paths, options, links, and examples against the current checkout. Check
@@ -43,9 +71,11 @@ unclear, inspect the implementation, relevant tests, and introducing history bef
 Keep uncertainty explicit rather than presenting an inference as a guarantee.
 
 Review a page from two entry points: the intended reading path and a direct landing from search or
-Rustdoc. Remove duplicated setup and stale promises. Preserve explanations that prevent a mistake,
-even when they take more words. Wrap Markdown prose at 100 columns and run the repository's rumdl
-and markdownlint checks after editing.
+Rustdoc. For source docs, open individual module files as if their parent module were unknown; check
+that the first screen establishes purpose, relationships, and the important invariant. Remove
+duplicated setup and stale promises. Preserve explanations that prevent a mistake, even when they
+take more words. Wrap Markdown prose at 100 columns and run the repository's rumdl and markdownlint
+checks after editing.
 
 This guidance distills the local Practice documentation workflow and Girt documentation standard for
 Forgesync's archive, sync, search, and triage workflows.

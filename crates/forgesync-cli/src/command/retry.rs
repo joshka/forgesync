@@ -1,4 +1,10 @@
-//! Retry command handling.
+//! # Retry work recorded as failed
+//!
+//! The retry handler selects a run or failure scope, builds an engine retry plan, and executes the
+//! requested work. It reports a new outcome while leaving earlier run history inspectable.
+//!
+//! Retry is based on durable failure records and current archive state. It should not infer work
+//! merely from absent content, because a family may never have been requested.
 
 use std::collections::HashMap;
 use std::process::ExitCode;

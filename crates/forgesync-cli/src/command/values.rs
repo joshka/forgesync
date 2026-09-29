@@ -1,4 +1,12 @@
-//! Values command arguments.
+//! # Translate CLI value choices into domain requests
+//!
+//! These enums are the user-facing vocabulary accepted by argument parsing: families, discussion
+//! kinds and states, sort orders, search modes, and refresh analysis choices. Conversion
+//! implementations map them to core or engine types.
+//!
+//! Keeping this mapping at the CLI boundary lets library APIs use domain language without
+//! depending on Clap. A new value should be documented here with the meaning users see, then
+//! converted once rather than repeatedly interpreted in command handlers.
 
 use clap::ValueEnum;
 use forgesync_core::coverage::EvidenceFamily;
