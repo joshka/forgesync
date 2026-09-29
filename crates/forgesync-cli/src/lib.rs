@@ -18,8 +18,8 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, ClusterCommand, Command, EmbedArgs, LogFormat, RefreshAnalysisArg,
-    RefreshArgs, RunCommand, RunFamilyArg, SearchArgs, SearchModeArg, SyncArgs, SyncIncludeArg,
+    ArchiveCommand, CliArgs, Command, EmbedArgs, LogFormat, RefreshAnalysisArg, RefreshArgs,
+    RunCommand, RunFamilyArg, SearchArgs, SearchModeArg, SyncArgs, SyncIncludeArg,
     SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::error::ErrorKind;
@@ -32,11 +32,7 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{GitHubHost, RunId};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_engine::clustering::{
-    ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters,
-    dismiss_cluster, exclude_cluster_member, include_cluster_member, list_clusters,
-    restore_cluster, set_canonical_cluster_member, show_cluster,
-};
+use forgesync_engine::clustering::{ClusterBuildReport, ClusterOptions};
 use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::embeddings::EmbeddingReport;
 use forgesync_engine::error::EngineError;

@@ -11,7 +11,7 @@ mod thread;
 mod values;
 
 pub use archive::ArchiveCommand;
-pub use cluster::ClusterCommand;
+pub use cluster::{ClusterBuildArgs, ClusterCommand, ClusterListArgs};
 pub use embed::EmbedArgs;
 pub use refresh::RefreshArgs;
 pub use run::RunCommand;
@@ -28,7 +28,7 @@ mod tests;
 
 use clap::{ArgAction, Parser, Subcommand};
 
-/// Global process options. Command-specific arguments are added with their implementation phase.
+/// Global process options shared by every command.
 #[derive(Clone, Debug, Parser)]
 #[command(
     name = "forgesync",
