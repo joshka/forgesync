@@ -160,3 +160,9 @@ CLI embedding preparation retains repository scope, client identity, recipe, rep
 dimensions in `PreparedEmbedding`. It executes against an opened archive and projects the same
 identity into its result; the outer command owns archive closure and presentation. Configuration
 setup happens before opening, while actual model requests remain in the engine stage.
+
+Engine `embeddings/chunks` owns deterministic text splitting and compatibility of persisted chunks
+with current document input. Its value identity includes position, total count, hash, and text. The
+embedding workflow uses those values to schedule requests and persist vectors under a writer fence;
+chunk construction itself performs no provider or archive I/O. Nearby chunk and request-batch tests
+cover their separate contracts.

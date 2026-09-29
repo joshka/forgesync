@@ -1354,3 +1354,14 @@ strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markd
 Generated embedding module and prepared-execution docs were checked for identity ownership and
 cleanup responsibilities. The full audit remains open, including engine batch coordination and other
 private representations.
+
+## Continued maintenance: deterministic embedding chunks
+
+Embedding text splitting, versioned chunk identity, and persisted-vector compatibility now live in
+`embeddings/chunks`. The workflow retains scheduling and fenced persistence; nearby chunk tests
+exercise deterministic values and oversized multibyte input separately from request batching.
+Private task and batch fields explain retained source identity and service-response ordering.
+
+Focused embedding cases, workspace Clippy, workspace tests/doctests, the CLI build without default
+features, strict public/private Rustdoc, and nightly formatting pass. Batch selection, scheduling,
+and lease ownership remain the next embedding execution work.

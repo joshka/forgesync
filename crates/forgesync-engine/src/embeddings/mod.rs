@@ -6,7 +6,8 @@
 //!
 //! Embeddings are derived from a document and service identity. A source observation alone does
 //! not make an old vector current. Search checks compatibility before using stored vectors, while
-//! this workflow produces the compatible material when requested.
+//! this workflow produces the compatible material when requested. `chunks` owns deterministic text
+//! splitting and per-chunk reuse checks; scheduling and fenced persistence remain here.
 
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
@@ -16,11 +17,14 @@ use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::embedding::EmbeddingVector;
 use forgesync_core::identity::ThreadId;
 use forgesync_store::archive::Archive;
-use forgesync_store::embeddings::{EmbeddingChunkInput, StoredEmbeddingChunk};
+use forgesync_store::embeddings::EmbeddingChunkInput;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
+
+mod chunks;
+
+use chunks::{DocumentChunk, chunk_document, compatible_chunks};
 
 use crate::documents::now_utc;
 use crate::embedding_client::{EmbeddingClient, EmbeddingClientError};
@@ -75,19 +79,17 @@ pub struct EmbeddingBatchFailure {
     pub message: String,
 }
 
-struct DocumentChunk {
-    index: u32,
-    count: u32,
-    hash: String,
-    text: String,
-}
-
+/// Pending model input tied to the immutable source document used for fenced persistence.
 struct EmbeddingTask {
+    /// Shared full document identity and content hash, retained across its separate chunks.
     document: Arc<Document>,
+    /// Deterministic position and text requested from the service.
     chunk: DocumentChunk,
 }
 
+/// Ordered pending inputs constrained by both service count and aggregate byte budgets.
 struct EmbeddingBatch {
+    /// Input order must match returned vector order; persistence rejects count mismatches.
     tasks: Vec<EmbeddingTask>,
 }
 
@@ -282,46 +284,6 @@ async fn persist_batch(
     Ok(())
 }
 
-/// Selects chunks matching the current document and model identity.
-fn compatible_chunks(
-    existing: Vec<StoredEmbeddingChunk>,
-    chunks: Vec<DocumentChunk>,
-    count: u32,
-    expected_dimensions: Option<u32>,
-) -> CompatibleChunks {
-    let current = existing
-        .into_iter()
-        .filter(|stored| {
-            stored.count == count
-                && expected_dimensions.is_none_or(|expected| stored.vector.dimensions() == expected)
-        })
-        .map(|stored| (stored.index, stored.chunk_hash))
-        .collect::<std::collections::HashMap<_, _>>();
-    let mut pending = Vec::new();
-    let mut skipped = 0usize;
-    for chunk in chunks {
-        let index = chunk.index;
-        let count = chunk.count;
-        let hash = chunk.hash.clone();
-        if current.get(&index).is_some_and(|stored| stored == &hash) {
-            skipped = skipped.saturating_add(1);
-        } else {
-            pending.push(DocumentChunk {
-                index,
-                count,
-                hash,
-                text: chunk.text,
-            });
-        }
-    }
-    CompatibleChunks { pending, skipped }
-}
-
-struct CompatibleChunks {
-    pending: Vec<DocumentChunk>,
-    skipped: usize,
-}
-
 /// Groups pending inputs under both count and byte budgets.
 fn make_batches(
     tasks: Vec<EmbeddingTask>,
@@ -350,160 +312,5 @@ fn make_batches(
     batches
 }
 
-/// Splits one document into deterministic model inputs.
-fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>, EngineError> {
-    if max_bytes < 4 {
-        return Err(EngineError::EmbeddingWorkerFailed);
-    }
-    let mut remaining = text.trim();
-    let mut chunks = Vec::new();
-    while !remaining.is_empty() {
-        if remaining.len() <= max_bytes {
-            chunks.push(remaining.to_owned());
-            break;
-        }
-        let mut boundary = 0usize;
-        for (index, character) in remaining.char_indices() {
-            let next = index + character.len_utf8();
-            if next > max_bytes {
-                break;
-            }
-            boundary = next;
-        }
-        if boundary == 0 {
-            return Err(EngineError::InvalidEmbeddingInput);
-        }
-        let split = remaining[..boundary]
-            .char_indices()
-            .rev()
-            .find(|(_, character)| character.is_whitespace())
-            .map(|(index, _)| index)
-            .filter(|index| *index > 0)
-            .unwrap_or(boundary);
-        chunks.push(remaining[..split].trim_end().to_owned());
-        remaining = remaining[split..].trim_start();
-    }
-    chunks.retain(|chunk| !chunk.is_empty());
-    let count = u32::try_from(chunks.len()).map_err(|_| EngineError::InvalidEmbeddingInput)?;
-    Ok(chunks
-        .into_iter()
-        .enumerate()
-        .map(|(index, text)| {
-            let index = u32::try_from(index).expect("chunk count fits u32");
-            DocumentChunk {
-                index,
-                count,
-                hash: chunk_hash(index, &text),
-                text,
-            }
-        })
-        .collect())
-}
-
-/// Hashes one chunk with its recipe context for reuse decisions.
-fn chunk_hash(index: u32, text: &str) -> String {
-    let mut hasher = Sha256::new();
-    add_hash_field(&mut hasher, b"forgesync-embedding-chunk-v1");
-    add_hash_field(&mut hasher, &index.to_be_bytes());
-    add_hash_field(&mut hasher, text.as_bytes());
-    let digest = hasher.finalize();
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-/// Adds a length-delimited field to the stable chunk hash.
-fn add_hash_field(hasher: &mut Sha256, value: &[u8]) {
-    hasher.update(u64::try_from(value.len()).unwrap_or(u64::MAX).to_be_bytes());
-    hasher.update(value);
-}
-
 #[cfg(test)]
-mod tests {
-    use super::{chunk_document, make_batches};
-
-    #[test]
-    fn chunks_are_deterministic_utf8_safe_and_within_the_byte_budget() {
-        let text = "first phrase 🦀 and another very long phrase";
-        let first = chunk_document(text, 16).expect("chunks");
-        let second = chunk_document(text, 16).expect("repeat chunks");
-
-        assert_eq!(first.len(), second.len());
-        assert!(first.iter().all(|chunk| chunk.text.len() <= 16));
-        assert!(first.iter().all(|chunk| chunk.hash.len() == 64));
-        assert_eq!(
-            first
-                .iter()
-                .map(|chunk| chunk.text.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
-            text
-        );
-        assert!(first.iter().zip(second).all(|(left, right)| {
-            left.index == right.index && left.hash == right.hash && left.text == right.text
-        }));
-    }
-
-    #[test]
-    fn chunk_hash_changes_when_the_chunk_position_changes() {
-        let first = chunk_document("same", 16).expect("first");
-        let later = chunk_document("prefix same", 6).expect("later");
-
-        assert_ne!(first[0].hash, later[1].hash);
-    }
-
-    #[test]
-    fn request_batches_obey_count_and_combined_byte_limits() {
-        let tasks = (0..5)
-            .map(|index| super::EmbeddingTask {
-                document: std::sync::Arc::new(test_document()),
-                chunk: super::DocumentChunk {
-                    index,
-                    count: 5,
-                    hash: format!("{index:064x}"),
-                    text: "four".to_owned(),
-                },
-            })
-            .collect();
-        let batches = make_batches(tasks, 2, 8);
-
-        assert_eq!(
-            batches
-                .iter()
-                .map(|batch| batch.tasks.len())
-                .collect::<Vec<_>>(),
-            [2, 2, 1]
-        );
-        assert!(batches.iter().all(|batch| {
-            batch
-                .tasks
-                .iter()
-                .map(|task| task.chunk.text.len())
-                .sum::<usize>()
-                <= 8
-        }));
-    }
-
-    fn test_document() -> forgesync_core::document::Document {
-        use forgesync_core::document::{Document, DocumentRecipe};
-        use forgesync_core::identity::{
-            GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber,
-        };
-        use forgesync_core::timestamp::UtcTimestamp;
-
-        let repository = RepositoryId::new(
-            GitHubHost::parse("github.com").expect("host"),
-            ProviderId::new("1").expect("repository ID"),
-        );
-        Document::new(
-            ThreadId::new(
-                repository,
-                ProviderId::new("2").expect("thread ID"),
-                ThreadNumber::new(3).expect("thread number"),
-            ),
-            DocumentRecipe::OriginalBody,
-            "Title".to_owned(),
-            "body".to_owned(),
-            "body".to_owned(),
-            UtcTimestamp::parse("2026-09-01T00:00:00Z").expect("timestamp"),
-        )
-    }
-}
+mod tests;
