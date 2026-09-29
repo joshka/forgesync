@@ -158,25 +158,17 @@ impl ClusterCommand {
         verbose: u8,
         config: ForgesyncConfig,
     ) -> ExitCode {
-        let cancellation = CancellationToken::new();
-        let interrupt_cancellation = cancellation.clone();
-        let interrupt_task = tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                interrupt_cancellation.cancel();
-            }
-        });
-        let result = self
-            .execute(
-                path,
-                config.embeddings,
-                config.documents.recipe,
-                json,
-                verbose,
-                &cancellation,
-            )
-            .await;
-        interrupt_task.abort();
-        result
+        let interruption = super::interruption::CommandInterruption::new();
+        let cancellation = interruption.cancellation();
+        self.execute(
+            path,
+            config.embeddings,
+            config.documents.recipe,
+            json,
+            verbose,
+            cancellation,
+        )
+        .await
     }
 
     /// Routes a selected cluster operation after installing cancellation.

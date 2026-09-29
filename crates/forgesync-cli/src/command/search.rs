@@ -113,14 +113,9 @@ impl SearchArgs {
         } else {
             None
         };
-        let cancellation = tokio_util::sync::CancellationToken::new();
-        let interrupt_cancellation = cancellation.clone();
-        let interrupt_task = tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                interrupt_cancellation.cancel();
-            }
-        });
-        let result = match Archive::open_read_only(path).await {
+        let interruption = super::interruption::CommandInterruption::new();
+        let cancellation = interruption.cancellation();
+        match Archive::open_read_only(path).await {
             Ok(archive) => {
                 let request = SearchRequest {
                     query,
@@ -133,7 +128,7 @@ impl SearchArgs {
                     &request,
                     recipe,
                     embedding_client.as_ref(),
-                    &cancellation,
+                    cancellation,
                 )
                 .await;
                 archive.close().await;
@@ -143,8 +138,6 @@ impl SearchArgs {
                 }
             }
             Err(error) => render_store_error(json, "search", error),
-        };
-        interrupt_task.abort();
-        result
+        }
     }
 }

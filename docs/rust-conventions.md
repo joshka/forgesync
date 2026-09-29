@@ -52,6 +52,9 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Review the result by following the main path and one failure path. Extraction should reduce the
   facts a caller carries and the places a policy is repeated. Shorter functions alone are not
   evidence of a better design.
+- Scope background listeners and helper tasks with the operation that needs them. Prefer a small
+  lifetime owner over repeating manual teardown at every return; cancellation must still let the
+  workflow finish its own durable cleanup.
 - Give repeated eligibility or ordering policy one owner. Selection and later materialization must
   use the same predicate when they claim the same invariant; repeated inline predicates can drift.
 - Keep transaction commits with the operation that opened the transaction. Phase helpers may borrow

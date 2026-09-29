@@ -63,18 +63,10 @@ impl EmbedArgs {
         verbose: u8,
         config: ForgesyncConfig,
     ) -> ExitCode {
-        let cancellation = tokio_util::sync::CancellationToken::new();
-        let interrupt_cancellation = cancellation.clone();
-        let interrupt_task = tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                interrupt_cancellation.cancel();
-            }
-        });
-        let result = self
-            .execute(path, json, verbose, config, &cancellation)
-            .await;
-        interrupt_task.abort();
-        result
+        let interruption = super::interruption::CommandInterruption::new();
+        let cancellation = interruption.cancellation();
+        self.execute(path, json, verbose, config, cancellation)
+            .await
     }
 
     /// Executes one prepared embed request against the selected archive.

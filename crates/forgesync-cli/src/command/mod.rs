@@ -16,6 +16,7 @@ mod cluster;
 mod embed;
 mod embedding_service;
 mod github;
+mod interruption;
 mod refresh;
 mod retry;
 mod run;

@@ -103,16 +103,9 @@ impl RunCommand {
             Ok(id) => id,
             Err(_) => return usage_error("run ID must be a positive integer"),
         };
-        let cancellation = tokio_util::sync::CancellationToken::new();
-        let interrupt_cancellation = cancellation.clone();
-        let interrupt_task = tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                interrupt_cancellation.cancel();
-            }
-        });
+        let interruption = super::interruption::CommandInterruption::new();
+        let cancellation = interruption.cancellation();
         let families = family.into_iter().map(EvidenceFamily::from).collect();
-        let result = execute_retry(path, id, families, output, verbose, &cancellation).await;
-        interrupt_task.abort();
-        result
+        execute_retry(path, id, families, output, verbose, cancellation).await
     }
 }

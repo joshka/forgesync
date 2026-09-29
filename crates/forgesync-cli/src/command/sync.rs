@@ -128,13 +128,8 @@ impl SyncArgs {
             state,
             with,
         } = self;
-        let cancellation = tokio_util::sync::CancellationToken::new();
-        let interrupt_cancellation = cancellation.clone();
-        let interrupt_task = tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                interrupt_cancellation.cancel();
-            }
-        });
+        let interruption = super::interruption::CommandInterruption::new();
+        let cancellation = interruption.cancellation();
         let sync_request = SyncRequest {
             repositories,
             all,
@@ -149,8 +144,6 @@ impl SyncArgs {
             include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
             parent_run: None,
         };
-        let result = execute_sync(path, sync_request, json, verbose, &cancellation).await;
-        interrupt_task.abort();
-        result
+        execute_sync(path, sync_request, json, verbose, cancellation).await
     }
 }
