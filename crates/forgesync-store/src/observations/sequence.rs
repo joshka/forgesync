@@ -8,10 +8,13 @@
 //! ordering policy itself lives in `ordering`; this module ensures all callers persist a
 //! consistent, bounded sequence value.
 
-use super::{
-    Archive, ArchiveLeaseToken, ObservationSequence, StoreError, UtcTimestamp, checked_sequence,
-    require_active_archive_lease,
-};
+use forgesync_core::identity::ObservationSequence;
+use forgesync_core::timestamp::UtcTimestamp;
+
+use super::checked_sequence;
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
 impl Archive {
     /// Reserves and durably increments the archive-wide acquisition sequence.

@@ -12,19 +12,23 @@
 use std::cmp::Ordering;
 
 use forgesync_core::content::Discussion;
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::ObservationSequence;
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
-use super::thread_rows::{load_thread_observation, update_thread_payload};
+use super::thread_rows::{
+    StoredThreadObservation, ThreadPayloadUpdate, load_thread_observation, update_thread_payload,
+};
 use super::{
-    CoverageState, EvidenceFamily, ObservationDisposition, ObservationSequence, SourceClockColumns,
-    StoredThreadObservation, ThreadObservationResult, ThreadPayloadUpdate, UtcTimestamp,
-    compare_observation_order, normalize_source_clock, repository_row_id, source_clock_columns,
-    sqlite_integer, to_sql_sequence, write_coverage,
+    ObservationDisposition, SourceClockColumns, ThreadObservationResult, normalize_source_clock,
+    repository_row_id, source_clock_columns, sqlite_integer, to_sql_sequence, write_coverage,
 };
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::ordering::compare_observation_order;
 
 impl Archive {
     /// Applies one issue or pull-request snapshot using source clock and acquisition ordering.

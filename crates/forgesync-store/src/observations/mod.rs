@@ -11,18 +11,14 @@
 //! canonical content merely because it arrived later. The engine decides when to fetch; the store
 //! enforces these ordering and completeness rules.
 
-use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{ObservationSequence, ProviderId, ThreadId};
 use forgesync_core::observation::SourceClock;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 
-use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::ordering::compare_observation_order;
 
 /// The disposition of an observation or family reservation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -76,28 +72,19 @@ pub struct FamilyObservationResult {
     pub item_count: u64,
 }
 
-struct StoredThreadObservation {
-    id: i64,
-    payload_json: String,
-    source_clock: SourceClock,
-    sequence: ObservationSequence,
-    evidence_clock: SourceClock,
-    evidence_sequence: Option<ObservationSequence>,
-}
-
-struct ThreadPayloadUpdate<'a> {
-    discussion: &'a Discussion,
-    payload_json: &'a str,
-    source_clock: &'a SourceClockColumns,
-    high_water_sequence: ObservationSequence,
-    observed_at: UtcTimestamp,
-    evidence_sequence: Option<ObservationSequence>,
-}
-
+/// Checked SQL representation of a source clock for ordering and coverage persistence.
+///
+/// Exactly one shape is valid: missing has no value, valid has microseconds and no raw text, and
+/// invalid retains nonempty source spelling with no microseconds. Conversion helpers enforce this
+/// relationship; callers must not invent column combinations. This remains crate-restricted
+/// because the public observation API accepts domain clocks rather than SQL representations.
 #[derive(Clone, Debug)]
 pub(crate) struct SourceClockColumns {
+    /// Stored discriminant: `missing`, `valid`, or `invalid`.
     pub state: &'static str,
+    /// Original invalid spelling after trimming; empty for missing and valid clocks.
     pub raw: String,
+    /// Comparable timestamp present only for a valid clock.
     pub unix_microseconds: Option<i64>,
 }
 

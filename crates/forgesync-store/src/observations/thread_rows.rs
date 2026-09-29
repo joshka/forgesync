@@ -5,18 +5,63 @@
 //! source and evidence positions, and `update_thread_payload` writes the selected canonical
 //! snapshot.
 //!
+//! `StoredThreadObservation` retains separate canonical and complete-evidence positions for that
+//! decision. `ThreadPayloadUpdate` carries the selected snapshot and optional evidence advance
+//! into the update statement. Neither representation escapes the observation implementation.
+//!
 //! The application module owns ordering policy; this file owns column mapping and bound SQL.
 //! The long insert/update binding sequences remain linear so a reader can compare field order
 //! directly with the query. Every helper uses the caller's connection and never commits separately.
 
-use sqlx::Row;
+use forgesync_core::content::{Discussion, SourceState, ThreadKind};
+use forgesync_core::identity::ObservationSequence;
+use forgesync_core::observation::SourceClock;
+use forgesync_core::timestamp::UtcTimestamp;
+use sqlx::{Row, SqliteConnection};
 
 use super::apply::IncomingThread;
-use super::{
-    SourceState, SqliteConnection, StoreError, StoredThreadObservation, ThreadKind,
-    ThreadPayloadUpdate, UtcTimestamp, checked_sequence, source_clock_from_columns,
-    to_sql_sequence,
-};
+use super::{SourceClockColumns, checked_sequence, source_clock_from_columns, to_sql_sequence};
+use crate::error::StoreError;
+
+/// Current canonical row positions loaded before deciding whether an observation can replace it.
+///
+/// Source and evidence positions are independent: a partial newer snapshot may update content
+/// without proving complete parent evidence. Application compares both before selecting a write.
+/// This SQL projection is private to the observation implementation, never a public read DTO.
+pub struct StoredThreadObservation {
+    /// Canonical thread row targeted by any accepted update.
+    pub id: i64,
+    /// Existing normalized discussion for same-generation payload comparison.
+    pub payload_json: String,
+    /// Source revision associated with current canonical content.
+    pub source_clock: SourceClock,
+    /// Acquisition high-water mark for that source generation.
+    pub sequence: ObservationSequence,
+    /// Source revision of the last accepted complete parent evidence.
+    pub evidence_clock: SourceClock,
+    /// Complete-evidence acquisition sequence; absent before any complete observation.
+    pub evidence_sequence: Option<ObservationSequence>,
+}
+
+/// Selected canonical values bound by the thread update statement in its caller's transaction.
+///
+/// Application constructs this after ordering checks. Omitting `evidence_sequence` updates the
+/// content high-water mark while preserving existing complete evidence. Supplying it advances
+/// evidence to the same source clock as the canonical payload. This value never commits itself.
+pub struct ThreadPayloadUpdate<'a> {
+    /// Accepted domain snapshot supplying searchable columns and provider metadata.
+    pub discussion: &'a Discussion,
+    /// Serialized form of the same snapshot for later decoding and replay comparison.
+    pub payload_json: &'a str,
+    /// Checked SQL clock columns for the accepted source generation.
+    pub source_clock: &'a SourceClockColumns,
+    /// Highest acquisition sequence retained for this source generation.
+    pub high_water_sequence: ObservationSequence,
+    /// Local acquisition time attached to the canonical snapshot.
+    pub observed_at: UtcTimestamp,
+    /// New complete-evidence sequence, or no evidence change for an incomplete observation.
+    pub evidence_sequence: Option<ObservationSequence>,
+}
 
 impl IncomingThread<'_> {
     /// Inserts the canonical parent row with an initially empty evidence high-water mark.

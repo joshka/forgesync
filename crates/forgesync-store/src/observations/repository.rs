@@ -7,9 +7,12 @@
 //! repository identifiers rather than SQL row IDs. Repository scope is also used by enumeration,
 //! search, and reporting, so incorrect resolution would affect more than a single thread write.
 
-use super::{
-    Archive, ArchiveLeaseToken, Repository, StoreError, UtcTimestamp, require_active_archive_lease,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::timestamp::UtcTimestamp;
+
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
 impl Archive {
     /// Inserts or refreshes a repository identity used by discussion observations.

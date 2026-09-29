@@ -8,10 +8,12 @@
 //! missing or partial, and an incomplete acquisition must remain visible without replacing a known
 //! complete membership.
 
-use super::{
-    Archive, Coverage, CoverageState, EvidenceFamily, StoreError, ThreadId, evidence_family_name,
-    thread_row_id,
-};
+use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::identity::ThreadId;
+
+use super::{evidence_family_name, thread_row_id};
+use crate::archive::Archive;
+use crate::error::StoreError;
 
 impl Archive {
     /// Reads the latest per-family completeness state; an absent row is `Missing`.
