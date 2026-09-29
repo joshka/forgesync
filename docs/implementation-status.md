@@ -1050,3 +1050,15 @@ readability policy it represents. Query task/request ownership remains a separat
 Focused validation passes: all fifty-one TUI tests and its doctest, plus all-target/all-feature
 Clippy with warnings denied. The broader workspace gates passed immediately before this import-only
 change.
+
+## Continued maintenance: query task lifecycle
+
+`query/tasks` now owns read handles, writer cancellation, and shutdown draining. Dispatch requests
+cancellation through its method, and writer spawning registers a handle/token pair without changing
+the owner's fields. Module and item documentation distinguish explicit shutdown (which awaits
+cleanup) from drop (which can only signal cancellation). Request shapes and operation progress
+forwarding remain separate review work.
+
+All fifty-four TUI tests and its doctest pass, including three task-lifecycle cases. Focused Clippy,
+strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+The source audit remains open for request ownership and the remaining workspace review surfaces.

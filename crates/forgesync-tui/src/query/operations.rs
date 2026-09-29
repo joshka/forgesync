@@ -20,9 +20,10 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio_util::sync::CancellationToken;
 
 use super::action::execute_operation;
-use super::{ActiveOperation, QueryAction, QueryTasks};
 use crate::app::App;
 use crate::app::messages::QueryMessage;
+use crate::query::QueryAction;
+use crate::query::tasks::QueryTasks;
 
 /// Starts one writer operation and reports progress through the UI message channel.
 pub fn start_operation(
@@ -93,8 +94,5 @@ pub fn start_operation(
             .await;
     });
 
-    tasks.operation = Some(ActiveOperation {
-        handle,
-        cancellation,
-    });
+    tasks.track_operation(handle, cancellation);
 }

@@ -21,10 +21,11 @@ use forgesync_store::archive::Archive;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 
-use super::{QueryTasks, load_failures};
 use crate::app::App;
 use crate::app::messages::QueryMessage;
 use crate::app::threads::ThreadReply;
+use crate::query::load_failures;
+use crate::query::tasks::QueryTasks;
 
 /// Starts an archive-only repository read and tags its result with the current generation.
 pub fn start_repositories(

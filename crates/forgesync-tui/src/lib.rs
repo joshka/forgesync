@@ -60,10 +60,12 @@ use crossterm::event::{self, Event, KeyEventKind};
 use forgesync_core::identity::GitHubHost;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
-use query::{QueryTasks, start_query};
+use query::start_query;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
+
+use crate::query::tasks::QueryTasks;
 
 /// Runs the interactive archive browser and closes its archive handle on exit.
 ///

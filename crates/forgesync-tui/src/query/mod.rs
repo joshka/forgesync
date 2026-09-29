@@ -13,6 +13,7 @@ use std::sync::Arc;
 mod action;
 mod operations;
 mod reads;
+pub mod tasks;
 
 use forgesync_core::identity::{GitHubHost, RunId};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
@@ -27,12 +28,11 @@ use reads::{
 };
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
-use tokio::task::JoinHandle;
-use tokio_util::sync::CancellationToken;
 
 use crate::app::App;
 use crate::app::failures::RunFailureSummary;
 use crate::app::messages::QueryMessage;
+use crate::query::tasks::QueryTasks;
 
 const RUNS_TO_SCAN: u32 = 50;
 const RUNS_TO_DETAIL: usize = 20;
@@ -77,49 +77,6 @@ pub enum QueryAction {
     CancelOperation,
 }
 
-#[derive(Default)]
-pub struct QueryTasks {
-    handles: Vec<JoinHandle<()>>,
-    operation: Option<ActiveOperation>,
-}
-
-struct ActiveOperation {
-    handle: JoinHandle<()>,
-    cancellation: CancellationToken,
-}
-
-impl QueryTasks {
-    /// Tracks a read task after pruning handles for completed reads.
-    fn push(&mut self, handle: JoinHandle<()>) {
-        self.handles.retain(|task| !task.is_finished());
-        self.handles.push(handle);
-    }
-
-    /// Aborts outstanding reads and requests cancellation of the active writer before shutdown.
-    /// The writer is awaited so it can release its archive lease.
-    pub async fn stop(&mut self) {
-        for task in self.handles.drain(..) {
-            task.abort();
-            let _ = task.await;
-        }
-        if let Some(operation) = self.operation.take() {
-            operation.cancellation.cancel();
-            let _ = operation.handle.await;
-        }
-    }
-}
-
-impl Drop for QueryTasks {
-    fn drop(&mut self) {
-        for task in &self.handles {
-            task.abort();
-        }
-        if let Some(operation) = &self.operation {
-            operation.cancellation.cancel();
-        }
-    }
-}
-
 /// Routes a UI action to a background read or operation. Each completion returns through the
 /// message channel so rendering and key handling stay responsive.
 pub fn start_query(
@@ -160,11 +117,7 @@ pub fn start_query(
         QueryAction::ClusterDetail { generation, id } => {
             start_cluster_detail(generation, id, archive, runtime, sender, tasks);
         }
-        QueryAction::CancelOperation => {
-            if let Some(operation) = &tasks.operation {
-                operation.cancellation.cancel();
-            }
-        }
+        QueryAction::CancelOperation => tasks.cancel_operation(),
         action @ (QueryAction::Sync { .. }
         | QueryAction::Refresh { .. }
         | QueryAction::Retry(_)
