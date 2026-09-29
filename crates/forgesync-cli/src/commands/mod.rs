@@ -17,10 +17,10 @@ mod thread;
 mod tui;
 
 use archive::archive_command;
-use cluster::cluster_command;
+use cluster::{ClusterCliRequest, cluster_from_cli};
 use embed::{EmbedCliRequest, embed_from_cli};
 use github::{github_api_base_url, github_clients_for_selectors, render_github_client_setup_error};
-use refresh::{RefreshCommandRequest, refresh_command};
+use refresh::{RefreshCliRequest, refresh_from_cli};
 use retry::retry_command;
 use run::run_command;
 use search::{SearchCommandRequest, search_command};
@@ -89,14 +89,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             analyze,
             force,
         } => {
-            let cancellation = tokio_util::sync::CancellationToken::new();
-            let interrupt_cancellation = cancellation.clone();
-            let interrupt_task = tokio::spawn(async move {
-                if tokio::signal::ctrl_c().await.is_ok() {
-                    interrupt_cancellation.cancel();
-                }
-            });
-            let result = refresh_command(RefreshCommandRequest {
+            refresh_from_cli(RefreshCliRequest {
                 archive_path: &path,
                 repositories,
                 no_sync,
@@ -108,11 +101,8 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
                 recipe: config.documents.recipe,
                 json: args.json,
                 verbose: args.verbose,
-                cancellation: &cancellation,
             })
-            .await;
-            interrupt_task.abort();
-            result
+            .await
         }
         Command::Embed {
             repositories,
@@ -146,25 +136,15 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             .await
         }
         Command::Cluster { command } => {
-            let cancellation = tokio_util::sync::CancellationToken::new();
-            let interrupt_cancellation = cancellation.clone();
-            let interrupt_task = tokio::spawn(async move {
-                if tokio::signal::ctrl_c().await.is_ok() {
-                    interrupt_cancellation.cancel();
-                }
-            });
-            let result = cluster_command(
-                &path,
+            cluster_from_cli(ClusterCliRequest {
+                archive_path: &path,
                 command,
-                config.embeddings,
-                config.documents.recipe,
-                args.json,
-                args.verbose,
-                &cancellation,
-            )
-            .await;
-            interrupt_task.abort();
-            result
+                embedding_service: config.embeddings,
+                recipe: config.documents.recipe,
+                json: args.json,
+                verbose: args.verbose,
+            })
+            .await
         }
         Command::Thread { command } => thread_command(&path, args.json, command).await,
         Command::Run { command } => run_command(&path, args.json, args.verbose, command).await,

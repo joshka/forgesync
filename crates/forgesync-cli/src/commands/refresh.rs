@@ -2,6 +2,47 @@
 
 use super::*;
 
+pub(super) struct RefreshCliRequest<'a> {
+    pub(super) archive_path: &'a std::path::Path,
+    pub(super) repositories: Vec<RepositorySelector>,
+    pub(super) no_sync: bool,
+    pub(super) state: Option<SyncThreadStateArg>,
+    pub(super) with: Vec<SyncIncludeArg>,
+    pub(super) analyze: Vec<RefreshAnalysisArg>,
+    pub(super) force: bool,
+    pub(super) embedding_service: crate::config::EmbeddingServiceConfig,
+    pub(super) recipe: DocumentRecipe,
+    pub(super) json: bool,
+    pub(super) verbose: u8,
+}
+
+pub(super) async fn refresh_from_cli(request: RefreshCliRequest<'_>) -> ExitCode {
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let interrupt_cancellation = cancellation.clone();
+    let interrupt_task = tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            interrupt_cancellation.cancel();
+        }
+    });
+    let result = refresh_command(RefreshCommandRequest {
+        archive_path: request.archive_path,
+        repositories: request.repositories,
+        no_sync: request.no_sync,
+        state: request.state,
+        with: request.with,
+        analyze: request.analyze,
+        force: request.force,
+        embedding_service: request.embedding_service,
+        recipe: request.recipe,
+        json: request.json,
+        verbose: request.verbose,
+        cancellation: &cancellation,
+    })
+    .await;
+    interrupt_task.abort();
+    result
+}
+
 pub(super) struct RefreshCommandRequest<'a> {
     pub(super) archive_path: &'a std::path::Path,
     pub(super) repositories: Vec<RepositorySelector>,
