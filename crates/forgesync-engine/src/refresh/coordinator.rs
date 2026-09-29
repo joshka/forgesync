@@ -18,6 +18,7 @@ use super::{
     RefreshStageStatus, RepositorySelector, SyncProgress, SyncReport, SyncRequest, mpsc,
     sync_repositories,
 };
+use crate::embeddings::EmbeddingPolicy;
 
 /// Runs selected refresh stages, retaining each stage's result if another stage fails.
 ///
@@ -141,7 +142,7 @@ impl RefreshExecution<'_> {
                         &self.repositories,
                         client,
                         self.request.recipe,
-                        self.request.force_embeddings,
+                        EmbeddingPolicy::from_force(self.request.force_embeddings),
                         self.cancellation,
                     )
                     .await
@@ -190,11 +191,11 @@ pub async fn embed_repositories(
     repositories: &[RepositorySelector],
     client: &EmbeddingClient,
     recipe: DocumentRecipe,
-    force: bool,
+    policy: EmbeddingPolicy,
     cancellation: &CancellationToken,
 ) -> RefreshStage<RefreshEmbeddingReport> {
     let (report, failure) =
-        collect_embedding_repositories(archive, repositories, client, recipe, force, cancellation)
+        collect_embedding_repositories(archive, repositories, client, recipe, policy, cancellation)
             .await;
     let status = embedding_status(&report, failure.as_ref());
     RefreshStage::with_report(status, report, failure)

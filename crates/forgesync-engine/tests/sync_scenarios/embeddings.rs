@@ -91,7 +91,7 @@ async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chun
         &archive,
         &client,
         std::slice::from_ref(&document),
-        false,
+        forgesync_engine::embeddings::EmbeddingPolicy::Missing,
         &CancellationToken::new(),
     )
     .await
@@ -113,7 +113,7 @@ async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chun
         &archive,
         &client,
         std::slice::from_ref(&document),
-        false,
+        forgesync_engine::embeddings::EmbeddingPolicy::Missing,
         &CancellationToken::new(),
     )
     .await

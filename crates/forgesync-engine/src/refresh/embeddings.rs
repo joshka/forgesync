@@ -15,95 +15,163 @@ use super::{
     RepositorySelector, ThreadFilters, ThreadListRequest, ThreadSelector, ThreadSort,
     ThreadStateFilter, embed_documents, list_threads, materialize_thread_document,
 };
+use crate::embeddings::EmbeddingPolicy;
 
-/// Materializes documents per repository before requesting missing vectors.
+/// Materializes repositories independently, retaining successful pages and the first stage failure.
+///
+/// Document failures are recorded individually and do not prevent other documents on the page from
+/// being embedded. Cancellation stops traversal after the current document and lets the embedding
+/// workflow finalize its durable batches before returning its partial report.
 pub async fn collect_embedding_repositories(
     archive: &Archive,
     repositories: &[RepositorySelector],
     client: &EmbeddingClient,
     recipe: DocumentRecipe,
-    force: bool,
+    policy: EmbeddingPolicy,
     cancellation: &CancellationToken,
 ) -> (RefreshEmbeddingReport, Option<RefreshStageFailure>) {
-    let mut result = RefreshEmbeddingReport::default();
-    let mut first_failure = None;
-
+    let mut work = RepositoryEmbeddings {
+        archive,
+        client,
+        recipe,
+        policy,
+        cancellation,
+        report: RefreshEmbeddingReport::default(),
+        first_failure: None,
+    };
     for repository in repositories {
-        let mut offset = 0_u64;
-        loop {
-            let page = match list_threads(
-                archive,
-                &ThreadListRequest {
-                    filters: ThreadFilters {
-                        repositories: vec![repository.clone()],
-                        kind: None,
-                        state: ThreadStateFilter::All,
-                        sort: Some(ThreadSort::Updated),
-                        limit: 1000,
-                        offset,
-                    },
-                },
-            )
-            .await
-            {
-                Ok(page) => page,
-                Err(error) => {
-                    keep_first_failure(&mut first_failure, stage_failure(&error));
-                    break;
-                }
-            };
-
-            let next_offset = page.next_offset;
-            let mut documents = Vec::with_capacity(page.items.len());
-            for thread in page.items {
-                let selector = ThreadSelector::new(
-                    RepositorySelector::from_repository(&thread.repository),
-                    thread.discussion.id.number(),
-                );
-                match materialize_thread_document(archive, &selector, recipe).await {
-                    Ok(built) => {
-                        documents.push(built.document);
-                        result.documents_materialized =
-                            result.documents_materialized.saturating_add(1);
-                    }
-                    Err(error) => {
-                        result.document_failures.push(RefreshDocumentFailure {
-                            repository: repository.as_url(),
-                            number: thread.discussion.id.number().get(),
-                            code: error.code(),
-                            message: error.to_string(),
-                        });
-                    }
-                }
-                if cancellation.is_cancelled() {
-                    break;
-                }
-            }
-
-            if !documents.is_empty() {
-                match embed_documents(archive, client, &documents, force, cancellation).await {
-                    Ok(report) => add_embedding_report(&mut result.embeddings, report),
-                    Err(error) => {
-                        keep_first_failure(&mut first_failure, stage_failure(&error));
-                    }
-                }
-            }
-
-            if cancellation.is_cancelled() {
-                result.embeddings.cancelled = true;
-                break;
-            }
-            let Some(next_offset) = next_offset else {
-                break;
-            };
-            offset = next_offset;
-        }
+        work.collect(repository).await;
         if cancellation.is_cancelled() {
             break;
         }
     }
+    (work.report, work.first_failure)
+}
 
-    (result, first_failure)
+/// One refresh stage's services and accumulated outcomes across independent repository pages.
+struct RepositoryEmbeddings<'a> {
+    archive: &'a Archive,
+    client: &'a EmbeddingClient,
+    recipe: DocumentRecipe,
+    policy: EmbeddingPolicy,
+    cancellation: &'a CancellationToken,
+    report: RefreshEmbeddingReport,
+    first_failure: Option<RefreshStageFailure>,
+}
+
+impl RepositoryEmbeddings<'_> {
+    /// Advances only from a successfully read page; a read failure ends this repository alone.
+    async fn collect(&mut self, repository: &RepositorySelector) {
+        let mut offset = 0;
+        loop {
+            let request = repository_page(repository, offset);
+            let page = match list_threads(self.archive, &request).await {
+                Ok(page) => page,
+                Err(error) => {
+                    self.record_failure(stage_failure(&error));
+                    break;
+                }
+            };
+            let next_offset = page.next_offset;
+            let documents = self.materialize(repository, page.items).await;
+            self.embed(&documents).await;
+            if self.cancellation.is_cancelled() {
+                self.report.embeddings.cancelled = true;
+                break;
+            }
+            let Some(next) = next_offset else {
+                break;
+            };
+            offset = next;
+        }
+    }
+
+    /// Builds each document independently so one malformed discussion cannot discard its page.
+    async fn materialize(
+        &mut self,
+        repository: &RepositorySelector,
+        threads: Vec<forgesync_store::reads::ThreadSummary>,
+    ) -> Vec<forgesync_core::document::Document> {
+        let mut documents = Vec::with_capacity(threads.len());
+        for thread in threads {
+            let number = thread.discussion.id.number();
+            let selector = ThreadSelector::new(
+                RepositorySelector::from_repository(&thread.repository),
+                number,
+            );
+            match materialize_thread_document(self.archive, &selector, self.recipe).await {
+                Ok(built) => self.record_document(&mut documents, built.document),
+                Err(error) => self.record_document_failure(repository, number.get(), error),
+            }
+            if self.cancellation.is_cancelled() {
+                break;
+            }
+        }
+        documents
+    }
+
+    /// Accounts for a successfully materialized document before vector generation begins.
+    fn record_document(
+        &mut self,
+        documents: &mut Vec<forgesync_core::document::Document>,
+        document: forgesync_core::document::Document,
+    ) {
+        documents.push(document);
+        self.report.documents_materialized = self.report.documents_materialized.saturating_add(1);
+    }
+
+    /// Retains the discussion identity and safe typed failure for retry guidance.
+    fn record_document_failure(
+        &mut self,
+        repository: &RepositorySelector,
+        number: u64,
+        error: crate::error::EngineError,
+    ) {
+        self.report.document_failures.push(RefreshDocumentFailure {
+            repository: repository.as_url(),
+            number,
+            code: error.code(),
+            message: error.to_string(),
+        });
+    }
+
+    /// Embeds one nonempty page, retaining completed batches even when later work fails.
+    async fn embed(&mut self, documents: &[forgesync_core::document::Document]) {
+        if documents.is_empty() {
+            return;
+        }
+        match embed_documents(
+            self.archive,
+            self.client,
+            documents,
+            self.policy,
+            self.cancellation,
+        )
+        .await
+        {
+            Ok(report) => add_embedding_report(&mut self.report.embeddings, report),
+            Err(error) => self.record_failure(stage_failure(&error)),
+        }
+    }
+
+    /// Keeps the earliest stage-level error while later repositories remain eligible for work.
+    fn record_failure(&mut self, failure: RefreshStageFailure) {
+        keep_first_failure(&mut self.first_failure, failure);
+    }
+}
+
+/// Selects stable updated-order pages including both open and closed discussions.
+fn repository_page(repository: &RepositorySelector, offset: u64) -> ThreadListRequest {
+    ThreadListRequest {
+        filters: ThreadFilters {
+            repositories: vec![repository.clone()],
+            kind: None,
+            state: ThreadStateFilter::All,
+            sort: Some(ThreadSort::Updated),
+            limit: 1000,
+            offset,
+        },
+    }
 }
 
 /// Derives stage status from document and vector failures.

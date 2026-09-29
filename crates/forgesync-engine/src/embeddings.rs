@@ -26,6 +26,27 @@ use crate::documents::now_utc;
 use crate::embedding_client::{EmbeddingClient, EmbeddingClientError};
 use crate::error::EngineError;
 
+/// Decides whether compatible persisted vectors can satisfy this embedding request.
+///
+/// Use `Missing` for normal refresh and retry: successful earlier batches are reused. Use
+/// `Replace` when intentionally rebuilding vectors, even if their document and service identities
+/// still match. Replacement preserves the same writer fencing and partial-success rules.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum EmbeddingPolicy {
+    /// Reuse compatible chunks and request only missing or stale vectors.
+    #[default]
+    Missing,
+    /// Request every selected chunk again.
+    Replace,
+}
+
+impl EmbeddingPolicy {
+    /// Converts a process-facing force flag at the application boundary.
+    pub fn from_force(force: bool) -> Self {
+        if force { Self::Replace } else { Self::Missing }
+    }
+}
+
 /// Results of embedding the selected current documents with one configured service.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct EmbeddingReport {
@@ -78,7 +99,7 @@ pub async fn embed_documents(
     archive: &Archive,
     client: &EmbeddingClient,
     documents: &[Document],
-    force: bool,
+    policy: EmbeddingPolicy,
     cancellation: &CancellationToken,
 ) -> Result<EmbeddingReport, EngineError> {
     let mut report = EmbeddingReport {
@@ -111,7 +132,7 @@ pub async fn embed_documents(
             .embedding_chunks(document, client.endpoint_identity(), client.model(), count)
             .await?;
         let document = Arc::new(document.clone());
-        if force {
+        if policy == EmbeddingPolicy::Replace {
             tasks.extend(chunks.into_iter().map(|chunk| EmbeddingTask {
                 document: Arc::clone(&document),
                 chunk,

@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
+use forgesync_engine::embeddings::EmbeddingPolicy;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::refresh::{RefreshStageFailure, RefreshStageStatus, embed_repositories};
 use forgesync_store::archive::Archive;
@@ -115,7 +116,7 @@ impl EmbedArgs {
             &repositories,
             &client,
             recipe,
-            force,
+            EmbeddingPolicy::from_force(force),
             cancellation,
         )
         .await;
