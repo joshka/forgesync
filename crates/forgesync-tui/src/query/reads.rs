@@ -5,7 +5,8 @@
 //! query; [`ThreadReply`] keeps its generation and offset attached to the resulting page.
 //!
 //! [`ReadDispatch`] borrows the archive, runtime, result sender, and task owner used by every read.
-//! Each starter begins pending panel state before spawning, then gives the background task owned
+//! Most starters begin pending panel state before spawning; cluster detail uses the generation
+//! already reserved by navigation. Each starter gives the background task owned
 //! archive/channel clones. A task never draws or changes navigation: its result is a typed message
 //! for the app to apply. If the event loop has closed its channel, result delivery is discarded;
 //! read tasks have no durable changes to roll back. Shutdown aborts outstanding reads through

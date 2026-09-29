@@ -74,7 +74,7 @@ signals, not current measurements or limits.
 | CLI execution         | Command-owned embed/refresh execution and validation; shared provider and embedding setup       | Configuration precedence, cancellation envelopes, offline contracts |
 | CLI presentation      | Detail DTO section methods for source, coverage, metadata, and timeline                         | Offline human/JSON contract tests                                   |
 | TUI operations        | `OperationExecution` action methods, separate task/progress scheduling                          | Generation tracking, cancellation, selection, error visibility      |
-| TUI drawing           | Prepared detail sections used by rendering and scroll limits                                    | Narrow/wide snapshots and resize bounds                             |
+| TUI drawing           | Prepared detail sections used by rendering and scroll limits                                    | Narrow/wide rendering cases and resize bounds                       |
 
 ### Longer code retained after review
 

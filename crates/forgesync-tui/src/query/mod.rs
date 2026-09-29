@@ -1,7 +1,8 @@
 //! # Dispatch explicit terminal requests
 //!
 //! [`requests::QueryAction`] carries keyboard and navigation intent into [`start_query`]. Read
-//! starters begin the appropriate panel generation before spawning archive-only work. Their typed
+//! starters begin the panel generation, or use the cluster-detail generation already reserved by
+//! navigation, before spawning archive-only work. Their typed
 //! replies return through [`QueryMessage`]; the app's panel owners reject stale generations and
 //! decide which cache or selection remains visible.
 //!
@@ -21,6 +22,7 @@ use std::sync::Arc;
 mod action;
 mod failures;
 mod operations;
+mod progress;
 mod reads;
 pub mod requests;
 pub mod tasks;

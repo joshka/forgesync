@@ -65,9 +65,12 @@ index-based targeting risk while keeping stale replies and failed refreshes isol
 idle/running writer display replaces independent busy, label, and progress fields; it cannot retain
 active progress after completion. Discussion list/detail, coverage, failed-run, and cluster
 list/detail now have documented owners with direct transition tests. Query tasks own cancellation
-and shutdown draining. Query requests document each intent; local cluster transitions use separate
-named variants rather than boolean-selected commands. Renderer dependencies name their defining
-modules directly. Failure summary selection and ledger projection have dedicated owners and tests.
+and shutdown draining. Local reads share a documented scheduling context, and discussion requests
+own filter preparation and retrieval mode. Progress forwarding has a producer/task owner with normal
+draining and unexpected-drop cleanup. Query requests document each intent; local cluster transitions
+use separate named variants rather than boolean-selected commands. Renderer dependencies name their
+defining modules directly. Failure summary selection and ledger projection have dedicated owners and
+tests.
 
 Discussion replies now bind generation, offset, and page together. The detail pane uses explicit
 empty/loading/ready/failed states and invalidates old selections before beginning another read.
@@ -96,19 +99,19 @@ Review exceptions on their actual contracts rather than using line counts as pro
 These requirements preserve the full maintainer request. A passing compiler or a selected slice is
 not evidence for every row. Keep this checklist open until its scope has actually been reviewed.
 
-| Requirement                                              | Current evidence                                                         | Remaining work                                                                                   |
-| -------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Meaningful small modules, broad shallow navigation       | Six crate module maps and selected vertical slices                       | Inspect current long functions and multi-effect match arms throughout the workspace              |
-| Command/state ownership and top-down reading             | Unified CLI command tree; workflow and transaction owners                | Review remaining CLI and engine orchestration, TUI result application, and presentation branches |
-| Domain types for related inputs; no behavioral bools     | Embedding policy and family membership expectations                      | Review every remaining bool parameter and broad signature for an intentional contract            |
-| Explicit local imports and deliberate visibility         | No `use super::*`; changed workflow imports name owners                  | Remove remaining parent import preludes and document public-boundary exceptions                  |
-| Every application function documented                    | Syntax inventory found two missing production comments; both corrected   | Recheck after subsequent changes; assess depth rather than presence alone                        |
-| All modules and items teach their role and relationships | Expanded roots, workflow modules, examples, and API contracts            | Review remaining private type/constant docs, field contracts, module maps, and rendered pages    |
-| Linear nearby tests with clear scenarios                 | Split suites and direct keyboard/cluster setup                           | Inspect remaining scenario branches and fixture burden; preserve meaningful data-driven cases    |
-| Current dependencies and tools                           | Full direct/transitive aggressive audit reports no outdated dependencies | CI actions refreshed against upstream; native tools checked and nightly refreshed                |
-| Reusable guidance recorded                               | Linked documentation and Rust conventions guides                         | Record any additional recurring findings at the owning guide                                     |
-| Formatting and local gates                               | Previous follow-up passed every local gate                               | Rerun focused and workspace gates for each subsequent implementation batch                       |
-| Hosted platform evidence                                 | Native smoke/package matrix is configured                                | Obtain current Linux, Intel macOS, and Windows execution results                                 |
+| Requirement                                              | Current evidence                                                                                     | Remaining work                                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Meaningful small modules, broad shallow navigation       | Six crate module maps and selected vertical slices                                                   | Inspect current long functions and multi-effect match arms throughout the workspace              |
+| Command/state ownership and top-down reading             | Unified CLI command tree; workflow and transaction owners                                            | Review remaining CLI and engine orchestration, TUI result application, and presentation branches |
+| Domain types for related inputs; no behavioral bools     | Embedding policy and family membership expectations                                                  | Review every remaining bool parameter and broad signature for an intentional contract            |
+| Explicit local imports and deliberate visibility         | No `use super::*`; changed workflow imports name owners                                              | Remove remaining parent import preludes and document public-boundary exceptions                  |
+| Every application function documented                    | Ordinary production functions have comments; trait implementation methods need a local-contract pass | Review 41 trait implementation methods without local docs; assess comment depth across all items |
+| All modules and items teach their role and relationships | Expanded roots, workflow modules, examples, and API contracts                                        | Review remaining private type/constant docs, field contracts, module maps, and rendered pages    |
+| Linear nearby tests with clear scenarios                 | Split suites and direct keyboard/cluster setup                                                       | Inspect remaining scenario branches and fixture burden; preserve meaningful data-driven cases    |
+| Current dependencies and tools                           | Full direct/transitive aggressive audit reports no outdated dependencies                             | CI actions refreshed against upstream; native tools checked and nightly refreshed                |
+| Reusable guidance recorded                               | Linked documentation and Rust conventions guides                                                     | Record any additional recurring findings at the owning guide                                     |
+| Formatting and local gates                               | Previous follow-up passed every local gate                                                           | Rerun focused and workspace gates for each subsequent implementation batch                       |
+| Hosted platform evidence                                 | Native smoke/package matrix is configured                                                            | Obtain current Linux, Intel macOS, and Windows execution results                                 |
 
 The syntax inventory distinguishes production functions from tests and trait implementations. It
 measures actual function bodies, excluding braces in strings. The initial continuation found 38
@@ -140,8 +143,9 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 
 - Continue routing remaining child imports through their actual owners. Production directory roots
   now use `mod.rs`; Cargo integration-test entry files remain a separate discovery contract.
-- Document remaining private representations, policy constants, and TUI state fields with their
-  contracts; inspect short module introductions for missing relationships rather than adding words.
+- Document remaining private representations, policy constants, and trait implementation contracts
+  with their local behavior; inspect short module introductions for missing relationships rather
+  than adding words.
 - Review CLI sync preparation, TUI read scheduling and progress forwarding, refresh cluster
   traversal, embedding batch scheduling, and sync run coordination against the dispatch and
   state-owner rules.

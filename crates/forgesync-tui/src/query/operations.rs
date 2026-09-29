@@ -8,20 +8,25 @@
 //! state, or both. The engine owns the workflow and the store validates durable writes. A
 //! cancellation token and generation ID keep long-running results tied to the request that
 //! started them.
+//!
+//! [`ProgressForwarder`] owns advisory delivery for the admitted writer. Execution releases its
+//! producer when it returns; scheduling drains buffered progress before sending the terminal
+//! result. [`QueryTasks`] retains the writer handle and cooperative cancellation token for
+//! shutdown. Dropping progress delivery on an unexpected writer exit aborts its forwarding task.
 
 use std::sync::Arc;
 
 use forgesync_core::identity::GitHubHost;
-use forgesync_engine::sync::SyncProgress;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-use super::action::execute_operation;
 use crate::app::App;
 use crate::app::messages::QueryMessage;
+use crate::query::action::execute_operation;
+use crate::query::progress::ProgressForwarder;
 use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
 
@@ -56,33 +61,16 @@ pub fn start_operation(
     let cancellation = CancellationToken::new();
     let operation_cancellation = cancellation.clone();
     let handle = runtime.spawn(async move {
-        let (progress_sender, mut progress_receiver) = mpsc::channel::<SyncProgress>(4);
-        let progress_sender_for_action = progress_sender.clone();
-        let progress_forwarder_sender = sender.clone();
-        let progress_forwarder = tokio::spawn(async move {
-            while let Some(progress) = progress_receiver.recv().await {
-                if progress_forwarder_sender
-                    .send(QueryMessage::OperationProgress {
-                        generation,
-                        progress,
-                    })
-                    .await
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        });
+        let progress = ProgressForwarder::start(generation, sender.clone());
         let result = execute_operation(
             &action,
             &archive,
             &clients,
             &operation_cancellation,
-            progress_sender_for_action,
+            progress.sender(),
         )
         .await;
-        drop(progress_sender);
-        let _ = progress_forwarder.await;
+        progress.finish().await;
         let _ = sender
             .send(QueryMessage::OperationFinished { generation, result })
             .await;

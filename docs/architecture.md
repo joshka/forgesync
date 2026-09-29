@@ -120,3 +120,10 @@ old data immediately, so local canonical/exclusion keys cannot target its previo
 new selection is loading. Decisions still come from the archive after a writer ends. Fixed
 repository/cluster test data is shared only where those transition scenarios use the same values;
 rendering-specific data remains with the renderer tests.
+
+Within TUI query dispatch, `requests` carries intent and `tasks` owns background lifetime. `reads`
+binds shared local scheduling services; `thread_page` owns browse/keyword filter preparation and
+`failures` bounds recent ledger selection. Failure projection belongs to `RunFailureSummary`, not to
+the dispatcher. Writer `progress` keeps producer and forwarding task together, drains before
+completion delivery, and aborts on unexpected drop. These owners keep runtime lifetime, read policy,
+and navigation state distinct without repeating shared service parameters in every read starter.

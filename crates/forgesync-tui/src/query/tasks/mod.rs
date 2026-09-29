@@ -14,13 +14,13 @@
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-#[derive(Default)]
 /// Owns background reads and the current writer until explicit shutdown.
 ///
 /// Reads can be aborted because they hold no durable workflow state. Writers instead receive
 /// cooperative cancellation and are awaited by [`Self::stop`] so engine cleanup can release leases.
 /// Dropping this owner is a fallback: it signals cancellation but cannot await asynchronous
 /// cleanup.
+#[derive(Default)]
 pub struct QueryTasks {
     /// Read handles retained until the next read starts or shutdown drains them.
     handles: Vec<JoinHandle<()>>,
@@ -46,7 +46,8 @@ impl QueryTasks {
 
     /// Tracks the writer admitted by the app's operation display.
     ///
-    /// The caller must only replace a completed writer; the display rejects overlapping starts.
+    /// The caller must only replace a writer that has reported its terminal result; the display
+    /// rejects overlapping engine work. The previous task may still be returning from delivery.
     /// Retaining the handle here lets shutdown wait for lease cleanup after cancellation.
     pub fn track_operation(&mut self, handle: JoinHandle<()>, cancellation: CancellationToken) {
         self.operation = Some(ActiveOperation {

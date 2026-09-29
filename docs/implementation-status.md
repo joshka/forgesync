@@ -1096,10 +1096,27 @@ public/private Rustdoc pass; nightly formatting is applied.
 
 `ReadDispatch` binds the archive, runtime, result channel, and task lifetime owner used by every
 local read. Starters are methods with only their panel/request inputs; their shared service
-parameters no longer recur across signatures or dispatch calls. Provider clients remain outside
-this context. Documentation names pending-state timing, owned task clones, discarded delivery after
+parameters no longer recur across signatures or dispatch calls. Provider clients remain outside this
+context. Documentation names pending-state timing, owned task clones, discarded delivery after
 channel closure, and shutdown abortion of side-effect-free reads.
 
 All sixty-three TUI tests and its doctest pass after this dispatch change. Focused Clippy with
 warnings denied and strict public/private Rustdoc pass. Syntax inventory confirms discussion
 preparation and read starters no longer contain long, mixed search/scheduling bodies.
+
+## Continued maintenance: terminal progress delivery lifetime
+
+`query/progress` owns the engine producer and forwarding task for a writer generation. Normal
+completion closes production and drains progress before the terminal result. Unexpected owner drop
+aborts delivery, so a writer exit cannot detach a receiver indefinitely. Four channel-level cases
+cover ordering, empty draining, producer closure on drop, and closed terminal delivery. The writer
+starter now follows admission, execution, progress drain, and completion rather than containing the
+forwarder's receive loop.
+
+Current-tree validation passes: all sixty-seven TUI tests and its doctest, full workspace tests and
+doctests, workspace Clippy with warnings denied, the CLI build without default features, nightly
+formatting, strict public/private Rustdoc, rumdl, and changed-page Markdown linting. Generated
+query, request, failure selection, discussion-page, read-dispatch, and progress documentation was
+read for its contracts. The broader audit remains open: ordinary production-function comments are
+present, but forty-one trait implementation methods still need review for meaningful local contract
+docs, alongside the existing private-item, function-shape, and test-readability targets.
