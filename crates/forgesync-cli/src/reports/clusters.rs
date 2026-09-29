@@ -5,6 +5,7 @@ use forgesync_store::clusters::{ClusterDetail, ClusterPage};
 
 use crate::reports::ClusterDecisionOutput;
 
+/// Summarizes the generated cluster count and coverage for human output.
 pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     let coverage = if report.generation.complete_coverage {
         "complete"
@@ -23,6 +24,7 @@ pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     )
 }
 
+/// Formats one page of cluster summaries for terminal inspection.
 pub fn cluster_page_summary(page: &ClusterPage) -> String {
     if page.items.is_empty() {
         return "No clusters found".to_owned();
@@ -51,6 +53,7 @@ pub fn cluster_page_summary(page: &ClusterPage) -> String {
     lines.join("\n")
 }
 
+/// Formats a cluster and its member decisions without mutating them.
 pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     let cluster = &detail.cluster;
     let lifecycle = match cluster.lifecycle {
@@ -96,6 +99,7 @@ pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     lines.join("\n")
 }
 
+/// Confirms the local maintainer action recorded for a cluster.
 pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
     format!("Cluster #{}: {}", output.cluster_id, output.action)
 }

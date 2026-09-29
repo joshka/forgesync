@@ -2,6 +2,7 @@
 
 use crate::reports::{EmbeddingOutput, refresh_status_name};
 
+/// Explains the selected embedding work and partial failures in human output.
 pub fn embedding_summary(output: &EmbeddingOutput) -> String {
     let failure = output
         .failure

@@ -125,6 +125,7 @@ fn choose_environment_token(
         .transpose()
 }
 
+/// Accepts only variable names that can be read consistently across supported shells.
 pub(crate) fn valid_environment_variable_name(name: &str) -> bool {
     let mut characters = name.chars();
     let Some(first) = characters.next() else {

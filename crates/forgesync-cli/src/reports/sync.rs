@@ -6,6 +6,7 @@ use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::refresh::{RefreshReport, RefreshStageKind, RefreshStageStatus};
 use forgesync_engine::sync::SyncReport;
 
+/// Maps a structured workflow outcome to the process status contract.
 pub fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
     match outcome {
         OperationOutcome::Complete => ExitCode::SUCCESS,
@@ -15,6 +16,7 @@ pub fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
     }
 }
 
+/// Formats durable sync counts and partial outcomes for a terminal reader.
 pub fn sync_summary(report: &SyncReport) -> String {
     let state = match report.outcome {
         OperationOutcome::Complete => "complete",
@@ -39,6 +41,7 @@ pub fn sync_summary(report: &SyncReport) -> String {
     )
 }
 
+/// Presents selected refresh stages and their independent outcomes.
 pub fn refresh_summary(report: &RefreshReport) -> String {
     let mut parts = Vec::new();
     for selected in &report.selected {
@@ -129,6 +132,7 @@ pub fn refresh_summary(report: &RefreshReport) -> String {
     )
 }
 
+/// Derives one display status from a multi-stage refresh report.
 pub fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
     match report.outcome {
         OperationOutcome::Complete => RefreshStageStatus::Complete,
@@ -139,6 +143,7 @@ pub fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
     }
 }
 
+/// Returns the stable human label for a refresh stage.
 pub fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     match stage {
         RefreshStageKind::Sync => "sync",
@@ -147,6 +152,7 @@ pub fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     }
 }
 
+/// Returns the stable human label for a refresh stage status.
 pub fn refresh_status_name(status: RefreshStageStatus) -> &'static str {
     match status {
         RefreshStageStatus::Complete => "complete",

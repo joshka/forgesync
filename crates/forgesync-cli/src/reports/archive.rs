@@ -6,6 +6,7 @@ use forgesync_store::health::DoctorReport;
 use crate::output::ArchiveStatusOutput;
 use crate::reports::{MigrationOutput, family_name};
 
+/// Formats archive identity, counts, and diagnostics for a local status command.
 pub fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
     let mut lines = vec![
         archive_summary(status.archive),
@@ -68,6 +69,7 @@ pub fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
     lines.join("\n")
 }
 
+/// Formats stable metadata after creating or opening an archive.
 pub fn archive_summary(info: &ArchiveInfo) -> String {
     format!(
         "Archive: {}\nID: {}\nFormat: {}\nSchema: {}\nCreated: {}\nSQLite: {}",
@@ -82,6 +84,7 @@ pub fn archive_summary(info: &ArchiveInfo) -> String {
     )
 }
 
+/// Explains applied migrations and the resulting archive version.
 pub fn migration_summary(output: &MigrationOutput) -> String {
     let applied = output.migration.applied_migrations.len();
     format!(
@@ -92,6 +95,7 @@ pub fn migration_summary(output: &MigrationOutput) -> String {
     )
 }
 
+/// Formats integrity checks while preserving each failed capability.
 pub fn doctor_summary(report: &DoctorReport) -> String {
     let headline = if report.healthy {
         "Archive health: healthy"

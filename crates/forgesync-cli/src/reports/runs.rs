@@ -5,6 +5,7 @@ use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};
 
 use crate::reports::{family_name, sync_summary};
 
+/// Formats recent durable run records in newest-first order.
 pub fn run_list_summary(runs: &Vec<RunRecord>) -> String {
     let mut lines = vec!["ID\tSTATUS\tSTARTED\tPARENT".to_owned()];
     for run in runs {
@@ -26,6 +27,7 @@ pub fn run_list_summary(runs: &Vec<RunRecord>) -> String {
     lines.join("\n")
 }
 
+/// Shows the jobs and unresolved failures attached to one run.
 pub fn run_detail_summary(detail: &RunDetail) -> String {
     let mut lines = vec![format!(
         "Run {}: {}\nStarted: {}\nParent: {}\nJobs: {}\nFailures: {}",
@@ -77,6 +79,7 @@ pub fn run_detail_summary(detail: &RunDetail) -> String {
     lines.join("\n")
 }
 
+/// Summarizes the outcome of each scope attempted by an explicit retry.
 pub fn retry_summary(report: &RetryReport) -> String {
     let mut lines = vec![format!(
         "Retry of run {}: {} failure(s), {} sync run(s)",
@@ -88,6 +91,7 @@ pub fn retry_summary(report: &RetryReport) -> String {
     lines.join("\n")
 }
 
+/// Maps a durable run state to its human display label.
 pub fn run_status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::InProgress => "in_progress",
@@ -99,6 +103,7 @@ pub fn run_status_name(status: RunStatus) -> &'static str {
     }
 }
 
+/// Maps a durable job state to its human display label.
 pub fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
     match status {
         SyncJobStatus::Pending => "pending",

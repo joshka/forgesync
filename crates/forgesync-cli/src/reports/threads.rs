@@ -11,21 +11,25 @@ use forgesync_store::reads::{ThreadDetail, ThreadPage, ThreadTimelineEvent};
 use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
 use crate::{OutputMode, render_success};
 
+/// Renders a local discussion page in human or JSON form.
 pub fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
     let output = ThreadPageOutput::from(page);
     render_success(json, command, &output, thread_page_summary)
 }
 
+/// Renders ranked results with their effective retrieval mode.
 pub fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
     let output = SearchPageOutput::from(page);
     render_success(json, "search", &output, search_page_summary)
 }
 
+/// Renders one archived discussion and its selected evidence.
 pub fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
     let output = ThreadDetailOutput::from(detail);
     render_success(json, "thread show", &output, thread_detail_summary)
 }
 
+/// Formats pagination and discussion summaries for terminal output.
 pub fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
     let mut lines = vec!["REPOSITORY\tNUMBER\tKIND\tSTATE\tTITLE".to_owned()];
     for item in &page.items {
@@ -59,6 +63,7 @@ pub fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
     lines.join("\n")
 }
 
+/// Formats ranking, fallback, and result provenance for terminal output.
 pub fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
     let mut lines = vec![format!(
         "Mode: {:?} (requested {:?}), ranking: {:?}, sort: {:?}",
@@ -104,6 +109,7 @@ pub fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
     lines.join("\n")
 }
 
+/// Formats a discussion timeline and current family coverage.
 pub fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
     let thread = detail.summary.thread;
     let mut lines = vec![format!(
@@ -230,6 +236,7 @@ pub fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
     lines.join("\n")
 }
 
+/// Returns the display name for a normalized discussion kind.
 pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     match kind {
         DiscussionKind::Issue => "issue",
@@ -237,6 +244,7 @@ pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     }
 }
 
+/// Returns the display name of a provider source state.
 pub fn source_state_name(state: &SourceState) -> &str {
     match state {
         SourceState::Open => "open",
@@ -245,6 +253,7 @@ pub fn source_state_name(state: &SourceState) -> &str {
     }
 }
 
+/// Returns the display name of a normalized review state.
 pub fn review_state_name(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",
@@ -256,6 +265,7 @@ pub fn review_state_name(state: &ReviewState) -> &str {
     }
 }
 
+/// Formats an optional repository identity for diagnostic output.
 pub fn repository_identity(repository: Option<&forgesync_core::identity::RepositoryId>) -> String {
     repository.map_or_else(
         || "unknown repository".to_owned(),
@@ -269,6 +279,7 @@ pub fn repository_identity(repository: Option<&forgesync_core::identity::Reposit
     )
 }
 
+/// Returns the display name of an evidence family.
 pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
         forgesync_core::coverage::EvidenceFamily::Threads => "threads",
@@ -279,6 +290,7 @@ pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static
     }
 }
 
+/// Returns the display label of a family coverage state.
 pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     match state {
         CoverageState::Missing => "missing",
@@ -290,6 +302,7 @@ pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     }
 }
 
+/// Formats a validated UTC instant for human output.
 pub fn format_timestamp(timestamp: UtcTimestamp) -> String {
     timestamp
         .format_rfc3339()

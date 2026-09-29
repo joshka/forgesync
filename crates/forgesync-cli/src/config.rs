@@ -198,6 +198,7 @@ impl ConfigError {
     }
 }
 
+/// Reads the optional process override for the configuration file path.
 fn config_path_from_environment() -> Option<PathBuf> {
     std::env::var_os("FORGESYNC_CONFIG").map(PathBuf::from)
 }
