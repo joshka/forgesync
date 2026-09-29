@@ -58,22 +58,23 @@ impl App {
     /// Clears a prior status before reloading the currently displayed query page.
     fn reload_threads(&mut self) -> Vec<QueryAction> {
         self.status = None;
-        vec![self.thread_action(self.search_query.clone(), self.page_offset)]
+        vec![self.thread_action(self.search_query.clone(), self.thread_list.offset)]
     }
 
     /// Requests the server-provided next local page when one exists.
     fn next_thread_page(&mut self) -> Vec<QueryAction> {
-        self.next_offset
+        self.thread_list
+            .next_offset
             .map(|offset| vec![self.thread_action(self.search_query.clone(), offset)])
             .unwrap_or_default()
     }
 
     /// Requests the preceding page, keeping the first page stable.
     fn previous_thread_page(&mut self) -> Vec<QueryAction> {
-        if self.page_offset == 0 {
+        if self.thread_list.offset == 0 {
             return Vec::new();
         }
-        let offset = self.page_offset.saturating_sub(u64::from(PAGE_SIZE));
+        let offset = self.thread_list.offset.saturating_sub(u64::from(PAGE_SIZE));
         vec![self.thread_action(self.search_query.clone(), offset)]
     }
 
@@ -117,16 +118,16 @@ impl App {
 
     /// Invalidates loaded detail when a thread selection changes, even within one page.
     fn navigate_threads(&mut self, movement: Movement) {
-        if self.threads.is_empty() {
+        if self.thread_list.items.is_empty() {
             // Preserve Home/End scrolling when the thread list has no selection.
             if matches!(movement, Movement::Start | Movement::End) {
                 self.navigate_detail(movement);
             }
             return;
         }
-        let maximum = self.threads.len() - 1;
-        let current = self.selected_thread.unwrap_or(0);
-        self.selected_thread = Some(movement.position(current, maximum));
+        let maximum = self.thread_list.items.len() - 1;
+        let current = self.thread_list.selected.unwrap_or(0);
+        self.thread_list.selected = Some(movement.position(current, maximum));
         self.invalidate_detail();
     }
 
@@ -158,7 +159,7 @@ impl App {
         }
         self.status = None;
         self.repository_picker.applied = selected;
-        self.page_offset = 0;
+        self.thread_list.offset = 0;
         self.detail = None;
         vec![self.thread_action(self.search_query.clone(), 0)]
     }
@@ -166,8 +167,9 @@ impl App {
     /// Requests detail for an existing selection and transfers focus to its pane.
     fn select_thread(&mut self) -> Vec<QueryAction> {
         let Some(summary) = self
-            .selected_thread
-            .and_then(|index| self.threads.get(index))
+            .thread_list
+            .selected
+            .and_then(|index| self.thread_list.items.get(index))
         else {
             return Vec::new();
         };

@@ -102,8 +102,11 @@ fn sample_app() -> App {
             items: vec![summary.repository.clone()],
             ..Default::default()
         },
-        threads: vec![summary.clone()],
-        selected_thread: Some(0),
+        thread_list: crate::app::threads::ThreadList {
+            items: vec![summary.clone()],
+            selected: Some(0),
+            ..Default::default()
+        },
         ..App::default()
     };
     app.repository_picker.applied = Some(summary.repository.clone());

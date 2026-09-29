@@ -22,6 +22,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 
 use super::{QueryTasks, load_failures};
+use crate::app::threads::ThreadReply;
 use crate::app::{App, QueryMessage};
 
 /// Starts an archive-only repository read and tags its result with the current generation.
@@ -99,11 +100,11 @@ pub fn start_threads(
         .map(Box::new)
         .map_err(|error| error.to_string());
         let _ = sender
-            .send(QueryMessage::Threads {
+            .send(QueryMessage::Threads(ThreadReply {
                 generation,
                 offset,
                 result,
-            })
+            }))
             .await;
     }));
 }

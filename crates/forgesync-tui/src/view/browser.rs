@@ -84,32 +84,33 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
 /// Draws the current discussion page and selected row.
 fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
-        .threads
+        .thread_list
+        .items
         .iter()
         .map(|thread| {
             let number = thread.discussion.id.number().get();
             ListItem::new(format!("#{} {}", number, thread.discussion.title))
         })
         .collect();
-    if app.threads_loading && app.threads.is_empty() {
+    if app.thread_list.loading && app.thread_list.items.is_empty() {
         items.push(ListItem::new("Loading discussions…"));
-    } else if let Some(error) = &app.thread_error {
+    } else if let Some(error) = &app.thread_list.error {
         items = vec![ListItem::new(error.clone())];
-    } else if app.threads.is_empty() {
+    } else if app.thread_list.items.is_empty() {
         items.push(ListItem::new("No discussions"));
     }
     let title = format!(
         "Discussions · {}{}",
-        app.threads.len(),
-        if app.threads_loading {
+        app.thread_list.items.len(),
+        if app.thread_list.loading {
             " · loading"
         } else {
             ""
         }
     );
     let mut state = ListState::default();
-    if app.thread_error.is_none() && !app.threads.is_empty() {
-        state.select(app.selected_thread);
+    if app.thread_list.error.is_none() && !app.thread_list.items.is_empty() {
+        state.select(app.thread_list.selected);
     }
     frame.render_stateful_widget(
         List::new(items)

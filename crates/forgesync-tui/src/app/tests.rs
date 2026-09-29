@@ -23,12 +23,16 @@ use forgesync_store::reads::{ThreadPage, ThreadSummary};
 use super::{App, Focus, QueryMessage, Screen};
 use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
+use crate::app::threads::{ThreadList, ThreadReply};
 use crate::query::QueryAction;
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {
     let mut app = App {
-        threads_loading: true,
+        thread_list: ThreadList {
+            loading: true,
+            ..ThreadList::default()
+        },
         ..App::default()
     };
 
@@ -41,11 +45,14 @@ fn keyboard_input_remains_available_while_queries_are_pending() {
 #[test]
 fn stale_thread_result_does_not_replace_current_query_state() {
     let mut app = App {
-        thread_generation: 2,
-        threads_loading: true,
+        thread_list: ThreadList {
+            generation: 2,
+            loading: true,
+            ..ThreadList::default()
+        },
         ..App::default()
     };
-    app.apply(QueryMessage::Threads {
+    app.apply(QueryMessage::Threads(ThreadReply {
         generation: 1,
         offset: 0,
         result: Ok(Box::new(ThreadPage {
@@ -53,11 +60,11 @@ fn stale_thread_result_does_not_replace_current_query_state() {
             next_offset: None,
             coverage: Vec::new(),
         })),
-    });
+    }));
 
-    assert!(app.threads_loading);
-    assert_eq!(app.thread_generation, 2);
-    assert!(app.threads.is_empty());
+    assert!(app.thread_list.loading);
+    assert_eq!(app.thread_list.generation, 2);
+    assert!(app.thread_list.items.is_empty());
 }
 
 #[test]

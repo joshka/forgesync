@@ -22,7 +22,7 @@
 use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
-use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadSummary};
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 use forgesync_store::runs::RunStatus;
 
 /// Bounded thread-page size used by browser paging; independent of the CLI default.
@@ -68,13 +68,8 @@ pub struct App {
     pub focus: Focus,
     /// Repository choices, applied scope, and pending repository read state.
     pub repository_picker: repositories::RepositoryPicker,
-    pub threads: Vec<ThreadSummary>,
-    pub selected_thread: Option<usize>,
-    pub page_offset: u64,
-    pub next_offset: Option<u64>,
-    pub thread_generation: u64,
-    pub threads_loading: bool,
-    pub thread_error: Option<String>,
+    /// Discussion page, selection, pagination, and pending read state.
+    pub thread_list: threads::ThreadList,
     pub detail: Option<ThreadDetail>,
     pub detail_generation: u64,
     pub detail_loading: bool,
@@ -124,11 +119,7 @@ pub enum QueryMessage {
         generation: u64,
         result: Result<Vec<Repository>, String>,
     },
-    Threads {
-        generation: u64,
-        offset: u64,
-        result: Result<Box<ThreadPage>, String>,
-    },
+    Threads(threads::ThreadReply),
     Detail {
         generation: u64,
         result: Result<Box<ThreadDetail>, String>,
@@ -163,6 +154,7 @@ mod input;
 pub mod operation;
 pub mod repositories;
 mod state;
+pub mod threads;
 
 /// Moves a bounded selection by one row without underflow or overshoot.
 fn move_index(current: usize, max: usize, direction: i8) -> usize {

@@ -10,7 +10,7 @@
 
 use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage};
-use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage};
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 
 use super::{App, QueryMessage, RunFailureSummary};
 use crate::query::QueryAction;
@@ -26,7 +26,7 @@ impl App {
         let cluster_detail_id = self.cluster_detail.as_ref().map(|detail| detail.cluster.id);
         let mut actions = vec![
             QueryAction::Repositories,
-            self.thread_action(self.search_query.clone(), self.page_offset),
+            self.thread_action(self.search_query.clone(), self.thread_list.offset),
             QueryAction::Coverage,
             QueryAction::Failures,
             QueryAction::Clusters {
@@ -51,11 +51,7 @@ impl App {
             QueryMessage::Repositories { generation, result } => {
                 self.apply_repositories(generation, result)
             }
-            QueryMessage::Threads {
-                generation,
-                offset,
-                result,
-            } => self.apply_threads(generation, offset, result),
+            QueryMessage::Threads(reply) => self.apply_threads(reply),
             QueryMessage::Detail { generation, result } => self.apply_detail(generation, result),
             QueryMessage::Coverage { generation, result } => {
                 self.apply_coverage(generation, result)
@@ -91,32 +87,9 @@ impl App {
     }
 
     /// Replaces the current thread page and resets its detail selection.
-    fn apply_threads(
-        &mut self,
-        generation: u64,
-        offset: u64,
-        result: Result<Box<ThreadPage>, String>,
-    ) {
-        if generation != self.thread_generation {
-            return;
-        }
-        self.threads_loading = false;
-        self.page_offset = offset;
-        match result {
-            Ok(page) => {
-                let page = *page;
-                self.thread_error = None;
-                self.threads = page.items;
-                self.next_offset = page.next_offset;
-                self.selected_thread = (!self.threads.is_empty()).then_some(0);
-            }
-            Err(error) => {
-                self.thread_error = Some(error.clone());
-                self.threads.clear();
-                self.next_offset = None;
-                self.selected_thread = None;
-                self.status = Some(error);
-            }
+    fn apply_threads(&mut self, reply: super::threads::ThreadReply) {
+        if let Some(error) = self.thread_list.apply(reply) {
+            self.status = Some(error);
         }
     }
 
@@ -247,14 +220,9 @@ impl App {
     /// Starts a new thread-list generation and invalidates the selected detail; replies from an
     /// older list must not restore a stale selection after the scope changes.
     pub fn begin_threads(&mut self) -> u64 {
-        self.thread_generation += 1;
-        self.threads_loading = true;
-        self.thread_error = None;
-        self.threads.clear();
-        self.selected_thread = None;
-        self.next_offset = None;
+        let generation = self.thread_list.begin();
         self.invalidate_detail();
-        self.thread_generation
+        generation
     }
 
     /// Invalidates an older detail request when the selected discussion changes.
