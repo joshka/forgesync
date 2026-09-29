@@ -1091,3 +1091,15 @@ filter cases verify that both ranking policies retain repository scope and page 
 
 All sixty-three TUI tests and its doctest pass. Focused Clippy with warnings denied and strict
 public/private Rustdoc pass; nightly formatting is applied.
+
+## Continued maintenance: local read dispatch context
+
+`ReadDispatch` binds the archive, runtime, result channel, and task lifetime owner used by every
+local read. Starters are methods with only their panel/request inputs; their shared service
+parameters no longer recur across signatures or dispatch calls. Provider clients remain outside
+this context. Documentation names pending-state timing, owned task clones, discarded delivery after
+channel closure, and shutdown abortion of side-effect-free reads.
+
+All sixty-three TUI tests and its doctest pass after this dispatch change. Focused Clippy with
+warnings denied and strict public/private Rustdoc pass. Syntax inventory confirms discussion
+preparation and read starters no longer contain long, mixed search/scheduling bodies.

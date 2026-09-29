@@ -30,15 +30,12 @@ use forgesync_core::identity::GitHubHost;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use operations::start_operation;
-use reads::{
-    start_cluster_detail, start_clusters, start_coverage, start_detail, start_failures,
-    start_repositories, start_threads,
-};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
+use crate::query::reads::ReadDispatch;
 use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
 use crate::query::thread_page::ThreadRead;
@@ -54,34 +51,34 @@ pub fn start_query(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
+    let mut reads = ReadDispatch {
+        archive,
+        runtime,
+        sender,
+        tasks,
+    };
     match action {
-        QueryAction::Repositories => start_repositories(app, archive, runtime, sender, tasks),
+        QueryAction::Repositories => reads.start_repositories(app),
         QueryAction::Threads {
             query,
             repositories,
             offset,
-        } => start_threads(
+        } => reads.start_threads(
             ThreadRead {
                 query,
                 repositories,
                 offset,
             },
             app,
-            archive,
-            runtime,
-            sender,
-            tasks,
         ),
-        QueryAction::Detail(selector) => {
-            start_detail(selector, app, archive, runtime, sender, tasks)
-        }
-        QueryAction::Coverage => start_coverage(app, archive, runtime, sender, tasks),
-        QueryAction::Failures => start_failures(app, archive, runtime, sender, tasks),
+        QueryAction::Detail(selector) => reads.start_detail(selector, app),
+        QueryAction::Coverage => reads.start_coverage(app),
+        QueryAction::Failures => reads.start_failures(app),
         QueryAction::Clusters { repositories } => {
-            start_clusters(repositories, app, archive, runtime, sender, tasks);
+            reads.start_clusters(repositories, app);
         }
         QueryAction::ClusterDetail { generation, id } => {
-            start_cluster_detail(generation, id, archive, runtime, sender, tasks);
+            reads.start_cluster_detail(generation, id);
         }
         QueryAction::CancelOperation => tasks.cancel_operation(),
         action @ (QueryAction::Sync { .. }
