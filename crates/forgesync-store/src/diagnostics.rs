@@ -97,6 +97,15 @@ pub struct FamilyFailureCount {
 impl Archive {
     /// Reads archive diagnostics without acquiring a write lease or changing archive state.
     pub async fn diagnostics(&self) -> Result<ArchiveDiagnostics, StoreError> {
+        Ok(ArchiveDiagnostics {
+            schema: self.schema_diagnostics().await?,
+            lease: self.lease_diagnostics().await?,
+            work: self.work_diagnostics().await?,
+        })
+    }
+
+    /// Validates applied checksums before describing migrations available to this binary.
+    async fn schema_diagnostics(&self) -> Result<SchemaDiagnostics, StoreError> {
         let current_version = current_schema_version(&self.reader).await?;
         validate_migration_history(&self.reader, current_version).await?;
         let supported_version = supported_schema_version();
@@ -109,6 +118,16 @@ impl Archive {
             })
             .collect();
 
+        Ok(SchemaDiagnostics {
+            current_version,
+            supported_version,
+            pending_migrations,
+            history_valid: true,
+        })
+    }
+
+    /// Compares the persisted lease expiry with the process clock without taking ownership.
+    async fn lease_diagnostics(&self) -> Result<ArchiveLeaseStatus, StoreError> {
         let lease_row = sqlx::query(
             "SELECT owner_id, fencing_token, expires_at_us FROM archive_lease WHERE singleton = 1",
         )
@@ -134,6 +153,16 @@ impl Archive {
         let fencing_token =
             u64::try_from(fencing_token).map_err(|_| StoreError::InvalidStoredCount)?;
 
+        Ok(ArchiveLeaseStatus {
+            owner_id,
+            fencing_token,
+            expires_at,
+            held,
+        })
+    }
+
+    /// Reads work and failure counters independently; this is an observation, not a snapshot lock.
+    async fn work_diagnostics(&self) -> Result<WorkDiagnostics, StoreError> {
         let failed_jobs = count(
             &self.reader,
             "SELECT COUNT(*) FROM jobs WHERE status = 'failed'",
@@ -178,27 +207,13 @@ impl Archive {
         )
         .await?;
 
-        Ok(ArchiveDiagnostics {
-            schema: SchemaDiagnostics {
-                current_version,
-                supported_version,
-                pending_migrations,
-                history_valid: true,
-            },
-            lease: ArchiveLeaseStatus {
-                owner_id,
-                fencing_token,
-                expires_at,
-                held,
-            },
-            work: WorkDiagnostics {
-                failed_jobs,
-                deferred_jobs,
-                in_progress_runs,
-                failures_by_family,
-                unassigned_failures,
-                unresolved_failures,
-            },
+        Ok(WorkDiagnostics {
+            failed_jobs,
+            deferred_jobs,
+            in_progress_runs,
+            failures_by_family,
+            unassigned_failures,
+            unresolved_failures,
         })
     }
 }
