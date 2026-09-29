@@ -1,3 +1,5 @@
+//! Repository thread enumeration workflow.
+
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -17,7 +19,8 @@ use forgesync_store::leases::ArchiveLeaseToken;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use crate::{EngineError, RepositorySelector};
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
 
 /// Result of enumerating all currently visible issues and pull requests in one repository.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

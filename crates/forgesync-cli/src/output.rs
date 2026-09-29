@@ -2,7 +2,8 @@ use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
 };
 use forgesync_core::coverage::Coverage;
-use forgesync_engine::{SearchMode, SearchProvenance, SearchRanking, SearchResultPage, ThreadSort};
+use forgesync_engine::inspect::ThreadSort;
+use forgesync_engine::search::{SearchMode, SearchProvenance, SearchRanking, SearchResultPage};
 use forgesync_store::archive::ArchiveInfo;
 use forgesync_store::diagnostics::ArchiveDiagnostics;
 use forgesync_store::observations::StagedItem;

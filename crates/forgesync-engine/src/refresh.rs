@@ -1,3 +1,5 @@
+//! Coordinated sync and analysis stages.
+
 use std::collections::HashSet;
 
 use forgesync_core::document::DocumentRecipe;
@@ -11,12 +13,14 @@ use tokio_util::sync::CancellationToken;
 
 use crate::clustering::{ClusterBuildReport, ClusterBuildRequest, ClusterOptions, build_clusters};
 use crate::documents::materialize_thread_document;
+use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::{EmbeddingReport, embed_documents};
+use crate::error::EngineError;
 use crate::inspect::{
     ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, list_threads,
 };
+use crate::reference::{RepositorySelector, ThreadSelector};
 use crate::sync::{SyncProgress, SyncReport, SyncRequest, SyncThreadScope, sync_repositories};
-use crate::{EmbeddingClient, EngineError, RepositorySelector, ThreadSelector};
 
 /// Selects the optional model-backed stages included in a refresh.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]

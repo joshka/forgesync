@@ -1,3 +1,5 @@
+//! Local embedding batches and persistence.
+
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +15,8 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use crate::documents::now_utc;
-use crate::{EmbeddingClient, EmbeddingClientError, EngineError};
+use crate::embedding_client::{EmbeddingClient, EmbeddingClientError};
+use crate::error::EngineError;
 
 /// Results of embedding the selected current documents with one configured service.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]

@@ -1,8 +1,8 @@
 use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_engine::{
-    ArchiveStatus, ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
-    ThreadDetail, ThreadTimelineEvent,
+use forgesync_store::clusters::{
+    ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
 };
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadTimelineEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -645,7 +645,7 @@ mod tests {
     use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
-    use forgesync_engine::{ClusterDetail, ClusterLifecycle, ClusterSummary};
+    use forgesync_store::clusters::{ClusterDetail, ClusterLifecycle, ClusterSummary};
     use forgesync_store::reads::{ThreadDetail, ThreadSummary};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;

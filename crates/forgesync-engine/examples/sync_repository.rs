@@ -4,7 +4,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use forgesync_core::identity::GitHubHost;
-use forgesync_engine::{RepositorySelector, SyncRequest, SyncThreadScope, sync_repositories};
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::token::GitHubToken;
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;

@@ -2,7 +2,8 @@ use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 
-use forgesync_engine::{SearchMode, SearchRequest, ThreadFilters, search_threads};
+use forgesync_engine::inspect::ThreadFilters;
+use forgesync_engine::search::{SearchMode, SearchRequest, search_threads};
 use forgesync_store::archive::Archive;
 
 #[tokio::main]

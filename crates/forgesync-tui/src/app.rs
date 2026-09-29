@@ -1,10 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
 use forgesync_core::identity::RunId;
-use forgesync_engine::{
-    ArchiveStatus, ClusterDetail, ClusterPage, ClusterSummary, RepositorySelector, RunStatus,
-    SyncProgress, ThreadDetail, ThreadPage, ThreadSelector, ThreadSummary,
-};
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::sync::SyncProgress;
+use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadSummary};
+use forgesync_store::runs::RunStatus;
 
 use crate::query::QueryAction;
 
@@ -789,11 +790,12 @@ mod tests {
     };
     use forgesync_core::provider_data::ProviderData;
     use forgesync_core::timestamp::UtcTimestamp;
-    use forgesync_engine::{
+    use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
+    use forgesync_store::clusters::{
         ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
-        ClusterSummary, SyncProgress, SyncProgressStatus, ThreadSummary,
+        ClusterSummary,
     };
-    use forgesync_store::reads::ThreadPage;
+    use forgesync_store::reads::{ThreadPage, ThreadSummary};
 
     use super::{App, Focus, QueryAction, QueryMessage, Screen};
 

@@ -1,3 +1,5 @@
+//! Discussion document construction and materialization.
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread, ThreadKind};
@@ -11,7 +13,9 @@ use forgesync_store::reads::ThreadDetail;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{EngineError, ThreadSelector, show_thread};
+use crate::error::EngineError;
+use crate::inspect::show_thread;
+use crate::reference::ThreadSelector;
 
 /// Result of building and saving a current thread document.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

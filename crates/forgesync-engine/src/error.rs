@@ -1,3 +1,5 @@
+//! Typed workflow failures.
+
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};
 use forgesync_store::error::StoreError;

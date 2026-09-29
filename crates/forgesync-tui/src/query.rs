@@ -3,17 +3,23 @@ use std::sync::Arc;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{GitHubHost, RunId};
 use forgesync_core::outcome::OperationOutcome;
-use forgesync_engine::{
-    ClusterListRequest, ClusterOptions, RefreshRequest, RefreshSyncOptions, RepositorySelector,
-    RetryReport, RunStatus, SearchMode, SearchRequest, SyncJobStatus, SyncProgress, SyncRequest,
-    SyncThreadScope, ThreadFilters, ThreadListRequest, ThreadSelector, ThreadSort,
-    ThreadStateFilter, archive_status, dismiss_cluster, exclude_cluster_member,
-    include_cluster_member, list_clusters, list_repositories, list_runs, list_threads,
-    plan_run_retry, refresh, restore_cluster, run_retry, search_threads,
-    set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
+use forgesync_engine::clustering::{
+    ClusterListRequest, ClusterOptions, dismiss_cluster, exclude_cluster_member,
+    include_cluster_member, list_clusters, restore_cluster, set_canonical_cluster_member,
+    show_cluster,
 };
+use forgesync_engine::inspect::{
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status,
+    list_repositories, list_threads, show_thread,
+};
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::refresh::{RefreshRequest, RefreshSyncOptions, refresh};
+use forgesync_engine::runs::{RetryReport, list_runs, plan_run_retry, run_retry, show_run};
+use forgesync_engine::search::{SearchMode, SearchRequest, search_threads};
+use forgesync_engine::sync::{SyncProgress, SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
+use forgesync_store::runs::{RunStatus, SyncJobStatus};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinHandle;
@@ -28,7 +34,7 @@ pub(crate) enum QueryAction {
     Repositories,
     Threads {
         query: Option<String>,
-        repositories: Vec<forgesync_engine::RepositorySelector>,
+        repositories: Vec<forgesync_engine::reference::RepositorySelector>,
         offset: u64,
     },
     Detail(ThreadSelector),
@@ -499,7 +505,10 @@ async fn resolve_operation_repositories(
     }
 }
 
-async fn format_engine_error(archive: &Archive, error: forgesync_engine::EngineError) -> String {
+async fn format_engine_error(
+    archive: &Archive,
+    error: forgesync_engine::error::EngineError,
+) -> String {
     if error.code() == "archive_lease_held"
         && let Ok(status) = archive_status(archive).await
     {

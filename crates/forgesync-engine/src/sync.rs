@@ -1,3 +1,5 @@
+//! Evidence acquisition and archive application.
+
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
 use std::time::Duration;
@@ -36,7 +38,8 @@ use crate::enumeration::{
     ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages, github_failure,
     now_utc,
 };
-use crate::{EngineError, RepositorySelector};
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
 
 const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;

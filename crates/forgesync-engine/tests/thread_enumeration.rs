@@ -4,7 +4,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily, FailureKind};
 use forgesync_core::identity::GitHubHost;
-use forgesync_engine::{RepositorySelector, enumerate_repository_threads};
+use forgesync_engine::enumeration::enumerate_repository_threads;
+use forgesync_engine::reference::RepositorySelector;
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;

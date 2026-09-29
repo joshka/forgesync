@@ -10,11 +10,13 @@ use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, T
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_engine::{
-    ClusterBuildRequest, ClusterLifecycle, ClusterListRequest, ClusterOptions, EngineError,
-    RepositorySelector, build_clusters, list_clusters,
+use forgesync_engine::clustering::{
+    ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters, list_clusters,
 };
+use forgesync_engine::error::EngineError;
+use forgesync_engine::reference::RepositorySelector;
 use forgesync_store::archive::Archive;
+use forgesync_store::clusters::ClusterLifecycle;
 use forgesync_store::embeddings::EmbeddingChunkInput;
 use tokio_util::sync::CancellationToken;
 

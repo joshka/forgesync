@@ -1,3 +1,5 @@
+//! Configured embedding-service transport.
+
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

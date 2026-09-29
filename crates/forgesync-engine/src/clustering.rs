@@ -1,3 +1,5 @@
+//! Duplicate cluster generation and maintainer decisions.
+
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::{Arc, LazyLock, OnceLock};
@@ -19,8 +21,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
-use crate::EngineError;
 use crate::documents::now_utc;
+use crate::error::EngineError;
 use crate::exact_search::{cosine_similarity, stable_thread_id_cmp};
 use crate::inspect::{checked_page, resolve_repositories};
 use crate::reference::{RepositorySelector, ThreadSelector};

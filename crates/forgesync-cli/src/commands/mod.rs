@@ -306,7 +306,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
 }
 
 pub(super) fn thread_filters(
-    repositories: Vec<forgesync_engine::RepositorySelector>,
+    repositories: Vec<forgesync_engine::reference::RepositorySelector>,
     kind: Option<ThreadKindArg>,
     state: ThreadStateArg,
     sort: Option<ThreadSortArg>,

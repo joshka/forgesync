@@ -11,14 +11,19 @@ use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_engine::{
-    EmbeddingClient, EmbeddingClientConfig, EngineError, RefreshAnalysisStage, RefreshRequest,
-    RefreshStageKind, RefreshStageStatus, RefreshSyncOptions, RepositorySelector, SearchMode,
-    SearchRanking, SearchRequest, SyncRequest, SyncThreadScope, ThreadFilters, ThreadSelector,
-    ThreadSort, ThreadStateFilter, build_thread_document, embed_documents,
-    materialize_thread_document, plan_run_retry, refresh, retrieve_threads, run_retry,
-    sync_repositories,
+use forgesync_engine::documents::{build_thread_document, materialize_thread_document};
+use forgesync_engine::embedding_client::{EmbeddingClient, EmbeddingClientConfig};
+use forgesync_engine::embeddings::embed_documents;
+use forgesync_engine::error::EngineError;
+use forgesync_engine::inspect::{ThreadFilters, ThreadSort, ThreadStateFilter};
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::refresh::{
+    RefreshAnalysisStage, RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
+    refresh,
 };
+use forgesync_engine::runs::{plan_run_retry, run_retry};
+use forgesync_engine::search::{SearchMode, SearchRanking, SearchRequest, retrieve_threads};
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::ThreadQuery;
@@ -57,7 +62,7 @@ async fn refresh_syncs_without_constructing_a_model_service() {
         recipe: DocumentRecipe::OriginalBody,
         embedding_identity: None,
         force_embeddings: false,
-        cluster_options: forgesync_engine::ClusterOptions::default(),
+        cluster_options: forgesync_engine::clustering::ClusterOptions::default(),
     };
 
     let report = refresh(
@@ -112,7 +117,7 @@ async fn refresh_retains_sync_when_an_optional_embedding_stage_is_unavailable() 
         recipe: DocumentRecipe::OriginalBody,
         embedding_identity: None,
         force_embeddings: false,
-        cluster_options: forgesync_engine::ClusterOptions::default(),
+        cluster_options: forgesync_engine::clustering::ClusterOptions::default(),
     };
 
     let report = refresh(
@@ -1507,7 +1512,7 @@ async fn sync_once(
     server: &MockServer,
     selector: RepositorySelector,
     scope: SyncThreadScope,
-) -> forgesync_engine::SyncReport {
+) -> forgesync_engine::sync::SyncReport {
     sync_once_with_comments(archive, server, selector, scope, false).await
 }
 
@@ -1517,7 +1522,7 @@ async fn sync_once_with_comments(
     selector: RepositorySelector,
     scope: SyncThreadScope,
     include_comments: bool,
-) -> forgesync_engine::SyncReport {
+) -> forgesync_engine::sync::SyncReport {
     sync_once_with_families(
         archive,
         server,
@@ -1538,7 +1543,7 @@ async fn sync_once_with_families(
     include_comments: bool,
     include_reviews: bool,
     include_review_threads: bool,
-) -> forgesync_engine::SyncReport {
+) -> forgesync_engine::sync::SyncReport {
     let clients = clients_for(server, &selector);
     sync_repositories(
         archive,

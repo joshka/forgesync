@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_engine::cosine_similarity;
+use forgesync_engine::exact_search::cosine_similarity;
 
 fn main() {
     let arguments = std::env::args().collect::<Vec<_>>();

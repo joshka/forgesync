@@ -28,8 +28,8 @@ pub(crate) fn cluster_page_summary(page: &ClusterPage) -> String {
     lines.push(format!("{} cluster(s)", page.items.len()));
     for cluster in &page.items {
         let lifecycle = match cluster.lifecycle {
-            forgesync_engine::ClusterLifecycle::Active => "active",
-            forgesync_engine::ClusterLifecycle::Retired => "retired",
+            forgesync_store::clusters::ClusterLifecycle::Active => "active",
+            forgesync_store::clusters::ClusterLifecycle::Retired => "retired",
         };
         let dismissed = if cluster.dismissed { ", dismissed" } else { "" };
         lines.push(format!(
@@ -51,8 +51,8 @@ pub(crate) fn cluster_page_summary(page: &ClusterPage) -> String {
 pub(crate) fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     let cluster = &detail.cluster;
     let lifecycle = match cluster.lifecycle {
-        forgesync_engine::ClusterLifecycle::Active => "active",
-        forgesync_engine::ClusterLifecycle::Retired => "retired",
+        forgesync_store::clusters::ClusterLifecycle::Active => "active",
+        forgesync_store::clusters::ClusterLifecycle::Retired => "retired",
     };
     let representative = cluster.representative.as_ref().map_or_else(
         || "none".to_owned(),
@@ -75,14 +75,14 @@ pub(crate) fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     }
     for member in &detail.members {
         let role = match member.role {
-            forgesync_engine::ClusterMemberRole::Canonical => "canonical",
-            forgesync_engine::ClusterMemberRole::Representative => "representative",
-            forgesync_engine::ClusterMemberRole::Related => "related",
+            forgesync_store::clusters::ClusterMemberRole::Canonical => "canonical",
+            forgesync_store::clusters::ClusterMemberRole::Representative => "representative",
+            forgesync_store::clusters::ClusterMemberRole::Related => "related",
         };
         let state = match member.state {
-            forgesync_engine::ClusterMemberState::Active => "active",
-            forgesync_engine::ClusterMemberState::Excluded => "excluded",
-            forgesync_engine::ClusterMemberState::Removed => "removed",
+            forgesync_store::clusters::ClusterMemberState::Active => "active",
+            forgesync_store::clusters::ClusterMemberState::Excluded => "excluded",
+            forgesync_store::clusters::ClusterMemberState::Removed => "removed",
         };
         lines.push(format!(
             "  #{} [{role}, {state}] {}",

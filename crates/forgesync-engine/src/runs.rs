@@ -1,3 +1,5 @@
+//! Run history and retry planning.
+
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;
 use forgesync_github::transport::GitHubClient;
@@ -6,8 +8,9 @@ use forgesync_store::runs::{RunDetail, RunRecord};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
 use crate::sync::{SyncReport, SyncRequest, SyncThreadScope, sync_repositories};
-use crate::{EngineError, RepositorySelector};
 
 /// One repository and scope selected by an explicit run retry.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -138,7 +141,7 @@ pub async fn run_retry(
     clients: &std::collections::HashMap<forgesync_core::identity::GitHubHost, GitHubClient>,
     plan: RetryPlan,
     cancellation: &CancellationToken,
-    progress: Option<mpsc::Sender<crate::SyncProgress>>,
+    progress: Option<mpsc::Sender<crate::sync::SyncProgress>>,
 ) -> Result<RetryReport, EngineError> {
     let mut runs = Vec::with_capacity(plan.scopes.len());
     for scope in &plan.scopes {

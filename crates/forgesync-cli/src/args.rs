@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
-use forgesync_engine::{RepositorySelector, ThreadSelector};
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 /// Global process options. Command-specific arguments are added with their implementation phase.
 #[derive(Clone, Debug, Parser)]

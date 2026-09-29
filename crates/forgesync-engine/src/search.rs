@@ -1,3 +1,5 @@
+//! Keyword, semantic, and hybrid search policy.
+
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::{Arc, OnceLock};
@@ -13,13 +15,14 @@ use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
+use crate::embedding_client::EmbeddingClient;
+use crate::error::EngineError;
 use crate::exact_search::{
     ScoredThread, merge_scored_pages, score_embedding_page, stable_thread_id_cmp,
 };
 use crate::inspect::{
     ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
 };
-use crate::{EmbeddingClient, EngineError};
 
 const MAX_SEARCH_WINDOW: usize = 10_000;
 const EMBEDDING_READ_PAGE: u32 = 128;
@@ -740,9 +743,9 @@ fn fallback_allowed(error: &EngineError) -> bool {
         EngineError::SemanticVectorsUnavailable | EngineError::EmbeddingServiceUnavailable => true,
         EngineError::Embedding(error) => !matches!(
             error,
-            crate::EmbeddingClientError::Cancelled
-                | crate::EmbeddingClientError::InvalidConfiguration
-                | crate::EmbeddingClientError::ConcurrencyUnavailable
+            crate::embedding_client::EmbeddingClientError::Cancelled
+                | crate::embedding_client::EmbeddingClientError::InvalidConfiguration
+                | crate::embedding_client::EmbeddingClientError::ConcurrencyUnavailable
         ),
         _ => false,
     }

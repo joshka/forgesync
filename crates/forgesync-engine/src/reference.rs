@@ -1,3 +1,5 @@
+//! Repository and thread selector parsing.
+
 use std::str::FromStr;
 
 use forgesync_core::content::Repository;

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use forgesync_core::document::DocumentRecipe;
-use forgesync_engine::EmbeddingClientConfig;
+use forgesync_engine::embedding_client::EmbeddingClientConfig;
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;

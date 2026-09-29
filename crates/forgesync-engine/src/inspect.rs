@@ -1,3 +1,5 @@
+//! Offline archive inspection requests.
+
 use std::num::NonZeroU32;
 
 use forgesync_core::content::{Repository, ThreadKind};
@@ -10,7 +12,8 @@ use forgesync_store::reads::{
 };
 use serde::Serialize;
 
-use crate::{EngineError, RepositorySelector, ThreadSelector};
+use crate::error::EngineError;
+use crate::reference::{RepositorySelector, ThreadSelector};
 
 /// Source-state filter for a local discussion query.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

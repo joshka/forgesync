@@ -1,3 +1,5 @@
+//! Exact vector similarity calculation.
+
 use std::cmp::Ordering;
 
 use forgesync_core::embedding::EmbeddingVector;
@@ -5,7 +7,7 @@ use forgesync_store::embeddings::EmbeddingSearchDocument;
 use forgesync_store::reads::{ThreadSort, ThreadSummary};
 use tokio_util::sync::CancellationToken;
 
-use crate::EngineError;
+use crate::error::EngineError;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ScoredThread {

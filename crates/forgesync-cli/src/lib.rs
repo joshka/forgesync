@@ -32,24 +32,36 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{GitHubHost, RunId};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_engine::{
-    ClusterBuildReport, ClusterBuildRequest, ClusterDetail, ClusterListRequest, ClusterOptions,
-    ClusterPage, EmbeddingClient, EmbeddingReport, EmbeddingServiceIdentity, EngineError,
-    RefreshAnalysisStage, RefreshDocumentFailure, RefreshReport, RefreshRequest,
-    RefreshStageFailure, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
-    RepositorySelector, RetryReport, SearchMode, SearchRequest, SearchResultPage, SyncProgress,
-    SyncReport, SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest,
-    ThreadPage, ThreadSort, ThreadStateFilter, archive_status, build_clusters, dismiss_cluster,
-    embed_repositories, exclude_cluster_member, include_cluster_member, list_clusters, list_runs,
-    list_threads, plan_run_retry, refresh, restore_cluster, retrieve_threads, run_retry,
-    set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
+use forgesync_engine::clustering::{
+    ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters,
+    dismiss_cluster, exclude_cluster_member, include_cluster_member, list_clusters,
+    restore_cluster, set_canonical_cluster_member, show_cluster,
+};
+use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::embeddings::EmbeddingReport;
+use forgesync_engine::error::EngineError;
+use forgesync_engine::inspect::{
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status, list_threads,
+    show_thread,
+};
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::refresh::{
+    EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshDocumentFailure, RefreshReport,
+    RefreshRequest, RefreshStageFailure, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
+    embed_repositories, refresh,
+};
+use forgesync_engine::runs::{RetryReport, list_runs, plan_run_retry, run_retry, show_run};
+use forgesync_engine::search::{SearchMode, SearchRequest, SearchResultPage, retrieve_threads};
+use forgesync_engine::sync::{
+    SyncProgress, SyncReport, SyncRequest, SyncThreadScope, sync_repositories,
 };
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::{Archive, ArchiveInfo};
+use forgesync_store::clusters::{ClusterDetail, ClusterPage};
 use forgesync_store::error::StoreError;
 use forgesync_store::health::DoctorReport;
 use forgesync_store::migration::MigrationReport;
-use forgesync_store::reads::ThreadTimelineEvent;
+use forgesync_store::reads::{ThreadDetail, ThreadPage, ThreadTimelineEvent};
 use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};
 use serde::Serialize;
 use tracing_subscriber::filter::LevelFilter;
