@@ -143,20 +143,87 @@ Python setup, and zipped artifact transfer:
 [download-artifact](https://github.com/actions/download-artifact/blob/v8/README.md).
 Actionlint passes both workflow files. Hosted execution remains separate evidence.
 
-### Next concrete review targets
+## Bounded remaining implementation work
 
-- Continue routing remaining child imports through their actual owners. Production directory roots
-  now use `mod.rs`; Cargo integration-test entry files remain a separate discovery contract.
-- Document remaining private representations and policy constants with their local behavior; inspect
-  short module introductions for missing relationships rather than adding words.
-- Review CLI embed/refresh execution, TUI search editing and rendering policy, refresh cluster
-  traversal and embedding batch scheduling against the dispatch and state-owner rules. Sync
-  preparation and lease lifetime now have named owners; review remaining representation placement
-  independently of that completed coordinator extraction.
-- Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
-  expose named cases without loops. Review catalog-validation loops separately: checking a complete
-  fixture catalog is a different contract from selecting multiple behavioral scenarios.
+The remaining cleanup is eight batches followed by one acceptance pass. This replaces the earlier
+open-ended follow-up targets; the requirements in the completion checklist remain the acceptance
+criteria. Completed CLI embedding/refresh preparation, deterministic chunk construction, and
+embedding document selection are evidence for this inventory, not new future tasks.
 
-These targets are entries into the full checklist above, not a replacement or narrower definition of
-completion. The final current-tree local gates pass for this batch; hosted execution and the
-remaining semantic review are still required evidence.
+### 1. Embedding execution
+
+Review `embeddings/mod.rs` batch scheduling, cancellation, lease release, and fenced persistence.
+Selection and chunk identity have owners now. Finish when the request queue, worker outcomes, and
+writer capability have clear local contracts, substantial dispatch arms name their operations, and
+retry/cancellation cases preserve partial successes. Do not redesign the embedding provider
+protocol.
+
+### 2. Cluster construction
+
+Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clusters`, and store
+`clusters/generation`. Finish when preparation, analysis, and generation persistence have coherent
+owners and the writer lease/transaction boundaries remain explicit. Preserve deterministic proposal
+ordering, decision application, and existing generation fencing.
+
+### 3. Search
+
+Review engine `search/mod.rs` retrieval orchestration and `search/ranking.rs` hybrid fusion. Finish
+when traversal, filtering, fallback, and score policy can be understood independently without
+reconstructing intertwined branches. Keep simple formulas and value projections visible; additional
+wrapper types are not an acceptance requirement.
+
+### 4. Acquisition
+
+Review engine `enumeration/scan`, sync metadata completion, store enumeration finalization, and
+nearby replay scenarios. Finish when scan completion and metadata outcome transitions expose their
+ordering, cancellation, and failure contracts, with linear replay cases. Preserve completeness and
+checkpoint invariants rather than simplifying them into last-write-wins behavior.
+
+### 5. Store operations
+
+Review remaining detail/timeline, coverage, diagnostics, cluster-query, document-write, and member
+decision operations. Finish when each combines a coherent read projection or explicit transaction
+story, and its errors and partial effects are documented. Straightforward SQL binding and column
+maps can stay together with a recorded reason; they do not require helper-per-column extraction.
+
+### 6. CLI and TUI presentation
+
+Review CLI detail/archive summaries and TUI coverage, cluster detail, search editing, and event-loop
+policy. Finish when presentation decisions and state-changing dispatch have named local owners,
+selection cannot target stale data, and meaningful rendering behavior is covered. Preserve the
+configured output contracts and terminal cancellation behavior.
+
+### 7. Workspace conventions and documentation
+
+Make one complete pass over the existing six crates' modules, items, function signatures, imports,
+and visibility. Review documentation depth, remaining parent import preludes, behavioral boolean
+parameters, broad signatures, and representation placement. Finish with each finding fixed or an
+explicit justified exception, usable module introductions, item contracts at their owning level, and
+an accurate module map. Record recurring rules in the linked guides. Documentation presence alone
+does not satisfy this pass.
+
+### 8. Tests
+
+Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the
+code, and weak assertions. Finish with straightforward named scenarios, construction fixtures whose
+setup is clear, appropriate nearby/separate suites, and focused rendering snapshots where they
+establish observable behavior. Retain genuine complete-catalog/property checks with their purpose
+explained. Do not rewrite every assertion simply to introduce rstest or insta.
+
+### Acceptance pass and stopping rules
+
+- Reconcile every explicit maintainer requirement against current source and recorded evidence.
+- Give every inspection candidate one disposition: fixed or retained with a concrete reason. Line
+  counts trigger inspection, not mandatory extraction or repeated work on newly named helpers.
+- Newly noticed aesthetic opportunities do not extend these batches unless they violate an agreed
+  requirement or are consequences of the changes being made.
+- Update the module map, guidance, and completion checklist to describe the actual implementation;
+  remove completed work from the remaining inventory.
+- Run focused checks and all applicable local workspace formatting, lint, test, build, and strict
+  public/private documentation gates on the final tree. Confirm dependency/tool evidence remains
+  current without turning the cleanup into another dependency redesign.
+- Keep new features, generic frameworks, and deferred distribution out of this scope.
+
+Hosted Linux, Intel macOS, and Windows results remain separate validation evidence. Workflow syntax
+and local gates do not establish those results. No remote publication or hosted execution has been
+performed as part of this cleanup.
