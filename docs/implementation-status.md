@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Thread reads now give `ThreadQuery` ownership of bound SQL and deterministic sorting. Stored
+  row decoding and page coverage assembly have separate named phases; pagination behavior remains
+  covered by the inspect/search regressions.
+
 - TUI action dispatch now delegates to an execution owner with shared cancellation and services.
   Scheduling and progress forwarding remain separate; local decisions have named methods rather
   than boolean behavior parameters. All 20 TUI state and rendering cases passed.

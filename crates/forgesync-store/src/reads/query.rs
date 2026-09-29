@@ -67,64 +67,35 @@ impl Archive {
             });
         }
 
-        let limit = i64::from(query.limit.get());
-        let fetch_limit = limit.checked_add(1).ok_or(StoreError::IntegerOutOfRange)?;
-        let offset = i64::try_from(query.offset).map_err(|_| StoreError::IntegerOutOfRange)?;
-        let uses_fts = query.match_expression.is_some();
-        let mut statement = QueryBuilder::<Sqlite>::new(if uses_fts {
-            "SELECT t.id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM thread_search JOIN threads t ON t.id = thread_search.rowid JOIN repositories r ON r.id = t.repository_id WHERE thread_search MATCH "
-        } else {
-            "SELECT t.id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM threads t JOIN repositories r ON r.id = t.repository_id WHERE 1 = 1"
-        });
-        if let Some(expression) = query.match_expression.as_deref() {
-            statement.push_bind(expression);
-        }
-        push_repository_scope(&mut statement, &query.repositories);
-        push_discussion_filters(&mut statement, query.kind, query.state);
-        if let Some(updated_since) = query.updated_since {
-            statement
-                .push(" AND t.updated_at_us >= ")
-                .push_bind(updated_since.unix_microseconds());
-        }
-        statement
-            .push(" ORDER BY ")
-            .push(sort_order(query.sort, uses_fts))
-            .push(" LIMIT ")
-            .push_bind(fetch_limit)
-            .push(" OFFSET ")
-            .push_bind(offset);
-
+        let mut statement = query.statement()?;
         let rows = statement
             .build()
             .fetch_all(&self.reader)
             .await
             .map_err(|error| {
-                if uses_fts && is_fts_syntax_error(&error) {
+                if query.match_expression.is_some() && is_fts_syntax_error(&error) {
                     StoreError::InvalidSearchQuery
                 } else {
                     StoreError::Database(error)
                 }
             })?;
-        let mut stored_summaries = Vec::with_capacity(rows.len());
-        for row in rows {
-            let row_id: i64 = row.try_get("id")?;
-            let repository_json: String = row.try_get("repository_json")?;
-            let discussion_json: String = row.try_get("discussion_json")?;
-            let repository = serde_json::from_str(&repository_json)?;
-            let discussion = serde_json::from_str(&discussion_json)?;
-            stored_summaries.push(StoredThreadSummary {
-                row_id,
-                summary: ThreadSummary {
-                    repository,
-                    discussion,
-                    coverage: Vec::new(),
-                },
-            });
-        }
+        let stored_summaries = rows
+            .into_iter()
+            .map(StoredThreadSummary::decode)
+            .collect::<Result<Vec<_>, _>>()?;
+        self.thread_page(query, stored_summaries, coverage).await
+    }
 
+    /// Removes the pagination sentinel and hydrates applicable family coverage in one batch.
+    async fn thread_page(
+        &self,
+        query: &ThreadQuery,
+        mut stored_summaries: Vec<StoredThreadSummary>,
+        coverage: Vec<super::FamilyCoverageSummary>,
+    ) -> Result<ThreadPage, StoreError> {
         let has_more = i64::try_from(stored_summaries.len())
             .map_err(|_| StoreError::IntegerOutOfRange)?
-            > limit;
+            > i64::from(query.limit.get());
         if has_more {
             stored_summaries.pop();
         }
@@ -155,6 +126,72 @@ impl Archive {
             items,
             next_offset,
             coverage,
+        })
+    }
+}
+
+impl ThreadQuery {
+    /// Binds filters and deterministic ordering, including one extra row to detect a next page.
+    fn statement(&self) -> Result<QueryBuilder<Sqlite>, StoreError> {
+        let limit = i64::from(self.limit.get());
+        let fetch_limit = limit.checked_add(1).ok_or(StoreError::IntegerOutOfRange)?;
+        let offset = i64::try_from(self.offset).map_err(|_| StoreError::IntegerOutOfRange)?;
+        let uses_fts = self.match_expression.is_some();
+        let mut statement = QueryBuilder::<Sqlite>::new(if uses_fts {
+            "SELECT t.id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM thread_search JOIN threads t ON t.id = thread_search.rowid JOIN repositories r ON r.id = t.repository_id WHERE thread_search MATCH "
+        } else {
+            "SELECT t.id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM threads t JOIN repositories r ON r.id = t.repository_id WHERE 1 = 1"
+        });
+        if let Some(expression) = self.match_expression.as_deref() {
+            statement.push_bind(expression);
+        }
+        push_repository_scope(&mut statement, &self.repositories);
+        push_discussion_filters(&mut statement, self.kind, self.state);
+        if let Some(updated_since) = self.updated_since {
+            statement
+                .push(" AND t.updated_at_us >= ")
+                .push_bind(updated_since.unix_microseconds());
+        }
+        statement
+            .push(" ORDER BY ")
+            .push(self.sort_order())
+            .push(" LIMIT ")
+            .push_bind(fetch_limit)
+            .push(" OFFSET ")
+            .push_bind(offset);
+
+        Ok(statement)
+    }
+
+    /// Selects deterministic ordering for one discussion-list sort mode.
+    fn sort_order(&self) -> &'static str {
+        match (self.sort, self.match_expression.is_some()) {
+            (ThreadSort::Relevance, true) => {
+                "bm25(thread_search) ASC, t.updated_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
+            }
+            (ThreadSort::Created, _) => {
+                "t.created_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
+            }
+            (ThreadSort::Updated, _) | (ThreadSort::Relevance, false) => {
+                "t.updated_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
+            }
+        }
+    }
+}
+
+impl StoredThreadSummary {
+    /// Decodes persisted content before coverage is attached to the local projection.
+    fn decode(row: sqlx::sqlite::SqliteRow) -> Result<Self, StoreError> {
+        let row_id = row.try_get("id")?;
+        let repository_json: String = row.try_get("repository_json")?;
+        let discussion_json: String = row.try_get("discussion_json")?;
+        Ok(Self {
+            row_id,
+            summary: ThreadSummary {
+                repository: serde_json::from_str(&repository_json)?,
+                discussion: serde_json::from_str(&discussion_json)?,
+                coverage: Vec::new(),
+            },
         })
     }
 }
@@ -198,21 +235,6 @@ pub fn push_discussion_filters(
         }
         ThreadStateFilter::Closed => {
             statement.push(" AND t.state = 'closed'");
-        }
-    }
-}
-
-/// Selects deterministic ordering for one discussion-list sort mode.
-fn sort_order(sort: ThreadSort, uses_fts: bool) -> &'static str {
-    match (sort, uses_fts) {
-        (ThreadSort::Relevance, true) => {
-            "bm25(thread_search) ASC, t.updated_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
-        }
-        (ThreadSort::Created, _) => {
-            "t.created_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
-        }
-        (ThreadSort::Updated, _) | (ThreadSort::Relevance, false) => {
-            "t.updated_at_us DESC, r.full_name COLLATE NOCASE ASC, r.host ASC, t.number DESC, t.id ASC"
         }
     }
 }
