@@ -1,3 +1,8 @@
+//! Application configuration.
+//!
+//! Resolve file-backed application settings into typed values before constructing clients.
+//! Configuration loading belongs to the CLI boundary, not the engine or provider crates.
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 

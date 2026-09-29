@@ -1,4 +1,8 @@
 //! Evidence acquisition and archive application.
+//!
+//! Acquire selected GitHub resource families and apply them to an already opened archive. Requests
+//! state scope and inclusion explicitly; progress and the final report preserve partial success and
+//! cancellation.
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
@@ -71,6 +75,11 @@ pub enum SyncThreadScope {
 }
 
 /// Explicit repository selection and thread scope for one sync run.
+///
+/// Set `all` to select repositories already known to the archive, or provide explicit
+/// [`RepositorySelector`] values. `parent_run` is reserved for a retry derived from durable run
+/// history. Resource inclusion controls independent evidence families: omitting one leaves its
+/// previous coverage intact rather than recording an empty collection.
 #[derive(Clone, Debug)]
 pub struct SyncRequest {
     /// Explicit repositories; required unless `all` is true.
@@ -131,6 +140,11 @@ pub enum SyncProgressStatus {
 }
 
 /// Final durable run report and aggregate acquisition counts.
+///
+/// Inspect [`Self::outcome`] and [`Self::failures`] together. Counts describe successfully
+/// committed pages and records, so a partial run can contain useful new evidence while some jobs
+/// remain failed or deferred. [`Self::run`] carries the persisted identity for later inspection
+/// and retry planning.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct SyncReport {
     /// Persisted run state and complete original scope.

@@ -1,4 +1,7 @@
 //! Archive health and pending work diagnostics.
+//!
+//! Diagnostics describe schema state, active leases, and unfinished work without acquiring provider
+//! data. Use them to explain what an archive needs before scheduling a mutation.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

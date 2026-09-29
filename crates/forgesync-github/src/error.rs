@@ -1,4 +1,7 @@
 //! Typed provider and transport failures.
+//!
+//! Provider failures are classified for retry and user diagnostics. Callers should branch on
+//! [`ApiFailureKind`] rather than parse an HTTP or GraphQL message.
 
 use std::time::Duration;
 

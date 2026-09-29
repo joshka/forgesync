@@ -1,4 +1,7 @@
 //! Repository thread enumeration workflow.
+//!
+//! Scan repository discussions and record progress before detailed family acquisition. The result
+//! distinguishes a completed repository scan from one interrupted after a checkpoint.
 
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};

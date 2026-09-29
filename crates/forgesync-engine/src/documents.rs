@@ -1,4 +1,7 @@
 //! Discussion document construction and materialization.
+//!
+//! Construct and materialize versioned discussion text for retrieval. The recipe is part of the
+//! identity of derived content, so changing a recipe does not silently reuse old embeddings.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

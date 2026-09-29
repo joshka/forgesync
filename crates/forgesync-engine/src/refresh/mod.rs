@@ -1,4 +1,7 @@
 //! Coordinated sync and analysis stages.
+//!
+//! Coordinate a selected sync followed by requested local analysis stages. Each stage records its
+//! own outcome, allowing a frontend to explain partial completion and continue independent work.
 
 use std::collections::HashSet;
 
@@ -127,6 +130,11 @@ pub struct RefreshSyncOptions {
 }
 
 /// Inputs for composing selected local and remote refresh stages.
+///
+/// All stages operate on `repositories`. Set `sync` to acquire provider evidence first, or leave
+/// it absent for local analysis over existing archive content. Embeddings require a compatible
+/// service identity, while cluster generation uses `cluster_options`; the report records each
+/// selected stage separately.
 #[derive(Clone, Debug)]
 pub struct RefreshRequest {
     /// Repositories used by every selected stage.
@@ -183,6 +191,10 @@ pub struct RefreshClusterRepository {
 }
 
 /// Complete selection, per-stage results, and remaining work for one refresh.
+///
+/// A stage failure does not erase successful earlier work. Use `selected` to explain the request,
+/// `outcome` for the aggregate status, and `remaining` to decide what may need another invocation.
+/// Optional stage fields are absent when that stage was not requested.
 #[derive(Clone, Debug, Serialize)]
 pub struct RefreshReport {
     /// Stages selected by this request, in execution order.

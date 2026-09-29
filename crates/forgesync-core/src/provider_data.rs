@@ -1,4 +1,8 @@
 //! Provider-supplied fields retained alongside normalized domain content.
+//!
+//! Provider data preserves JSON fields that do not belong in the normalized domain model. Keep
+//! decisions about archive identity, ordering, and coverage in their dedicated types rather than
+//! deriving them from this map.
 
 use std::collections::BTreeMap;
 

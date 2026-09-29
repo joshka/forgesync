@@ -1,4 +1,7 @@
 //! Run history and retry planning.
+//!
+//! Inspect prior runs and derive retry scopes from recorded failures. Retry planning is local and
+//! read-only until a caller starts the selected workflow.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;

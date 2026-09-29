@@ -1,4 +1,8 @@
 //! Explicit SQLite archive lifecycle and metadata.
+//!
+//! Create, read-only open, writable open, and migration are distinct operations. Opening validates
+//! the on-disk archive but never creates it, downloads data, or silently migrates it. Pass the
+//! resulting [`Archive`] to local reads or workflow operations.
 
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
@@ -40,6 +44,28 @@ pub struct ArchiveInfo {
 }
 
 /// Open archive pools. Reads use a read-only pool; writes use a serialized writer pool.
+///
+/// Lifecycle operations are explicit: [`Self::create`] creates a new file, the two `open` methods
+/// validate an existing file, and [`Self::migrate`] upgrades an older schema. Opening never
+/// acquires provider data or applies pending migrations. Keep a handle open while running local
+/// reads or workflows, and call [`Self::close`] for orderly pool shutdown.
+///
+/// # Examples
+///
+/// ```no_run
+/// use forgesync_store::archive::Archive;
+///
+/// # async fn example() -> Result<(), forgesync_store::error::StoreError> {
+/// let archive = Archive::open_read_only("archive.sqlite").await?;
+/// let info = archive.info();
+/// println!(
+///     "archive {} uses schema {}",
+///     info.archive_id, info.schema_version
+/// );
+/// archive.close().await;
+/// # Ok(())
+/// # }
+/// ```
 pub struct Archive {
     pub(crate) reader: SqlitePool,
     pub(crate) writer: Option<SqlitePool>,

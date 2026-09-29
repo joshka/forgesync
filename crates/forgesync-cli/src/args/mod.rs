@@ -1,3 +1,8 @@
+//! Command-line arguments and subcommands.
+//!
+//! Clap command definitions and value parsers for the process interface. These types describe user
+//! input only; command execution lives in the private `commands` module.
+
 use std::path::PathBuf;
 
 mod archive;

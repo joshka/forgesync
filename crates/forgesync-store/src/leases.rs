@@ -1,4 +1,7 @@
 //! Exclusive archive writer leases.
+//!
+//! A writer lease coordinates long-running mutations across processes. Acquire and release it
+//! around a workflow, but do not keep a SQLite transaction open across provider requests.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

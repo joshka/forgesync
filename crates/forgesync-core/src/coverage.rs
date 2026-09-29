@@ -1,4 +1,8 @@
 //! Resource-family coverage and structured failures for partial acquisition.
+//!
+//! A workflow records coverage separately for each evidence family. Callers can distinguish a
+//! complete collection from unavailable or deferred evidence, and can report partial success
+//! without inventing an empty collection.
 
 use serde::{Deserialize, Serialize};
 

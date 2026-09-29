@@ -1,4 +1,7 @@
 //! Repository and thread selector parsing.
+//!
+//! Parse repository and thread selectors before opening a workflow. Checked selectors keep host,
+//! owner, repository, and thread identity distinct.
 
 use std::str::FromStr;
 
@@ -7,6 +10,22 @@ use forgesync_core::identity::{GitHubHost, ThreadNumber};
 use thiserror::Error;
 
 /// A repository name supplied to a local query.
+///
+/// Parse an `owner/repository` pair for the default `github.com` host, or an HTTPS URL for an
+/// explicit host. This selector is resolved against archive content; parsing does not contact
+/// GitHub.
+///
+/// # Examples
+///
+/// ```
+/// use std::str::FromStr;
+///
+/// use forgesync_engine::reference::RepositorySelector;
+///
+/// let repository = RepositorySelector::from_str("owner/project")?;
+/// assert_eq!(repository.as_url(), "https://github.com/owner/project");
+/// # Ok::<(), forgesync_engine::reference::ReferenceParseError>(())
+/// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RepositorySelector {
     host: GitHubHost,

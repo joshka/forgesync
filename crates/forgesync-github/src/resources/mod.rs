@@ -1,4 +1,7 @@
 //! REST acquisition and normalization for repositories, threads, comments, and reviews.
+//!
+//! Fetch REST discussion and child-resource pages as typed provider data. Pagination remains
+//! explicit so the engine can preserve partial collection and checkpoint semantics.
 
 use std::collections::BTreeMap;
 

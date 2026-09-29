@@ -1,4 +1,7 @@
 //! Embedding chunks, search inputs, and write operations.
+//!
+//! Store document chunks with their embedding model identity and query them for local similarity
+//! search. Model and recipe metadata prevent vectors from incompatible spaces being compared.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;

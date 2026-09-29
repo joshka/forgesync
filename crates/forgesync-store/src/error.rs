@@ -1,4 +1,7 @@
 //! Typed archive operation failures.
+//!
+//! Match [`StoreError`] variants when recovery depends on the cause, such as an explicit migration
+//! or read-only handle. Do not use error text as a stable machine interface.
 
 use std::path::PathBuf;
 
@@ -27,19 +30,38 @@ pub enum StoreError {
     MigrationHistoryMissing,
     /// A migration did not finish successfully.
     #[error("archive migration {version} is marked as incomplete")]
-    MigrationHistoryDirty { version: i64 },
+    MigrationHistoryDirty {
+        /// Migration left incomplete on disk.
+        version: i64,
+    },
     /// The archive records a migration that this binary does not contain.
     #[error("archive migration {version} is not present in this binary")]
-    MigrationVersionUnknown { version: i64 },
+    MigrationVersionUnknown {
+        /// Recorded migration absent from this binary.
+        version: i64,
+    },
     /// The stored checksum for an applied migration differs from the embedded migration.
     #[error("archive migration {version} does not match the embedded migration")]
-    MigrationChecksumMismatch { version: i64 },
+    MigrationChecksumMismatch {
+        /// Migration whose stored checksum changed.
+        version: i64,
+    },
     /// The archive must be explicitly migrated before it can be opened.
     #[error("archive schema version {current} requires migration to version {supported}")]
-    MigrationRequired { current: i64, supported: i64 },
+    MigrationRequired {
+        /// Version currently stored on disk.
+        current: i64,
+        /// Version supported by this binary.
+        supported: i64,
+    },
     /// The archive schema is newer than this binary supports.
     #[error("archive schema version {found} is newer than supported version {supported}")]
-    SchemaTooNew { found: i64, supported: i64 },
+    SchemaTooNew {
+        /// Version found on disk.
+        found: i64,
+        /// Newest version this binary supports.
+        supported: i64,
+    },
     /// The stored archive UUID is malformed.
     #[error("archive ID is invalid")]
     InvalidArchiveId(#[source] uuid::Error),
@@ -75,7 +97,12 @@ pub enum StoreError {
     InvalidSourceClock(String),
     /// Distinct malformed source clocks cannot be ordered safely.
     #[error("ambiguous malformed observation timestamps {incoming:?} and {current:?}")]
-    AmbiguousObservationClocks { incoming: String, current: String },
+    AmbiguousObservationClocks {
+        /// Malformed timestamp on the incoming observation.
+        incoming: String,
+        /// Malformed timestamp on the current observation.
+        current: String,
+    },
     /// Two different payloads claim the same source generation and sequence.
     #[error("conflicting observations share source generation and sequence")]
     ConflictingObservation,
@@ -93,7 +120,12 @@ pub enum StoreError {
     StagedItemConflict,
     /// A completed collection did not stage the expected consecutive pages.
     #[error("complete collection expected {expected} pages but found {found}")]
-    IncompletePageSet { expected: u32, found: u32 },
+    IncompletePageSet {
+        /// Page count declared by the completed collection.
+        expected: u32,
+        /// Consecutive pages found in staging.
+        found: u32,
+    },
     /// A completion result did not supply the page count required for atomic application.
     #[error("complete collection requires an expected page count")]
     MissingExpectedPageCount,

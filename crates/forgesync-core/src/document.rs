@@ -1,4 +1,8 @@
 //! Versioned discussion documents used for local retrieval.
+//!
+//! A document is a reproducible search input derived from a discussion and a recipe. The recipe
+//! version lets callers recognize when stored text or embeddings need rebuilding after the
+//! construction rules change.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

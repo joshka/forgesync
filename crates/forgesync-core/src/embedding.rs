@@ -1,8 +1,26 @@
 //! Checked embedding vectors used by semantic search.
+//!
+//! Use [`EmbeddingVector::new`] at the boundary of an embedding service or archive read. It rejects
+//! unusable coordinates before similarity calculations consume them.
 
 use thiserror::Error;
 
 /// A validated finite, non-zero-norm embedding vector.
+///
+/// Construct this from service output before storing it or computing similarity. The expected
+/// dimension is optional when decoding an existing vector, but should be supplied when a model
+/// declares one.
+///
+/// # Examples
+///
+/// ```
+/// use forgesync_core::embedding::EmbeddingVector;
+///
+/// let vector = EmbeddingVector::new(vec![0.5, -0.25], Some(2))?;
+/// assert_eq!(vector.dimensions(), 2);
+/// assert_eq!(vector.values(), &[0.5, -0.25]);
+/// # Ok::<(), forgesync_core::embedding::EmbeddingVectorError>(())
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingVector {
     values: Vec<f32>,
@@ -10,6 +28,9 @@ pub struct EmbeddingVector {
 
 impl EmbeddingVector {
     /// Validates a model vector and, when supplied, its expected dimension.
+    ///
+    /// Empty, non-finite, zero-norm, and dimension-mismatched vectors are rejected. The input
+    /// order is preserved; this method does not normalize the vector's length.
     pub fn new(
         values: Vec<f32>,
         expected_dimensions: Option<u32>,

@@ -1,4 +1,8 @@
 //! Parent thread observations and their application results.
+//!
+//! Apply normalized thread observations according to source and acquisition order. Results report
+//! whether incoming evidence became canonical, was retained only as history, or was rejected as
+//! ambiguous.
 
 use std::cmp::Ordering;
 

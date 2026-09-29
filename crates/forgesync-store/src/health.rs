@@ -1,4 +1,7 @@
 //! Archive integrity and health checks.
+//!
+//! Health checks inspect archive metadata and integrity locally. The report is suitable for a
+//! doctor command; it does not repair or refresh provider data.
 
 use serde::Serialize;
 use sqlx::SqliteConnection;

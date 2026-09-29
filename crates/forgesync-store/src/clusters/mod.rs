@@ -1,4 +1,8 @@
 //! Durable cluster generations and local maintainer decisions.
+//!
+//! Store-generated duplicate clusters and local maintainer decisions live here. A generation
+//! describes computed membership; decisions are separate durable state so rebuilding clusters does
+//! not discard human choices.
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;

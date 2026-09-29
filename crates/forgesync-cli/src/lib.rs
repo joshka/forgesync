@@ -1,6 +1,15 @@
 #![forbid(unsafe_code)]
 
 //! Process interface for the Forgesync application.
+//!
+//! [`run_from`] parses one invocation, resolves application configuration and credentials, runs
+//! the requested workflow, renders output, and selects a process exit code. The binary entry point
+//! delegates here. Library callers normally use [`forgesync_engine`] for workflows and
+//! [`forgesync_store`] for archive access; this crate is useful when embedding the complete CLI.
+//!
+//! [`args`] defines the command vocabulary, [`config`] and [`credentials`] resolve local process
+//! inputs, and [`output`] defines the versioned JSON envelope. These process DTOs are separate from
+//! domain and archive types.
 
 pub mod args;
 pub mod config;
@@ -29,6 +38,10 @@ use tracing_subscriber::filter::LevelFilter;
 use crate::output::JsonEnvelope;
 
 /// Parses arguments, runs the selected command, and writes its process output.
+///
+/// The first argument is the program name, as with [`std::env::args_os`]. Parsing failures and
+/// command failures are rendered to standard streams and represented by the returned exit code.
+/// This function creates its own Tokio runtime and tracing subscriber for the invocation.
 pub fn run_from<I, T>(arguments: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,

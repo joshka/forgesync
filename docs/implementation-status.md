@@ -785,3 +785,19 @@ Validation:
 
 A task is complete only when its acceptance checks pass. Keep deferred capabilities absent from
 code, workspace members, runtime dependencies, command help, and schema.
+
+## Rustdoc quality pass
+
+The public module guides now explain ownership, neighboring modules, and the contracts that matter
+to callers. Entry-point examples cover checked embeddings, repository selectors, redacted tokens,
+and explicit archive opening. Missing field and function docs are filled in across the workspace.
+The strict Rustdoc gate passes:
+
+```sh
+RUSTDOCFLAGS='-D warnings -D missing_docs -D rustdoc::broken_intra_doc_links' \
+  cargo doc --workspace --no-deps --all-features --locked
+```
+
+The next documentation task is a manual review of the rendered pages with downstream users,
+especially the larger workflow request and report types; lint coverage alone cannot establish
+whether an explanation is sufficient.

@@ -1,4 +1,7 @@
 //! Typed workflow failures.
+//!
+//! Workflow errors retain typed archive, provider, and request failures. Preserve the cause when
+//! presenting a partial outcome to a frontend.
 
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};

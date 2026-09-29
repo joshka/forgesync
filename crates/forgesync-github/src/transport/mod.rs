@@ -1,4 +1,7 @@
 //! HTTP client configuration, retries, redirects, and pagination safety.
+//!
+//! Construct a client from explicit configuration and a supplied token. Transport owns HTTP,
+//! retries, and response classification; it does not open archives or discover process credentials.
 
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};

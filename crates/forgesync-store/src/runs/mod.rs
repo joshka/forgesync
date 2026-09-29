@@ -1,4 +1,7 @@
 //! Sync runs, jobs, and family failure records.
+//!
+//! Persist run history and per-job outcomes for resumable workflows. A failed family remains
+//! visible in the run record so retry planning can select only missing work.
 
 use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure};

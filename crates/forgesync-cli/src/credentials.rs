@@ -1,4 +1,7 @@
 //! GitHub credential discovery at the application boundary.
+//!
+//! Resolve GitHub credentials at the application boundary and return a redacted token. Library
+//! crates receive the token explicitly and never inspect the process environment.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

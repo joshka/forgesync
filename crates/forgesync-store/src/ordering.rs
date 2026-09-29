@@ -1,4 +1,8 @@
 //! Canonical source and acquisition ordering.
+//!
+//! These comparators implement the archive replacement policy. Source clocks, acquisition
+//! sequences, and revision context remain distinct so callers do not accidentally fall back to
+//! last-write-wins.
 
 use std::cmp::Ordering;
 

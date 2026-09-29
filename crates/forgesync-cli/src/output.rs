@@ -1,3 +1,8 @@
+//! Process output models.
+//!
+//! Versioned JSON response shapes and human-readable output adapters. These DTOs are deliberately
+//! distinct from storage rows and domain objects so the process interface can evolve independently.
+
 use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
 };

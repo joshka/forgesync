@@ -11,6 +11,10 @@ use super::{
     sync_repositories,
 };
 
+/// Runs selected refresh stages, retaining each stage's result if another stage fails.
+///
+/// The archive must already be open for writing. Cancellation is checked by the underlying
+/// workflows; a partially completed stage remains visible in the returned report.
 pub async fn refresh(
     archive: &Archive,
     github_clients: &std::collections::HashMap<GitHubHost, GitHubClient>,

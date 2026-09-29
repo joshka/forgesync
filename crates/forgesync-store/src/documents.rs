@@ -1,4 +1,7 @@
 //! Versioned discussion document persistence.
+//!
+//! Persist discussion documents by recipe and source version. A materializer can replace stale
+//! derived text without changing the underlying discussion observation.
 
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::identity::ThreadId;

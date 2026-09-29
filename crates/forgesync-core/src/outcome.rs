@@ -1,4 +1,8 @@
 //! Structured outcomes for complete, partial, deferred, interrupted, and failed work.
+//!
+//! Operation outcomes retain the difference between completed work, partial work, deferral,
+//! interruption, and failure. Frontends can render or serialize that distinction without inspecting
+//! error text.
 
 use serde::{Deserialize, Serialize};
 

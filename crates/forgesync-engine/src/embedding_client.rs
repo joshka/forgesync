@@ -1,4 +1,7 @@
 //! Configured embedding-service transport.
+//!
+//! Call an explicitly configured embedding service. The client handles transport and response
+//! validation; archive writes and batch policy belong to [`crate::embeddings`].
 
 mod error;
 mod response;

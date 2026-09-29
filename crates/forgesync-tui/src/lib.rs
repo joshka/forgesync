@@ -1,6 +1,14 @@
 #![forbid(unsafe_code)]
 
-//! Read-only terminal browser for local Forgesync archives.
+//! Terminal browser for a local Forgesync archive.
+//!
+//! The browser starts with local inspection and search. When supplied with GitHub clients, it can
+//! also initiate the engine's sync and refresh workflows and show progress without blocking
+//! navigation. It does not discover credentials or open an archive on its own: the application
+//! passes an already opened handle to [`run`].
+//!
+//! [`run`] requires a terminal on standard input and output and an active Tokio runtime. It owns
+//! the archive handle until the browser exits and closes it during shutdown.
 
 mod app;
 mod query;
@@ -21,7 +29,11 @@ use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-/// Runs the interactive archive browser and closes its writable archive handle on exit.
+/// Runs the interactive archive browser and closes its archive handle on exit.
+///
+/// Supply clients keyed by their validated GitHub host. An empty map still permits local browsing;
+/// provider-backed actions require a matching client. This function returns
+/// [`TuiError::NotTerminal`] when standard input or output is redirected.
 pub async fn run(
     archive: Archive,
     github_clients: HashMap<GitHubHost, GitHubClient>,

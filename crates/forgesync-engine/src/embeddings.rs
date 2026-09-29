@@ -1,4 +1,7 @@
 //! Local embedding batches and persistence.
+//!
+//! Batch local documents for embedding and persist the results. Reports retain per-batch failures
+//! so a partial run can be diagnosed and retried.
 
 use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;

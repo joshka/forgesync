@@ -1,4 +1,8 @@
 //! Child resource-family observations and membership.
+//!
+//! Apply child resource families such as comments and reviews under their own completeness
+//! boundary. Staging and finalization keep a partial provider page from replacing a previously
+//! complete membership.
 
 use std::collections::BTreeMap;
 

@@ -1,4 +1,7 @@
 //! Ordered schema migration reports.
+//!
+//! Migrations are ordered and immutable. Inspect pending changes separately from applying them so
+//! callers can present an explicit archive upgrade.
 
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};

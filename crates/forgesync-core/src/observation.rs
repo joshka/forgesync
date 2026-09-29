@@ -1,4 +1,8 @@
 //! Acquisition observations, source clocks, and collection completeness.
+//!
+//! An observation carries both provider time and local acquisition order. Storage uses these clocks
+//! and collection completeness to decide whether incoming evidence may replace the current view;
+//! missing pages never imply deletion.
 
 use serde::{Deserialize, Serialize};
 

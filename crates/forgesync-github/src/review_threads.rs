@@ -1,4 +1,7 @@
 //! GraphQL review-thread acquisition and nested pagination.
+//!
+//! Review threads require GraphQL and nested pagination. The cursor and page result let the caller
+//! resume collection without treating an incomplete page set as complete review evidence.
 
 use std::collections::{BTreeMap, HashSet};
 

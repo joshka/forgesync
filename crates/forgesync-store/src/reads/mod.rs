@@ -1,4 +1,7 @@
 //! Offline discussion queries and detail records.
+//!
+//! Local read models for discussion lists and detail views. Query types describe filters and
+//! pagination; returned summaries are archive projections rather than provider DTOs.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;

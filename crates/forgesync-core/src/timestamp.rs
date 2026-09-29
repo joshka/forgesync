@@ -1,4 +1,7 @@
 //! Validated UTC timestamps used by observations and archive records.
+//!
+//! Timestamps use UTC microseconds throughout the archive. Parse and validate at input boundaries
+//! so ordering and serialization share one representation.
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;

@@ -1,8 +1,25 @@
 //! Credential wrapper with redacted diagnostic output.
+//!
+//! A token is supplied by the application boundary. Its debug representation is redacted to keep
+//! credentials out of routine diagnostics.
 
 use std::fmt;
 
 /// A GitHub credential that is redacted from debug output.
+///
+/// Create this at the application boundary and pass it to the transport client. Debug formatting
+/// hides the secret; [`Self::expose`] deliberately returns it for an authorization header, so
+/// callers must keep that value out of logs and error messages.
+///
+/// # Examples
+///
+/// ```
+/// use forgesync_github::token::GitHubToken;
+///
+/// let token = GitHubToken::new("example-token")?;
+/// assert_eq!(format!("{token:?}"), "GitHubToken([REDACTED])");
+/// # Ok::<(), forgesync_github::token::GitHubTokenError>(())
+/// ```
 #[derive(Clone, Eq, PartialEq)]
 pub struct GitHubToken(String);
 

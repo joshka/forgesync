@@ -1,4 +1,8 @@
 //! Normalized repositories, discussions, comments, reviews, and review threads.
+//!
+//! These values are the archive-facing shape of a GitHub repository and its discussions. Provider
+//! DTOs are converted to these types before storage; use [`crate::provider_data`] for fields that
+//! must survive normalization without becoming domain concepts.
 
 use serde::{Deserialize, Serialize};
 

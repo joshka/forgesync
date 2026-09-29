@@ -1,4 +1,7 @@
 //! Exact vector similarity calculation.
+//!
+//! Compute exact cosine similarity over validated vectors. This is the final ranking primitive
+//! after candidate retrieval, with dimension mismatches represented explicitly.
 
 use std::cmp::Ordering;
 

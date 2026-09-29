@@ -1,4 +1,7 @@
 //! Repository thread scan progress and checkpoints.
+//!
+//! A repository scan has its own checkpoint and completion state. Resuming a partial scan does not
+//! claim that the repository has a complete current thread set.
 
 use forgesync_core::coverage::Failure;
 use forgesync_core::identity::{ObservationSequence, RepositoryId};

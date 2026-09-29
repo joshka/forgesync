@@ -1,4 +1,7 @@
 //! Offline archive inspection requests.
+//!
+//! Read archive status, discussion lists, and details without provider access. Requests make
+//! filtering and pagination explicit so CLI and TUI share one read workflow.
 
 use std::num::NonZeroU32;
 

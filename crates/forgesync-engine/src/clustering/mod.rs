@@ -1,4 +1,7 @@
 //! Duplicate cluster generation and maintainer decisions.
+//!
+//! Build duplicate groups from local search evidence and expose them for maintainer triage. Cluster
+//! generation and durable decisions have separate lifecycles.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};

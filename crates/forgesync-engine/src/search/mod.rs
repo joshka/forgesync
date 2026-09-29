@@ -1,4 +1,7 @@
 //! Keyword, semantic, and hybrid search policy.
+//!
+//! Search local documents with lexical or semantic ranking. Results carry provenance and pagination
+//! information so a frontend can explain how each hit was found.
 
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -112,6 +115,11 @@ pub struct SearchResultPage {
 }
 
 /// Request for a read-only local discussion search.
+///
+/// [`SearchMode::Keyword`] quotes ordinary text as terms; [`SearchMode::AdvancedFts`] accepts an
+/// FTS5 expression. Semantic and hybrid retrieval use [`retrieve_threads`] with an embedding
+/// client and matching document recipe. Fallback must be requested explicitly and only applies
+/// to semantic or hybrid modes.
 #[derive(Clone, Debug)]
 pub struct SearchRequest {
     /// User-supplied query text.
@@ -163,6 +171,11 @@ pub async fn search_threads(
 }
 
 /// Runs keyword, semantic, or hybrid retrieval through one read-only application operation.
+///
+/// Keyword modes use the local full-text index. Semantic and hybrid modes embed the query with
+/// `embedding_client`, then rank compatible current document vectors. If semantic retrieval is
+/// unavailable, `allow_keyword_fallback` controls whether the result reports a keyword fallback
+/// or returns an error. Provider data is never fetched by this operation.
 pub async fn retrieve_threads(
     archive: &Archive,
     request: &SearchRequest,

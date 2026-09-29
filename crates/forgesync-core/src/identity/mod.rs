@@ -1,4 +1,8 @@
 //! Checked provider and archive identities.
+//!
+//! Choose an identifier by meaning: [`GitHubHost`] identifies a provider host, provider IDs and
+//! commit hashes identify source objects, and archive IDs identify local observations or runs.
+//! Constructors validate external strings before they cross a workflow boundary.
 
 use thiserror::Error;
 
