@@ -1315,3 +1315,20 @@ features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-
 linting. Generated refresh module, prepared-request, and typed-failure documentation were checked
 for stage capability ownership and cleanup ordering. The next concrete command workflow is embedding
 preparation and its report/failure presentation.
+
+## Continued maintenance: embedding outcome presentation
+
+The embedding command delegates missing-report presentation to a named operation after archive
+closure. Its diagnostic exit policy uses the stable cancellation code rather than message text.
+Report-bearing exit policy is a query on `EmbeddingOutput`, beside the status serialized and
+rendered for users, instead of another presentation match inside acquisition.
+
+Two direct diagnostic cases verify interruption and message-independent fatal classification. Five
+named rstest cases verify complete, partial, deferred, interrupted, and failed report states without
+loops or scenario helpers. Reportless failure and report-bearing retryable work remain distinct. The
+broader embedding preparation and engine batch workflows are still open review targets.
+
+Final local gates pass: both diagnostic cases, all five report-state cases, all fifty-two CLI unit
+tests, workspace Clippy with warnings denied, all workspace tests/doctests, the CLI build without
+default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
+Markdown linting. Embedding request preparation remains the next concrete command surface.

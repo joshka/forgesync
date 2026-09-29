@@ -13,7 +13,7 @@ use std::process::ExitCode;
 use clap::{ArgAction, Args};
 use forgesync_engine::embeddings::EmbeddingPolicy;
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::refresh::{RefreshStageFailure, RefreshStageStatus, embed_repositories};
+use forgesync_engine::refresh::{RefreshStageFailure, embed_repositories};
 use forgesync_store::archive::Archive;
 
 use crate::config::ForgesyncConfig;
@@ -122,16 +122,7 @@ impl EmbedArgs {
         .await;
         archive.close().await;
         let Some(stage_report) = stage.report else {
-            let failure = stage.failure.unwrap_or(RefreshStageFailure {
-                code: "embedding_stage_failed",
-                message: "embedding stage did not produce a report".to_owned(),
-            });
-            let status = if failure.code == "operation_cancelled" {
-                ExitCode::from(130)
-            } else {
-                ExitCode::FAILURE
-            };
-            return render_error_with_status(json, "embed", failure.code, &failure.message, status);
+            return render_stage_failure(json, stage.failure);
         };
 
         let output = EmbeddingOutput {
@@ -149,12 +140,7 @@ impl EmbedArgs {
             document_failures: stage_report.document_failures,
             failure: stage.failure,
         };
-        let exit_status = match output.status {
-            RefreshStageStatus::Complete => ExitCode::SUCCESS,
-            RefreshStageStatus::Partial | RefreshStageStatus::Deferred => ExitCode::from(3),
-            RefreshStageStatus::Interrupted => ExitCode::from(130),
-            RefreshStageStatus::Failed => ExitCode::FAILURE,
-        };
+        let exit_status = output.exit_status();
         render_result(json, "embed", &output, embedding_summary, exit_status)
     }
 
@@ -190,3 +176,27 @@ impl EmbedArgs {
         service
     }
 }
+
+/// Presents a stage that produced no report after archive cleanup, preserving cancellation status.
+fn render_stage_failure(output: OutputMode, failure: Option<RefreshStageFailure>) -> ExitCode {
+    let failure = failure.unwrap_or(RefreshStageFailure {
+        code: "embedding_stage_failed",
+        message: "embedding stage did not produce a report".to_owned(),
+    });
+    let status = failure_exit_status(&failure);
+    render_error_with_status(output, "embed", failure.code, &failure.message, status)
+}
+
+/// Returns the established process status for a safe stage diagnostic without a report.
+/// Cancellation is identified by its stable code; all other missing-report failures are fatal.
+fn failure_exit_status(failure: &RefreshStageFailure) -> ExitCode {
+    if failure.code == "operation_cancelled" {
+        ExitCode::from(130)
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+#[cfg(test)]
+#[path = "embed_tests.rs"]
+mod tests;

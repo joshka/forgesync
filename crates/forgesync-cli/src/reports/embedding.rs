@@ -50,6 +50,22 @@ pub struct EmbeddingOutput {
     pub failure: Option<RefreshStageFailure>,
 }
 
+impl EmbeddingOutput {
+    /// Returns the process result for the same structured stage state rendered in JSON and prose.
+    /// Partial or deferred work is retryable (`3`); interruption keeps the shell convention
+    /// (`130`).
+    pub fn exit_status(&self) -> std::process::ExitCode {
+        match self.status {
+            RefreshStageStatus::Complete => std::process::ExitCode::SUCCESS,
+            RefreshStageStatus::Partial | RefreshStageStatus::Deferred => {
+                std::process::ExitCode::from(3)
+            }
+            RefreshStageStatus::Interrupted => std::process::ExitCode::from(130),
+            RefreshStageStatus::Failed => std::process::ExitCode::FAILURE,
+        }
+    }
+}
+
 /// Explains the selected embedding work and partial failures in human output.
 pub fn embedding_summary(output: &EmbeddingOutput) -> String {
     let failure = output
@@ -82,3 +98,7 @@ pub fn embedding_summary(output: &EmbeddingOutput) -> String {
     );
     failure.map_or(summary.clone(), |failure| format!("{summary}; {failure}"))
 }
+
+#[cfg(test)]
+#[path = "embedding_tests.rs"]
+mod tests;

@@ -150,3 +150,8 @@ engine stages with the optional embedding capability selected for those stages. 
 skipped for local-only refresh, and the outer command closes the archive before rendering typed
 setup or engine failures. An unusable optional embedding service remains a structured selected-stage
 failure, so earlier sync or analysis evidence can still be reported.
+
+Embedding process presentation separates an absent engine stage report from a present report with
+partial, deferred, or interrupted work. The command owns missing-report diagnostics;
+`reports/embedding::EmbeddingOutput` owns exit selection from the same state exposed in JSON. Both
+paths present results after the writable archive is closed.
