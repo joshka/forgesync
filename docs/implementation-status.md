@@ -2,6 +2,11 @@
 
 ## Current position
 
+- The maintainability migration has split crate roots and the largest workflow modules into named
+  concepts. The next slice is to simplify remaining mixed-purpose GitHub review-thread acquisition,
+  TUI query dispatch, and large test files. See [maintainability plan](maintainability-plan.md).
+- The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
+  `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
 - Next action: **Run the hosted platform matrix before preparing a release**.

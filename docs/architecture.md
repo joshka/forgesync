@@ -18,6 +18,7 @@ For an offline read, start at the engine request, inspect the store query, then 
 presentation. The engine accepts an opened archive; the store alone decides transaction and
 observation ordering. GitHub code does not open the archive.
 
-The current source still has broad crate roots and several files with multiple responsibilities. The
-[maintainability plan](maintainability-plan.md) tracks the migration toward named concept modules.
-This map states the intended ownership boundary without claiming the file layout is already there.
+The crates expose named concept modules rather than blanket root exports. The main sync, search,
+cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
+The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose
+modules. Use the module path as the first navigation clue, then read the adjacent tests.
