@@ -106,3 +106,17 @@ Review changes to parsing, traits, MSRV, and feature resolution separately from 
 
 Run `cargo +nightly fmt` for formatting. Use focused tests before the applicable workspace gates in
 `AGENTS.md`.
+
+## Review evidence and intentional boundaries
+
+Describe completion at the scope actually reviewed: a selected workflow does not prove every
+function in its crate is maintainable. Record remaining work explicitly and distinguish local
+validation from hosted platform results. API documentation must be checked against effects: a
+semantic query may read archived vectors and still contact a service for the query vector.
+
+Restricted visibility remains appropriate for SQL connection helpers inside public store modules,
+private fields of the public archive handle, and internal validation hooks on public engine types.
+Making these public would expose invariants rather than simplify a private implementation boundary.
+When such a helper is moved into a private module, use ordinary `pub` there and import its owning
+module directly. Do not replace restricted visibility mechanically or publish SQL state to satisfy a
+style preference.

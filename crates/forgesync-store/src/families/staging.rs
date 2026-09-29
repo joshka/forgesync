@@ -17,7 +17,22 @@ use super::{
 };
 
 impl Archive {
-    /// Persists one page for a reserved generation. Replaying the same page is idempotent.
+    /// Persists a provisional page without changing canonical child membership.
+    ///
+    /// Use the sequence returned by reservation and zero-based indexes from the provider traversal.
+    /// Finalization validates the declared page set before publishing membership. A replay succeeds
+    /// only when the same index has exactly the same serialized payload; conflicting payloads are
+    /// rejected instead of silently replacing earlier evidence.
+    ///
+    /// This operation updates the generation's received-item count in the same transaction as the
+    /// page write. An incomplete generation can accept further pages, but a completed, missing, or
+    /// superseded generation cannot. Provider I/O must happen before this call.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a read-only archive, unsupported family, unknown thread, stale or
+    /// missing generation, conflicting replay, serialization failure, or database failure. An
+    /// error does not expose provisional items as canonical membership.
     pub async fn stage_child_family_page<T>(
         &self,
         thread: &ThreadId,
@@ -33,7 +48,15 @@ impl Archive {
             .await
     }
 
-    /// Stages a child-family page only while the supplied archive lease remains current.
+    /// Stages a page while verifying the caller still owns the archive writer fence.
+    ///
+    /// See [`Self::stage_child_family_page`] for indexing, replay, and generation rules. The fence
+    /// is checked inside the write transaction; losing ownership rejects the write before a page
+    /// or count can commit. Use the same fence for reservation and finalization.
+    ///
+    /// # Errors
+    ///
+    /// Returns the unfenced operation's errors and stale or expired lease errors.
     pub async fn stage_child_family_page_fenced<T>(
         &self,
         thread: &ThreadId,
