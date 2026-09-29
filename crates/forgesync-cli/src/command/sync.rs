@@ -12,10 +12,11 @@ use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::sync::{SyncProgress, SyncRequest, SyncThreadScope, sync_repositories};
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 
 use super::github::{github_clients_for_selectors, render_github_client_setup_error};
+use super::progress::ProgressReporter;
 use super::{SyncIncludeArg, SyncThreadStateArg};
 use crate::reports::{outcome_exit_code, sync_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error};
@@ -75,40 +76,16 @@ async fn execute_sync(
         }
     };
 
-    let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
-    let progress_task = if verbose > 0 && !json.is_json() {
-        Some(tokio::spawn(async move {
-            while let Some(progress) = progress_receiver.recv().await {
-                let repository = progress.repository.as_deref().unwrap_or("sync");
-                eprintln!(
-                    "forgesync: {}: {:?}, {}/{} jobs, {} threads, {} comments, {} PRs, {} reviews, {} review threads",
-                    repository,
-                    progress.status,
-                    progress.completed_jobs,
-                    progress.total_jobs,
-                    progress.threads_seen,
-                    progress.comments_seen,
-                    progress.pull_request_metadata_seen,
-                    progress.reviews_seen,
-                    progress.review_threads_seen
-                );
-            }
-        }))
-    } else {
-        drop(progress_receiver);
-        None
-    };
+    let progress = ProgressReporter::start("sync", json, verbose);
     let result = sync_repositories(
         &archive,
         &clients,
         &request,
         cancellation,
-        Some(progress_sender),
+        progress.sender(),
     )
     .await;
-    if let Some(progress_task) = progress_task {
-        let _ = progress_task.await;
-    }
+    progress.finish().await;
     archive.close().await;
     match result {
         Ok(report) => {

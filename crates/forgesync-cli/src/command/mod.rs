@@ -17,6 +17,7 @@ mod embed;
 mod embedding_service;
 mod github;
 mod interruption;
+mod progress;
 mod refresh;
 mod retry;
 mod run;
