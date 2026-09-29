@@ -1,51 +1,23 @@
 //! # Turn selected edges into bounded components
 //!
 //! `bounded_components` applies cluster-size limits to deterministic edges using union-find.
-//! `format_clusters` chooses a representative and constructs stable member projections. A rejected
+//! `proposals` chooses representatives and constructs member projections after grouping. A rejected
 //! union cannot grow a component beyond the configured maximum.
 //!
 //! `evidence` decides which edges qualify; this module decides how qualifying edges form groups.
 //! The input document order and edge order are already stable. Representatives use retained degree
-//! and deterministic identity ties. The store later reconciles these proposals with local
-//! decisions.
+//! and deterministic identity ties in that neighboring module. The store reconciles proposals with
+//! local decisions.
 //!
 //! These pure transformations never modify archive state or source observations.
 
 use std::collections::HashMap;
 
-use forgesync_core::identity::ThreadId;
 use forgesync_store::embeddings::EmbeddingSearchDocument;
-use forgesync_store::reads::ThreadSummary;
 
 use super::ClusterOptions;
 use super::evidence::CandidateEdge;
 use crate::exact_search::stable_thread_id_cmp;
-
-/// Derived member projection awaiting reconciliation with durable local maintainer decisions.
-#[derive(Clone, Debug)]
-pub struct ClusterMemberCandidate {
-    /// Archived discussion identity and display content selected for this generation.
-    pub summary: ThreadSummary,
-    /// Direct retained edge weight to the representative, or none for transitive-only membership.
-    /// The representative receives `1.0`; other weights may come from vector or reference
-    /// evidence.
-    pub score_to_representative: Option<f64>,
-}
-
-/// Bounded graph component proposed for one derived cluster generation.
-///
-/// Representative selection uses retained degree and deterministic identity ties. It is an
-/// analysis proposal: the store owns durable cluster identity and reconciles canonical-member and
-/// inclusion decisions before presenting the resulting cluster.
-#[derive(Clone, Debug)]
-pub struct ClusterCandidate {
-    /// Automatically selected member identity, before applying local canonical choices.
-    pub representative: ThreadId,
-    /// Archived title copied from the automatically selected representative.
-    pub title: String,
-    /// Stable identity-ordered members that satisfy component size limits.
-    pub members: Vec<ClusterMemberCandidate>,
-}
 
 /// Builds connected groups without exceeding the configured size.
 pub fn bounded_components(
@@ -77,73 +49,6 @@ pub fn bounded_components(
         })
     });
     (components, kept_edges)
-}
-
-/// Converts graph components into stable generation inputs.
-pub fn format_clusters(
-    documents: &[EmbeddingSearchDocument],
-    components: &[Vec<usize>],
-    edges: &[CandidateEdge],
-    min_size: usize,
-) -> Vec<ClusterCandidate> {
-    let mut degrees = vec![0_usize; documents.len()];
-    let mut edge_scores = HashMap::with_capacity(edges.len());
-    for edge in edges {
-        degrees[edge.left] = degrees[edge.left].saturating_add(1);
-        degrees[edge.right] = degrees[edge.right].saturating_add(1);
-        edge_scores.insert(
-            (edge.left.min(edge.right), edge.left.max(edge.right)),
-            edge.score,
-        );
-    }
-    components
-        .iter()
-        .filter(|members| members.len() >= min_size)
-        .map(|members| {
-            let representative = members
-                .iter()
-                .copied()
-                .min_by(|left, right| {
-                    degrees[*right]
-                        .cmp(&degrees[*left])
-                        .then_with(|| {
-                            documents[*left]
-                                .summary
-                                .discussion
-                                .id
-                                .number()
-                                .cmp(&documents[*right].summary.discussion.id.number())
-                        })
-                        .then_with(|| {
-                            stable_thread_id_cmp(
-                                &documents[*left].summary,
-                                &documents[*right].summary,
-                            )
-                        })
-                })
-                .expect("a component has at least one member");
-            let representative_id = documents[representative].summary.discussion.id.clone();
-            let title = documents[representative].summary.discussion.title.clone();
-            let members = members
-                .iter()
-                .map(|member| ClusterMemberCandidate {
-                    summary: documents[*member].summary.clone(),
-                    score_to_representative: if *member == representative {
-                        Some(1.0)
-                    } else {
-                        edge_scores
-                            .get(&((*member).min(representative), (*member).max(representative)))
-                            .copied()
-                    },
-                })
-                .collect();
-            ClusterCandidate {
-                representative: representative_id,
-                title,
-                members,
-            }
-        })
-        .collect()
 }
 
 /// Disjoint-set forest that refuses unions exceeding the configured component size.

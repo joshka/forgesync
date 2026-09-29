@@ -6,19 +6,12 @@
 //! implausible cluster. Read these alongside `candidates` before changing thresholds or union
 //! behavior; a new candidate rule should have a small example that explains the intended grouping.
 
-use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::Coverage;
-use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
-use forgesync_core::provider_data::ProviderData;
-use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk};
-use forgesync_store::reads::ThreadSummary;
+use forgesync_core::content::ThreadKind;
 use tokio_util::sync::CancellationToken;
 
 use super::ClusterOptions;
 use super::candidates::build_cluster_candidates;
-use super::components::ClusterCandidate;
+use super::test_documents::document;
 
 #[test]
 fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
@@ -125,17 +118,50 @@ fn references_are_repository_scoped_and_early_body_evidence_is_strong() {
 
 #[test]
 fn fanout_and_maximum_size_keep_deterministic_components() {
-    let docs = (1..=6)
-        .map(|number| {
-            document(
-                number,
-                ThreadKind::Issue,
-                "Shared memory issue",
-                None,
-                &[1.0, number as f32 / 100.0],
-            )
-        })
-        .collect::<Vec<_>>();
+    let docs = vec![
+        document(
+            1,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.01],
+        ),
+        document(
+            2,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.02],
+        ),
+        document(
+            3,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.03],
+        ),
+        document(
+            4,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.04],
+        ),
+        document(
+            5,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.05],
+        ),
+        document(
+            6,
+            ThreadKind::Issue,
+            "Shared memory issue",
+            None,
+            &[1.0, 0.06],
+        ),
+    ];
     let (first, _) = build_cluster_candidates(
         docs.clone(),
         "example/repo",
@@ -158,20 +184,10 @@ fn fanout_and_maximum_size_keep_deterministic_components() {
         &CancellationToken::new(),
     )
     .expect("second graph");
-    let memberships = |clusters: &[ClusterCandidate]| {
-        clusters
-            .iter()
-            .map(|cluster| {
-                cluster
-                    .members
-                    .iter()
-                    .map(|member| member.summary.discussion.id.number().get())
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(memberships(&first), memberships(&second));
-    assert!(first.iter().all(|cluster| cluster.members.len() <= 3));
+    assert_eq!(first, second);
+    assert_eq!(first.len(), 2);
+    assert_eq!(first[0].members.len(), 3);
+    assert_eq!(first[1].members.len(), 3);
 }
 
 #[test]
@@ -186,60 +202,4 @@ fn cancellation_stops_graph_construction() {
     )
     .expect_err("cancelled graph");
     assert_eq!(error.code(), "operation_cancelled");
-}
-
-fn document(
-    number: u64,
-    kind: ThreadKind,
-    title: &str,
-    body: Option<&str>,
-    vector_values: &[f32],
-) -> EmbeddingSearchDocument {
-    let host = GitHubHost::parse("github.com").expect("host");
-    let repository_id = RepositoryId::new(
-        host,
-        ProviderId::new("repo-1").expect("repository provider ID"),
-    );
-    let identity = ThreadId::new(
-        repository_id.clone(),
-        ProviderId::new(format!("thread-{number}")).expect("thread provider ID"),
-        ThreadNumber::new(number).expect("thread number"),
-    );
-    let timestamp = UtcTimestamp::parse("2026-09-28T00:00:00Z").expect("timestamp");
-    let summary = ThreadSummary {
-        repository: Repository {
-            id: repository_id,
-            owner: "example".to_owned(),
-            name: "repo".to_owned(),
-            full_name: "example/repo".to_owned(),
-            default_branch: None,
-            updated_at: Some(timestamp),
-            provider_data: ProviderData::default(),
-        },
-        discussion: Discussion {
-            id: identity,
-            kind,
-            state: SourceState::Open,
-            title: title.to_owned(),
-            body: body.map(str::to_owned),
-            html_url: None,
-            created_at: timestamp,
-            updated_at: timestamp,
-            closed_at: None,
-            labels: Vec::new(),
-            assignees: Vec::new(),
-            provider_data: ProviderData::default(),
-        },
-        coverage: Vec::<Coverage>::new(),
-    };
-    let vector = EmbeddingVector::new(vector_values.to_vec(), None).expect("vector");
-    EmbeddingSearchDocument {
-        summary,
-        chunks: vec![StoredEmbeddingChunk {
-            index: 0,
-            count: 1,
-            chunk_hash: format!("{:064x}", number),
-            vector,
-        }],
-    }
 }

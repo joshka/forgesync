@@ -14,8 +14,9 @@ use forgesync_store::embeddings::EmbeddingSearchDocument;
 use tokio_util::sync::CancellationToken;
 
 use super::ClusterOptions;
-use super::components::{ClusterCandidate, bounded_components, format_clusters};
+use super::components::bounded_components;
 use super::evidence::CandidateEvidence;
+use super::proposals::{ClusterCandidate, format_clusters};
 use crate::error::EngineError;
 use crate::exact_search::stable_thread_id_cmp;
 

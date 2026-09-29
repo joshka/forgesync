@@ -1269,3 +1269,26 @@ Current-tree workspace tests and doctests pass, including the new public options
 The CLI build without default features, strict public/private Rustdoc, nightly formatting, rumdl,
 and changed-page Markdown linting also pass. Generated options, member-proposal, and edge docs were
 checked for threshold limits and the distinction between heuristic weights and durable identities.
+
+## Continued maintenance: cluster proposal projection
+
+The long component-formatting closure is now a focused `proposals` module. `ClusterProjection` keeps
+the immutable document snapshot, retained degrees, and direct edge weights together, preparing those
+indexes once for every component. Named methods project a group, rank its representative, and attach
+member scores. Bounded union-find grouping stays in `components`, with its own input/order contract.
+No vector rescoring, threshold, ordering, or persistence policy changed.
+
+Five nearby linear projection cases establish degree selection, numeric identity ties, absent direct
+scores for transitive membership, singleton self scores, and minimum-size filtering. The existing
+determinism case compares complete proposals directly and asserts group counts/sizes; its test-only
+projection closure and generated input loop are removed. A shared static document fixture only
+constructs explicit scenario facts and has no branching, provider acquisition, or assertions. All
+nine clustering unit cases pass. The other workflow and test-shape candidates remain open in the
+full audit.
+
+Final current-tree validation passes: all nine clustering unit cases, the cluster-generation
+integration case, workspace Clippy with warnings denied, all workspace tests/doctests, the CLI build
+without default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
+Markdown linting. Generated proposal module, projection type, and function docs were checked for
+stable-index contracts and the direct-score distinction. The next concrete workflow review is CLI
+refresh preparation and archive cleanup, alongside the full remaining source checklist.

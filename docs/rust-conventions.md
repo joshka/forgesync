@@ -33,6 +33,10 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Keep parsed arguments near their execution when both change for the same feature. Retain separate
   modules for genuinely shared parsing values, process output, or other cross-cutting concerns; do
   not maintain parallel trees that force readers to locate one feature twice.
+- Apply the same ownership review to iterator closures as to ordinary functions. A closure that
+  ranks candidates, projects several output types, and consults shared indexes can hide a concept.
+  Give repeated rules named operations on their actual shared facts, so the iterator shows traversal
+  and each rule can be understood independently. Keep short field projections inline.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
   Keep a linear story together when extraction would add navigation without reducing context.
 - Aim for functions and methods that fit on one screen, usually around 25 lines. Inspect functions

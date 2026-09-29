@@ -5,8 +5,8 @@
 //! inspection of stored clusters.
 //!
 //! `candidates` validates stable input, `evidence` selects eligible relationships, `references`
-//! interprets explicit mentions, and `components` applies bounded grouping and representative
-//! policy. `build` commits a derived generation, `decisions`
+//! interprets explicit mentions, `components` applies bounded grouping, and `proposals` owns
+//! representative policy. `build` commits a derived generation, `decisions`
 //! applies local maintainer choices, and `lease` keeps competing operations from writing the same
 //! analysis concurrently. The store owns durable generations and decision events; this module owns
 //! analysis policy and workflow boundaries. Cluster actions affect the local archive only.
@@ -144,6 +144,7 @@ mod components;
 mod decisions;
 mod evidence;
 mod lease;
+mod proposals;
 mod references;
 
 pub use build::{build_clusters, list_clusters};
@@ -152,5 +153,7 @@ pub use decisions::{
     set_canonical_cluster_member, show_cluster,
 };
 
+#[cfg(test)]
+mod test_documents;
 #[cfg(test)]
 mod tests;

@@ -139,7 +139,8 @@ through the common status/detail/failure pattern. Report preparation stays pure 
 archive cleanup and output stream policy.
 
 Clustering keeps graph evidence and bounded proposals with their algorithms: `clustering/evidence`
-owns the neighbor heap and selected edges, `components` owns proposed groups and members, and
-`references` owns mention parsing and title-token policy. These representations use indexes into one
-stable document snapshot; they are not durable archive identities. The clustering root presents
-requests, reports, and shared options, while child modules import store and runtime types directly.
+owns the neighbor heap and selected edges, `components` owns bounded union-find groups, `proposals`
+owns representative selection and proposed members, and `references` owns mention parsing and
+title-token policy. These representations use indexes into one stable document snapshot; they are
+not durable archive identities. The clustering root presents requests, reports, and shared options,
+while child modules import store and runtime types directly.

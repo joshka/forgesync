@@ -25,8 +25,8 @@ use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
 use super::candidates::build_cluster_candidates;
-use super::components::ClusterCandidate;
 use super::lease::{CLUSTER_LEASE_DURATION, finish_cluster_lease_result};
+use super::proposals::ClusterCandidate;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
 use crate::documents::now_utc;
 use crate::error::EngineError;
