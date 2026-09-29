@@ -5,6 +5,7 @@
 //! opened archive and explicit cancellation. It uses the GitHub adapter for transport and
 //! normalization, then the store for ordered observations.
 //!
+//! `lease` maintains the writer fence through cooperative cancellation and cleanup.
 //! `accounting` owns run-wide counters and outcome selection; `jobs` coordinates thread work.
 //! `comments`, `reviews`, and `review_threads` own independently paginated child families;
 //! `pull_requests` and `metadata` handle pull-request-specific evidence. `review_collection` owns
@@ -14,7 +15,6 @@
 //! discussion fail while other work still commits.
 
 use std::collections::{HashMap, HashSet};
-use std::time::Duration;
 
 use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
@@ -29,15 +29,12 @@ use forgesync_store::runs::{RunRecord, SyncJobRecord};
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::mpsc;
-use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
 use crate::enumeration::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
-/// Writer fence lifetime; the coordinator renews it every third of this interval.
-const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
 /// One day of replay overlap protects closed-thread sweeps from timestamp boundary gaps.
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
@@ -46,6 +43,7 @@ mod comment_job;
 mod comments;
 mod family_job;
 mod jobs;
+mod lease;
 mod metadata;
 mod pull_requests;
 mod repository_work;
@@ -56,6 +54,7 @@ mod support;
 mod thread_job;
 
 use jobs::run_jobs;
+use lease::SyncLease;
 use support::resolve_selectors;
 
 /// Thread scope requested for one sync run.
@@ -263,58 +262,15 @@ pub async fn sync_repositories(
     cancellation: &CancellationToken,
     progress: Option<mpsc::Sender<SyncProgress>>,
 ) -> Result<SyncReport, EngineError> {
-    if (request.all && !request.repositories.is_empty())
-        || (!request.all && request.repositories.is_empty())
-    {
-        return Err(EngineError::InvalidSyncScope);
-    }
-
-    let selectors = resolve_selectors(archive, request).await?;
-    let mut unique_selectors = Vec::with_capacity(selectors.len());
-    let mut seen = HashSet::new();
-    for selector in selectors {
-        if seen.insert(selector.clone()) {
-            if !clients.contains_key(selector.host()) {
-                return Err(EngineError::GitHubClientMissing {
-                    host: selector.host().as_str().to_owned(),
-                });
-            }
-            unique_selectors.push(selector);
-        }
-    }
+    let unique_selectors = request.repositories(archive, clients).await?;
 
     let units = request.scope.units();
-    let total_jobs = unique_selectors
-        .len()
-        .checked_mul(units.len())
-        .and_then(|count| count.checked_mul(1 + usize::from(request.include_comments)))
-        .and_then(|count| u64::try_from(count).ok())
-        .ok_or(StoreError::IntegerOutOfRange)?;
-    let started_at = now_utc()?;
-    let lease = archive
-        .acquire_archive_lease(started_at, ARCHIVE_LEASE_DURATION)
-        .await?;
-    let run_scope = json!({
-        "repositories": unique_selectors.iter().map(RepositorySelector::as_url).collect::<Vec<_>>(),
-        "all": request.all,
-        "thread_scope": request.scope,
-        "include_comments": request.include_comments,
-        "include_reviews": request.include_reviews,
-        "include_review_threads": request.include_review_threads,
-    });
-    let run_id = match archive
-        .create_run(&lease, request.parent_run, started_at, &run_scope)
-        .await
-    {
-        Ok(run_id) => run_id,
-        Err(error) => {
-            let _ = archive.release_archive_lease(&lease, started_at).await;
-            return Err(error.into());
-        }
-    };
+    let total_jobs = request.initial_jobs(unique_selectors.len(), units.len())?;
+    let lease = SyncLease::acquire(archive, cancellation).await?;
+    let run_scope = request.run_scope(&unique_selectors);
+    let run_id = lease.start_run(request.parent_run, &run_scope).await?;
 
-    let operation_cancellation = cancellation.child_token();
-    let mut operation = Box::pin(execute_and_finalize(
+    let operation = execute_and_finalize(
         archive,
         clients,
         &unique_selectors,
@@ -325,39 +281,71 @@ pub async fn sync_repositories(
             include_reviews: request.include_reviews,
             include_review_threads: request.include_review_threads,
             run_id,
-            lease: &lease,
-            cancellation: &operation_cancellation,
+            lease: &lease.token,
+            cancellation: &lease.cancellation,
             progress,
         },
-    ));
-    let heartbeat_interval = ARCHIVE_LEASE_DURATION / 3;
-    let mut heartbeat = interval_at(Instant::now() + heartbeat_interval, heartbeat_interval);
-    let result = loop {
-        tokio::select! {
-            result = &mut operation => break result,
-            _ = heartbeat.tick() => {
-                let now = match now_utc() {
-                    Ok(now) => now,
-                    Err(error) => {
-                        operation_cancellation.cancel();
-                        let _ = operation.await;
-                        break Err(error);
-                    }
-                };
-                if let Err(error) = archive
-                    .heartbeat_archive_lease(&lease, now, ARCHIVE_LEASE_DURATION)
-                    .await
-                {
-                    operation_cancellation.cancel();
-                    let _ = operation.await;
-                    break Err(error.into());
+    );
+    lease.complete(operation).await
+}
+
+impl SyncRequest {
+    /// Resolves unique repositories in request order and verifies a client exists for every host.
+    /// Invalid selection fails before acquiring the archive writer fence or creating a run.
+    async fn repositories(
+        &self,
+        archive: &Archive,
+        clients: &HashMap<GitHubHost, GitHubClient>,
+    ) -> Result<Vec<RepositorySelector>, EngineError> {
+        if (self.all && !self.repositories.is_empty())
+            || (!self.all && self.repositories.is_empty())
+        {
+            return Err(EngineError::InvalidSyncScope);
+        }
+
+        let selectors = resolve_selectors(archive, self).await?;
+        let mut unique_selectors = Vec::with_capacity(selectors.len());
+        let mut seen = HashSet::new();
+        for selector in selectors {
+            if seen.insert(selector.clone()) {
+                if !clients.contains_key(selector.host()) {
+                    return Err(EngineError::GitHubClientMissing {
+                        host: selector.host().as_str().to_owned(),
+                    });
                 }
+                unique_selectors.push(selector);
             }
         }
-    };
-    let release_at = now_utc()?;
-    let _ = archive.release_archive_lease(&lease, release_at).await;
-    result
+
+        Ok(unique_selectors)
+    }
+
+    /// Counts initial parent/comment jobs before a lease is acquired; pull-request jobs are added
+    /// later only for scopes containing eligible pull requests.
+    fn initial_jobs(&self, repositories: usize, scopes: usize) -> Result<u64, EngineError> {
+        let jobs = repositories
+            .checked_mul(scopes)
+            .and_then(|count| count.checked_mul(1 + usize::from(self.include_comments)))
+            .and_then(|count| u64::try_from(count).ok())
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        Ok(jobs)
+    }
+
+    /// Records normalized selected repositories and original policy for durable inspection/retry.
+    fn run_scope(&self, repositories: &[RepositorySelector]) -> serde_json::Value {
+        let repositories = repositories
+            .iter()
+            .map(RepositorySelector::as_url)
+            .collect::<Vec<_>>();
+        json!({
+            "repositories": repositories,
+            "all": self.all,
+            "thread_scope": self.scope,
+            "include_comments": self.include_comments,
+            "include_reviews": self.include_reviews,
+            "include_review_threads": self.include_review_threads,
+        })
+    }
 }
 
 /// Runs selected jobs and persists the terminal run outcome.
@@ -370,19 +358,7 @@ async fn execute_and_finalize(
 ) -> Result<SyncReport, EngineError> {
     let work = match run_jobs(archive, clients, selectors, units, &context).await {
         Ok(work) => work,
-        Err(original_error) => {
-            let failure = Failure {
-                kind: FailureKind::Archive,
-                message: "sync stopped before its work summary could be persisted".to_owned(),
-            };
-            let outcome = OperationOutcome::Failed { failure };
-            if let Ok(finished_at) = now_utc() {
-                let _ = archive
-                    .finish_run(context.lease, context.run_id, finished_at, &outcome)
-                    .await;
-            }
-            return Err(original_error);
-        }
+        Err(error) => return context.fail_run(archive, error).await,
     };
     let outcome = work.outcome();
     archive
@@ -410,6 +386,28 @@ async fn execute_and_finalize(
         review_threads_seen: work.review_threads_seen,
         outcome,
     })
+}
+
+impl SyncRunContext<'_> {
+    /// Attempts a terminal failure record after acquisition loses its work summary, preserving the
+    /// original error even if the clock or failure write also fails.
+    async fn fail_run(
+        &self,
+        archive: &Archive,
+        original_error: EngineError,
+    ) -> Result<SyncReport, EngineError> {
+        let failure = Failure {
+            kind: FailureKind::Archive,
+            message: "sync stopped before its work summary could be persisted".to_owned(),
+        };
+        let outcome = OperationOutcome::Failed { failure };
+        if let Ok(finished_at) = now_utc() {
+            let _ = archive
+                .finish_run(self.lease, self.run_id, finished_at, &outcome)
+                .await;
+        }
+        Err(original_error)
+    }
 }
 
 /// Acquisition evidence for one thread's metadata or independently paginated child family.

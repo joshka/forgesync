@@ -150,8 +150,9 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 - Document remaining private representations and policy constants with their local behavior; inspect
   short module introductions for missing relationships rather than adding words.
 - Review CLI embed/refresh execution, TUI search editing and rendering policy, refresh cluster
-  traversal, embedding batch scheduling, and sync run coordination against the dispatch and
-  state-owner rules.
+  traversal and embedding batch scheduling against the dispatch and state-owner rules. Sync
+  preparation and lease lifetime now have named owners; review remaining representation placement
+  independently of that completed coordinator extraction.
 - Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
   expose named cases without loops. Review catalog-validation loops separately: checking a complete
   fixture catalog is a different contract from selecting multiple behavioral scenarios.

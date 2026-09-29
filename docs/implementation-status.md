@@ -1224,3 +1224,27 @@ workflow scenarios, workspace Clippy with warnings denied, all workspace tests/d
 build without default features, strict public/private Rustdoc, nightly formatting, rumdl, and
 changed-page Markdown linting. The generated accounting module and type documentation were checked
 for the ownership and counter distinctions above.
+
+## Continued maintenance: sync preparation and lease lifetime
+
+The sync coordinator now presents repository preparation, scope accounting, fence acquisition,
+durable run creation, and execution as named phases. The request owns validation, deduplication,
+client availability checks, initial job counting, and its recorded scope. `SyncLease` owns
+acquisition, run-creation failure cleanup, renewal, child cancellation, draining, and release.
+Renewal failure still waits for job cleanup rather than dropping the acquisition future. Run-summary
+failure recording is a method on the existing run context, preserving the original acquisition
+error.
+
+A direct integration scenario forces run creation to fail through a missing parent run. It verifies
+no run was persisted, the caller was not cancelled, and the fence can be reacquired. Reacquisition
+uses a timestamp too old to expire a leaked current-time lease, so it establishes release rather
+than merely observing expiry. The selected sync workflow scenarios continue to cover committed
+partial evidence, family failure isolation, closed-sweep checkpoints, and cancellation.
+
+The remaining private representations and other workflow candidates stay in the full source audit;
+this extraction does not establish completion of those surfaces.
+
+Current-tree gates pass: fifteen sync workflow scenarios, workspace Clippy with warnings denied, all
+workspace tests/doctests, the CLI build without default features, strict public/private Rustdoc,
+nightly formatting, rumdl, and changed-page Markdown linting. The generated lease module/type docs
+were checked for writer ownership, cooperative cleanup, and release-policy distinctions.
