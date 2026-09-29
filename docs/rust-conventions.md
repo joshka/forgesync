@@ -86,7 +86,9 @@ public type or an intentional public module. Keep domain values separate from pr
 rows, and CLI output. Use standard conversion traits when they communicate the relationship, and
 document errors, side effects, cancellation, and lifecycle where callers look. Typed errors should
 implement `Debug`, `Display`, and `std::error::Error`, retaining an underlying error as a source
-when it helps diagnosis. Keep stable presentation codes separate from that typed cause.
+when it helps diagnosis. Defer diagnostic string conversion until the presentation boundary;
+wrappers should retain a typed source so cleanup and failure policy do not depend on human text.
+Keep stable presentation codes separate from that typed cause.
 
 The app has no established external users, so remove development-era aliases when restructuring.
 Preserve persisted archive semantics and documented CLI behavior deliberately. Refresh compatible

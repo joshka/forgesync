@@ -1128,3 +1128,16 @@ after successful opening, before rendering either a report or a typed selection/
 failure. Client preparation and progress draining remain explicit phases. The module uses ordinary
 owner imports and `mod.rs` with nearby request-conversion tests. Five named scope/family cases and
 all three existing CLI sync contract cases pass; focused Clippy and strict Rustdoc pass.
+
+## Continued maintenance: provider setup error causes
+
+Shared GitHub setup failures now implement standard error traits and retain credential, URL, and
+adapter causes instead of formatting them during preparation. Sync/retry failure boundaries retain
+those sources through resource cleanup; rendering keeps the established codes, messages, and exit
+policy. The setup module documents host deduplication, anonymous fallback, and cancellation. Its
+nearby source-contract tests use static errors without process or network fixtures.
+
+All four static source-contract cases pass. Current-tree workspace validation passes: Clippy with
+warnings denied, all workspace tests and doctests, the CLI build without default features, strict
+public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting. The broader
+source review remains open, including command-root aliases and trait implementation contracts.

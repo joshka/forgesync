@@ -103,11 +103,14 @@ fn render_report(output: OutputMode, report: RetryReport) -> ExitCode {
 }
 
 /// Failure boundary retained until the command has closed its archive.
+#[derive(Debug, thiserror::Error)]
 enum RetryFailure {
     /// Local planning or acquisition could not produce a retry report.
-    Engine(EngineError),
+    #[error("acquisition failed: {0}")]
+    Engine(#[source] EngineError),
     /// Host credential discovery or provider transport initialization failed before acquisition.
-    ClientSetup(GitHubClientSetupError),
+    #[error("provider client setup failed: {0}")]
+    ClientSetup(#[source] GitHubClientSetupError),
 }
 
 impl RetryFailure {

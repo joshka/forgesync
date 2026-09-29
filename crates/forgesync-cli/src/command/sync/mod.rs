@@ -154,14 +154,17 @@ fn render_report(output: OutputMode, report: SyncReport) -> ExitCode {
 }
 
 /// Failed boundary retained until the outer command closes the archive.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 enum SyncFailure {
     /// Reading registered repository selection failed before client preparation.
-    Archive(StoreError),
+    #[error("archive selection failed: {0}")]
+    Archive(#[source] StoreError),
     /// Credential discovery or provider transport setup failed before acquisition.
-    ClientSetup(GitHubClientSetupError),
+    #[error("provider client setup failed: {0}")]
+    ClientSetup(#[source] GitHubClientSetupError),
     /// Acquisition could not produce a structured report.
-    Engine(EngineError),
+    #[error("acquisition failed: {0}")]
+    Engine(#[source] EngineError),
 }
 
 impl SyncFailure {

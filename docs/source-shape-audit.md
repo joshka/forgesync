@@ -145,8 +145,9 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 
 ### Next concrete review targets
 
-- Continue routing remaining child imports through their actual owners. Production directory roots
-  now use `mod.rs`; Cargo integration-test entry files remain a separate discovery contract.
+- Remove CLI command-root passthrough exports and route children through their actual owners.
+  Production directory roots now use `mod.rs`; Cargo integration-test entry files remain a separate
+  discovery contract.
 - Document remaining private representations, policy constants, and trait implementation contracts
   with their local behavior; inspect short module introductions for missing relationships rather
   than adding words.
