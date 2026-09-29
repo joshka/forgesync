@@ -23,7 +23,7 @@ use forgesync_store::archive::Archive;
 use super::embedding_service::EmbeddingSetupError;
 use super::interruption::CommandInterruption;
 use super::thread::thread_filters;
-use super::{SearchModeArg, ThreadKindArg, ThreadSortArg, ThreadStateArg};
+use crate::command::values::{SearchModeArg, ThreadKindArg, ThreadSortArg, ThreadStateArg};
 use crate::config::EmbeddingServiceConfig;
 use crate::reports::render_search_page;
 use crate::{OutputMode, render_engine_error, render_error_with_status, render_store_error};

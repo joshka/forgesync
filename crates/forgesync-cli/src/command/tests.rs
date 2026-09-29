@@ -8,7 +8,8 @@
 
 use clap::Parser;
 
-use super::{CliArgs, ColorChoice, Command, LogFormat, RefreshAnalysisArg, SyncIncludeArg};
+use crate::command::values::{ColorChoice, LogFormat, RefreshAnalysisArg, SyncIncludeArg};
+use crate::command::{CliArgs, Command};
 
 #[test]
 fn global_options_parse_together() {

@@ -16,7 +16,7 @@ use forgesync_engine::clustering::{ClusterBuildRequest, ClusterOptions, build_cl
 use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 
-use crate::command::ClusterBuildArgs;
+use crate::command::cluster::ClusterBuildArgs;
 use crate::config::EmbeddingServiceConfig;
 use crate::reports::cluster_build_summary;
 use crate::{

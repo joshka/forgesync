@@ -19,7 +19,7 @@ use forgesync_engine::inspect::{
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_store::archive::Archive;
 
-use super::{ThreadKindArg, ThreadSortArg, ThreadStateArg};
+use crate::command::values::{ThreadKindArg, ThreadSortArg, ThreadStateArg};
 use crate::reports::{render_thread_detail, render_thread_page};
 use crate::{OutputMode, render_engine_error, render_store_error};
 

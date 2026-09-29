@@ -1141,3 +1141,13 @@ All four static source-contract cases pass. Current-tree workspace validation pa
 warnings denied, all workspace tests and doctests, the CLI build without default features, strict
 public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting. The broader
 source review remains open, including command-root aliases and trait implementation contracts.
+
+## Continued maintenance: command type import ownership
+
+The private CLI command root no longer re-exports child argument types or parsing choices. It
+imports only types used by its own parser and dispatcher; feature implementations and tests import
+choices from `command/values` and cluster arguments from `command/cluster`. The process entry point
+also names the values owner directly. Module visibility retains the private command boundary.
+
+All-target/all-feature compilation and all thirty-three CLI unit tests pass after the import change.
+The remaining report facade and its unrelated output DTOs are the next ownership review surface.

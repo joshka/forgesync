@@ -21,7 +21,7 @@ use forgesync_engine::sync::SyncThreadScope;
 use forgesync_store::archive::Archive;
 
 use super::github::{github_clients_for_selectors, render_github_client_setup_error};
-use super::{RefreshAnalysisArg, SyncIncludeArg, SyncThreadStateArg};
+use crate::command::values::{RefreshAnalysisArg, SyncIncludeArg, SyncThreadStateArg};
 use crate::config::ForgesyncConfig;
 use crate::reports::{outcome_exit_code, refresh_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, usage_error};

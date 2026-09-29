@@ -55,9 +55,10 @@ use std::process::ExitCode;
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
+use command::CliArgs;
 #[cfg(feature = "tui")]
 use command::Command;
-use command::{CliArgs, LogFormat};
+use command::values::LogFormat;
 use config::ForgesyncConfig;
 use forgesync_engine::error::EngineError;
 use forgesync_store::error::StoreError;
