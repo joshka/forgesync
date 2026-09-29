@@ -1,4 +1,6 @@
-use forgesync_core::{Failure, ObservationSequence, RepositoryId, UtcTimestamp};
+use forgesync_core::coverage::Failure;
+use forgesync_core::identity::{ObservationSequence, RepositoryId};
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
 

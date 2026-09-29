@@ -3,7 +3,8 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
-use forgesync_core::{DocumentRecipe, RepositoryId, ThreadId};
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::{RepositoryId, ThreadId};
 use forgesync_store::{
     Archive, ArchiveLeaseToken, ClusterDetail, ClusterGenerationInput, ClusterGenerationResult,
     ClusterInput, ClusterListQuery as StoreClusterListQuery, ClusterMemberInput, ClusterPage,
@@ -989,10 +990,12 @@ fn max_score(left: Option<f64>, right: Option<f64>) -> Option<f64> {
 
 #[cfg(test)]
 mod tests {
-    use forgesync_core::{
-        Coverage, Discussion, EmbeddingVector, GitHubHost, ProviderData, ProviderId, Repository,
-        RepositoryId, SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
-    };
+    use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+    use forgesync_core::coverage::Coverage;
+    use forgesync_core::embedding::EmbeddingVector;
+    use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+    use forgesync_core::provider_data::ProviderData;
+    use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_store::{EmbeddingSearchDocument, StoredEmbeddingChunk, ThreadSummary};
     use tokio_util::sync::CancellationToken;
 

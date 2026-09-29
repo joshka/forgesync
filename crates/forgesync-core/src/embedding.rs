@@ -1,3 +1,5 @@
+//! Checked embedding vectors used by semantic search.
+
 use thiserror::Error;
 
 /// A validated finite, non-zero-norm embedding vector.

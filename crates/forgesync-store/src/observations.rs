@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 
-use forgesync_core::{
-    CollectionCompleteness, Coverage, CoverageState, Discussion, EvidenceFamily, Observation,
-    ObservationSequence, ProviderId, Repository, SourceClock, SourceState, ThreadId, ThreadKind,
-    UtcTimestamp,
-};
+use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::identity::{ObservationSequence, ProviderId, ThreadId};
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
 

@@ -1,6 +1,8 @@
-use forgesync_core::{
-    EvidenceFamily, Failure, OperationOutcome, Repository, RepositoryId, RunId, UtcTimestamp,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::coverage::{EvidenceFamily, Failure};
+use forgesync_core::identity::{RepositoryId, RunId};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::Row;
@@ -156,7 +158,7 @@ pub struct RunFailureInput<'a> {
     /// Stable repository identity, when the source repository is known.
     pub repository: Option<&'a RepositoryId>,
     /// Stable thread identity for an independently retried child family.
-    pub thread: Option<&'a forgesync_core::ThreadId>,
+    pub thread: Option<&'a forgesync_core::identity::ThreadId>,
     /// Evidence family when the failed work selected one.
     pub family: Option<EvidenceFamily>,
     /// Sub-scope such as open or closed threads.
@@ -174,7 +176,7 @@ pub struct ChildFamilyFailureScope<'a> {
     /// Stable repository identity.
     pub repository: &'a RepositoryId,
     /// Stable discussion identity.
-    pub thread: &'a forgesync_core::ThreadId,
+    pub thread: &'a forgesync_core::identity::ThreadId,
     /// Evidence family being retried.
     pub family: EvidenceFamily,
     /// Scope key used when the failure was recorded.

@@ -2,7 +2,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assert_cmd::Command;
-use forgesync_core::{GitHubHost, ProviderData, ProviderId, Repository, RepositoryId};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
+use forgesync_core::provider_data::ProviderData;
 use forgesync_store::Archive;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);

@@ -1,6 +1,7 @@
-use forgesync_core::{
-    Comment, Coverage, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
+use forgesync_core::content::{
+    Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
 };
+use forgesync_core::coverage::Coverage;
 use forgesync_engine::{SearchMode, SearchProvenance, SearchRanking, SearchResultPage, ThreadSort};
 use forgesync_store::{
     ArchiveDiagnostics, ArchiveInfo, ArchiveStatus, FamilyCoverageSummary, StagedItem,

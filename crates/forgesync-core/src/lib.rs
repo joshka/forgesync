@@ -1,32 +1,26 @@
 #![forbid(unsafe_code)]
 
-//! Domain vocabulary and contracts shared by Forgesync application crates.
+//! Domain vocabulary shared by Forgesync's acquisition, storage, and read workflows.
+//!
+//! [`identity`] defines checked GitHub and archive identifiers. [`content`] holds normalized
+//! discussions and their related resources. [`observation`] and [`coverage`] keep acquisition
+//! order and completeness explicit so an incomplete response cannot silently replace a complete
+//! collection. [`document`] and [`embedding`] describe local search inputs.
+//!
+//! ```
+//! use forgesync_core::identity::GitHubHost;
+//!
+//! let host = GitHubHost::parse("https://github.com")?;
+//! assert_eq!(host.as_str(), "github.com");
+//! # Ok::<(), forgesync_core::identity::IdentityError>(())
+//! ```
 
-mod content;
-mod coverage;
-mod document;
-mod embedding;
-mod identity;
-mod observation;
-mod outcome;
-mod provider_data;
-mod timestamp;
-
-pub use content::{
-    BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
-    ReviewThread, ReviewerIdentity, SourceState, ThreadKind,
-};
-pub use coverage::{
-    Coverage, CoverageState, DeferredReason, EvidenceFamily, Failure, FailureKind,
-    UnavailableReason,
-};
-pub use document::{Document, DocumentRecipe};
-pub use embedding::{EmbeddingVector, EmbeddingVectorError};
-pub use identity::{
-    CommentId, CommitSha, GitHubHost, IdentityError, ObservationSequence, ProviderId, RepositoryId,
-    ReviewId, ReviewThreadId, RunId, ThreadId, ThreadNumber, ThreadReference,
-};
-pub use observation::{CollectionCompleteness, IncompleteReason, Observation, SourceClock};
-pub use outcome::OperationOutcome;
-pub use provider_data::ProviderData;
-pub use timestamp::{TimestampError, UtcTimestamp};
+pub mod content;
+pub mod coverage;
+pub mod document;
+pub mod embedding;
+pub mod identity;
+pub mod observation;
+pub mod outcome;
+pub mod provider_data;
+pub mod timestamp;

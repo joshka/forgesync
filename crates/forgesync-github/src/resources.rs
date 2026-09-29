@@ -1,10 +1,14 @@
 use std::collections::BTreeMap;
 
-use forgesync_core::{
-    BranchRef, Comment, CommentId, CommitSha, Discussion, GitHubHost, ProviderData, ProviderId,
-    PullRequestMetadata, Repository, RepositoryId, Review, ReviewId, ReviewState, ReviewerIdentity,
-    SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
+use forgesync_core::content::{
+    BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
+    ReviewerIdentity, SourceState, ThreadKind,
 };
+use forgesync_core::identity::{
+    CommentId, CommitSha, GitHubHost, ProviderId, RepositoryId, ReviewId, ThreadId, ThreadNumber,
+};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -642,10 +646,10 @@ struct RestLabel {
 mod tests {
     use std::path::Path;
 
-    use forgesync_core::{
-        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ReviewState, ThreadId,
-        ThreadKind, ThreadNumber, UtcTimestamp,
-    };
+    use forgesync_core::content::{Repository, ReviewState, ThreadKind};
+    use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+    use forgesync_core::provider_data::ProviderData;
+    use forgesync_core::timestamp::UtcTimestamp;
     use reqwest::Url;
     use serde_json::json;
     use tokio_util::sync::CancellationToken;

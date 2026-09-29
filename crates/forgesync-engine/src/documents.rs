@@ -1,9 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use forgesync_core::{
-    Comment, CoverageState, Document, DocumentRecipe, EvidenceFamily, Review, ReviewState,
-    ReviewThread, ThreadKind, UtcTimestamp,
-};
+use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread, ThreadKind};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::{Archive, DocumentWrite, StagedItem, ThreadDetail};
 use serde::Serialize;
 use serde_json::Value;
@@ -258,13 +258,18 @@ fn review_state_label(state: &ReviewState) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use forgesync_core::{
-        BranchRef, Comment, CommentId, CommitSha, Coverage, CoverageState, DocumentRecipe,
-        EvidenceFamily, GitHubHost, ObservationSequence, ProviderData, ProviderId,
-        PullRequestMetadata, Repository, RepositoryId, Review, ReviewId, ReviewState, ReviewThread,
-        ReviewThreadId, ReviewerIdentity, SourceState, ThreadId, ThreadKind, ThreadNumber,
-        UtcTimestamp,
+    use forgesync_core::content::{
+        BranchRef, Comment, PullRequestMetadata, Repository, Review, ReviewState, ReviewThread,
+        ReviewerIdentity, SourceState, ThreadKind,
     };
+    use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+    use forgesync_core::document::DocumentRecipe;
+    use forgesync_core::identity::{
+        CommentId, CommitSha, GitHubHost, ObservationSequence, ProviderId, RepositoryId, ReviewId,
+        ReviewThreadId, ThreadId, ThreadNumber,
+    };
+    use forgesync_core::provider_data::ProviderData;
+    use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_store::{StagedItem, ThreadDetail, ThreadSummary};
     use serde_json::json;
 
@@ -342,7 +347,7 @@ mod tests {
             updated_at: None,
             provider_data: ProviderData::new(),
         };
-        let discussion = forgesync_core::Discussion {
+        let discussion = forgesync_core::content::Discussion {
             id: thread_id.clone(),
             kind: ThreadKind::PullRequest,
             state: SourceState::Open,

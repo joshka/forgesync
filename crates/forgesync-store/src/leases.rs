@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use forgesync_core::UtcTimestamp;
+use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 

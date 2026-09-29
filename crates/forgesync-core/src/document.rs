@@ -1,7 +1,10 @@
+//! Versioned discussion documents used for local retrieval.
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{ThreadId, UtcTimestamp};
+use crate::identity::ThreadId;
+use crate::timestamp::UtcTimestamp;
 
 /// Recipe selected to turn normalized discussion evidence into a retrieval document.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -130,10 +133,9 @@ fn add_field(hasher: &mut Sha256, value: &[u8]) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        Document, DocumentRecipe, GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber,
-        UtcTimestamp,
-    };
+    use crate::document::{Document, DocumentRecipe};
+    use crate::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+    use crate::timestamp::UtcTimestamp;
 
     fn document(recipe: DocumentRecipe, source_updated_at: &str, text: &str) -> Document {
         let repository = RepositoryId::new(

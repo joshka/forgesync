@@ -1,6 +1,10 @@
+//! Resource-family coverage and structured failures for partial acquisition.
+
 use serde::{Deserialize, Serialize};
 
-use crate::{IncompleteReason, ObservationSequence, UtcTimestamp};
+use crate::identity::ObservationSequence;
+use crate::observation::IncompleteReason;
+use crate::timestamp::UtcTimestamp;
 
 /// A selected family of source evidence tracked independently in coverage.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -179,7 +183,8 @@ mod tests {
     use serde_json::json;
 
     use super::{Coverage, CoverageState, EvidenceFamily};
-    use crate::{ObservationSequence, UtcTimestamp};
+    use crate::identity::ObservationSequence;
+    use crate::timestamp::UtcTimestamp;
 
     #[test]
     fn complete_empty_coverage_is_distinct_from_missing_coverage() {

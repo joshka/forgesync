@@ -1,6 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use forgesync_core::{EvidenceFamily, UtcTimestamp};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::Row;
 

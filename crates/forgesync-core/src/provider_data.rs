@@ -1,3 +1,5 @@
+//! Provider-supplied fields retained alongside normalized domain content.
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use forgesync_core::{
-    CollectionCompleteness, CommitSha, CoverageState, EvidenceFamily, ObservationSequence,
-    SourceClock, ThreadId, UtcTimestamp,
-};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::{CommitSha, ObservationSequence, ThreadId};
+use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::{Row, SqliteConnection};

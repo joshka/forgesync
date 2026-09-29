@@ -1,6 +1,8 @@
+//! Structured outcomes for complete, partial, deferred, interrupted, and failed work.
+
 use serde::{Deserialize, Serialize};
 
-use crate::{DeferredReason, Failure};
+use crate::coverage::{DeferredReason, Failure};
 
 /// Terminal state of a local operation after its durable work has been accounted for.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -37,7 +39,7 @@ mod tests {
     use serde_json::json;
 
     use super::OperationOutcome;
-    use crate::{DeferredReason, Failure, FailureKind};
+    use crate::coverage::{DeferredReason, Failure, FailureKind};
 
     #[test]
     fn terminal_outcomes_have_distinct_machine_readable_states() {

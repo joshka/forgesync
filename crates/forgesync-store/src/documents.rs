@@ -1,4 +1,6 @@
-use forgesync_core::{Document, DocumentRecipe, ThreadId, UtcTimestamp};
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::identity::ThreadId;
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::Row;
 

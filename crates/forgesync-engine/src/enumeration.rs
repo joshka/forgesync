@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use forgesync_core::{
-    CollectionCompleteness, EvidenceFamily, Failure, FailureKind, Observation, Repository,
-    SourceClock, UtcTimestamp,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::coverage::{EvidenceFamily, Failure, FailureKind};
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_github::{
     ApiFailureKind, GitHubClient, GitHubError, ThreadListState, fetch_repository,
     fetch_thread_page_in_scope, thread_list_url_in_scope,
@@ -30,7 +30,7 @@ pub struct ThreadEnumerationReport {
 
 pub(crate) struct ThreadScanContext {
     pub repository: Repository,
-    pub sequence: forgesync_core::ObservationSequence,
+    pub sequence: forgesync_core::identity::ObservationSequence,
     pub started_at: UtcTimestamp,
     pub state: ThreadListState,
     pub since: Option<UtcTimestamp>,
@@ -277,7 +277,7 @@ pub(crate) async fn enumerate_repository_thread_pages(
 async fn incomplete_report(
     archive: &Archive,
     repository: Repository,
-    sequence: forgesync_core::ObservationSequence,
+    sequence: forgesync_core::identity::ObservationSequence,
     failure: Failure,
     interrupted: bool,
     lease: Option<&ArchiveLeaseToken>,
@@ -297,7 +297,7 @@ async fn incomplete_report(
 async fn finish_report(
     archive: &Archive,
     repository: Repository,
-    sequence: forgesync_core::ObservationSequence,
+    sequence: forgesync_core::identity::ObservationSequence,
     status: RepositoryThreadScanStatus,
     failure: Option<Failure>,
     interrupted: bool,

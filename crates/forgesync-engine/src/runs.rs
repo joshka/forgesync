@@ -1,4 +1,5 @@
-use forgesync_core::{EvidenceFamily, RunId};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::RunId;
 use forgesync_github::GitHubClient;
 use forgesync_store::{Archive, RunDetail, RunRecord};
 use tokio::sync::mpsc;
@@ -133,7 +134,7 @@ pub async fn plan_run_retry(
 /// Retries the supplied plan through the regular fenced sync operation.
 pub async fn run_retry(
     archive: &Archive,
-    clients: &std::collections::HashMap<forgesync_core::GitHubHost, GitHubClient>,
+    clients: &std::collections::HashMap<forgesync_core::identity::GitHubHost, GitHubClient>,
     plan: RetryPlan,
     cancellation: &CancellationToken,
     progress: Option<mpsc::Sender<crate::SyncProgress>>,

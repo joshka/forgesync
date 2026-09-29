@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
-use forgesync_core::GitHubHost;
+use forgesync_core::identity::GitHubHost;
 use forgesync_github::GitHubToken;
 use thiserror::Error;
 use tokio::process::Command;

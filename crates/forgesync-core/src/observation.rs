@@ -1,6 +1,10 @@
+//! Acquisition observations, source clocks, and collection completeness.
+
 use serde::{Deserialize, Serialize};
 
-use crate::{EvidenceFamily, ObservationSequence, TimestampError, UtcTimestamp};
+use crate::coverage::EvidenceFamily;
+use crate::identity::ObservationSequence;
+use crate::timestamp::{TimestampError, UtcTimestamp};
 
 /// Provider source-clock value retained separately from local acquisition time.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -127,7 +131,10 @@ mod tests {
     use serde_json::json;
 
     use super::{CollectionCompleteness, Observation, SourceClock};
-    use crate::{EvidenceFamily, IncompleteReason, ObservationSequence, UtcTimestamp};
+    use crate::coverage::EvidenceFamily;
+    use crate::identity::ObservationSequence;
+    use crate::observation::IncompleteReason;
+    use crate::timestamp::UtcTimestamp;
 
     #[test]
     fn source_clock_keeps_missing_valid_and_invalid_states_distinct() {

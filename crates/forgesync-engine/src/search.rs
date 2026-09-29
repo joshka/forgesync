@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::{Arc, OnceLock};
 
-use forgesync_core::{DocumentRecipe, EmbeddingVector, ThreadId};
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::embedding::EmbeddingVector;
+use forgesync_core::identity::ThreadId;
 use forgesync_store::{
     Archive, EmbeddingDocumentQuery, FamilyCoverageSummary, StoreError, ThreadPage, ThreadQuery,
     ThreadSummary,

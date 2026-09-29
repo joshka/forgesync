@@ -1,4 +1,5 @@
-use forgesync_core::{ObservationSequence, RepositoryId, UtcTimestamp};
+use forgesync_core::identity::{ObservationSequence, RepositoryId};
+use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};

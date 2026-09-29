@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use forgesync_core::{Repository, RunId};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::RunId;
 use forgesync_engine::{
     ArchiveStatus, ClusterDetail, ClusterPage, ClusterSummary, RepositorySelector, RunStatus,
     SyncProgress, ThreadDetail, ThreadPage, ThreadSelector, ThreadSummary,
@@ -782,10 +783,12 @@ fn move_index(current: usize, max: usize, direction: i8) -> usize {
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use forgesync_core::{
-        Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, RunId,
-        SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
+    use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+    use forgesync_core::identity::{
+        GitHubHost, ProviderId, RepositoryId, RunId, ThreadId, ThreadNumber,
     };
+    use forgesync_core::provider_data::ProviderData;
+    use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_engine::{
         ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
         ClusterSummary, SyncProgress, SyncProgressStatus, ThreadSummary,

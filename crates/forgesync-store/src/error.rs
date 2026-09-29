@@ -43,7 +43,7 @@ pub enum StoreError {
     InvalidArchiveId(#[source] uuid::Error),
     /// The stored creation timestamp cannot be represented by core timestamp rules.
     #[error("archive creation timestamp is invalid")]
-    InvalidCreatedAt(#[source] forgesync_core::TimestampError),
+    InvalidCreatedAt(#[source] forgesync_core::timestamp::TimestampError),
     /// The system clock could not produce a supported archive timestamp.
     #[error("system clock is before the Unix epoch or outside the supported range")]
     ClockOutOfRange,

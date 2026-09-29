@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use forgesync_core::{GitHubHost, Repository, ThreadNumber};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{GitHubHost, ThreadNumber};
 use thiserror::Error;
 
 /// A repository name supplied to a local query.

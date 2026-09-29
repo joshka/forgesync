@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use forgesync_core::EmbeddingVector;
+use forgesync_core::embedding::EmbeddingVector;
 use forgesync_engine::cosine_similarity;
 
 fn main() {

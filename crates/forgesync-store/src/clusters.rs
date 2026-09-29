@@ -2,9 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::num::NonZeroU32;
 
-use forgesync_core::{
-    DocumentRecipe, Repository, RepositoryId, ThreadId, ThreadNumber, ThreadReference, UtcTimestamp,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::{RepositoryId, ThreadId, ThreadNumber, ThreadReference};
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqliteConnection};

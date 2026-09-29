@@ -2,11 +2,16 @@ use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
-use forgesync_core::{
-    CollectionCompleteness, CommitSha, CoverageState, Discussion, EvidenceFamily, GitHubHost,
-    IncompleteReason, Observation, ObservationSequence, ProviderData, ProviderId, Repository,
-    RepositoryId, SourceClock, SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
+use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::{
+    CommitSha, GitHubHost, ObservationSequence, ProviderId, RepositoryId, ThreadId, ThreadNumber,
 };
+use forgesync_core::observation::{
+    CollectionCompleteness, IncompleteReason, Observation, SourceClock,
+};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::{
     Archive, ChildFamilyObservation, ObservationDisposition, StagedItem, StoreError,
     compare_observation_order, compare_revision_observation_order,

@@ -1,3 +1,5 @@
+//! Validated UTC timestamps used by observations and archive records.
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 use time::OffsetDateTime;

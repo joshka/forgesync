@@ -5,7 +5,7 @@ use super::*;
 pub(super) async fn retry_command(
     archive_path: &std::path::Path,
     run_id: RunId,
-    families: Vec<forgesync_core::EvidenceFamily>,
+    families: Vec<forgesync_core::coverage::EvidenceFamily>,
     json: bool,
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,

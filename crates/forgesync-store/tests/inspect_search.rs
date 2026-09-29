@@ -2,11 +2,14 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use forgesync_core::{
-    CollectionCompleteness, Comment, CommentId, CoverageState, Discussion, EvidenceFamily,
-    GitHubHost, Observation, ProviderData, ProviderId, Repository, RepositoryId, SourceClock,
-    SourceState, ThreadId, ThreadKind, ThreadNumber, ThreadReference, UtcTimestamp,
+use forgesync_core::content::{Comment, Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::{
+    CommentId, GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber, ThreadReference,
 };
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::{
     Archive, StagedItem, StoreError, ThreadQuery, ThreadSort, ThreadStateFilter,
     ThreadTimelineEvent,

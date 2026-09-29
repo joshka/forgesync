@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use forgesync_core::UtcTimestamp;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::{Archive, StoreError};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);

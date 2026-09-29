@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 
-use forgesync_core::{
-    Comment, CommitSha, Coverage, CoverageState, Discussion, EvidenceFamily, GitHubHost,
-    PullRequestMetadata, Repository, RepositoryId, Review, ReviewThread, ReviewThreadId, ThreadId,
-    ThreadKind, ThreadReference, UtcTimestamp,
+use forgesync_core::content::{
+    Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread, ThreadKind,
 };
+use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::identity::{
+    CommitSha, GitHubHost, RepositoryId, ReviewThreadId, ThreadId, ThreadReference,
+};
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::{QueryBuilder, Row, Sqlite};
@@ -800,7 +803,7 @@ where
         .map(|row| {
             let id: String = row.try_get("provider_id")?;
             let payload_json: String = row.try_get("payload_json")?;
-            let id = forgesync_core::ProviderId::new(id)
+            let id = forgesync_core::identity::ProviderId::new(id)
                 .map_err(|_| StoreError::InvalidStoredProviderId)?;
             Ok(StagedItem {
                 id,

@@ -3,7 +3,7 @@ use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 
-use forgesync_core::GitHubHost;
+use forgesync_core::identity::GitHubHost;
 use forgesync_engine::{RepositorySelector, SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::{GitHubClient, GitHubClientConfig, GitHubToken};
 use forgesync_store::Archive;

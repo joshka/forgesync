@@ -1,3 +1,5 @@
+//! Checked provider and archive identities.
+
 use std::fmt;
 use std::net::Ipv6Addr;
 use std::num::NonZeroU64;

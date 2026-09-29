@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
-use forgesync_core::{ObservationSequence, SourceClock};
+use forgesync_core::identity::ObservationSequence;
+use forgesync_core::observation::SourceClock;
 
 use crate::StoreError;
 
@@ -91,7 +92,8 @@ fn ambiguous_clocks(incoming: &SourceClock, current: &SourceClock) -> StoreError
 mod tests {
     use std::cmp::Ordering;
 
-    use forgesync_core::{ObservationSequence, SourceClock};
+    use forgesync_core::identity::ObservationSequence;
+    use forgesync_core::observation::SourceClock;
 
     use crate::ordering::{
         compare_observation_order, compare_revision_observation_order,

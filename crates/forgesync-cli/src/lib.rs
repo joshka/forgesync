@@ -26,10 +26,12 @@ use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
 use commands::dispatch;
 use config::ForgesyncConfig;
-use forgesync_core::{
-    CoverageState, DocumentRecipe, GitHubHost, OperationOutcome, ReviewState, RunId, SourceState,
-    ThreadKind, ThreadKind as DiscussionKind, UtcTimestamp,
-};
+use forgesync_core::content::{ReviewState, SourceState, ThreadKind, ThreadKind as DiscussionKind};
+use forgesync_core::coverage::CoverageState;
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::{GitHubHost, RunId};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::{
     ClusterBuildReport, ClusterBuildRequest, ClusterDetail, ClusterListRequest, ClusterOptions,
     ClusterPage, EmbeddingClient, EmbeddingReport, EmbeddingServiceIdentity, EngineError,

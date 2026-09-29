@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use forgesync_core::{
-    CollectionCompleteness, Discussion, DocumentRecipe, EvidenceFamily, GitHubHost, Observation,
-    ProviderData, ProviderId, Repository, RepositoryId, SourceClock, SourceState, ThreadId,
-    ThreadKind, ThreadNumber, UtcTimestamp,
-};
+use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::{
     Archive, ClusterGenerationInput, ClusterInput, ClusterLifecycle, ClusterListQuery,
     ClusterMemberInput, ClusterMemberRole, ClusterMemberState,

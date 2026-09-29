@@ -5,10 +5,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use forgesync_core::{
-    Comment, CoverageState, Document, DocumentRecipe, EvidenceFamily, FailureKind, GitHubHost,
-    OperationOutcome, Review, ReviewState, ReviewThread, UtcTimestamp,
-};
+use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily, FailureKind};
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::identity::GitHubHost;
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::{
     EmbeddingClient, EmbeddingClientConfig, EngineError, RefreshAnalysisStage, RefreshRequest,
     RefreshStageKind, RefreshStageStatus, RefreshSyncOptions, RepositorySelector, SearchMode,
@@ -948,7 +950,7 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     );
     let metadata = archive
-        .child_family_members::<forgesync_core::PullRequestMetadata>(
+        .child_family_members::<forgesync_core::content::PullRequestMetadata>(
             &summary.discussion.id,
             EvidenceFamily::PullRequestMetadata,
         )
@@ -1184,14 +1186,14 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     let built = build_thread_document(
         &archive,
         &reference,
-        forgesync_core::DocumentRecipe::DiscussionEnriched,
+        forgesync_core::document::DocumentRecipe::DiscussionEnriched,
     )
     .await
     .expect("build document");
     let first = materialize_thread_document(
         &archive,
         &reference,
-        forgesync_core::DocumentRecipe::DiscussionEnriched,
+        forgesync_core::document::DocumentRecipe::DiscussionEnriched,
     )
     .await
     .expect("materialize first document");
@@ -1207,7 +1209,7 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     let repeated = materialize_thread_document(
         &archive,
         &reference,
-        forgesync_core::DocumentRecipe::DiscussionEnriched,
+        forgesync_core::document::DocumentRecipe::DiscussionEnriched,
     )
     .await
     .expect("materialize identical document");
@@ -1235,7 +1237,7 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     let timestamp_only = materialize_thread_document(
         &archive,
         &reference,
-        forgesync_core::DocumentRecipe::DiscussionEnriched,
+        forgesync_core::document::DocumentRecipe::DiscussionEnriched,
     )
     .await
     .expect("materialize timestamp-only change");
@@ -1263,7 +1265,7 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     let edited = materialize_thread_document(
         &archive,
         &reference,
-        forgesync_core::DocumentRecipe::DiscussionEnriched,
+        forgesync_core::document::DocumentRecipe::DiscussionEnriched,
     )
     .await
     .expect("materialize edited document");
@@ -1713,7 +1715,9 @@ async fn thread_summary(archive: &Archive, number: u64) -> forgesync_store::Thre
         .expect("thread summary")
 }
 
-fn comment_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core::Coverage {
+fn comment_coverage(
+    summary: &forgesync_store::ThreadSummary,
+) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
         .iter()
@@ -1721,7 +1725,9 @@ fn comment_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core
         .expect("comment coverage")
 }
 
-fn review_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core::Coverage {
+fn review_coverage(
+    summary: &forgesync_store::ThreadSummary,
+) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
         .iter()
@@ -1729,7 +1735,9 @@ fn review_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core:
         .expect("review coverage")
 }
 
-fn review_thread_coverage(summary: &forgesync_store::ThreadSummary) -> &forgesync_core::Coverage {
+fn review_thread_coverage(
+    summary: &forgesync_store::ThreadSummary,
+) -> &forgesync_core::coverage::Coverage {
     summary
         .coverage
         .iter()

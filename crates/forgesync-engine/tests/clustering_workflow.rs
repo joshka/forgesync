@@ -2,11 +2,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use forgesync_core::{
-    CollectionCompleteness, Discussion, Document, DocumentRecipe, EmbeddingVector, EvidenceFamily,
-    GitHubHost, Observation, ProviderData, ProviderId, Repository, RepositoryId, SourceClock,
-    SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
-};
+use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::embedding::EmbeddingVector;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::{
     ClusterBuildRequest, ClusterLifecycle, ClusterListRequest, ClusterOptions, EngineError,
     RepositorySelector, build_clusters, list_clusters,

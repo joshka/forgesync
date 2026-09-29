@@ -1,6 +1,7 @@
 use std::num::NonZeroU32;
 
-use forgesync_core::{Repository, RepositoryId, ThreadKind, ThreadReference};
+use forgesync_core::content::{Repository, ThreadKind};
+use forgesync_core::identity::{RepositoryId, ThreadReference};
 use forgesync_store::{
     Archive, ArchiveStatus, StoreError, ThreadDetail, ThreadPage, ThreadQuery,
     ThreadSort as StoreThreadSort, ThreadStateFilter as StoreThreadStateFilter,

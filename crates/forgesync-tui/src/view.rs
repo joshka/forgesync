@@ -1,4 +1,4 @@
-use forgesync_core::{SourceState, ThreadKind};
+use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_engine::{
     ArchiveStatus, ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
     ThreadDetail, ThreadTimelineEvent,
@@ -629,22 +629,22 @@ fn selected_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
-fn family_name(family: forgesync_core::EvidenceFamily) -> &'static str {
+fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
-        forgesync_core::EvidenceFamily::Threads => "threads",
-        forgesync_core::EvidenceFamily::Comments => "comments",
-        forgesync_core::EvidenceFamily::PullRequestMetadata => "pull request metadata",
-        forgesync_core::EvidenceFamily::Reviews => "reviews",
-        forgesync_core::EvidenceFamily::ReviewThreads => "review threads",
+        forgesync_core::coverage::EvidenceFamily::Threads => "threads",
+        forgesync_core::coverage::EvidenceFamily::Comments => "comments",
+        forgesync_core::coverage::EvidenceFamily::PullRequestMetadata => "pull request metadata",
+        forgesync_core::coverage::EvidenceFamily::Reviews => "reviews",
+        forgesync_core::coverage::EvidenceFamily::ReviewThreads => "review threads",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use forgesync_core::{
-        Discussion, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, SourceState,
-        ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
-    };
+    use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+    use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
+    use forgesync_core::provider_data::ProviderData;
+    use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_engine::{ClusterDetail, ClusterLifecycle, ClusterSummary};
     use forgesync_store::{ThreadDetail, ThreadSummary};
     use ratatui::Terminal;

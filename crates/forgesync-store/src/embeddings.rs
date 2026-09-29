@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 
-use forgesync_core::{
-    Document, DocumentRecipe, EmbeddingVector, RepositoryId, ThreadKind, UtcTimestamp,
-};
+use forgesync_core::content::ThreadKind;
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::embedding::EmbeddingVector;
+use forgesync_core::identity::RepositoryId;
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::{QueryBuilder, Row, Sqlite};
 

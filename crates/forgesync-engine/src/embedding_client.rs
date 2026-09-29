@@ -2,7 +2,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use forgesync_core::{EmbeddingVector, EmbeddingVectorError};
+use forgesync_core::embedding::{EmbeddingVector, EmbeddingVectorError};
 use reqwest::Url;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};

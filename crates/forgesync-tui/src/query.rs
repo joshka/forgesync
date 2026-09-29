@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use forgesync_core::{DocumentRecipe, GitHubHost, OperationOutcome, RunId};
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::{GitHubHost, RunId};
+use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::{
     ClusterListRequest, ClusterOptions, RefreshRequest, RefreshSyncOptions, RepositorySelector,
     RetryReport, RunStatus, SearchMode, SearchRequest, SyncJobStatus, SyncProgress, SyncRequest,

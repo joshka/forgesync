@@ -247,7 +247,9 @@ pub(crate) fn review_state_name(state: &ReviewState) -> &str {
     }
 }
 
-pub(crate) fn repository_identity(repository: Option<&forgesync_core::RepositoryId>) -> String {
+pub(crate) fn repository_identity(
+    repository: Option<&forgesync_core::identity::RepositoryId>,
+) -> String {
     repository.map_or_else(
         || "unknown repository".to_owned(),
         |repository| {
@@ -260,13 +262,13 @@ pub(crate) fn repository_identity(repository: Option<&forgesync_core::Repository
     )
 }
 
-pub(crate) fn family_name(family: forgesync_core::EvidenceFamily) -> &'static str {
+pub(crate) fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
-        forgesync_core::EvidenceFamily::Threads => "threads",
-        forgesync_core::EvidenceFamily::Comments => "comments",
-        forgesync_core::EvidenceFamily::PullRequestMetadata => "pull_request_metadata",
-        forgesync_core::EvidenceFamily::Reviews => "reviews",
-        forgesync_core::EvidenceFamily::ReviewThreads => "review_threads",
+        forgesync_core::coverage::EvidenceFamily::Threads => "threads",
+        forgesync_core::coverage::EvidenceFamily::Comments => "comments",
+        forgesync_core::coverage::EvidenceFamily::PullRequestMetadata => "pull_request_metadata",
+        forgesync_core::coverage::EvidenceFamily::Reviews => "reviews",
+        forgesync_core::coverage::EvidenceFamily::ReviewThreads => "review_threads",
     }
 }
 

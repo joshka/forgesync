@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use forgesync_core::DocumentRecipe;
+use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::EmbeddingClientConfig;
 use serde::Deserialize;
 use thiserror::Error;
@@ -208,7 +208,7 @@ fn is_loopback_host(host: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use forgesync_core::DocumentRecipe;
+    use forgesync_core::document::DocumentRecipe;
 
     use super::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
 

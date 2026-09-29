@@ -55,14 +55,16 @@ pub(super) async fn run_command(
                 family
                     .into_iter()
                     .map(|family| match family {
-                        RunFamilyArg::Threads => forgesync_core::EvidenceFamily::Threads,
-                        RunFamilyArg::Comments => forgesync_core::EvidenceFamily::Comments,
-                        RunFamilyArg::PullRequestMetadata => {
-                            forgesync_core::EvidenceFamily::PullRequestMetadata
+                        RunFamilyArg::Threads => forgesync_core::coverage::EvidenceFamily::Threads,
+                        RunFamilyArg::Comments => {
+                            forgesync_core::coverage::EvidenceFamily::Comments
                         }
-                        RunFamilyArg::Reviews => forgesync_core::EvidenceFamily::Reviews,
+                        RunFamilyArg::PullRequestMetadata => {
+                            forgesync_core::coverage::EvidenceFamily::PullRequestMetadata
+                        }
+                        RunFamilyArg::Reviews => forgesync_core::coverage::EvidenceFamily::Reviews,
                         RunFamilyArg::ReviewThreads => {
-                            forgesync_core::EvidenceFamily::ReviewThreads
+                            forgesync_core::coverage::EvidenceFamily::ReviewThreads
                         }
                     })
                     .collect(),

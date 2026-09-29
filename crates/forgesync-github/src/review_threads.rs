@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, HashSet};
 
-use forgesync_core::{
-    Comment, CommentId, CommitSha, ProviderData, ProviderId, Repository, ReviewId, ReviewThread,
-    ReviewThreadId, ThreadId, UtcTimestamp,
+use forgesync_core::content::{Comment, Repository, ReviewThread};
+use forgesync_core::identity::{
+    CommentId, CommitSha, ProviderId, ReviewId, ReviewThreadId, ThreadId,
 };
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
@@ -411,9 +413,9 @@ struct GraphqlReviewThreadNode {
 
 #[cfg(test)]
 mod tests {
-    use forgesync_core::{
-        GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, ThreadNumber,
-    };
+    use forgesync_core::content::Repository;
+    use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadNumber};
+    use forgesync_core::provider_data::ProviderData;
     use reqwest::Url;
     use serde_json::json;
     use tokio_util::sync::CancellationToken;
@@ -423,7 +425,7 @@ mod tests {
     use super::fetch_review_thread_page;
     use crate::{GitHubClient, GitHubClientConfig};
 
-    fn scope() -> (Repository, forgesync_core::ThreadId) {
+    fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
         let repository_id = RepositoryId::new(
             GitHubHost::parse("ghe.example.test").expect("host"),
             ProviderId::new("41").expect("repository ID"),
@@ -437,7 +439,7 @@ mod tests {
             updated_at: None,
             provider_data: ProviderData::new(),
         };
-        let thread = forgesync_core::ThreadId::new(
+        let thread = forgesync_core::identity::ThreadId::new(
             repository_id,
             ProviderId::new("1802").expect("thread ID"),
             ThreadNumber::new(18).expect("number"),
@@ -507,7 +509,7 @@ mod tests {
         )
         .expect("client");
         let (repository, thread) = scope();
-        let head = forgesync_core::CommitSha::new("a".repeat(40)).expect("head SHA");
+        let head = forgesync_core::identity::CommitSha::new("a".repeat(40)).expect("head SHA");
         let page = fetch_review_thread_page(
             &client,
             &repository,
@@ -571,7 +573,7 @@ mod tests {
         )
         .expect("client");
         let (repository, thread) = scope();
-        let head = forgesync_core::CommitSha::new("a".repeat(40)).expect("head SHA");
+        let head = forgesync_core::identity::CommitSha::new("a".repeat(40)).expect("head SHA");
         let error = fetch_review_thread_page(
             &client,
             &repository,
@@ -626,7 +628,7 @@ mod tests {
         )
         .expect("client");
         let (repository, thread) = scope();
-        let head = forgesync_core::CommitSha::new("a".repeat(40)).expect("head SHA");
+        let head = forgesync_core::identity::CommitSha::new("a".repeat(40)).expect("head SHA");
         let error = fetch_review_thread_page(
             &client,
             &repository,
@@ -660,7 +662,7 @@ mod tests {
         )
         .expect("client");
         let (repository, thread) = scope();
-        let head = forgesync_core::CommitSha::new("a".repeat(40)).expect("head SHA");
+        let head = forgesync_core::identity::CommitSha::new("a".repeat(40)).expect("head SHA");
         let error = fetch_review_thread_page(
             &client,
             &repository,

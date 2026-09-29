@@ -2,11 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
 use std::time::Duration;
 
-use forgesync_core::{
-    CollectionCompleteness, Comment, DeferredReason, EvidenceFamily, Failure, FailureKind,
-    GitHubHost, IncompleteReason, OperationOutcome, PullRequestMetadata, Review, ReviewThread,
-    RunId, SourceClock, ThreadId, ThreadKind, UtcTimestamp,
-};
+use forgesync_core::content::{Comment, PullRequestMetadata, Review, ReviewThread, ThreadKind};
+use forgesync_core::coverage::{DeferredReason, EvidenceFamily, Failure, FailureKind};
+use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
+use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_github::{
     GitHubClient, GitHubError, GraphqlCursor, ThreadListState, fetch_issue_comment_page,
     fetch_pull_request_metadata, fetch_pull_request_review_page, fetch_repository,
@@ -680,7 +681,7 @@ struct PullRequestTarget {
 
 #[derive(Clone, Copy)]
 struct ThreadFamilyScope<'a> {
-    repository: &'a forgesync_core::Repository,
+    repository: &'a forgesync_core::content::Repository,
     thread: &'a ThreadId,
     updated_at: UtcTimestamp,
     key: &'a str,
@@ -689,7 +690,7 @@ struct ThreadFamilyScope<'a> {
 async fn run_pull_request_jobs(
     archive: &Archive,
     client: &GitHubClient,
-    repository: &forgesync_core::Repository,
+    repository: &forgesync_core::content::Repository,
     unit: ScopeUnit,
     context: &SyncRunContext<'_>,
     summary: &mut WorkSummary,
@@ -875,7 +876,7 @@ async fn run_pull_request_jobs(
 
 async fn pull_request_targets(
     archive: &Archive,
-    repository: &forgesync_core::Repository,
+    repository: &forgesync_core::content::Repository,
     unit: ScopeUnit,
 ) -> Result<Vec<PullRequestTarget>, EngineError> {
     let page_limit = NonZeroU32::new(1000).ok_or(EngineError::InvalidPageLimit)?;
@@ -996,7 +997,7 @@ async fn finish_family_sync_job(
 async fn run_comment_job(
     archive: &Archive,
     client: &GitHubClient,
-    repository: &forgesync_core::Repository,
+    repository: &forgesync_core::content::Repository,
     unit: ScopeUnit,
     context: &SyncRunContext<'_>,
     summary: &mut WorkSummary,
@@ -1749,7 +1750,7 @@ async fn sync_thread_review_threads(
 async fn record_thread_family_failure(
     archive: &Archive,
     context: &SyncRunContext<'_>,
-    repository: &forgesync_core::Repository,
+    repository: &forgesync_core::content::Repository,
     thread: &ThreadId,
     family: EvidenceFamily,
     scope_key: &str,
@@ -1792,8 +1793,8 @@ fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> IncompleteRea
 async fn sync_thread_comments(
     archive: &Archive,
     client: &GitHubClient,
-    repository: &forgesync_core::Repository,
-    discussion: &forgesync_core::Discussion,
+    repository: &forgesync_core::content::Repository,
+    discussion: &forgesync_core::content::Discussion,
     scope_key: &str,
     context: &SyncRunContext<'_>,
 ) -> Result<CommentThreadResult, EngineError> {
@@ -1857,13 +1858,13 @@ async fn sync_thread_comments(
             Err(error) => {
                 result.pages_completed = u64::from(page_count);
                 let incomplete_reason = if matches!(error, GitHubError::Cancelled) {
-                    forgesync_core::IncompleteReason::Cancelled
+                    forgesync_core::observation::IncompleteReason::Cancelled
                 } else if matches!(error, GitHubError::Deferred { .. }) {
-                    forgesync_core::IncompleteReason::RetryBudget
+                    forgesync_core::observation::IncompleteReason::RetryBudget
                 } else if page_count > 0 {
-                    forgesync_core::IncompleteReason::Pagination
+                    forgesync_core::observation::IncompleteReason::Pagination
                 } else {
-                    forgesync_core::IncompleteReason::Unknown
+                    forgesync_core::observation::IncompleteReason::Unknown
                 };
                 let failure = github_failure(&error);
                 archive
@@ -1971,7 +1972,7 @@ async fn sync_thread_comments(
     Ok(result)
 }
 
-fn comment_count(discussion: &forgesync_core::Discussion) -> Option<u64> {
+fn comment_count(discussion: &forgesync_core::content::Discussion) -> Option<u64> {
     discussion
         .provider_data
         .get("comments")

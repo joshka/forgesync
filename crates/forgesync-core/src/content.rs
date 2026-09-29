@@ -1,9 +1,12 @@
+//! Normalized repositories, discussions, comments, reviews, and review threads.
+
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    CommentId, CommitSha, ProviderData, ProviderId, RepositoryId, ReviewId, ReviewThreadId,
-    ThreadId, UtcTimestamp,
+use crate::identity::{
+    CommentId, CommitSha, ProviderId, RepositoryId, ReviewId, ReviewThreadId, ThreadId,
 };
+use crate::provider_data::ProviderData;
+use crate::timestamp::UtcTimestamp;
 
 /// Whether a discussion is an issue or a pull request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -193,7 +196,8 @@ pub struct ReviewThread {
 mod tests {
     use serde_json::json;
 
-    use crate::{ProviderData, ReviewState};
+    use crate::content::ReviewState;
+    use crate::provider_data::ProviderData;
 
     #[test]
     fn unknown_provider_fields_survive_a_json_round_trip() {

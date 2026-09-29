@@ -3,9 +3,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assert_cmd::Command;
-use forgesync_core::{
-    GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, UtcTimestamp,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::Archive;
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);

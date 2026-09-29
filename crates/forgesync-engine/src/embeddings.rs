@@ -2,7 +2,9 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
-use forgesync_core::{Document, DocumentRecipe, EmbeddingVector, ThreadId};
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::embedding::EmbeddingVector;
+use forgesync_core::identity::ThreadId;
 use forgesync_store::{Archive, EmbeddingChunkInput, StoredEmbeddingChunk};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -440,11 +442,12 @@ mod tests {
         }));
     }
 
-    fn test_document() -> forgesync_core::Document {
-        use forgesync_core::{
-            Document, DocumentRecipe, GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber,
-            UtcTimestamp,
+    fn test_document() -> forgesync_core::document::Document {
+        use forgesync_core::document::{Document, DocumentRecipe};
+        use forgesync_core::identity::{
+            GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber,
         };
+        use forgesync_core::timestamp::UtcTimestamp;
 
         let repository = RepositoryId::new(
             GitHubHost::parse("github.com").expect("host"),
