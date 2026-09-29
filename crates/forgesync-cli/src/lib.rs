@@ -61,7 +61,7 @@ where
         }
     };
 
-    let config = match ForgesyncConfig::load(args.config.as_deref()) {
+    let config = match config_for_command(&args) {
         Ok(config) => config,
         Err(error) => {
             return render_error_with_status(
@@ -89,6 +89,15 @@ where
         }
     };
     runtime.block_on(dispatch(args, config))
+}
+
+fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigError> {
+    #[cfg(feature = "tui")]
+    if matches!(&args.command, Command::Tui) {
+        return Ok(ForgesyncConfig::default());
+    }
+
+    ForgesyncConfig::load(args.config.as_deref())
 }
 
 async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
@@ -495,6 +504,19 @@ async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
                 result
             }
         },
+        #[cfg(feature = "tui")]
+        Command::Tui => {
+            if args.json {
+                return usage_error("--json is not supported by the interactive tui command");
+            }
+            match Archive::open_read_only(&path).await {
+                Ok(archive) => match forgesync_tui::run(archive).await {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(error) => render_error(false, "tui", error.code(), &error.to_string()),
+                },
+                Err(error) => render_store_error(false, "tui", error),
+            }
+        }
     }
 }
 

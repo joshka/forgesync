@@ -33,11 +33,12 @@ pub use error::EngineError;
 pub use exact_search::cosine_similarity;
 pub use forgesync_store::{
     ArchiveStatus, ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole,
-    ClusterMemberState, ClusterPage, ClusterSummary, ThreadDetail, ThreadPage,
+    ClusterMemberState, ClusterPage, ClusterSummary, RunStatus, SyncJobStatus, ThreadDetail,
+    ThreadPage, ThreadSummary, ThreadTimelineEvent,
 };
 pub use inspect::{
-    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status, list_threads,
-    show_thread,
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status,
+    list_repositories, list_threads, show_thread,
 };
 pub use reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
 pub use refresh::{

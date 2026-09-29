@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P5.1 — Read-only browser**.
+- Next task: **P5.2 — Maintainer actions and live progress**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -19,6 +19,7 @@
 - Complete: **P3.4 — Health and explicit retry**.
 - Complete: **P4.1 — Versioned documents**.
 - Complete: **P4.2 — Embeddings**.
+- Complete: **P5.1 — Read-only browser**.
 - Reference checkout: /Users/joshka/local/gitcrawl/default.
 - Reference change: ymmxytsluuktnvuwqqmrrsoqqmtyvpls.
 - Reference commit: 8c9a4f85b7c4eaae5b7d279c2e83c2eb167bed3a.
@@ -581,6 +582,46 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
   docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
 
+## P5.1 evidence
+
+Added the `forgesync-tui` crate and enabled its optional CLI feature in normal builds. The terminal
+browser lists registered repositories and discussions, scopes the discussion list to a selected
+repository, opens current discussion detail, searches locally by keyword, and shows archive coverage
+and recent failed or unfinished runs. Discussion pages contain 100 rows and can be traversed with
+`n` and `p`. Narrow terminals stack the three panes; wider terminals place them side by side.
+
+The TUI uses engine read APIs only. Repository, thread, detail, coverage, and run queries execute
+on Tokio tasks while the render loop polls input and draws independently. Results use a bounded
+message channel, carry a generation number, and stale results are discarded. Exit aborts and joins
+outstanding queries; Ratatui terminal handling restores the alternate screen and cursor on normal
+return and installs panic restoration.
+The CLI refuses non-interactive use and `--json` for the TUI. It does not load app config or
+embedding credentials for this local-only view; `--no-default-features` omits the command. See
+[tui.md](tui.md).
+
+Behavior was adapted from selected Gitcrawl TUI references, including
+`TestTUIUpdateCoversKeyboardStateMachine`, `TestTUIRepositoryPickerSwitchesRepository`, and
+`TestTUISyncComponentsClampsDetailViewportAfterResize` in
+`internal/cli/tui_test.go`. Ratatui `TestBackend` tests render fixture data at 40×10 and 140×40 and
+verify detail scrolling clamps after a resize. Reducer tests cover repository selection, search,
+responsive keys during pending queries, and stale-result rejection.
+
+A PTY smoke used a temporary archive with 15 synthetic discussions. It loaded repository and thread
+data, opened detail, scrolled through the long body with Page Down, visited coverage and failure
+views, accepted a local search, and exited with status 0. The captured terminal sequence restored
+the alternate screen and cursor. A CLI integration test confirms non-terminal use returns an
+actionable error and ignores irrelevant malformed model configuration.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 141 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed; the TUI dependency is
+  optional and the command is omitted.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- Markdownlint on changed documentation: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -605,7 +646,8 @@ Validation:
 | P4.3 — Semantic and hybrid search | Complete | Paged exact cosine, RRF provenance, explicit fallback, 10k/100k latency and peak-RSS measurements |
 | P4.4 — Clustering and maintainer decisions | Complete | Bounded deterministic graph, durable stable IDs, local decisions, partial-coverage safety |
 | P4.5 — Refresh composition | Complete | Optional shared-engine stages, durable partial reports, explicit model selection |
-| P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
+| P5.1 — Read-only browser | Complete | Responsive background queries, repository/thread detail, local search, coverage and failure views |
+| P5.2 — Maintainer actions/live progress | Not started | Engine-backed actions, durable progress, and active writer ownership |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |
 
 A task is complete only when its acceptance checks pass. Keep deferred capabilities absent from code,

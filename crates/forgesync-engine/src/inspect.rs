@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use forgesync_core::{RepositoryId, ThreadKind, ThreadReference};
+use forgesync_core::{Repository, RepositoryId, ThreadKind, ThreadReference};
 use forgesync_store::{
     Archive, ArchiveStatus, StoreError, ThreadDetail, ThreadPage, ThreadQuery,
     ThreadSort as StoreThreadSort, ThreadStateFilter as StoreThreadStateFilter,
@@ -74,6 +74,11 @@ pub struct ThreadListRequest {
 /// Returns read-only local archive metadata and coverage counts.
 pub async fn archive_status(archive: &Archive) -> Result<ArchiveStatus, EngineError> {
     archive.archive_status().await.map_err(Into::into)
+}
+
+/// Lists registered repositories without contacting GitHub or mutating the archive.
+pub async fn list_repositories(archive: &Archive) -> Result<Vec<Repository>, EngineError> {
+    archive.list_repositories().await.map_err(Into::into)
 }
 
 /// Lists local discussions without contacting GitHub or mutating the archive.
