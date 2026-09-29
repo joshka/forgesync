@@ -10,7 +10,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_engine::reference::RepositorySelector;
 
 use crate::app::{App, Focus, Screen};
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 
 mod browser;
 mod triage;

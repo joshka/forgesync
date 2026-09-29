@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 use super::action::execute_operation;
 use crate::app::App;
 use crate::app::messages::QueryMessage;
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
 
 /// Starts one writer operation and reports progress through the UI message channel.
@@ -39,16 +39,10 @@ pub fn start_operation(
         QueryAction::Sync { .. } => "sync",
         QueryAction::Refresh { .. } => "refresh",
         QueryAction::Retry(_) => "retry",
-        QueryAction::DismissCluster {
-            dismissed: true, ..
-        } => "dismiss cluster",
-        QueryAction::DismissCluster {
-            dismissed: false, ..
-        } => "restore cluster",
-        QueryAction::SetClusterMemberExcluded { excluded: true, .. } => "exclude cluster member",
-        QueryAction::SetClusterMemberExcluded {
-            excluded: false, ..
-        } => "include cluster member",
+        QueryAction::DismissCluster { .. } => "dismiss cluster",
+        QueryAction::RestoreCluster { .. } => "restore cluster",
+        QueryAction::ExcludeClusterMember { .. } => "exclude cluster member",
+        QueryAction::IncludeClusterMember { .. } => "include cluster member",
         QueryAction::SetCanonicalClusterMember { .. } => "set canonical member",
         _ => return,
     };

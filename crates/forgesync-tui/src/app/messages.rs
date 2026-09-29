@@ -13,7 +13,8 @@
 //! Writer progress and completion use a separate operation generation. Progress is advisory and
 //! never implies successful acquisition. Completion supplies a final status, while query task
 //! coordination separately schedules archive reads after the writer terminates.
-//! Use this enum for completed work and progress; [`crate::query::QueryAction`] describes intent.
+//! Use this enum for completed work and progress; [`crate::query::requests::QueryAction`] describes
+//! intent.
 
 use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;

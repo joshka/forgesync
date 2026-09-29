@@ -1062,3 +1062,11 @@ forwarding remain separate review work.
 All fifty-four TUI tests and its doctest pass, including three task-lifecycle cases. Focused Clippy,
 strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
 The source audit remains open for request ownership and the remaining workspace review surfaces.
+
+## Continued maintenance: named terminal requests
+
+`query/requests` documents each intent variant and field, repository scope, read generation, and
+local versus provider-backed effects. Dismiss/restore and exclude/include are separate variants
+instead of boolean-selected commands. All callers import the request owner directly. Two nearby
+triage tests assert restore and include requests, including the exact member selector. All fifty-six
+TUI tests and its doctest pass; focused Clippy and strict public/private Rustdoc also pass.

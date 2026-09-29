@@ -12,7 +12,7 @@ use forgesync_core::identity::RunId;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 use crate::app::{App, move_index};
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 
 impl App {
     /// Maps failure-view keys to run selection and retry actions.
@@ -62,10 +62,12 @@ impl App {
             .items
             .get(self.cluster_list.selected)
             .map(|cluster| {
-                vec![QueryAction::DismissCluster {
-                    id: cluster.id,
-                    dismissed: !cluster.dismissed,
-                }]
+                let action = if cluster.dismissed {
+                    QueryAction::RestoreCluster { id: cluster.id }
+                } else {
+                    QueryAction::DismissCluster { id: cluster.id }
+                };
+                vec![action]
             })
             .unwrap_or_default()
     }
@@ -104,10 +106,16 @@ impl App {
             .data
             .as_ref()
             .map(|detail| {
-                vec![QueryAction::DismissCluster {
-                    id: detail.cluster.id,
-                    dismissed: !detail.cluster.dismissed,
-                }]
+                let action = if detail.cluster.dismissed {
+                    QueryAction::RestoreCluster {
+                        id: detail.cluster.id,
+                    }
+                } else {
+                    QueryAction::DismissCluster {
+                        id: detail.cluster.id,
+                    }
+                };
+                vec![action]
             })
             .unwrap_or_default()
     }
@@ -146,15 +154,13 @@ impl App {
             member.summary.discussion.id.number(),
         );
         let action = match code {
-            KeyCode::Char('e') => QueryAction::SetClusterMemberExcluded {
+            KeyCode::Char('e') => QueryAction::ExcludeClusterMember {
                 id: detail.cluster.id,
                 reference,
-                excluded: true,
             },
-            KeyCode::Char('i') => QueryAction::SetClusterMemberExcluded {
+            KeyCode::Char('i') => QueryAction::IncludeClusterMember {
                 id: detail.cluster.id,
                 reference,
-                excluded: false,
             },
             KeyCode::Char('k') => QueryAction::SetCanonicalClusterMember {
                 id: detail.cluster.id,
@@ -163,5 +169,53 @@ impl App {
             _ => return Vec::new(),
         };
         vec![action]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Named maintainer requests preserve the loaded cluster and member target.
+
+    use crossterm::event::KeyCode;
+
+    use crate::app::App;
+    use crate::app::clusters::ClusterDetailPane;
+    use crate::app::test_data::sample_cluster_detail;
+    use crate::query::requests::QueryAction;
+
+    #[test]
+    fn dismissing_an_already_dismissed_cluster_requests_restore() {
+        let mut detail = sample_cluster_detail();
+        detail.cluster.dismissed = true;
+        let app = App {
+            cluster_detail_pane: ClusterDetailPane {
+                data: Some(detail),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let actions = app.toggle_open_cluster();
+
+        assert_eq!(actions, vec![QueryAction::RestoreCluster { id: 17 }]);
+    }
+
+    #[test]
+    fn include_key_requests_inclusion_of_the_loaded_member() {
+        let app = App {
+            cluster_detail_pane: ClusterDetailPane {
+                data: Some(sample_cluster_detail()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let actions = app.cluster_member_action(KeyCode::Char('i'));
+
+        let reference = "owner/repo#7".parse().expect("thread selector");
+        assert_eq!(
+            actions,
+            vec![QueryAction::IncludeClusterMember { id: 17, reference }]
+        );
     }
 }

@@ -26,7 +26,7 @@ use forgesync_store::archive::Archive;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-use super::QueryAction;
+use crate::query::requests::QueryAction;
 
 /// Runs the selected engine mutation with cancellation and a writable archive.
 pub async fn execute_operation(
@@ -86,24 +86,14 @@ impl OperationExecution<'_> {
             QueryAction::Sync { repositories } => self.sync(repositories).await,
             QueryAction::Refresh { repositories } => self.refresh(repositories).await,
             QueryAction::Retry(run_id) => self.retry(run_id).await,
-            QueryAction::DismissCluster {
-                id,
-                dismissed: true,
-            } => self.dismiss(*id).await,
-            QueryAction::DismissCluster {
-                id,
-                dismissed: false,
-            } => self.restore(*id).await,
-            QueryAction::SetClusterMemberExcluded {
-                id,
-                reference,
-                excluded: true,
-            } => self.exclude(*id, reference).await,
-            QueryAction::SetClusterMemberExcluded {
-                id,
-                reference,
-                excluded: false,
-            } => self.include(*id, reference).await,
+            QueryAction::DismissCluster { id } => self.dismiss(*id).await,
+            QueryAction::RestoreCluster { id } => self.restore(*id).await,
+            QueryAction::ExcludeClusterMember { id, reference } => {
+                self.exclude(*id, reference).await
+            }
+            QueryAction::IncludeClusterMember { id, reference } => {
+                self.include(*id, reference).await
+            }
             QueryAction::SetCanonicalClusterMember { id, reference } => {
                 self.canonical_member(id, reference).await
             }

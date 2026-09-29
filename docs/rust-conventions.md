@@ -139,3 +139,7 @@ generation checks, cache retention, and cursor bounds with the panel or request 
 Retain explicit coordination when one transition invalidates another view. Cached actionable data
 must still belong to the selected identity: a different selection clears old targets immediately,
 while a refresh of the same identity may preserve its cache. Test both cases directly.
+
+For command intent, use distinct variants for distinct transitions rather than a boolean that
+selects the operation. Keep booleans for actual observed domain facts. Named requests make the
+effect visible where a caller constructs it and keep dispatch exhaustive over meaningful actions.

@@ -27,7 +27,7 @@ use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 use super::App;
 use super::failures::RunFailureSummary;
 use super::messages::QueryMessage;
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 
 impl App {
     /// Starts the repository picker and first discussion page on browser entry.

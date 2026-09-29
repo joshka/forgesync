@@ -11,7 +11,7 @@ use crossterm::event::KeyCode;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 use crate::app::{App, Focus, PAGE_SIZE, move_index};
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 
 /// A navigation intent interpreted against the active pane's own bounds.
 #[derive(Clone, Copy)]

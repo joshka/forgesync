@@ -13,10 +13,10 @@ use std::sync::Arc;
 mod action;
 mod operations;
 mod reads;
+pub mod requests;
 pub mod tasks;
 
-use forgesync_core::identity::{GitHubHost, RunId};
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_core::identity::GitHubHost;
 use forgesync_engine::runs::{list_runs, show_run};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
@@ -32,50 +32,11 @@ use tokio::sync::mpsc::Sender;
 use crate::app::App;
 use crate::app::failures::RunFailureSummary;
 use crate::app::messages::QueryMessage;
+use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
 
 const RUNS_TO_SCAN: u32 = 50;
 const RUNS_TO_DETAIL: usize = 20;
-
-pub enum QueryAction {
-    Repositories,
-    Threads {
-        query: Option<String>,
-        repositories: Vec<forgesync_engine::reference::RepositorySelector>,
-        offset: u64,
-    },
-    Detail(ThreadSelector),
-    Coverage,
-    Failures,
-    Clusters {
-        repositories: Vec<RepositorySelector>,
-    },
-    ClusterDetail {
-        generation: u64,
-        id: u64,
-    },
-    Sync {
-        repositories: Vec<RepositorySelector>,
-    },
-    Refresh {
-        repositories: Vec<RepositorySelector>,
-    },
-    Retry(RunId),
-    DismissCluster {
-        id: u64,
-        dismissed: bool,
-    },
-    SetClusterMemberExcluded {
-        id: u64,
-        reference: ThreadSelector,
-        excluded: bool,
-    },
-    SetCanonicalClusterMember {
-        id: u64,
-        reference: ThreadSelector,
-    },
-    CancelOperation,
-}
 
 /// Routes a UI action to a background read or operation. Each completion returns through the
 /// message channel so rendering and key handling stay responsive.
@@ -122,7 +83,9 @@ pub fn start_query(
         | QueryAction::Refresh { .. }
         | QueryAction::Retry(_)
         | QueryAction::DismissCluster { .. }
-        | QueryAction::SetClusterMemberExcluded { .. }
+        | QueryAction::RestoreCluster { .. }
+        | QueryAction::ExcludeClusterMember { .. }
+        | QueryAction::IncludeClusterMember { .. }
         | QueryAction::SetCanonicalClusterMember { .. }) => {
             start_operation(action, app, archive, clients, runtime, sender, tasks);
         }

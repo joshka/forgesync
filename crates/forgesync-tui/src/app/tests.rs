@@ -19,7 +19,7 @@ use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
 use crate::app::test_data::{sample_cluster_detail, sample_repository};
 use crate::app::threads::{ThreadList, ThreadReply};
-use crate::query::QueryAction;
+use crate::query::requests::QueryAction;
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {
@@ -159,11 +159,7 @@ fn maintainer_keys_target_the_selected_cluster_member() {
     let exclude = app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
     assert!(matches!(
         exclude.as_slice(),
-        [QueryAction::SetClusterMemberExcluded {
-            id: 17,
-            excluded: true,
-            ..
-        }]
+        [QueryAction::ExcludeClusterMember { id: 17, .. }]
     ));
 
     let canonical = app.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE));
@@ -219,10 +215,7 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
     let dismiss = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
     assert!(matches!(
         dismiss.as_slice(),
-        [QueryAction::DismissCluster {
-            id: 17,
-            dismissed: true,
-        }]
+        [QueryAction::DismissCluster { id: 17 }]
     ));
 
     app.screen = Screen::Failures;
