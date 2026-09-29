@@ -63,7 +63,7 @@ historical inspection signals, not current measurements or limits.
 | --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Sync jobs             | `RepositorySync`, `ThreadJob`, `CommentJob`, selected `PullRequestJobs`, and `FamilyJob`        | Sync workflow failures, cancellation, recovery, and retry           |
 | Comments and metadata | Reserved `CommentCollection` and `MetadataObservation`                                          | Empty/incomplete comments, review freshness, head changes           |
-| Enumeration           | Page traversal with `ScanPersistence` begin/apply/cursor phases                                 | Later-page failure and idempotent replay                            |
+| Enumeration           | Page traversal with `ScanPersistence` write phases and typed `ScanOutcome`                      | Later-page failure and idempotent replay                            |
 | Refresh               | `RefreshExecution` with independent selected stage methods                                      | Completed sync survives unavailable optional analysis               |
 | Clustering            | `CandidateEvidence`, `ReferenceCollector`, and separate component policy                        | Deterministic fanout, size, reference, and cross-kind safeguards    |
 | Observations          | `IncomingThread`, `CanonicalSelection`, and `FamilyApplication` within the caller's transaction | Ordering, hydration, complete replay, and rollback                  |

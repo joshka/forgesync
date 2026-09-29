@@ -13,7 +13,6 @@
 
 use std::collections::HashSet;
 
-use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure, FailureKind};
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_github::error::GitHubError;
@@ -43,7 +42,7 @@ pub(crate) async fn enumerate_repository_thread_pages(
     };
     let ThreadScanContext {
         repository,
-        sequence,
+        sequence: _,
         started_at: _,
         state,
         since,
@@ -56,18 +55,12 @@ pub(crate) async fn enumerate_repository_thread_pages(
     loop {
         let requested_url = page_url.as_ref().unwrap_or(&first_page);
         if !visited_pages.insert(requested_url.as_str().to_owned()) {
-            return incomplete_report(
-                archive,
-                repository,
-                sequence,
-                Failure {
+            return persistence
+                .finish(ScanOutcome::Failed(Failure {
                     kind: FailureKind::ProviderResponse,
                     message: "GitHub pagination returned a repeated page URL".to_owned(),
-                },
-                false,
-                lease,
-            )
-            .await;
+                }))
+                .await;
         }
 
         let page = match fetch_thread_page_in_scope(
@@ -81,36 +74,17 @@ pub(crate) async fn enumerate_repository_thread_pages(
         .await
         {
             Ok(page) => page,
-            Err(error) => {
-                let interrupted = error == GitHubError::Cancelled;
-                let failure = (!interrupted).then(|| github_failure(&error));
-                return finish_report(
-                    archive,
-                    repository,
-                    sequence,
-                    RepositoryThreadScanStatus::Incomplete,
-                    failure,
-                    interrupted,
-                    lease,
-                )
-                .await;
-            }
+            Err(error) => return persistence.finish(ScanOutcome::from(error)).await,
         };
 
         let page_thread_count = page.discussions.len() as u64;
         if persistence.apply(page.discussions).await.is_err() {
-            return incomplete_report(
-                archive,
-                repository,
-                sequence,
-                Failure {
+            return persistence
+                .finish(ScanOutcome::Failed(Failure {
                     kind: FailureKind::Archive,
                     message: "archive could not commit a repository thread page".to_owned(),
-                },
-                false,
-                lease,
-            )
-            .await;
+                }))
+                .await;
         }
 
         page_url = page.next_page;
@@ -120,16 +94,7 @@ pub(crate) async fn enumerate_repository_thread_pages(
             .await?;
 
         if page_url.is_none() {
-            return finish_report(
-                archive,
-                repository,
-                sequence,
-                RepositoryThreadScanStatus::Complete,
-                None,
-                false,
-                lease,
-            )
-            .await;
+            return persistence.finish(ScanOutcome::Complete).await;
         }
     }
 }
@@ -261,69 +226,72 @@ impl ScanPersistence<'_> {
     }
 }
 
-/// Preserves the checkpoint and failure when a repository scan stops early.
-async fn incomplete_report(
-    archive: &Archive,
-    repository: Repository,
-    sequence: forgesync_core::identity::ObservationSequence,
-    failure: Failure,
-    interrupted: bool,
-    lease: Option<&ArchiveLeaseToken>,
-) -> Result<ThreadEnumerationReport, EngineError> {
-    finish_report(
-        archive,
-        repository,
-        sequence,
-        RepositoryThreadScanStatus::Incomplete,
-        Some(failure),
-        interrupted,
-        lease,
-    )
-    .await
+/// Terminal state of a reserved scan, with failure evidence only when acquisition failed.
+enum ScanOutcome {
+    Complete,
+    Interrupted,
+    Failed(Failure),
 }
-
-/// Marks a completed scan only after the final provider page is committed.
-async fn finish_report(
-    archive: &Archive,
-    repository: Repository,
-    sequence: forgesync_core::identity::ObservationSequence,
-    status: RepositoryThreadScanStatus,
-    failure: Option<Failure>,
-    interrupted: bool,
-    lease: Option<&ArchiveLeaseToken>,
-) -> Result<ThreadEnumerationReport, EngineError> {
-    match lease {
-        Some(lease) => {
-            archive
-                .finish_repository_thread_scan_fenced(
-                    &repository.id,
-                    sequence,
-                    status,
-                    now_utc()?,
-                    failure.as_ref(),
-                    lease,
-                )
-                .await?;
-        }
-        None => {
-            archive
-                .finish_repository_thread_scan(
-                    &repository.id,
-                    sequence,
-                    status,
-                    now_utc()?,
-                    failure.as_ref(),
-                )
-                .await?;
+impl From<GitHubError> for ScanOutcome {
+    fn from(error: GitHubError) -> Self {
+        match error {
+            GitHubError::Cancelled => Self::Interrupted,
+            error => Self::Failed(github_failure(&error)),
         }
     }
-    let scan = archive
-        .repository_thread_scan(&repository.id)
-        .await?
-        .ok_or(StoreError::RepositoryThreadScanMissing)?;
-    Ok(ThreadEnumerationReport {
-        repository,
-        scan,
-        interrupted,
-    })
+}
+
+impl ScanPersistence<'_> {
+    /// Records terminal coverage after page writes, retaining failure or interruption distinctly.
+    async fn finish(&self, outcome: ScanOutcome) -> Result<ThreadEnumerationReport, EngineError> {
+        let archive = self.archive;
+        let lease = self.lease;
+        let repository = self.context.repository.clone();
+        let sequence = self.context.sequence;
+        let status = match outcome {
+            ScanOutcome::Complete => RepositoryThreadScanStatus::Complete,
+            ScanOutcome::Interrupted | ScanOutcome::Failed(_) => {
+                RepositoryThreadScanStatus::Incomplete
+            }
+        };
+        let interrupted = matches!(outcome, ScanOutcome::Interrupted);
+        let failure = match outcome {
+            ScanOutcome::Failed(failure) => Some(failure),
+            ScanOutcome::Complete | ScanOutcome::Interrupted => None,
+        };
+        match lease {
+            Some(lease) => {
+                archive
+                    .finish_repository_thread_scan_fenced(
+                        &repository.id,
+                        sequence,
+                        status,
+                        now_utc()?,
+                        failure.as_ref(),
+                        lease,
+                    )
+                    .await?;
+            }
+            None => {
+                archive
+                    .finish_repository_thread_scan(
+                        &repository.id,
+                        sequence,
+                        status,
+                        now_utc()?,
+                        failure.as_ref(),
+                    )
+                    .await?;
+            }
+        }
+        let scan = archive
+            .repository_thread_scan(&repository.id)
+            .await?
+            .ok_or(StoreError::RepositoryThreadScanMissing)?;
+        Ok(ThreadEnumerationReport {
+            repository,
+            scan,
+            interrupted,
+        })
+    }
 }

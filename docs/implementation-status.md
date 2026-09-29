@@ -17,8 +17,9 @@
 - CLI and TUI discussion detail now assemble named source, coverage, metadata/body, and timeline
   sections. TUI loading/error resolution precedes its prepared detail view, whose lines still
   determine scroll limits. All 20 TUI state, snapshot, and resize tests passed.
-- Repository scans now expose start, parent application, and cursor recording as durable phases
-  beside their traversal. Both enumeration regressions pass, including page-two failure and replay.
+- Repository scans use a terminal outcome enum and expose start, parent application, and cursor
+  recording as durable phases beside their traversal. Both enumeration regressions pass, including
+  page-two failure and replay.
 - Provider requests now own immutable attempt data and separate budgeted attempts, retry waits,
   redirect traversal, sending, and bounded response decoding. Credential origin checks remain before
   request construction; transport regressions cover cancellation, retry, and redirects.
