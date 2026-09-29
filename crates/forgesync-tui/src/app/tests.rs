@@ -21,6 +21,7 @@ use forgesync_store::clusters::{
 use forgesync_store::reads::{ThreadPage, ThreadSummary};
 
 use super::{App, Focus, QueryAction, QueryMessage, Screen};
+use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
 
 #[test]
@@ -223,9 +224,13 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
 #[test]
 fn quit_cancels_active_action_and_failed_result_stays_visible() {
     let mut app = App {
-        operation_generation: 4,
-        operation_busy: true,
-        operation_label: Some("sync".to_owned()),
+        operation: OperationDisplay {
+            generation: 4,
+            state: OperationState::Running {
+                label: "sync".to_owned(),
+                progress: None,
+            },
+        },
         ..App::default()
     };
 
@@ -237,7 +242,7 @@ fn quit_cancels_active_action_and_failed_result_stays_visible() {
         generation: 4,
         result: Err("archive writer lease is held".to_owned()),
     });
-    assert!(!app.operation_busy);
+    assert!(!app.operation.busy());
     assert_eq!(
         app.status.as_deref(),
         Some("Failed: archive writer lease is held")
@@ -249,8 +254,13 @@ fn quit_cancels_active_action_and_failed_result_stays_visible() {
 #[test]
 fn stale_operation_progress_cannot_replace_current_progress() {
     let mut app = App {
-        operation_generation: 3,
-        operation_busy: true,
+        operation: OperationDisplay {
+            generation: 3,
+            state: OperationState::Running {
+                label: "sync".to_owned(),
+                progress: None,
+            },
+        },
         ..App::default()
     };
     let progress = SyncProgress {
@@ -270,7 +280,7 @@ fn stale_operation_progress_cannot_replace_current_progress() {
         generation: 2,
         progress,
     });
-    assert!(app.operation_progress.is_none());
+    assert!(app.operation.progress().is_none());
 }
 
 fn sample_repository() -> Repository {

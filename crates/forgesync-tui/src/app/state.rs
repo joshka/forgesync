@@ -232,23 +232,14 @@ impl App {
 
     /// Ignores progress from an action that has already finished or been replaced.
     fn apply_operation_progress(&mut self, generation: u64, progress: super::SyncProgress) {
-        if generation == self.operation_generation && self.operation_busy {
-            self.operation_progress = Some(progress);
-        }
+        self.operation.update_progress(generation, progress);
     }
 
     /// Records the terminal operation result and clears transient progress.
     fn apply_operation_finished(&mut self, generation: u64, result: Result<String, String>) {
-        if generation != self.operation_generation {
-            return;
+        if let Some(status) = self.operation.finish(generation, result) {
+            self.status = Some(status);
         }
-        self.operation_busy = false;
-        self.operation_label = None;
-        self.operation_progress = None;
-        self.status = Some(match result {
-            Ok(summary) => summary,
-            Err(error) => format!("Failed: {error}"),
-        });
     }
 
     /// Advances repository generation so older read results cannot replace this request.
@@ -315,14 +306,8 @@ impl App {
     /// Reserves the single active writer slot. `None` leaves existing progress untouched when an
     /// operation is already running; the generation tags later completion messages.
     pub fn begin_operation(&mut self, label: &str) -> Option<u64> {
-        if self.operation_busy {
-            return None;
-        }
-        self.operation_generation += 1;
-        self.operation_busy = true;
-        self.operation_label = Some(label.to_owned());
-        self.operation_progress = None;
+        let generation = self.operation.begin(label)?;
         self.status = Some(format!("Starting {label}…"));
-        Some(self.operation_generation)
+        Some(generation)
     }
 }

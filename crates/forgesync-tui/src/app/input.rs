@@ -176,7 +176,7 @@ impl App {
 
     /// Cancels an active writer before allowing the terminal to close.
     fn request_quit(&mut self) -> Vec<QueryAction> {
-        if self.operation_busy {
+        if self.operation.busy() {
             self.status = Some("Cancellation requested; waiting for the active action…".to_owned());
             vec![QueryAction::CancelOperation]
         } else {

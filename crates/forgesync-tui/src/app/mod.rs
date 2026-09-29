@@ -73,10 +73,8 @@ pub struct App {
     pub cluster_detail_loading: bool,
     pub cluster_detail_error: Option<String>,
     pub selected_cluster_member: usize,
-    pub operation_generation: u64,
-    pub operation_busy: bool,
-    pub operation_label: Option<String>,
-    pub operation_progress: Option<SyncProgress>,
+    /// Current writer generation and its transient label/progress display.
+    pub operation: operation::OperationDisplay,
     pub search_query: Option<String>,
     pub search_input: String,
     pub searching: bool,
@@ -132,6 +130,7 @@ pub enum QueryMessage {
 }
 
 mod input;
+pub mod operation;
 pub mod repositories;
 mod state;
 
