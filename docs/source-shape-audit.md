@@ -27,6 +27,9 @@ Implemented follow-ups:
 - Embedding reuse and replacement use `EmbeddingPolicy`. Refresh materialization has a stage owner
   with repository traversal, document outcomes, and vector batch accounting.
 - Search input and cluster setup tests spell out their small scenarios without loops.
+- Semantic search uses `SemanticSource` for candidate scope and `SemanticRanking` for bounded
+  scores. Candidate availability precedes query embedding; every page uses the same filter scope.
+- Changed browser, refresh embedding, and semantic modules import dependencies at their owners.
 - Archive diagnostics separate schema validation, lease observation, and durable work queries.
 - Reservation APIs describe ordering, rejected generations, fencing, errors, and canonical effects.
 - Semantic-search docs distinguish archived document vectors from the network-generated query
@@ -34,11 +37,12 @@ Implemented follow-ups:
 
 Remaining review surfaces:
 
-- Semantic candidate traversal and ranking state.
+- Broader function and state review beyond the selected traversal and diagnostic slices.
 - Store reservation and staging transaction phases and meaningful request concepts.
 - Restricted visibility and imports routed through parent module aliases.
 - Public API examples and deeper documentation contracts across all crates, including rendered docs.
-- Dependency major versions and tool currency, separate from compatible lockfile refreshes.
+- Tool currency. Workspace dependency audits, including aggressive updates, report no outdated
+  dependencies in this checkout.
 - Hosted Linux, Intel macOS, and Windows validation; local checks cannot establish those results.
 
 Retain simple domain mappings and linear SQL binding maps when splitting them increases navigation.

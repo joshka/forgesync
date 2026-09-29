@@ -879,4 +879,12 @@ The earlier completion statement described the selected ownership slices too bro
 shape audit now distinguishes implemented slices from remaining review surfaces. Browser navigation,
 embedding policy and refresh traversal, linear test scenarios, and diagnostic query phases have
 received additional cleanup. Reservation and semantic-search contracts are corrected and expanded.
-Workspace validation for this follow-up is in progress; hosted platform validation remains pending.
+Semantic candidate traversal now separates immutable scope from accumulated ranking, and changed
+workflow files import dependencies at their owners. Compatible and aggressive workspace dependency
+audits report no outdated dependencies.
+
+Local validation passes: nightly formatting, workspace Clippy with warnings denied, all workspace
+tests and doctests, the CLI build without default features, strict public/private Rustdoc, rumdl,
+and changed-page markdownlint. Hosted platform validation remains pending. The remaining source
+shape and documentation review is explicitly listed in `docs/source-shape-audit.md`; this evidence
+does not claim repository-wide maintainability completion.
