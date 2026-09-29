@@ -6,11 +6,17 @@
   concepts. Review-thread normalization, core identities, embedding client concerns, and TUI queries
   have smaller owners. Store and CLI integration suites are grouped by scenario, CLI arguments by
   command, and TUI keys by screen. See the [maintainability plan](maintainability-plan.md).
+- CLI search, sync, refresh, embed, and cluster commands now pass their parsed arguments directly to
+  the owning command module. Cluster build, read, and local decisions have separate files with
+  explicit dependencies. The workspace format, Clippy, test, optional CLI build, and documentation
+  gates passed after these changes.
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
 - Next action: **Run the hosted platform matrix before preparing a release**.
+- Next maintainability pass: replace broad parent imports in the remaining CLI command modules with
+  explicit imports, starting where doing so exposes misplaced responsibilities.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
