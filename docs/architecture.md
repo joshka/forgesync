@@ -20,6 +20,13 @@ offline read, start at the engine request, inspect the store query, then the CLI
 presentation. The engine accepts an opened archive; the store alone decides transaction and
 observation ordering. GitHub code does not open the archive.
 
+Within engine sync, `review_collection` owns the durable lifecycle shared by reviews and review
+threads. `ReviewSync` selects the family and prepares against a metadata result; preparation either
+finishes immediately or yields a reserved, head-aware `ReviewCollection`. The collection owns
+staging counts and consuming completion/failure operations. `reviews` follows REST page links, while
+`review_threads` owns GraphQL cursor traversal and cycle detection. Provider traversal and archive
+finalization can therefore be read independently without repeating their shared policy.
+
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose

@@ -35,6 +35,23 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
   not maintain parallel trees that force readers to locate one feature twice.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
   Keep a linear story together when extraction would add navigation without reducing context.
+- Aim for functions and methods that fit on one screen, usually around 25 lines. Inspect functions
+  beyond 30–50 lines for separate responsibilities, live state, repeated decisions, and hidden
+  transitions. A longer, genuinely linear sequence of meaningful steps can stay together. The
+  exception does not cover nested loops, large branches, or repeated error/finalization protocols.
+- Inspect methods with three or more parameters beyond `self`, and similarly broad free functions.
+  Ask which values describe one identity, request, observation, or phase, and whether that concept
+  should own the operation. Parameters that always travel together or must agree are stronger
+  evidence than parameter count alone. Keep independent inputs explicit; a bag of unrelated values
+  or an all-access context only hides the original problem.
+- Look for a state-owning concept when a function keeps several mutable counters, cursors, flags, or
+  failure values alive across phases. Give that type operations that enforce its lifecycle. Use
+  consuming transitions or an enum when they prevent invalid states, and keep provider-specific
+  traversal separate from shared persistence policy. Extract a module when the concept needs its own
+  explanation and nearby tests, rather than scattering helpers across unrelated files.
+- Review the result by following the main path and one failure path. Extraction should reduce the
+  facts a caller carries and the places a policy is repeated. Shorter functions alone are not
+  evidence of a better design.
 - Name important intermediate values, especially around I/O, parsing, mutation, and errors. Make
   each fallible step and its error context clear. Use explaining variables when they also improve
   line wrapping.

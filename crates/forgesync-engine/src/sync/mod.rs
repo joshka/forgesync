@@ -7,7 +7,9 @@
 //!
 //! `jobs` coordinates thread work. `comments`, `reviews`, and `review_threads` own independently
 //! paginated child families; `pull_requests` and `metadata` handle pull-request-specific evidence.
-//! `support` resolves selectors and records scoped failures. An incomplete child collection must
+//! `review_collection` owns the reserved lifecycle shared by review families, while their provider
+//! collectors own page traversal. `support` resolves selectors and records scoped failures. An
+//! incomplete child collection must
 //! not replace prior complete membership. Per-job failure isolation lets one discussion fail while
 //! other work still commits.
 
@@ -15,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
 use std::time::Duration;
 
-use forgesync_core::content::{Comment, PullRequestMetadata, Review, ReviewThread, ThreadKind};
+use forgesync_core::content::{Comment, PullRequestMetadata, ThreadKind};
 use forgesync_core::coverage::{DeferredReason, EvidenceFamily, Failure, FailureKind};
 use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
@@ -23,10 +25,8 @@ use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_github::error::GitHubError;
 use forgesync_github::resources::{
-    ThreadListState, fetch_issue_comment_page, fetch_pull_request_metadata,
-    fetch_pull_request_review_page, fetch_repository,
+    ThreadListState, fetch_issue_comment_page, fetch_pull_request_metadata, fetch_repository,
 };
-use forgesync_github::review_threads::{GraphqlCursor, fetch_review_thread_page};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
@@ -59,6 +59,7 @@ mod comments;
 mod jobs;
 mod metadata;
 mod pull_requests;
+mod review_collection;
 mod review_threads;
 mod reviews;
 mod support;

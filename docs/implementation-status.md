@@ -2,6 +2,13 @@
 
 ## Current position
 
+- Review and review-thread sync now share a reserved, head-aware collection that owns staging
+  progress and consuming terminal writes. Provider collectors keep their page-link and cursor
+  behavior. A cross-crate function-shape survey and the next ownership slices are recorded in the
+  maintainability plan; Rust conventions now use screen size and parameter count as inspection
+  signals for hidden concepts and state machines. All 14 focused sync workflow cases and the
+  workspace test suite passed, along with Clippy, strict Rustdoc including private items, nightly
+  formatting, the CLI build without default features, and Markdown checks.
 - Every Rust module file now opens with a purpose and relationship map, including private workflow
   leaves and focused test modules. The module docs explain archive ordering, child-family
   completeness, engine stage boundaries, command ownership, and TUI state flow at their owning

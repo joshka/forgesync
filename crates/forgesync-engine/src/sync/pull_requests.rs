@@ -8,8 +8,7 @@
 //! enforces completeness.
 
 use super::metadata::sync_thread_pull_request_metadata;
-use super::review_threads::sync_thread_review_threads;
-use super::reviews::sync_thread_reviews;
+use super::review_collection::{ReviewFamily, ReviewSync};
 use super::support::{count_failure, progress_status, send_progress, store_state_filter};
 use super::{
     Archive, EngineError, EvidenceFamily, FailureKind, FamilyJobAccumulator, GitHubClient,
@@ -122,15 +121,14 @@ pub async fn run_pull_request_jobs(
             break;
         }
         if context.include_reviews {
-            let reviews_result = sync_thread_reviews(
+            let review_sync = ReviewSync::new(
                 archive,
                 client,
-                &family_scope,
-                metadata_result.value.as_ref(),
-                metadata_result.failure.as_ref(),
+                family_scope,
                 context,
-            )
-            .await?;
+                ReviewFamily::Reviews,
+            );
+            let reviews_result = review_sync.run(&metadata_result).await?;
             accumulate_thread_result(&mut reviews_job, &reviews_result)?;
             summary.reviews_seen = summary
                 .reviews_seen
@@ -144,15 +142,14 @@ pub async fn run_pull_request_jobs(
             }
         }
         if context.include_review_threads {
-            let review_threads_result = sync_thread_review_threads(
+            let review_thread_sync = ReviewSync::new(
                 archive,
                 client,
-                &family_scope,
-                metadata_result.value.as_ref(),
-                metadata_result.failure.as_ref(),
+                family_scope,
                 context,
-            )
-            .await?;
+                ReviewFamily::ReviewThreads,
+            );
+            let review_threads_result = review_thread_sync.run(&metadata_result).await?;
             accumulate_thread_result(&mut review_threads_job, &review_threads_result)?;
             summary.review_threads_seen = summary
                 .review_threads_seen

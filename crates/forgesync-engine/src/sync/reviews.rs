@@ -1,220 +1,69 @@
-//! # Acquire pull-request reviews
+//! # REST pagination for pull-request reviews
 //!
-//! Review sync visits provider pages, normalizes review records, and submits the family
-//! observation to the archive. Failures remain scoped to this family so other thread evidence can
-//! still succeed.
+//! `ReviewSync::sync_reviews` starts a head-aware review acquisition. Shared preparation in
+//! `review_collection` decides whether the archive already has current evidence and records
+//! missing metadata before any page request. A ready collection then owns staging and completion.
 //!
-//! Reviews and review threads have different membership and coverage. Their separate modules keep
-//! provider pagination, completeness, and retry behavior visible to a maintainer.
+//! This file keeps only the REST-specific part: fetching successive review pages and converting
+//! each normalized review into a staged member. Page links remain local to the collector; archive
+//! observation sequences, counters, failure attribution, and finalization belong to the collection.
+//! A provider error consumes the attempt as incomplete, preserving earlier complete membership.
 
-use super::comments::incomplete_reason;
-use super::support::record_thread_family_failure;
-use super::{
-    Archive, ChildFamilyFailureScope, ChildFamilyObservation, CollectionCompleteness, EngineError,
-    EvidenceFamily, Failure, FailureKind, GitHubClient, GitHubError, IncompleteReason,
-    ObservationDisposition, PullRequestMetadata, Review, SourceClock, StagedItem, StoreError,
-    SyncRunContext, ThreadFamilyResult, ThreadFamilyScope, fetch_pull_request_review_page,
-    github_failure, now_utc,
-};
+use forgesync_core::content::{PullRequestMetadata, Review};
+use forgesync_github::resources::fetch_pull_request_review_page;
+use forgesync_store::observations::StagedItem;
 
-/// Acquires pull-request reviews independently from comments and metadata.
-pub async fn sync_thread_reviews(
-    archive: &Archive,
-    client: &GitHubClient,
-    scope: &ThreadFamilyScope<'_>,
-    metadata: Option<&PullRequestMetadata>,
-    metadata_failure: Option<&Failure>,
-    context: &SyncRunContext<'_>,
-) -> Result<ThreadFamilyResult<()>, EngineError> {
-    let mut result = ThreadFamilyResult::default();
-    let family = EvidenceFamily::Reviews;
-    let failure_scope = ChildFamilyFailureScope {
-        run_id: context.run_id,
-        repository: &scope.repository.id,
-        thread: scope.thread,
-        family,
-        scope_key: scope.key,
-    };
-    let source_clock = SourceClock::Valid(scope.updated_at);
-    if let Some(metadata) = metadata
-        && archive
-            .pull_request_family_is_current_for_head(
-                scope.thread,
-                family,
-                &source_clock,
-                &metadata.head.sha,
-            )
-            .await?
-    {
-        archive
-            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
-            .await?;
-        return Ok(result);
+use super::ThreadFamilyResult;
+use super::review_collection::{ReviewCollection, ReviewPreparation, ReviewSync};
+use crate::error::EngineError;
+
+impl ReviewSync<'_> {
+    /// Acquires reviews only after preparation establishes a reserved, head-aware attempt.
+    pub async fn sync_reviews(
+        self,
+        metadata: &ThreadFamilyResult<PullRequestMetadata>,
+    ) -> Result<ThreadFamilyResult<()>, EngineError> {
+        match self.prepare(metadata).await? {
+            ReviewPreparation::Ready(collection) => collection.collect_reviews().await,
+            ReviewPreparation::Finished(result) => Ok(result),
+        }
     }
+}
 
-    let request_scope = format!("run:{}:{}", context.run_id.get(), scope.key);
-    let reservation = archive
-        .reserve_child_family_observation_fenced(
-            scope.thread,
-            family,
-            &source_clock,
-            now_utc()?,
-            &request_scope,
-            context.lease,
-        )
-        .await?;
-    if !reservation.reserved {
-        return Err(StoreError::StaleObservationGeneration.into());
-    }
-    archive
-        .mark_child_family_failures_retried(context.lease, &failure_scope)
-        .await?;
-
-    let Some(metadata) = metadata else {
-        let failure = metadata_failure.cloned().unwrap_or(Failure {
-            kind: FailureKind::ProviderResponse,
-            message: "pull-request head metadata is unavailable".to_owned(),
-        });
-        archive
-            .finish_child_family_observation_fenced(
-                ChildFamilyObservation {
-                    thread: scope.thread,
-                    family,
-                    sequence: reservation.sequence,
-                    observed_at: now_utc()?,
-                    completeness: &CollectionCompleteness::Incomplete {
-                        reason: IncompleteReason::Unknown,
-                        received_items: 0,
-                    },
-                    expected_pages: None,
-                    head_sha: None,
-                },
-                context.lease,
+impl ReviewCollection<'_> {
+    /// Follows REST page links until the family completes or a provider request fails.
+    async fn collect_reviews(mut self) -> Result<ThreadFamilyResult<()>, EngineError> {
+        let mut next_page = None;
+        loop {
+            let page = match fetch_pull_request_review_page(
+                self.target.client,
+                self.target.scope.repository,
+                self.target.scope.thread,
+                next_page.as_ref(),
+                self.target.context.cancellation,
             )
-            .await?;
-        record_thread_family_failure(
-            archive,
-            context,
-            scope.repository,
-            scope.thread,
-            family,
-            scope.key,
-            &failure,
-        )
-        .await?;
-        result.failure = Some(failure);
-        return Ok(result);
-    };
-
-    let mut next_page = None;
-    let mut page_count = 0_u32;
-    loop {
-        let page = match fetch_pull_request_review_page(
-            client,
-            scope.repository,
-            scope.thread,
-            next_page.as_ref(),
-            context.cancellation,
-        )
-        .await
-        {
-            Ok(page) => page,
-            Err(error) => {
-                archive
-                    .finish_child_family_observation_fenced(
-                        ChildFamilyObservation {
-                            thread: scope.thread,
-                            family,
-                            sequence: reservation.sequence,
-                            observed_at: now_utc()?,
-                            completeness: &CollectionCompleteness::Incomplete {
-                                reason: incomplete_reason(&error, page_count),
-                                received_items: result.items_received,
-                            },
-                            expected_pages: None,
-                            head_sha: None,
-                        },
-                        context.lease,
-                    )
-                    .await?;
-                if matches!(error, GitHubError::Cancelled) {
-                    result.interrupted = true;
-                    return Ok(result);
-                }
-                let failure = github_failure(&error);
-                record_thread_family_failure(
-                    archive,
-                    context,
-                    scope.repository,
-                    scope.thread,
-                    family,
-                    scope.key,
-                    &failure,
-                )
-                .await?;
-                result.failure = Some(failure);
-                result.pages_completed = u64::from(page_count);
-                return Ok(result);
+            .await
+            {
+                Ok(page) => page,
+                Err(error) => return self.fail(error).await,
+            };
+            next_page = page.next_page;
+            self.stage_reviews(page.reviews).await?;
+            if next_page.is_none() {
+                return self.complete().await;
             }
-        };
-        let page_items =
-            u64::try_from(page.reviews.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-        result.items_received = result
-            .items_received
-            .checked_add(page_items)
-            .ok_or(StoreError::IntegerOutOfRange)?;
-        let items = page
-            .reviews
+        }
+    }
+
+    /// Preserves provider review identity while handing page accounting to the collection.
+    async fn stage_reviews(&mut self, reviews: Vec<Review>) -> Result<(), EngineError> {
+        let items = reviews
             .into_iter()
             .map(|review| StagedItem {
                 id: review.id.provider_id().clone(),
                 payload: review,
             })
-            .collect::<Vec<StagedItem<Review>>>();
-        archive
-            .stage_child_family_page_fenced(
-                scope.thread,
-                family,
-                reservation.sequence,
-                page_count,
-                &items,
-                context.lease,
-            )
-            .await?;
-        page_count = page_count
-            .checked_add(1)
-            .ok_or(StoreError::IntegerOutOfRange)?;
-        next_page = page.next_page;
-        if next_page.is_none() {
-            break;
-        }
+            .collect::<Vec<_>>();
+        self.stage(&items).await
     }
-
-    let observation = archive
-        .finish_child_family_observation_fenced(
-            ChildFamilyObservation {
-                thread: scope.thread,
-                family,
-                sequence: reservation.sequence,
-                observed_at: now_utc()?,
-                completeness: &CollectionCompleteness::Complete,
-                expected_pages: Some(page_count),
-                head_sha: Some(&metadata.head.sha),
-            },
-            context.lease,
-        )
-        .await?;
-    result.pages_completed = u64::from(page_count);
-    if matches!(
-        observation.disposition,
-        ObservationDisposition::Applied | ObservationDisposition::Replayed
-    ) {
-        result.items_committed = observation.item_count;
-        archive
-            .resolve_child_family_failures(context.lease, &failure_scope, now_utc()?)
-            .await?;
-    } else {
-        return Err(StoreError::StaleObservationGeneration.into());
-    }
-    Ok(result)
 }
