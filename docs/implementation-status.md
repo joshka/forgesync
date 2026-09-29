@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Canonical storage now separates parent selection from payload/evidence application and child
+  reservation checks from complete membership replacement. All seven observation ordering, replay,
+  completeness, and rollback regressions passed, together with store Clippy.
+
 - Sync job ownership now distinguishes repository lookup, parent-thread scan jobs, comment jobs,
   and selected pull-request family jobs. Comments and metadata have reserved acquisition owners;
   job IDs and progress travel together. The 14 sync workflow regressions and engine Clippy passed.

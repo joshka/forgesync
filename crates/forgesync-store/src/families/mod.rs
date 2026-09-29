@@ -25,10 +25,9 @@ use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{
-    FamilyObservationResult, FamilyReservation, ObservationDisposition, StagedItem,
-    checked_sequence, evidence_family_name, is_child_family, normalize_source_clock,
-    source_clock_columns, source_clock_from_columns, thread_row_id, to_sql_sequence,
-    write_coverage,
+    FamilyReservation, StagedItem, checked_sequence, evidence_family_name, is_child_family,
+    normalize_source_clock, source_clock_columns, source_clock_from_columns, thread_row_id,
+    to_sql_sequence,
 };
 use crate::ordering::compare_observation_order;
 
@@ -56,9 +55,8 @@ pub struct ChildFamilyObservation<'a> {
     pub head_sha: Option<&'a CommitSha>,
 }
 
+mod application;
 mod finish;
 mod query;
 mod reservation;
 mod staging;
-
-use staging::{count_staged_items, load_staged_pages, merge_staged_items, validate_page_set};

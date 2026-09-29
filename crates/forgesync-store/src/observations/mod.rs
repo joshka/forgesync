@@ -11,12 +11,10 @@
 //! canonical content merely because it arrived later. The engine decides when to fetch; the store
 //! enforces these ordering and completeness rules.
 
-use std::cmp::Ordering;
-
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
 use forgesync_core::identity::{ObservationSequence, ProviderId, ThreadId};
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::SourceClock;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
@@ -107,6 +105,7 @@ mod apply;
 mod coverage;
 mod repository;
 mod sequence;
+mod thread_rows;
 
 /// Maps a domain family to its stable archive label.
 pub(crate) fn evidence_family_name(family: EvidenceFamily) -> &'static str {

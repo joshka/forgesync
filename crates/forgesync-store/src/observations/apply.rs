@@ -1,23 +1,30 @@
-//! # Apply a parent discussion observation
+//! # Select and atomically apply a canonical parent observation
 //!
-//! These `Archive` methods validate and persist normalized discussion content from the engine. The
-//! application transaction records the observation and decides whether it can replace canonical
-//! thread state according to source clock and acquisition ordering.
+//! `IncomingThread` prepares the incoming payload and source clock before opening a transaction.
+//! Selection compares source revision, acquisition sequence, and completeness independently.
+//! A complete identical older payload can hydrate evidence without replacing newer canonical data.
 //!
-//! An observation remains useful evidence even when it does not win canonical selection. Child
-//! comments, reviews, and review threads use `families` because each has its own pagination and
-//! completeness boundary; applying a parent never implies those families are complete.
+//! `CanonicalSelection` carries the selected row and both high-water positions through writes.
+//! Source content and complete-evidence clocks advance separately; neither implies child-family
+//! completeness. The archive owns lease fencing and a single commit around all SQL effects.
+//! `thread_rows` maps columns, while this module keeps the ordering and coverage policy visible.
 
-use sqlx::Row;
+use std::cmp::Ordering;
 
+use forgesync_core::content::Discussion;
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use sqlx::SqliteConnection;
+
+use super::thread_rows::{load_thread_observation, update_thread_payload};
 use super::{
-    Archive, ArchiveLeaseToken, CollectionCompleteness, CoverageState, Discussion, EvidenceFamily,
-    Observation, ObservationDisposition, ObservationSequence, Ordering, SourceClock, SourceState,
-    SqliteConnection, StoreError, StoredThreadObservation, ThreadKind, ThreadObservationResult,
-    ThreadPayloadUpdate, UtcTimestamp, checked_sequence, compare_observation_order,
-    normalize_source_clock, repository_row_id, require_active_archive_lease, source_clock_columns,
-    source_clock_from_columns, sqlite_integer, to_sql_sequence, write_coverage,
+    CoverageState, EvidenceFamily, ObservationDisposition, ObservationSequence, SourceClockColumns,
+    StoredThreadObservation, ThreadObservationResult, ThreadPayloadUpdate, UtcTimestamp,
+    compare_observation_order, normalize_source_clock, repository_row_id, source_clock_columns,
+    sqlite_integer, to_sql_sequence, write_coverage,
 };
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
 impl Archive {
     /// Applies one issue or pull-request snapshot using source clock and acquisition ordering.
@@ -38,7 +45,7 @@ impl Archive {
             .await
     }
 
-    /// Applies a parent observation atomically under optional lease fencing.
+    /// Keeps canonical content, evidence clocks, and coverage in one fenced transaction.
     async fn apply_thread_observation_inner(
         &self,
         observation: &Observation<Discussion>,
@@ -47,234 +54,289 @@ impl Archive {
         if observation.family() != EvidenceFamily::Threads {
             return Err(StoreError::ObservationFamilyMismatch);
         }
-
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let discussion = observation.payload();
-        let payload_json = serde_json::to_string(discussion)?;
-        let incoming_clock = normalize_source_clock(observation.source_clock())?;
-        let incoming_clock_columns = source_clock_columns(&incoming_clock)?;
-        let thread_number = sqlite_integer(discussion.id.number().get())?;
-        let incoming_sequence = observation.sequence();
-        let completeness = observation.completeness();
-
+        let incoming = IncomingThread::new(observation)?;
         let mut transaction = writer.begin().await?;
         if let Some(token) = token {
             require_active_archive_lease(&mut transaction, token).await?;
         }
-        let repository_row_id = repository_row_id(
-            &mut transaction,
+        let result = incoming.apply(&mut transaction).await?;
+        transaction.commit().await?;
+        Ok(result)
+    }
+}
+
+/// Incoming domain observation plus the checked representations required for SQL application.
+pub struct IncomingThread<'a> {
+    /// Source value whose acquisition scope and completeness remain authoritative.
+    pub observation: &'a Observation<Discussion>,
+    /// Serialized canonical payload used for equality checks and row storage.
+    pub payload_json: String,
+    /// Normalized clock used by ordering policy.
+    clock: SourceClock,
+    /// Checked clock columns shared by payload and evidence writes.
+    pub columns: SourceClockColumns,
+    /// Checked SQLite representation of the public discussion number.
+    pub number: i64,
+}
+
+impl<'a> IncomingThread<'a> {
+    /// Serializes and checks the incoming representations before the transaction begins.
+    fn new(observation: &'a Observation<Discussion>) -> Result<Self, StoreError> {
+        let payload_json = serde_json::to_string(observation.payload())?;
+        let clock = normalize_source_clock(observation.source_clock())?;
+        let columns = source_clock_columns(&clock)?;
+        let number = sqlite_integer(observation.payload().id.number().get())?;
+        Ok(Self {
+            observation,
+            payload_json,
+            clock,
+            columns,
+            number,
+        })
+    }
+
+    /// Resolves local identity, selects canonical state, and applies only permitted changes.
+    async fn apply(
+        &self,
+        connection: &mut SqliteConnection,
+    ) -> Result<ThreadObservationResult, StoreError> {
+        let discussion = self.observation.payload();
+        let repository = repository_row_id(
+            connection,
             discussion.id.repository().host().as_str(),
             discussion.id.repository().provider_id().as_str(),
         )
         .await?;
-        let existing = load_thread_observation(
-            &mut transaction,
-            repository_row_id,
-            discussion.id.provider_id().as_str(),
-        )
-        .await?;
+        let existing =
+            load_thread_observation(connection, repository, discussion.id.provider_id().as_str())
+                .await?;
+        let selection = match existing {
+            Some(existing) => self.select_existing(existing)?,
+            None => self.select_new(connection, repository).await?,
+        };
+        match selection {
+            ThreadSelection::Skipped(result) => Ok(result),
+            ThreadSelection::Apply(selected) => selected.apply(connection, repository, self).await,
+        }
+    }
 
-        let (
-            thread_row_id,
+    /// Rejects older source revisions before applying acquisition-order and hydration policy.
+    fn select_existing(
+        &self,
+        existing: StoredThreadObservation,
+    ) -> Result<ThreadSelection, StoreError> {
+        let sequence = self.observation.sequence();
+        let order =
+            compare_observation_order(&self.clock, sequence, &existing.source_clock, sequence)?;
+        if order == Ordering::Less {
+            return Ok(ThreadSelection::Skipped(existing.skipped()));
+        }
+        self.select_revision(existing, order)
+    }
+
+    /// Distinguishes conflicts, stale acquisitions, and complete identical-payload hydration.
+    fn select_revision(
+        &self,
+        existing: StoredThreadObservation,
+        source_order: Ordering,
+    ) -> Result<ThreadSelection, StoreError> {
+        let sequence = self.observation.sequence();
+        let same_payload = self.payload_json == existing.payload_json;
+        let order = compare_observation_order(
+            &self.clock,
+            sequence,
+            &existing.source_clock,
+            existing.sequence,
+        )?;
+        if source_order == Ordering::Equal && sequence == existing.sequence && !same_payload {
+            return Err(StoreError::ConflictingObservation);
+        }
+        let hydrate = source_order == Ordering::Equal
+            && sequence < existing.sequence
+            && same_payload
+            && matches!(
+                self.observation.completeness(),
+                CollectionCompleteness::Complete
+            );
+        if order == Ordering::Less && !hydrate {
+            return Ok(ThreadSelection::Skipped(existing.skipped()));
+        }
+        let canonical_updated = order == Ordering::Greater;
+        let high_water = if canonical_updated {
+            sequence
+        } else {
+            existing.sequence
+        };
+        Ok(ThreadSelection::Apply(CanonicalSelection {
+            id: existing.id,
             canonical_updated,
             high_water,
-            current_evidence_clock,
-            current_evidence_sequence,
-        ) = if let Some(existing) = existing {
-            let source_order = compare_observation_order(
-                &incoming_clock,
-                incoming_sequence,
-                &existing.source_clock,
-                incoming_sequence,
-            )?;
-            if source_order == Ordering::Less {
-                transaction.commit().await?;
-                return Ok(ThreadObservationResult {
-                    thread_row_id: existing.id,
-                    disposition: ObservationDisposition::Skipped,
-                    high_water_sequence: existing.sequence,
-                    evidence_sequence: existing.evidence_sequence,
-                });
-            }
+            evidence_clock: existing.evidence_clock,
+            evidence_sequence: existing.evidence_sequence,
+        }))
+    }
 
-            let same_payload = payload_json == existing.payload_json;
-            let sequence_order = compare_observation_order(
-                &incoming_clock,
-                incoming_sequence,
-                &existing.source_clock,
-                existing.sequence,
-            )?;
-            if source_order == Ordering::Equal
-                && incoming_sequence == existing.sequence
-                && !same_payload
-            {
-                return Err(StoreError::ConflictingObservation);
-            }
-
-            let hydrate_same_payload = source_order == Ordering::Equal
-                && incoming_sequence < existing.sequence
-                && same_payload
-                && matches!(completeness, CollectionCompleteness::Complete);
-            if sequence_order == Ordering::Less && !hydrate_same_payload {
-                transaction.commit().await?;
-                return Ok(ThreadObservationResult {
-                    thread_row_id: existing.id,
-                    disposition: ObservationDisposition::Skipped,
-                    high_water_sequence: existing.sequence,
-                    evidence_sequence: existing.evidence_sequence,
-                });
-            }
-
-            let canonical_updated = sequence_order == Ordering::Greater;
-            let high_water = if canonical_updated {
-                incoming_sequence
-            } else {
-                existing.sequence
-            };
-            (
-                existing.id,
-                canonical_updated,
-                high_water,
-                existing.evidence_clock,
-                existing.evidence_sequence,
-            )
+    /// Inserts a new row whose complete evidence is then applied by the common selection path.
+    async fn select_new(
+        &self,
+        connection: &mut SqliteConnection,
+        repository: i64,
+    ) -> Result<ThreadSelection, StoreError> {
+        let id = self.insert(connection, repository).await?;
+        let evidence_clock = if matches!(
+            self.observation.completeness(),
+            CollectionCompleteness::Complete
+        ) {
+            self.clock.clone()
         } else {
-            let id: i64 = sqlx::query_scalar(
-                    "INSERT INTO threads (repository_id, provider_id, number, kind, state, title, body, html_url, created_at_us, updated_at_us, closed_at_us, labels_json, assignees_json, provider_data_json, payload_json, source_clock_state, source_clock_raw, source_clock_us, observation_sequence, observed_at_us, evidence_clock_state, evidence_clock_raw, evidence_clock_us, evidence_sequence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'missing', '', NULL, 0) RETURNING id",
-                )
-                .bind(repository_row_id)
-                .bind(discussion.id.provider_id().as_str())
-                .bind(thread_number)
-                .bind(thread_kind_name(discussion.kind))
-                .bind(source_state_name(&discussion.state))
-                .bind(&discussion.title)
-                .bind(&discussion.body)
-                .bind(&discussion.html_url)
-                .bind(discussion.created_at.unix_microseconds())
-                .bind(discussion.updated_at.unix_microseconds())
-                .bind(discussion.closed_at.map(UtcTimestamp::unix_microseconds))
-                .bind(serde_json::to_string(&discussion.labels)?)
-                .bind(serde_json::to_string(&discussion.assignees)?)
-                .bind(serde_json::to_string(&discussion.provider_data)?)
-                .bind(&payload_json)
-                .bind(incoming_clock_columns.state)
-                .bind(&incoming_clock_columns.raw)
-                .bind(incoming_clock_columns.unix_microseconds)
-                .bind(to_sql_sequence(incoming_sequence)?)
-                .bind(observation.observed_at().unix_microseconds())
-                .fetch_one(&mut *transaction)
-                .await?;
-            let evidence_sequence = if matches!(completeness, CollectionCompleteness::Complete) {
-                Some(incoming_sequence)
-            } else {
-                None
-            };
-            let evidence_clock = if evidence_sequence.is_some() {
-                incoming_clock.clone()
-            } else {
-                SourceClock::Missing
-            };
-            (id, true, incoming_sequence, evidence_clock, None)
+            SourceClock::Missing
         };
+        Ok(ThreadSelection::Apply(CanonicalSelection {
+            id,
+            canonical_updated: true,
+            high_water: self.observation.sequence(),
+            evidence_clock,
+            evidence_sequence: None,
+        }))
+    }
+}
 
-        let evidence_applied = if matches!(completeness, CollectionCompleteness::Complete) {
-            match current_evidence_sequence {
-                None => true,
-                Some(current_sequence) => {
-                    compare_observation_order(
-                        &incoming_clock,
-                        incoming_sequence,
-                        &current_evidence_clock,
-                        current_sequence,
-                    )? == Ordering::Greater
-                }
-            }
-        } else {
-            false
-        };
+/// Canonical selection either preserves stored state or identifies the row allowed to change.
+enum ThreadSelection {
+    Skipped(ThreadObservationResult),
+    Apply(CanonicalSelection),
+}
 
-        if canonical_updated {
-            update_thread_payload(
-                &mut transaction,
-                thread_row_id,
-                repository_row_id,
-                thread_number,
-                ThreadPayloadUpdate {
-                    discussion,
-                    payload_json: &payload_json,
-                    source_clock: &incoming_clock_columns,
-                    high_water_sequence: high_water,
-                    observed_at: observation.observed_at(),
-                    evidence_sequence: evidence_applied.then_some(incoming_sequence),
-                },
-            )
-            .await?;
-        } else if evidence_applied {
-            sqlx::query(
-                "UPDATE threads SET evidence_clock_state = ?, evidence_clock_raw = ?, evidence_clock_us = ?, evidence_sequence = ? WHERE id = ?",
-            )
-            .bind(incoming_clock_columns.state)
-            .bind(&incoming_clock_columns.raw)
-            .bind(incoming_clock_columns.unix_microseconds)
-            .bind(to_sql_sequence(incoming_sequence)?)
-            .bind(thread_row_id)
-            .execute(&mut *transaction)
-            .await?;
-        }
+/// Selected canonical row with independent source and complete-evidence high-water positions.
+struct CanonicalSelection {
+    id: i64,
+    canonical_updated: bool,
+    high_water: ObservationSequence,
+    evidence_clock: SourceClock,
+    evidence_sequence: Option<ObservationSequence>,
+}
 
-        let disposition = if canonical_updated || evidence_applied {
-            let state = coverage_state(
-                completeness,
-                observation.observed_at(),
-                incoming_sequence,
-                1,
-            );
-            write_coverage(
-                &mut transaction,
-                thread_row_id,
-                EvidenceFamily::Threads,
-                &incoming_clock_columns,
-                observation.observed_at(),
-                incoming_sequence,
-                &state,
-            )
+impl CanonicalSelection {
+    /// Writes permitted payload/evidence changes and returns the resulting public positions.
+    async fn apply(
+        &self,
+        connection: &mut SqliteConnection,
+        repository: i64,
+        incoming: &IncomingThread<'_>,
+    ) -> Result<ThreadObservationResult, StoreError> {
+        let evidence_sequence = self
+            .accepts_evidence(incoming)?
+            .then_some(incoming.observation.sequence());
+        self.update(connection, repository, incoming, evidence_sequence)
             .await?;
+        let disposition = if self.canonical_updated || evidence_sequence.is_some() {
+            self.coverage(connection, incoming).await?;
             ObservationDisposition::Applied
         } else {
             ObservationDisposition::Replayed
         };
-
-        transaction.commit().await?;
+        let evidence_sequence = evidence_sequence.or(self.evidence_sequence);
         Ok(ThreadObservationResult {
-            thread_row_id,
+            thread_row_id: self.id,
             disposition,
-            high_water_sequence: high_water,
-            evidence_sequence: if evidence_applied {
-                Some(incoming_sequence)
-            } else {
-                current_evidence_sequence
-            },
+            high_water_sequence: self.high_water,
+            evidence_sequence,
         })
     }
-}
 
-/// Maps a normalized discussion kind to its stored label.
-fn thread_kind_name(kind: ThreadKind) -> &'static str {
-    match kind {
-        ThreadKind::Issue => "issue",
-        ThreadKind::PullRequest => "pull_request",
+    /// Accepts only complete evidence newer than the current complete-evidence position.
+    fn accepts_evidence(&self, incoming: &IncomingThread<'_>) -> Result<bool, StoreError> {
+        if !matches!(
+            incoming.observation.completeness(),
+            CollectionCompleteness::Complete
+        ) {
+            return Ok(false);
+        }
+        match self.evidence_sequence {
+            None => Ok(true),
+            Some(sequence) => Ok(compare_observation_order(
+                &incoming.clock,
+                incoming.observation.sequence(),
+                &self.evidence_clock,
+                sequence,
+            )? == Ordering::Greater),
+        }
+    }
+
+    /// Writes canonical payload or evidence-only hydration, keeping those effects distinct.
+    async fn update(
+        &self,
+        connection: &mut SqliteConnection,
+        repository: i64,
+        incoming: &IncomingThread<'_>,
+        evidence_sequence: Option<ObservationSequence>,
+    ) -> Result<(), StoreError> {
+        if self.canonical_updated {
+            let update = ThreadPayloadUpdate {
+                discussion: incoming.observation.payload(),
+                payload_json: &incoming.payload_json,
+                source_clock: &incoming.columns,
+                high_water_sequence: self.high_water,
+                observed_at: incoming.observation.observed_at(),
+                evidence_sequence,
+            };
+            update_thread_payload(connection, self.id, repository, incoming.number, update).await?;
+        } else if evidence_sequence.is_some() {
+            self.update_evidence(connection, incoming).await?;
+        }
+        Ok(())
+    }
+
+    /// Advances complete-evidence columns while retaining the selected canonical payload.
+    async fn update_evidence(
+        &self,
+        connection: &mut SqliteConnection,
+        incoming: &IncomingThread<'_>,
+    ) -> Result<(), StoreError> {
+        sqlx::query("UPDATE threads SET evidence_clock_state = ?, evidence_clock_raw = ?, evidence_clock_us = ?, evidence_sequence = ? WHERE id = ?")
+            .bind(incoming.columns.state).bind(&incoming.columns.raw).bind(incoming.columns.unix_microseconds)
+            .bind(to_sql_sequence(incoming.observation.sequence())?).bind(self.id).execute(&mut *connection).await?;
+        Ok(())
+    }
+
+    /// Derives parent coverage from the incoming completeness after a selected state change.
+    async fn coverage(
+        &self,
+        connection: &mut SqliteConnection,
+        incoming: &IncomingThread<'_>,
+    ) -> Result<(), StoreError> {
+        let observation = incoming.observation;
+        let state = coverage_state(
+            observation.completeness(),
+            observation.observed_at(),
+            observation.sequence(),
+            1,
+        );
+        write_coverage(
+            connection,
+            self.id,
+            EvidenceFamily::Threads,
+            &incoming.columns,
+            observation.observed_at(),
+            observation.sequence(),
+            &state,
+        )
+        .await
     }
 }
 
-/// Maps a provider source state to its stored label.
-fn source_state_name(state: &SourceState) -> &str {
-    match state {
-        SourceState::Open => "open",
-        SourceState::Closed => "closed",
-        SourceState::Other(value) => value,
+impl StoredThreadObservation {
+    /// Returns both stored positions unchanged when incoming ordering excludes application.
+    fn skipped(&self) -> ThreadObservationResult {
+        ThreadObservationResult {
+            thread_row_id: self.id,
+            disposition: ObservationDisposition::Skipped,
+            high_water_sequence: self.sequence,
+            evidence_sequence: self.evidence_sequence,
+        }
     }
 }
-
 /// Derives coverage only from the declared completeness of the observation.
 fn coverage_state(
     completeness: &CollectionCompleteness,
@@ -299,103 +361,4 @@ fn coverage_state(
             failure: None,
         },
     }
-}
-
-/// Loads current clocks and payload before deciding canonical replacement.
-async fn load_thread_observation(
-    connection: &mut SqliteConnection,
-    repository_row_id: i64,
-    provider_id: &str,
-) -> Result<Option<StoredThreadObservation>, StoreError> {
-    let row = sqlx::query(
-        "SELECT id, payload_json, source_clock_state, source_clock_raw, source_clock_us, observation_sequence, evidence_clock_state, evidence_clock_raw, evidence_clock_us, evidence_sequence FROM threads WHERE repository_id = ? AND provider_id = ?",
-    )
-    .bind(repository_row_id)
-    .bind(provider_id)
-    .fetch_optional(&mut *connection)
-    .await?;
-    let Some(row) = row else {
-        return Ok(None);
-    };
-
-    let id: i64 = row.try_get("id")?;
-    let payload_json: String = row.try_get("payload_json")?;
-    let source_state: String = row.try_get("source_clock_state")?;
-    let source_raw: String = row.try_get("source_clock_raw")?;
-    let source_microseconds: Option<i64> = row.try_get("source_clock_us")?;
-    let sequence: i64 = row.try_get("observation_sequence")?;
-    let evidence_state: String = row.try_get("evidence_clock_state")?;
-    let evidence_raw: String = row.try_get("evidence_clock_raw")?;
-    let evidence_microseconds: Option<i64> = row.try_get("evidence_clock_us")?;
-    let evidence_sequence: i64 = row.try_get("evidence_sequence")?;
-
-    Ok(Some(StoredThreadObservation {
-        id,
-        payload_json,
-        source_clock: source_clock_from_columns(&source_state, &source_raw, source_microseconds)?,
-        sequence: checked_sequence(sequence)?,
-        evidence_clock: source_clock_from_columns(
-            &evidence_state,
-            &evidence_raw,
-            evidence_microseconds,
-        )?,
-        evidence_sequence: if evidence_sequence == 0 {
-            None
-        } else {
-            Some(checked_sequence(evidence_sequence)?)
-        },
-    }))
-}
-
-/// Updates canonical discussion content without rewriting child evidence.
-async fn update_thread_payload(
-    connection: &mut SqliteConnection,
-    id: i64,
-    repository_row_id: i64,
-    number: i64,
-    update: ThreadPayloadUpdate<'_>,
-) -> Result<(), StoreError> {
-    let query = if update.evidence_sequence.is_none() {
-        sqlx::query(
-            "UPDATE threads SET number = ?, kind = ?, state = ?, title = ?, body = ?, html_url = ?, created_at_us = ?, updated_at_us = ?, closed_at_us = ?, labels_json = ?, assignees_json = ?, provider_data_json = ?, payload_json = ?, source_clock_state = ?, source_clock_raw = ?, source_clock_us = ?, observation_sequence = ?, observed_at_us = ? WHERE id = ? AND repository_id = ?",
-        )
-    } else {
-        sqlx::query(
-            "UPDATE threads SET number = ?, kind = ?, state = ?, title = ?, body = ?, html_url = ?, created_at_us = ?, updated_at_us = ?, closed_at_us = ?, labels_json = ?, assignees_json = ?, provider_data_json = ?, payload_json = ?, source_clock_state = ?, source_clock_raw = ?, source_clock_us = ?, observation_sequence = ?, observed_at_us = ?, evidence_clock_state = ?, evidence_clock_raw = ?, evidence_clock_us = ?, evidence_sequence = ? WHERE id = ? AND repository_id = ?",
-        )
-    };
-    let mut query = query
-        .bind(number)
-        .bind(thread_kind_name(update.discussion.kind))
-        .bind(source_state_name(&update.discussion.state))
-        .bind(&update.discussion.title)
-        .bind(&update.discussion.body)
-        .bind(&update.discussion.html_url)
-        .bind(update.discussion.created_at.unix_microseconds())
-        .bind(update.discussion.updated_at.unix_microseconds())
-        .bind(
-            update
-                .discussion
-                .closed_at
-                .map(UtcTimestamp::unix_microseconds),
-        )
-        .bind(serde_json::to_string(&update.discussion.labels)?)
-        .bind(serde_json::to_string(&update.discussion.assignees)?)
-        .bind(serde_json::to_string(&update.discussion.provider_data)?)
-        .bind(update.payload_json)
-        .bind(update.source_clock.state)
-        .bind(&update.source_clock.raw)
-        .bind(update.source_clock.unix_microseconds)
-        .bind(to_sql_sequence(update.high_water_sequence)?)
-        .bind(update.observed_at.unix_microseconds());
-    if let Some(evidence_sequence) = update.evidence_sequence {
-        query = query
-            .bind(update.source_clock.state)
-            .bind(&update.source_clock.raw)
-            .bind(update.source_clock.unix_microseconds)
-            .bind(to_sql_sequence(evidence_sequence)?);
-    }
-    query = query.bind(id).bind(repository_row_id);
-    query.execute(&mut *connection).await?;
-    Ok(())
 }
