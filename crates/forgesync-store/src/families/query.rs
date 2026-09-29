@@ -6,6 +6,9 @@
 //!
 //! Keep a family's coverage independent from parent-thread coverage: a current parent snapshot
 //! does not prove that comments, reviews, or review threads were collected successfully.
+//! `MembershipExpectation` distinguishes parent-reported counts from head-bound review evidence.
+//! `FamilyFreshness` evaluates those expectations against coverage and canonical rows without
+//! changing the archive. Membership reads decode payloads separately from the reuse decision.
 
 use sqlx::Row;
 
@@ -64,9 +67,7 @@ impl Archive {
             thread,
             family,
             source_clock,
-            expected_item_count,
-            None,
-            false,
+            MembershipExpectation::Reported(expected_item_count),
         )
         .await
     }
@@ -87,8 +88,13 @@ impl Archive {
         ) {
             return Err(StoreError::UnexpectedPullRequestHeadContext);
         }
-        self.child_family_is_current_inner(thread, family, source_clock, None, Some(head_sha), true)
-            .await
+        self.child_family_is_current_inner(
+            thread,
+            family,
+            source_clock,
+            MembershipExpectation::ForHead(head_sha),
+        )
+        .await
     }
 
     /// Checks whether staged child evidence still belongs to the current parent.
@@ -97,70 +103,126 @@ impl Archive {
         thread: &ThreadId,
         family: EvidenceFamily,
         source_clock: &SourceClock,
-        expected_item_count: Option<u64>,
-        expected_head_sha: Option<&CommitSha>,
-        allow_stored_count: bool,
+        expectation: MembershipExpectation<'_>,
     ) -> Result<bool, StoreError> {
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),
             ));
         }
-        if expected_item_count.is_none() && !allow_stored_count {
+        if matches!(expectation, MembershipExpectation::Reported(None)) {
             return Ok(false);
         }
         let source_clock = normalize_source_clock(source_clock)?;
         let source_fields = source_clock_columns(&source_clock)?;
         let mut connection = self.reader.acquire().await?;
         let row_id = thread_row_id(&mut connection, thread).await?;
+        let freshness = FamilyFreshness {
+            thread: row_id,
+            family: evidence_family_name(family),
+            source: source_fields,
+            expectation,
+        };
+        freshness.current(&mut connection).await
+    }
+}
+
+/// Reuse eligibility for one family, using independent source, head, and membership evidence.
+///
+/// A current parent does not make a child collection current. This read requires the exact source
+/// clock, complete coverage, a count that agrees with canonical membership, and (for review
+/// families) the expected pull-request head. No check here changes coverage or staged generations.
+struct FamilyFreshness<'a> {
+    thread: i64,
+    family: &'static str,
+    source: crate::observations::SourceClockColumns,
+    expectation: MembershipExpectation<'a>,
+}
+
+impl FamilyFreshness<'_> {
+    /// Evaluates complete coverage before comparing the durable member count.
+    async fn current(&self, connection: &mut sqlx::SqliteConnection) -> Result<bool, StoreError> {
         let row = sqlx::query(
             "SELECT source_clock_state, source_clock_raw, source_clock_us, state_json FROM family_coverage WHERE thread_id = ? AND family = ?",
         )
-        .bind(row_id)
-        .bind(evidence_family_name(family))
-        .fetch_optional(&mut *connection)
-        .await?;
+        .bind(self.thread).bind(self.family).fetch_optional(&mut *connection).await?;
         let Some(row) = row else {
             return Ok(false);
         };
-        let stored_state: String = row.try_get("source_clock_state")?;
-        let stored_raw: String = row.try_get("source_clock_raw")?;
-        let stored_microseconds: Option<i64> = row.try_get("source_clock_us")?;
-        if stored_state != source_fields.state
-            || stored_raw != source_fields.raw
-            || stored_microseconds != source_fields.unix_microseconds
-        {
+        if !self.clock_matches(&row)? {
             return Ok(false);
         }
-        if let Some(expected_head_sha) = expected_head_sha {
-            let stored_head_sha: Option<String> = sqlx::query_scalar(
-                "SELECT head_sha FROM thread_family_head_contexts WHERE thread_id = ? AND family = ?",
-            )
-            .bind(row_id)
-            .bind(evidence_family_name(family))
-            .fetch_optional(&mut *connection)
-            .await?;
-            if stored_head_sha.as_deref() != Some(expected_head_sha.as_str()) {
-                return Ok(false);
-            }
+        if !self.head_matches(connection).await? {
+            return Ok(false);
         }
         let state_json: String = row.try_get("state_json")?;
         let state: CoverageState = serde_json::from_str(&state_json)?;
         let CoverageState::Complete { item_count, .. } = state else {
             return Ok(false);
         };
-        if expected_item_count.is_some_and(|expected| item_count != expected) {
+        if let MembershipExpectation::Reported(Some(expected)) = self.expectation
+            && item_count != expected
+        {
             return Ok(false);
         }
-        let member_count: i64 = sqlx::query_scalar(
+        self.members_match(connection, item_count).await
+    }
+
+    /// Compares all source-clock columns so malformed and unknown clocks retain their identity.
+    fn clock_matches(&self, row: &sqlx::sqlite::SqliteRow) -> Result<bool, StoreError> {
+        let state: String = row.try_get("source_clock_state")?;
+        let raw: String = row.try_get("source_clock_raw")?;
+        let microseconds: Option<i64> = row.try_get("source_clock_us")?;
+        Ok(state == self.source.state
+            && raw == self.source.raw
+            && microseconds == self.source.unix_microseconds)
+    }
+
+    /// Requires the stored review head only for families whose expected count comes from coverage.
+    async fn head_matches(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> Result<bool, StoreError> {
+        let MembershipExpectation::ForHead(expected) = self.expectation else {
+            return Ok(true);
+        };
+        let stored: Option<String> = sqlx::query_scalar(
+            "SELECT head_sha FROM thread_family_head_contexts WHERE thread_id = ? AND family = ?",
+        )
+        .bind(self.thread)
+        .bind(self.family)
+        .fetch_optional(&mut *connection)
+        .await?;
+        Ok(stored.as_deref() == Some(expected.as_str()))
+    }
+
+    /// Rejects coverage whose recorded complete count no longer agrees with canonical membership.
+    async fn members_match(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+        expected: u64,
+    ) -> Result<bool, StoreError> {
+        let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM thread_family_membership WHERE thread_id = ? AND family = ?",
         )
-        .bind(row_id)
-        .bind(evidence_family_name(family))
+        .bind(self.thread)
+        .bind(self.family)
         .fetch_one(&mut *connection)
         .await?;
-        let member_count =
-            u64::try_from(member_count).map_err(|_| StoreError::InvalidStoredSequence)?;
-        Ok(member_count == item_count)
+        let count = u64::try_from(count).map_err(|_| StoreError::InvalidStoredSequence)?;
+        Ok(count == expected)
     }
+}
+
+/// The independent evidence that makes a stored complete membership eligible for reuse.
+///
+/// Parent-reported child counts must be known and match coverage. Pull-request review families
+/// instead require a matching head and validate their coverage count against canonical membership,
+/// because the parent issue representation does not report those family counts.
+#[derive(Clone, Copy)]
+enum MembershipExpectation<'a> {
+    /// Count supplied by parent metadata; unknown counts require acquisition.
+    Reported(Option<u64>),
+    /// Review evidence tied to the current pull-request head.
+    ForHead(&'a CommitSha),
 }
