@@ -140,6 +140,7 @@ impl From<bool> for OutputMode {
 }
 
 impl OutputMode {
+    /// Selects structured output at rendering boundaries after the CLI flag has been resolved.
     const fn is_json(self) -> bool {
         matches!(self, Self::Json)
     }

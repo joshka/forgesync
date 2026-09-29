@@ -8,6 +8,7 @@
 
 use std::path::Path;
 
+/// Emits migration-file dependencies so Cargo regenerates embedded SQL after schema edits.
 fn main() {
     let migrations = Path::new("migrations");
     println!("cargo:rerun-if-changed={}", migrations.display());

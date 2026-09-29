@@ -6,7 +6,11 @@
 //! `browser` owns thread navigation; `triage` owns cluster and decision interactions. A handler
 //! may request asynchronous work through app/query state, but drawing remains in `view`.
 
-use super::{App, Focus, KeyCode, KeyEvent, KeyModifiers, QueryAction, RepositorySelector, Screen};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use forgesync_engine::reference::RepositorySelector;
+
+use crate::app::{App, Focus, Screen};
+use crate::query::QueryAction;
 
 mod browser;
 mod triage;
@@ -39,38 +43,60 @@ impl App {
     fn handle_global_key(&mut self, code: KeyCode) -> Option<Vec<QueryAction>> {
         let actions = match code {
             KeyCode::Char('q') => self.request_quit(),
-            KeyCode::Char('c') => {
-                self.screen = Screen::Coverage;
-                self.status = None;
-                vec![QueryAction::Coverage]
-            }
-            KeyCode::Char('f') => {
-                self.screen = Screen::Failures;
-                self.status = None;
-                vec![QueryAction::Failures]
-            }
-            KeyCode::Char('g') => {
-                self.screen = Screen::Clusters;
-                self.status = None;
-                vec![QueryAction::Clusters {
-                    repositories: self.repository_scope(),
-                }]
-            }
-            KeyCode::Char('s') => vec![QueryAction::Sync {
-                repositories: self.repository_scope(),
-            }],
-            KeyCode::Char('R') => vec![QueryAction::Refresh {
-                repositories: self.repository_scope(),
-            }],
-            KeyCode::Char('/') => {
-                self.screen = Screen::Browser;
-                self.searching = true;
-                self.search_input = self.search_query.clone().unwrap_or_default();
-                Vec::new()
-            }
+            KeyCode::Char('c') => self.show_coverage(),
+            KeyCode::Char('f') => self.show_failures(),
+            KeyCode::Char('g') => self.show_clusters(),
+            KeyCode::Char('s') => self.sync_scope(),
+            KeyCode::Char('R') => self.refresh_scope(),
+            KeyCode::Char('/') => self.edit_search(),
             _ => return None,
         };
         Some(actions)
+    }
+
+    /// Requests coverage and clears unrelated status before displaying its screen.
+    fn show_coverage(&mut self) -> Vec<QueryAction> {
+        self.screen = Screen::Coverage;
+        self.status = None;
+        vec![QueryAction::Coverage]
+    }
+
+    /// Requests the durable failure ledger for the failure screen.
+    fn show_failures(&mut self) -> Vec<QueryAction> {
+        self.screen = Screen::Failures;
+        self.status = None;
+        vec![QueryAction::Failures]
+    }
+
+    /// Requests clusters within the applied browser scope.
+    fn show_clusters(&mut self) -> Vec<QueryAction> {
+        self.screen = Screen::Clusters;
+        self.status = None;
+        vec![QueryAction::Clusters {
+            repositories: self.repository_scope(),
+        }]
+    }
+
+    /// Starts acquisition using the applied repository filter rather than the picker highlight.
+    fn sync_scope(&self) -> Vec<QueryAction> {
+        vec![QueryAction::Sync {
+            repositories: self.repository_scope(),
+        }]
+    }
+
+    /// Starts the composed refresh workflow using the same scope as browsing.
+    fn refresh_scope(&self) -> Vec<QueryAction> {
+        vec![QueryAction::Refresh {
+            repositories: self.repository_scope(),
+        }]
+    }
+
+    /// Opens a local query draft; editing does not request archive or provider work.
+    fn edit_search(&mut self) -> Vec<QueryAction> {
+        self.screen = Screen::Browser;
+        self.searching = true;
+        self.search_input = self.search_query.clone().unwrap_or_default();
+        Vec::new()
     }
 
     /// Returns to the browser or closes a transient view without losing its scope.
@@ -91,23 +117,39 @@ impl App {
     /// Edits the pending search query until submission or cancellation.
     fn handle_search_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
-            KeyCode::Esc => {
-                self.searching = false;
-                self.search_input.clear();
-            }
-            KeyCode::Enter => {
-                self.searching = false;
-                let query = self.search_input.trim().to_owned();
-                self.search_query = (!query.is_empty()).then_some(query);
-                self.search_input.clear();
-                return vec![self.thread_action(self.search_query.clone(), 0)];
-            }
-            KeyCode::Backspace => {
-                self.search_input.pop();
-            }
-            KeyCode::Char(character) => self.search_input.push(character),
-            _ => {}
+            KeyCode::Esc => self.cancel_search(),
+            KeyCode::Enter => self.submit_search(),
+            KeyCode::Backspace => self.erase_search_character(),
+            KeyCode::Char(character) => self.append_search_character(character),
+            _ => Vec::new(),
         }
+    }
+
+    /// Discards the draft while retaining the applied search query and page.
+    fn cancel_search(&mut self) -> Vec<QueryAction> {
+        self.searching = false;
+        self.search_input.clear();
+        Vec::new()
+    }
+
+    /// Applies a trimmed draft and requests the first page, with empty text clearing the filter.
+    fn submit_search(&mut self) -> Vec<QueryAction> {
+        self.searching = false;
+        let query = self.search_input.trim().to_owned();
+        self.search_query = (!query.is_empty()).then_some(query);
+        self.search_input.clear();
+        vec![self.thread_action(self.search_query.clone(), 0)]
+    }
+
+    /// Removes one Unicode scalar from the pending draft without changing results.
+    fn erase_search_character(&mut self) -> Vec<QueryAction> {
+        self.search_input.pop();
+        Vec::new()
+    }
+
+    /// Extends the pending draft without requesting results until submission.
+    fn append_search_character(&mut self, character: char) -> Vec<QueryAction> {
+        self.search_input.push(character);
         Vec::new()
     }
 

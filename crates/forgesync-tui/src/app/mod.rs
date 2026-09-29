@@ -8,10 +8,7 @@
 //! current app state through `view` but should not initiate archive operations. This split keeps a
 //! user action traceable from key event to query request, result, and rendered screen.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
-use forgesync_core::identity::RunId;
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadSummary};
