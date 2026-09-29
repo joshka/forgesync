@@ -12,6 +12,14 @@ and the [module map](docs/architecture.md) when changing their respective surfac
 [epage's Rust style guide](https://epage.github.io/dev/rust-style/) where they improve this app's
 reader locality, correctness, and API clarity. Local rules resolve conflicting layout preferences.
 
+## Maintaining project guidance
+
+- When maintainer feedback or a recurring review finding establishes a reusable rule, record it in
+  this file or the relevant linked guide during the change. Do not rely on conversation history.
+- State the general rule and why it helps readers or maintainers. Keep one-off implementation
+  decisions with the affected code or change instead of accumulating them here.
+- Update existing guidance when it fits. Keep this file as the entry point to the detailed guides.
+
 ## Boundaries
 
 - Core owns domain identities, normalized content, observations, coverage, and outcomes.

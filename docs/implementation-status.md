@@ -17,6 +17,8 @@
 - Restricted visibility within private CLI and TUI modules and private engine, GitHub, and store
   leaf modules now uses `pub` with the enclosing module as the boundary. Restrictions on public
   types and public modules remain where widening them would expose implementation details.
+- `AGENTS.md` now requires reusable maintainer feedback and recurring review findings to be recorded
+  in the linked project guidance during the change.
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
