@@ -8,18 +8,13 @@
 //! decisions. This keeps a frame deterministic for a given app state and lets input and data
 //! loading remain independently understandable.
 
-use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_store::clusters::{
-    ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
-};
-use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadTimelineEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, Borders, Paragraph};
 
-use crate::app::{App, Focus, Screen};
+use crate::app::{App, Screen};
 
 mod browser;
 mod clusters;
@@ -32,6 +27,7 @@ use clusters::{draw_cluster_detail, draw_clusters};
 use coverage::draw_coverage;
 use failures::draw_failures;
 
+/// Switches panes to a vertical layout below the width needed for two readable columns.
 const COMPACT_WIDTH: u16 = 100;
 
 /// Selects the active screen renderer and keeps header and footer visible.

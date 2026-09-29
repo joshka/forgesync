@@ -1039,3 +1039,14 @@ Current-tree workspace validation passes: nightly formatting, Clippy with warnin
 workspace tests and doctests, the CLI build without default features, and strict public/private
 Rustdoc. Rumdl and changed-page Markdown linting pass. Generated panel, message, coordinator, and
 coverage documentation was read for its ownership, cache, generation, and archive scope contracts.
+
+## Continued maintenance: explicit renderer dependencies
+
+Each terminal renderer now imports domain projections and widget types from their defining crates
+and modules. The view root retains only its own dependencies and shared rendering helpers; it no
+longer supplies a dependency prelude to children. The compact-layout threshold documents the
+readability policy it represents. Query task/request ownership remains a separate review surface.
+
+Focused validation passes: all fifty-one TUI tests and its doctest, plus all-target/all-feature
+Clippy with warnings denied. The broader workspace gates passed immediately before this import-only
+change.

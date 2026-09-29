@@ -6,11 +6,17 @@
 //! A proposal and a maintainer decision should look distinguishable. Layout here explains the
 //! current cluster state; key handling and persistence remain in app input and query operations.
 
-use super::{
-    App, ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState, Color, Frame,
-    Line, List, ListItem, ListState, Modifier, Paragraph, Rect, Style, Text, Wrap, pane_block,
-    selected_style,
+use forgesync_store::clusters::{
+    ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
 };
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Text};
+use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
+
+use crate::app::App;
+use crate::view::{pane_block, selected_style};
 
 /// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {

@@ -8,11 +8,14 @@
 //! focus cues. It should render loading and failure state from the app rather than silently
 //! implying an empty archive.
 
-use super::detail::detail_lines;
-use super::{
-    App, COMPACT_WIDTH, Constraint, Direction, Focus, Frame, Layout, List, ListItem, ListState,
-    Paragraph, Rect, Text, Wrap, pane_block, selected_style,
-};
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::text::Text;
+use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
+
+use crate::app::{App, Focus};
+use crate::view::detail::detail_lines;
+use crate::view::{COMPACT_WIDTH, pane_block, selected_style};
 
 /// Arranges repository, discussion, and detail panes for the available width.
 pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {

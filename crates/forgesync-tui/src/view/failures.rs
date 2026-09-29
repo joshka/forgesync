@@ -7,10 +7,14 @@
 //! Rendering is read-only. Retry and refresh are workflow operations outside this view; the
 //! screen's job is to make recorded failure scope clear.
 
-use super::{
-    App, COMPACT_WIDTH, Color, Constraint, Direction, Frame, Layout, Line, List, ListItem,
-    ListState, Modifier, Paragraph, Rect, Style, Text, Wrap, pane_block, selected_style,
-};
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Text};
+use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
+
+use crate::app::App;
+use crate::view::{COMPACT_WIDTH, pane_block, selected_style};
 
 /// Arranges the failed-run list and selected failure detail.
 pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {

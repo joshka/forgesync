@@ -13,10 +13,15 @@
 //! Current errors take precedence over cached content. Query tasks perform read-only inspection;
 //! this renderer starts no work and does not decide whether an archive should sync or migrate.
 
-use super::{
-    App, ArchiveStatus, Frame, Line, Modifier, Paragraph, Rect, Style, Text, Wrap, family_name,
-    pane_block,
-};
+use forgesync_store::reads::ArchiveStatus;
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Text};
+use ratatui::widgets::{Paragraph, Wrap};
+
+use crate::app::App;
+use crate::view::{family_name, pane_block};
 
 /// Draws archive-wide coverage and health, marking cached refreshes and current read failures.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {

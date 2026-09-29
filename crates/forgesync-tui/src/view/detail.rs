@@ -11,10 +11,13 @@
 //!
 //! Terminal rendering cases exercise compact and wide layouts; resize tests protect scroll bounds.
 
-use super::{
-    App, Color, Line, Modifier, SourceState, Style, ThreadDetail, ThreadKind, ThreadTimelineEvent,
-    family_name,
-};
+use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_store::reads::{ThreadDetail, ThreadTimelineEvent};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::Line;
+
+use crate::app::App;
+use crate::view::family_name;
 
 /// Builds the ordered summary and timeline lines for one discussion.
 pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
