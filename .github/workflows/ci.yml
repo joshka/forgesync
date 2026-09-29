@@ -11,7 +11,7 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up rumdl
         uses: rvben/rumdl@v0
         with:
@@ -30,7 +30,9 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-features --locked
       - name: Build documentation
-        run: cargo doc --workspace --no-deps --all-features --locked
+        env:
+          RUSTDOCFLAGS: -D warnings -D missing_docs -D rustdoc::broken_intra_doc_links
+        run: cargo doc --workspace --no-deps --all-features --document-private-items --locked
 
   platform-smoke:
     strategy:
@@ -51,8 +53,8 @@ jobs:
             binary: forgesync.exe
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Build native CLI
