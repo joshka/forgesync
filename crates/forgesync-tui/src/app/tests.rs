@@ -20,7 +20,8 @@ use forgesync_store::clusters::{
 };
 use forgesync_store::reads::{ThreadPage, ThreadSummary};
 
-use super::{App, Focus, QueryMessage, Screen};
+use super::{App, Focus, Screen};
+use crate::app::messages::QueryMessage;
 use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
 use crate::app::threads::{ThreadList, ThreadReply};

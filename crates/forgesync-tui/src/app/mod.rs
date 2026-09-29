@@ -9,20 +9,18 @@
 //! projections remain coordinated here so a scope or thread selection change invalidates the
 //! corresponding detail rather than leaving an unrelated result visible.
 //!
-//! `input` maps keys to named actions. `state` starts generations and applies [`QueryMessage`]
-//! results only when they still belong to the requested panel. Query tasks perform archive work
-//! asynchronously; the drawing code reads state without initiating archive operations. This path
-//! keeps a key event traceable through request, result, and rendered screen.
+//! `input` maps keys to named actions. `state` starts generations and applies
+//! [`messages::QueryMessage`] results only when they still belong to the requested panel. Query
+//! tasks perform archive work asynchronously; the drawing code reads state without initiating
+//! archive operations. This path keeps a key event traceable through request, result, and rendered
+//! screen.
 //!
 //! Construct the app with [`Default::default`], request its initial repository/thread reads, and
 //! feed current-generation replies through `apply`. The app does not own a terminal, archive pool,
 //! or runtime. [`failures::RunFailureSummary`] is a safe presentation projection for selecting a
 //! run retry; the engine and store retain the complete ledger and decide what work is retryable.
 
-use forgesync_core::content::Repository;
-use forgesync_engine::sync::SyncProgress;
-use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
-use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
+use forgesync_store::clusters::{ClusterDetail, ClusterSummary};
 
 /// Bounded thread-page size used by browser paging; independent of the CLI default.
 const PAGE_SIZE: u32 = 100;
@@ -94,46 +92,11 @@ pub struct App {
     pub quit: bool,
 }
 
-pub enum QueryMessage {
-    Repositories {
-        generation: u64,
-        result: Result<Vec<Repository>, String>,
-    },
-    Threads(threads::ThreadReply),
-    Detail {
-        generation: u64,
-        result: Result<Box<ThreadDetail>, String>,
-    },
-    Coverage {
-        generation: u64,
-        result: Result<Box<ArchiveStatus>, String>,
-    },
-    Failures {
-        generation: u64,
-        result: Result<Vec<failures::RunFailureSummary>, String>,
-    },
-    Clusters {
-        generation: u64,
-        result: Result<Box<ClusterPage>, String>,
-    },
-    ClusterDetail {
-        generation: u64,
-        result: Result<Box<ClusterDetail>, String>,
-    },
-    OperationProgress {
-        generation: u64,
-        progress: SyncProgress,
-    },
-    OperationFinished {
-        generation: u64,
-        result: Result<String, String>,
-    },
-}
-
 pub mod coverage;
 pub mod detail;
 pub mod failures;
 mod input;
+pub mod messages;
 pub mod operation;
 pub mod repositories;
 mod state;

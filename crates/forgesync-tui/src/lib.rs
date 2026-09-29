@@ -54,7 +54,8 @@ use std::io::{self, IsTerminal};
 use std::sync::Arc;
 use std::time::Duration;
 
-use app::{App, QueryMessage};
+use app::App;
+use app::messages::QueryMessage;
 use crossterm::event::{self, Event, KeyEventKind};
 use forgesync_core::identity::GitHubHost;
 use forgesync_github::transport::GitHubClient;

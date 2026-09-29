@@ -21,7 +21,8 @@ use tokio_util::sync::CancellationToken;
 
 use super::action::execute_operation;
 use super::{ActiveOperation, QueryAction, QueryTasks};
-use crate::app::{App, QueryMessage};
+use crate::app::App;
+use crate::app::messages::QueryMessage;
 
 /// Starts one writer operation and reports progress through the UI message channel.
 pub fn start_operation(

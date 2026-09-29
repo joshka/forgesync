@@ -8,12 +8,14 @@
 //! Centralizing the application step prevents stale results or failed operations from being
 //! silently treated as a successful empty page.
 
+use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 
+use super::App;
 use super::failures::RunFailureSummary;
-use super::{App, QueryMessage};
+use super::messages::QueryMessage;
 use crate::query::QueryAction;
 
 impl App {
@@ -77,11 +79,7 @@ impl App {
     }
 
     /// Updates the repository picker without replacing a newer selection.
-    fn apply_repositories(
-        &mut self,
-        generation: u64,
-        result: Result<Vec<super::Repository>, String>,
-    ) {
+    fn apply_repositories(&mut self, generation: u64, result: Result<Vec<Repository>, String>) {
         if let Some(error) = self.repository_picker.apply(generation, result) {
             self.status = Some(error);
         }
