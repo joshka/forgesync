@@ -2,6 +2,9 @@
 
 ## Current position
 
+- Sync job ownership now distinguishes repository lookup, parent-thread scan jobs, comment jobs,
+  and selected pull-request family jobs. Comments and metadata have reserved acquisition owners;
+  job IDs and progress travel together. The 14 sync workflow regressions and engine Clippy passed.
 - Review and review-thread sync now share a reserved, head-aware collection that owns staging
   progress and consuming terminal writes. Provider collectors keep their page-link and cursor
   behavior. A cross-crate function-shape survey and the next ownership slices are recorded in the

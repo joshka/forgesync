@@ -14,55 +14,45 @@
 //! other work still commits.
 
 use std::collections::{HashMap, HashSet};
-use std::num::NonZeroU32;
 use std::time::Duration;
 
-use forgesync_core::content::{Comment, PullRequestMetadata, ThreadKind};
 use forgesync_core::coverage::{DeferredReason, EvidenceFamily, Failure, FailureKind};
 use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
-use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_github::error::GitHubError;
-use forgesync_github::resources::{
-    ThreadListState, fetch_issue_comment_page, fetch_pull_request_metadata, fetch_repository,
-};
+use forgesync_github::resources::ThreadListState;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::leases::ArchiveLeaseToken;
-use forgesync_store::observations::{ObservationDisposition, StagedItem};
-use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
-use forgesync_store::runs::{
-    ChildFamilyFailureScope, RunFailureInput, RunFailureScope, RunRecord, SyncJobCompletion,
-    SyncJobRecord, SyncJobStatus,
-};
+use forgesync_store::reads::ThreadStateFilter;
+use forgesync_store::runs::{RunFailureInput, RunRecord, SyncJobRecord, SyncJobStatus};
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::mpsc;
 use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
-use crate::enumeration::{
-    ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages, github_failure,
-    now_utc,
-};
+use crate::enumeration::{ThreadEnumerationReport, now_utc};
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
 const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
+mod comment_job;
 mod comments;
+mod family_job;
 mod jobs;
 mod metadata;
 mod pull_requests;
+mod repository_work;
 mod review_collection;
 mod review_threads;
 mod reviews;
 mod support;
+mod thread_job;
 
 use jobs::run_jobs;
 use support::{operation_outcome, resolve_selectors};
@@ -194,6 +184,7 @@ struct ScopeUnit {
     update_closed_watermark: bool,
 }
 
+#[derive(Default)]
 struct WorkSummary {
     total_jobs: u64,
     completed_jobs: u64,
@@ -417,15 +408,6 @@ async fn execute_and_finalize(
     })
 }
 
-#[derive(Default)]
-struct CommentThreadResult {
-    pages_completed: u64,
-    comments_received: u64,
-    comments_committed: u64,
-    failure: Option<Failure>,
-    interrupted: bool,
-}
-
 struct ThreadFamilyResult<T> {
     pages_completed: u64,
     items_received: u64,
@@ -446,15 +428,6 @@ impl<T> Default for ThreadFamilyResult<T> {
             interrupted: false,
         }
     }
-}
-
-#[derive(Default)]
-struct FamilyJobAccumulator {
-    pages_completed: u64,
-    items_committed: u64,
-    hard_failure: Option<Failure>,
-    deferred_failure: Option<Failure>,
-    interrupted: bool,
 }
 
 struct PullRequestTarget {

@@ -27,6 +27,12 @@ staging counts and consuming completion/failure operations. `reviews` follows RE
 `review_threads` owns GraphQL cursor traversal and cycle detection. Provider traversal and archive
 finalization can therefore be read independently without repeating their shared policy.
 
+Repository sync uses `jobs` for lookup and scope traversal, `thread_job` for durable parent scans,
+and `repository_work` for immutable services and selected scope. `comment_job` owns repository-wide
+comment accounting; `comments` owns a reserved per-discussion collection. `pull_requests` owns
+selected metadata/review jobs, and `family_job` holds their IDs, accumulated results, and terminal
+ledger writes. `metadata` reserves and applies the head observation before review acquisition.
+
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose

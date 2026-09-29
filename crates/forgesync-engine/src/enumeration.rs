@@ -42,6 +42,7 @@ pub struct ThreadEnumerationReport {
     pub interrupted: bool,
 }
 
+#[derive(Clone)]
 pub(crate) struct ThreadScanContext {
     pub repository: Repository,
     pub sequence: forgesync_core::identity::ObservationSequence,

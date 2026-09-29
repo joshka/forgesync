@@ -1,327 +1,299 @@
-//! # Select and run pull-request evidence jobs
+//! # Acquire selected pull-request evidence as independent durable jobs
 //!
-//! These helpers identify pull-request targets, run their requested evidence work, and accumulate
-//! per-thread outcomes. Family completion is recorded with the appropriate run-job scope.
+//! `RepositoryWork::sync_pull_requests` discovers archived pull requests in the selected scope,
+//! then starts metadata and the requested review-family jobs. `PullRequestJobs` owns those started
+//! jobs throughout traversal, with optional jobs representing families the user actually selected.
 //!
-//! Pull requests need review and review-thread handling beyond ordinary issue comments. This
-//! module coordinates that branch while the individual family modules own pagination and the store
-//! enforces completeness.
+//! Each target acquires metadata first, then reviews and review threads against that result. A
+//! failed family is accumulated without discarding sibling successes. Cancellation marks exactly
+//! the jobs affected by the interrupted phase. Terminal writes consume the started jobs, publish
+//! progress, and preserve their page/member counts in the durable ledger.
 
-use super::metadata::sync_thread_pull_request_metadata;
+use std::num::NonZeroU32;
+
+use forgesync_core::content::{PullRequestMetadata, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_store::error::StoreError;
+use forgesync_store::reads::{ThreadQuery, ThreadSort};
+
+use super::family_job::FamilyJob;
+use super::repository_work::RepositoryWork;
 use super::review_collection::{ReviewFamily, ReviewSync};
-use super::support::{count_failure, progress_status, send_progress, store_state_filter};
+use super::support::{send_progress, store_state_filter};
 use super::{
-    Archive, EngineError, EvidenceFamily, FailureKind, FamilyJobAccumulator, GitHubClient,
-    NonZeroU32, PullRequestTarget, RepositorySelector, ScopeUnit, StoreError, SyncJobCompletion,
-    SyncJobStatus, SyncProgressStatus, SyncRunContext, ThreadFamilyResult, ThreadFamilyScope,
-    ThreadKind, ThreadQuery, ThreadSort, WorkSummary, now_utc,
+    PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope, WorkSummary,
 };
+use crate::enumeration::now_utc;
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
 
-/// Runs selected pull-request families with independent failure boundaries.
-pub async fn run_pull_request_jobs(
-    archive: &Archive,
-    client: &GitHubClient,
-    repository: &forgesync_core::content::Repository,
-    unit: ScopeUnit,
-    context: &SyncRunContext<'_>,
-    summary: &mut WorkSummary,
-) -> Result<(), EngineError> {
-    let targets = pull_request_targets(archive, repository, unit).await?;
-    if targets.is_empty() {
-        return Ok(());
-    }
-    let added_jobs =
-        1 + u64::from(context.include_reviews) + u64::from(context.include_review_threads);
-    summary.total_jobs = summary
-        .total_jobs
-        .checked_add(added_jobs)
-        .ok_or(StoreError::IntegerOutOfRange)?;
-
-    let started_at = now_utc()?;
-    let metadata_job_id = archive
-        .start_sync_job(
-            context.lease,
-            context.run_id,
-            &repository.id,
-            EvidenceFamily::PullRequestMetadata,
-            unit.key,
-            started_at,
-        )
-        .await?;
-    let reviews_job_id = if context.include_reviews {
-        Some(
-            archive
-                .start_sync_job(
-                    context.lease,
-                    context.run_id,
-                    &repository.id,
-                    EvidenceFamily::Reviews,
-                    unit.key,
-                    started_at,
-                )
-                .await?,
-        )
-    } else {
-        None
-    };
-    let review_threads_job_id = if context.include_review_threads {
-        Some(
-            archive
-                .start_sync_job(
-                    context.lease,
-                    context.run_id,
-                    &repository.id,
-                    EvidenceFamily::ReviewThreads,
-                    unit.key,
-                    started_at,
-                )
-                .await?,
-        )
-    } else {
-        None
-    };
-    let progress_repository = RepositorySelector::from_repository(repository).as_url();
-    send_progress(
-        &context.progress,
-        context.run_id,
-        summary,
-        summary.total_jobs,
-        Some(progress_repository.clone()),
-        SyncProgressStatus::InProgress,
-    );
-
-    let mut metadata_job = FamilyJobAccumulator::default();
-    let mut reviews_job = FamilyJobAccumulator::default();
-    let mut review_threads_job = FamilyJobAccumulator::default();
-    for target in targets {
-        if context.cancellation.is_cancelled() {
-            metadata_job.interrupted = true;
-            reviews_job.interrupted = context.include_reviews;
-            review_threads_job.interrupted = context.include_review_threads;
-            break;
+impl<'a> RepositoryWork<'a> {
+    /// Runs the selected pull-request families with metadata preceding head-bound review evidence.
+    pub async fn sync_pull_requests(self, summary: &mut WorkSummary) -> Result<(), EngineError> {
+        let targets = self.pull_request_targets().await?;
+        if targets.is_empty() {
+            return Ok(());
         }
-        let family_scope = ThreadFamilyScope {
-            repository,
+        let mut jobs = self.start_pull_request_jobs(summary).await?;
+        jobs.acquire(targets, summary).await?;
+        jobs.finish(summary).await
+    }
+
+    /// Starts exactly the requested family jobs before traversal and announces their shared scope.
+    async fn start_pull_request_jobs(
+        self,
+        summary: &mut WorkSummary,
+    ) -> Result<PullRequestJobs<'a>, EngineError> {
+        let added = 1
+            + u64::from(self.context.include_reviews)
+            + u64::from(self.context.include_review_threads);
+        summary.total_jobs = summary
+            .total_jobs
+            .checked_add(added)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        let started_at = now_utc()?;
+        let metadata = self
+            .start_pull_request_job(EvidenceFamily::PullRequestMetadata, started_at)
+            .await?;
+        let reviews = if self.context.include_reviews {
+            Some(
+                self.start_pull_request_job(EvidenceFamily::Reviews, started_at)
+                    .await?,
+            )
+        } else {
+            None
+        };
+        let review_threads = if self.context.include_review_threads {
+            Some(
+                self.start_pull_request_job(EvidenceFamily::ReviewThreads, started_at)
+                    .await?,
+            )
+        } else {
+            None
+        };
+        let repository = RepositorySelector::from_repository(self.repository).as_url();
+        send_progress(
+            &self.context.progress,
+            self.context.run_id,
+            summary,
+            summary.total_jobs,
+            Some(repository),
+            SyncProgressStatus::InProgress,
+        );
+        Ok(PullRequestJobs {
+            work: self,
+            metadata,
+            reviews,
+            review_threads,
+        })
+    }
+
+    /// Creates the durable ID that must later be paired with a consumed family-job result.
+    async fn start_pull_request_job(
+        &self,
+        family: EvidenceFamily,
+        started_at: UtcTimestamp,
+    ) -> Result<FamilyJob, EngineError> {
+        let id = self
+            .archive
+            .start_sync_job(
+                self.context.lease,
+                self.context.run_id,
+                &self.repository.id,
+                family,
+                self.unit.key,
+                started_at,
+            )
+            .await?;
+        Ok(FamilyJob::new(id))
+    }
+
+    /// Selects archived pull requests in the scope without fetching provider evidence yet.
+    async fn pull_request_targets(&self) -> Result<Vec<PullRequestTarget>, EngineError> {
+        let page_limit = NonZeroU32::new(1000).ok_or(EngineError::InvalidPageLimit)?;
+        let mut offset = 0_u64;
+        let mut targets = Vec::new();
+        loop {
+            let page = self
+                .archive
+                .query_threads(&ThreadQuery {
+                    repositories: vec![self.repository.id.clone()],
+                    kind: Some(ThreadKind::PullRequest),
+                    state: store_state_filter(self.unit.state),
+                    match_expression: None,
+                    updated_since: None,
+                    sort: ThreadSort::Updated,
+                    limit: page_limit,
+                    offset,
+                })
+                .await?;
+            targets.extend(page.items.into_iter().map(|summary| PullRequestTarget {
+                thread: summary.discussion.id,
+                updated_at: summary.discussion.updated_at,
+            }));
+            let Some(next_offset) = page.next_offset else {
+                break;
+            };
+            offset = next_offset;
+        }
+        Ok(targets)
+    }
+}
+
+/// Started family jobs belonging to one immutable repository execution scope.
+struct PullRequestJobs<'a> {
+    work: RepositoryWork<'a>,
+    metadata: FamilyJob,
+    reviews: Option<FamilyJob>,
+    review_threads: Option<FamilyJob>,
+}
+
+impl PullRequestJobs<'_> {
+    /// Visits targets until traversal completes or a phase reports cancellation.
+    async fn acquire(
+        &mut self,
+        targets: Vec<PullRequestTarget>,
+        summary: &mut WorkSummary,
+    ) -> Result<(), EngineError> {
+        for target in targets {
+            if self.work.context.cancellation.is_cancelled() {
+                self.interrupt_all();
+                break;
+            }
+            if self.acquire_target(&target, summary).await? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Acquires metadata and the selected review families for a single target.
+    async fn acquire_target(
+        &mut self,
+        target: &PullRequestTarget,
+        summary: &mut WorkSummary,
+    ) -> Result<bool, EngineError> {
+        let scope = ThreadFamilyScope {
+            repository: self.work.repository,
             thread: &target.thread,
             updated_at: target.updated_at,
-            key: unit.key,
+            key: self.work.unit.key,
         };
-        let metadata_result =
-            sync_thread_pull_request_metadata(archive, client, &family_scope, context).await?;
-        accumulate_thread_result(&mut metadata_job, &metadata_result)?;
+        let metadata = scope
+            .sync_metadata(self.work.archive, self.work.client, self.work.context)
+            .await?;
+        self.metadata.progress.accumulate(&metadata)?;
         summary.pull_request_metadata_seen = summary
             .pull_request_metadata_seen
-            .checked_add(metadata_result.items_received)
+            .checked_add(metadata.items_received)
             .ok_or(StoreError::IntegerOutOfRange)?;
+        if metadata.interrupted {
+            self.interrupt_all();
+            return Ok(true);
+        }
+        if self.acquire_reviews(scope, &metadata, summary).await? {
+            self.interrupt_all();
+            return Ok(true);
+        }
+        self.acquire_review_threads(scope, &metadata, summary).await
+    }
 
-        if metadata_result.interrupted {
-            metadata_job.interrupted = true;
-            reviews_job.interrupted = context.include_reviews;
-            review_threads_job.interrupted = context.include_review_threads;
-            break;
+    /// Runs a requested REST review job; an absent job represents an unselected family.
+    async fn acquire_reviews(
+        &mut self,
+        scope: ThreadFamilyScope<'_>,
+        metadata: &ThreadFamilyResult<PullRequestMetadata>,
+        summary: &mut WorkSummary,
+    ) -> Result<bool, EngineError> {
+        let Some(job) = self.reviews.as_mut() else {
+            return Ok(false);
+        };
+        let sync = ReviewSync::new(
+            self.work.archive,
+            self.work.client,
+            scope,
+            self.work.context,
+            ReviewFamily::Reviews,
+        );
+        let result = sync.run(metadata).await?;
+        job.progress.accumulate(&result)?;
+        summary.reviews_seen = summary
+            .reviews_seen
+            .checked_add(result.items_received)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        Ok(result.interrupted)
+    }
+
+    /// Runs requested GraphQL work, preserving a completed REST review job on interruption.
+    async fn acquire_review_threads(
+        &mut self,
+        scope: ThreadFamilyScope<'_>,
+        metadata: &ThreadFamilyResult<PullRequestMetadata>,
+        summary: &mut WorkSummary,
+    ) -> Result<bool, EngineError> {
+        let Some(job) = self.review_threads.as_mut() else {
+            return Ok(false);
+        };
+        let sync = ReviewSync::new(
+            self.work.archive,
+            self.work.client,
+            scope,
+            self.work.context,
+            ReviewFamily::ReviewThreads,
+        );
+        let result = sync.run(metadata).await?;
+        job.progress.accumulate(&result)?;
+        summary.review_threads_seen = summary
+            .review_threads_seen
+            .checked_add(result.items_received)
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        if result.interrupted {
+            self.metadata.progress.interrupted = true;
         }
-        if context.include_reviews {
-            let review_sync = ReviewSync::new(
-                archive,
-                client,
-                family_scope,
-                context,
-                ReviewFamily::Reviews,
-            );
-            let reviews_result = review_sync.run(&metadata_result).await?;
-            accumulate_thread_result(&mut reviews_job, &reviews_result)?;
-            summary.reviews_seen = summary
-                .reviews_seen
-                .checked_add(reviews_result.items_received)
-                .ok_or(StoreError::IntegerOutOfRange)?;
-            if reviews_result.interrupted {
-                metadata_job.interrupted = true;
-                reviews_job.interrupted = true;
-                review_threads_job.interrupted = context.include_review_threads;
-                break;
-            }
+        Ok(result.interrupted)
+    }
+
+    /// Marks all selected families when cancellation prevents remaining phases from running.
+    fn interrupt_all(&mut self) {
+        self.metadata.progress.interrupted = true;
+        if let Some(job) = &mut self.reviews {
+            job.progress.interrupted = true;
         }
-        if context.include_review_threads {
-            let review_thread_sync = ReviewSync::new(
-                archive,
-                client,
-                family_scope,
-                context,
-                ReviewFamily::ReviewThreads,
-            );
-            let review_threads_result = review_thread_sync.run(&metadata_result).await?;
-            accumulate_thread_result(&mut review_threads_job, &review_threads_result)?;
-            summary.review_threads_seen = summary
-                .review_threads_seen
-                .checked_add(review_threads_result.items_received)
-                .ok_or(StoreError::IntegerOutOfRange)?;
-            if review_threads_result.interrupted {
-                metadata_job.interrupted = true;
-                review_threads_job.interrupted = true;
-                break;
-            }
+        if let Some(job) = &mut self.review_threads {
+            job.progress.interrupted = true;
         }
     }
 
-    summary.pages_completed = summary
-        .pages_completed
-        .checked_add(metadata_job.pages_completed)
-        .and_then(|count| count.checked_add(reviews_job.pages_completed))
-        .and_then(|count| count.checked_add(review_threads_job.pages_completed))
-        .ok_or(StoreError::IntegerOutOfRange)?;
-    finish_family_sync_job(
-        archive,
-        context,
-        summary,
-        &progress_repository,
-        metadata_job_id,
-        metadata_job,
-    )
-    .await?;
-    if let Some(reviews_job_id) = reviews_job_id {
-        finish_family_sync_job(
-            archive,
-            context,
-            summary,
-            &progress_repository,
-            reviews_job_id,
-            reviews_job,
-        )
-        .await?;
-    }
-    if let Some(review_threads_job_id) = review_threads_job_id {
-        finish_family_sync_job(
-            archive,
-            context,
-            summary,
-            &progress_repository,
-            review_threads_job_id,
-            review_threads_job,
-        )
-        .await?;
-    }
-    Ok(())
-}
-
-/// Selects pull requests whose family evidence is requested.
-pub async fn pull_request_targets(
-    archive: &Archive,
-    repository: &forgesync_core::content::Repository,
-    unit: ScopeUnit,
-) -> Result<Vec<PullRequestTarget>, EngineError> {
-    let page_limit = NonZeroU32::new(1000).ok_or(EngineError::InvalidPageLimit)?;
-    let mut offset = 0_u64;
-    let mut targets = Vec::new();
-    loop {
-        let page = archive
-            .query_threads(&ThreadQuery {
-                repositories: vec![repository.id.clone()],
-                kind: Some(ThreadKind::PullRequest),
-                state: store_state_filter(unit.state),
-                match_expression: None,
-                updated_since: None,
-                sort: ThreadSort::Updated,
-                limit: page_limit,
-                offset,
-            })
+    /// Writes each selected terminal job after adding its page count to the run summary.
+    async fn finish(self, summary: &mut WorkSummary) -> Result<(), EngineError> {
+        let pages = self.metadata.progress.pages_completed;
+        let review_pages = self
+            .reviews
+            .as_ref()
+            .map_or(0, |job| job.progress.pages_completed);
+        let thread_pages = self
+            .review_threads
+            .as_ref()
+            .map_or(0, |job| job.progress.pages_completed);
+        summary.pages_completed = summary
+            .pages_completed
+            .checked_add(pages)
+            .and_then(|count| count.checked_add(review_pages))
+            .and_then(|count| count.checked_add(thread_pages))
+            .ok_or(StoreError::IntegerOutOfRange)?;
+        let repository = RepositorySelector::from_repository(self.work.repository).as_url();
+        self.metadata
+            .finish(self.work.archive, self.work.context, summary, &repository)
             .await?;
-        targets.extend(page.items.into_iter().map(|summary| PullRequestTarget {
-            thread: summary.discussion.id,
-            updated_at: summary.discussion.updated_at,
-        }));
-        let Some(next_offset) = page.next_offset else {
-            break;
-        };
-        offset = next_offset;
-    }
-    Ok(targets)
-}
-
-/// Adds a thread-family result to aggregate job counts and failures.
-pub fn accumulate_thread_result<T>(
-    job: &mut FamilyJobAccumulator,
-    result: &ThreadFamilyResult<T>,
-) -> Result<(), StoreError> {
-    job.pages_completed = job
-        .pages_completed
-        .checked_add(result.pages_completed)
-        .ok_or(StoreError::IntegerOutOfRange)?;
-    job.items_committed = job
-        .items_committed
-        .checked_add(result.items_committed)
-        .ok_or(StoreError::IntegerOutOfRange)?;
-    job.interrupted |= result.interrupted;
-    if let Some(failure) = result.failure.as_ref() {
-        let failure_slot = if failure.kind == FailureKind::RateLimited {
-            &mut job.deferred_failure
-        } else {
-            &mut job.hard_failure
-        };
-        if failure_slot.is_none() {
-            *failure_slot = Some(failure.clone());
+        if let Some(job) = self.reviews {
+            job.finish(self.work.archive, self.work.context, summary, &repository)
+                .await?;
         }
+        if let Some(job) = self.review_threads {
+            job.finish(self.work.archive, self.work.context, summary, &repository)
+                .await?;
+        }
+        Ok(())
     }
-    Ok(())
-}
-
-/// Persists one family job's terminal state before moving to the next.
-pub async fn finish_family_sync_job(
-    archive: &Archive,
-    context: &SyncRunContext<'_>,
-    summary: &mut WorkSummary,
-    repository: &str,
-    job_id: i64,
-    job: FamilyJobAccumulator,
-) -> Result<(), EngineError> {
-    let (status, failure, progress_status) = if job.interrupted {
-        (
-            SyncJobStatus::Interrupted,
-            None,
-            SyncProgressStatus::Interrupted,
-        )
-    } else if let Some(failure) = job.hard_failure {
-        (
-            SyncJobStatus::Failed,
-            Some(failure.clone()),
-            progress_status(&failure),
-        )
-    } else if let Some(failure) = job.deferred_failure {
-        (
-            SyncJobStatus::Deferred,
-            Some(failure.clone()),
-            progress_status(&failure),
-        )
-    } else {
-        (SyncJobStatus::Complete, None, SyncProgressStatus::Complete)
-    };
-    archive
-        .finish_sync_job(
-            context.lease,
-            job_id,
-            SyncJobCompletion {
-                status,
-                updated_at: now_utc()?,
-                pages_completed: job.pages_completed,
-                items_committed: job.items_committed,
-                failure: failure.as_ref(),
-            },
-        )
-        .await?;
-    summary.completed_jobs = summary.completed_jobs.saturating_add(1);
-    if let Some(failure) = failure.as_ref() {
-        count_failure(summary, failure);
-    }
-    if job.interrupted {
-        summary.interrupted = true;
-        summary.interrupted_jobs = summary.interrupted_jobs.saturating_add(1);
-    }
-    send_progress(
-        &context.progress,
-        context.run_id,
-        summary,
-        summary.total_jobs,
-        Some(repository.to_owned()),
-        progress_status,
-    );
-    Ok(())
 }

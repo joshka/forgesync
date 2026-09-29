@@ -1,24 +1,36 @@
-//! # Coordinate independent thread sync jobs
+//! # Repository lookup and durable parent-thread jobs
 //!
-//! `run_jobs` schedules selected thread work and aggregates its outcomes into a structured report.
-//! It keeps cancellation and failure isolation at the job boundary so one provider or store error
-//! does not erase successful threads.
+//! `run_jobs` visits selected repository scopes and returns the accumulated run report.
+//! `RepositorySync` resolves a provider repository and isolates lookup failures across its selected
+//! families. A successful lookup yields `RepositoryWork` values for individual thread-state scopes.
 //!
-//! The family modules perform individual acquisitions. This coordinator decides which work runs
-//! and how progress is reported; the store's run ledger records durable job status.
+//! `ThreadJob` owns a started parent-thread job and its scan context. The first scan reuses the
+//! sequence reserved before repository lookup; subsequent scans reserve their own acquisition.
+//! Completion writes the ledger, advances a closed-sweep watermark only for complete coverage,
+//! resolves satisfied failures, then publishes progress. Child-family jobs follow that parent scan
+//! and keep their own failure/completeness boundaries.
 
-use super::comments::run_comment_job;
-use super::pull_requests::run_pull_request_jobs;
-use super::support::{count_failure, job_result, overlap_start, progress_status, send_progress};
-use super::{
-    Archive, EngineError, EvidenceFamily, GitHubClient, GitHubError, GitHubHost, HashMap,
-    RepositorySelector, RepositoryThreadScanStatus, RunFailureInput, RunFailureScope, ScopeUnit,
-    StoreError, SyncJobCompletion, SyncProgressStatus, SyncRunContext, ThreadListState,
-    ThreadScanContext, WorkSummary, enumerate_repository_thread_pages, fetch_repository,
-    github_failure, now_utc,
-};
+use std::collections::HashMap;
 
-/// Coordinates the selected repository-family jobs within one durable run.
+use forgesync_core::content::Repository;
+use forgesync_core::coverage::{EvidenceFamily, Failure};
+use forgesync_core::identity::{GitHubHost, ObservationSequence};
+use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_github::error::GitHubError;
+use forgesync_github::resources::{ThreadListState, fetch_repository};
+use forgesync_github::transport::GitHubClient;
+use forgesync_store::archive::Archive;
+use forgesync_store::runs::RunFailureInput;
+
+use super::repository_work::RepositoryWork;
+use super::support::{count_failure, overlap_start, progress_status, send_progress};
+use super::thread_job::ThreadJob;
+use super::{ScopeUnit, SyncProgressStatus, SyncRunContext, WorkSummary};
+use crate::enumeration::{ThreadScanContext, github_failure, now_utc};
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
+
+/// Visits repositories in request order, preserving committed work when cancellation stops a run.
 pub async fn run_jobs(
     archive: &Archive,
     clients: &HashMap<GitHubHost, GitHubClient>,
@@ -28,21 +40,8 @@ pub async fn run_jobs(
 ) -> Result<WorkSummary, EngineError> {
     let mut summary = WorkSummary {
         total_jobs: context.total_jobs,
-        completed_jobs: 0,
-        failed_jobs: 0,
-        deferred_jobs: 0,
-        pages_completed: 0,
-        threads_seen: 0,
-        comments_seen: 0,
-        pull_request_metadata_seen: 0,
-        reviews_seen: 0,
-        review_threads_seen: 0,
-        interrupted: false,
-        interrupted_jobs: 0,
-        pending_jobs: 0,
-        first_failure: None,
+        ..Default::default()
     };
-
     for selector in selectors {
         if context.cancellation.is_cancelled() {
             summary.interrupted = true;
@@ -54,229 +53,226 @@ pub async fn run_jobs(
                 .ok_or_else(|| EngineError::GitHubClientMissing {
                     host: selector.host().as_str().to_owned(),
                 })?;
-        let repository_started_at = now_utc()?;
-        let repository_sequence = archive
-            .reserve_observation_sequence_fenced(repository_started_at, context.lease)
-            .await?;
-        let repository = match fetch_repository(
+        let sync = RepositorySync {
+            archive,
             client,
-            selector.host(),
-            selector.owner(),
-            selector.name(),
-            context.cancellation,
-        )
-        .await
-        {
-            Ok(repository) => repository,
-            Err(GitHubError::Cancelled) => {
-                summary.interrupted = true;
-                break;
-            }
-            Err(error) => {
-                let failure = github_failure(&error);
-                for unit in units {
-                    let selected_families = [
-                        Some(EvidenceFamily::Threads),
-                        context.include_comments.then_some(EvidenceFamily::Comments),
-                    ]
-                    .into_iter()
-                    .flatten();
-                    for family in selected_families {
-                        archive
-                            .record_run_failure(
-                                context.lease,
-                                RunFailureInput {
-                                    run_id: context.run_id,
-                                    target: &selector.as_url(),
-                                    repository: None,
-                                    thread: None,
-                                    family: Some(family),
-                                    scope_key: unit.key,
-                                    failure: &failure,
-                                    created_at: now_utc()?,
-                                },
-                            )
-                            .await
-                            .map_err(|source| EngineError::FailureLedger {
-                                original: failure.clone(),
-                                source,
-                            })?;
-                        count_failure(&mut summary, &failure);
-                        summary.completed_jobs += 1;
-                        send_progress(
-                            &context.progress,
-                            context.run_id,
-                            &summary,
-                            summary.total_jobs,
-                            Some(selector.as_url()),
-                            progress_status(&failure),
-                        );
-                    }
-                }
-                continue;
-            }
+            selector,
+            context,
         };
-        archive
-            .upsert_repository_fenced(&repository, context.lease)
-            .await?;
-        let selector_target = selector.as_url();
-
-        for (unit_index, unit) in units.iter().enumerate() {
-            if context.cancellation.is_cancelled() {
-                summary.interrupted = true;
-                break;
-            }
-            let (started_at, sequence) = if unit_index == 0 {
-                (repository_started_at, repository_sequence)
-            } else {
-                let started_at = now_utc()?;
-                let sequence = archive
-                    .reserve_observation_sequence_fenced(started_at, context.lease)
-                    .await?;
-                (started_at, sequence)
-            };
-            let since = if unit.state == ThreadListState::Closed {
-                archive
-                    .closed_sweep_watermark(&repository.id)
-                    .await?
-                    .map(overlap_start)
-            } else {
-                None
-            };
-            let job_id = archive
-                .start_sync_job(
-                    context.lease,
-                    context.run_id,
-                    &repository.id,
-                    EvidenceFamily::Threads,
-                    unit.key,
-                    started_at,
-                )
-                .await?;
-            archive
-                .mark_scope_failures_retried(
-                    context.lease,
-                    &RunFailureScope {
-                        run_id: context.run_id,
-                        target: &selector_target,
-                        family: EvidenceFamily::Threads,
-                        scope_key: unit.key,
-                    },
-                )
-                .await?;
-            send_progress(
-                &context.progress,
-                context.run_id,
-                &summary,
-                summary.total_jobs,
-                Some(selector.as_url()),
-                SyncProgressStatus::InProgress,
-            );
-
-            let report = enumerate_repository_thread_pages(
-                archive,
-                client,
-                ThreadScanContext {
-                    repository: repository.clone(),
-                    sequence,
-                    started_at,
-                    state: unit.state,
-                    since,
-                },
-                Some(context.lease),
-                context.cancellation,
-            )
-            .await?;
-            summary.pages_completed = summary
-                .pages_completed
-                .checked_add(report.scan.pages_completed)
-                .ok_or(StoreError::IntegerOutOfRange)?;
-            summary.threads_seen = summary
-                .threads_seen
-                .checked_add(report.scan.threads_seen)
-                .ok_or(StoreError::IntegerOutOfRange)?;
-
-            let (status, failure, progress_status) = job_result(&report);
-            archive
-                .finish_sync_job(
-                    context.lease,
-                    job_id,
-                    SyncJobCompletion {
-                        status,
-                        updated_at: now_utc()?,
-                        pages_completed: report.scan.pages_completed,
-                        items_committed: report.scan.threads_seen,
-                        failure: failure.as_ref(),
-                    },
-                )
-                .await?;
-            if report.scan.status == RepositoryThreadScanStatus::Complete
-                && unit.update_closed_watermark
-            {
-                archive
-                    .commit_closed_sweep_watermark(
-                        context.lease,
-                        &repository.id,
-                        sequence,
-                        started_at,
-                        now_utc()?,
-                    )
-                    .await?;
-            }
-            if report.scan.status == RepositoryThreadScanStatus::Complete {
-                archive
-                    .resolve_scope_failures(
-                        context.lease,
-                        &RunFailureScope {
-                            run_id: context.run_id,
-                            target: &selector_target,
-                            family: EvidenceFamily::Threads,
-                            scope_key: unit.key,
-                        },
-                        now_utc()?,
-                    )
-                    .await?;
-            }
-            summary.completed_jobs += 1;
-            if let Some(failure) = failure.as_ref() {
-                count_failure(&mut summary, failure);
-            }
-            if report.interrupted {
-                summary.interrupted = true;
-                summary.interrupted_jobs += 1;
-            }
-            send_progress(
-                &context.progress,
-                context.run_id,
-                &summary,
-                summary.total_jobs,
-                Some(selector.as_url()),
-                progress_status,
-            );
-            if summary.interrupted {
-                break;
-            }
-            if context.include_comments {
-                run_comment_job(archive, client, &repository, *unit, context, &mut summary).await?;
-                if summary.interrupted {
-                    break;
-                }
-            }
-            run_pull_request_jobs(archive, client, &repository, *unit, context, &mut summary)
-                .await?;
-            if summary.interrupted {
-                break;
-            }
-        }
+        sync.run(units, &mut summary).await?;
         if summary.interrupted {
             break;
         }
     }
-    if summary.interrupted {
-        summary.pending_jobs = summary
-            .total_jobs
-            .saturating_sub(summary.completed_jobs)
-            .saturating_add(summary.interrupted_jobs);
-    }
+    summary.finish_pending();
     Ok(summary)
+}
+
+/// Provider lookup scope and immutable services for one repository's jobs.
+struct RepositorySync<'a> {
+    archive: &'a Archive,
+    client: &'a GitHubClient,
+    selector: &'a RepositorySelector,
+    context: &'a SyncRunContext<'a>,
+}
+
+impl RepositorySync<'_> {
+    /// Resolves the repository once, then executes each selected thread-state scope.
+    async fn run(&self, units: &[ScopeUnit], summary: &mut WorkSummary) -> Result<(), EngineError> {
+        let first = Acquisition::reserve(self.archive, self.context).await?;
+        let Some(repository) = self.repository(units, summary).await? else {
+            return Ok(());
+        };
+        self.archive
+            .upsert_repository_fenced(&repository, self.context.lease)
+            .await?;
+        for (index, unit) in units.iter().enumerate() {
+            if self.context.cancellation.is_cancelled() {
+                summary.interrupted = true;
+                break;
+            }
+            let acquisition = if index == 0 {
+                first
+            } else {
+                Acquisition::reserve(self.archive, self.context).await?
+            };
+            let work = RepositoryWork {
+                archive: self.archive,
+                client: self.client,
+                repository: &repository,
+                unit: *unit,
+                context: self.context,
+            };
+            let scan = self.scan(&repository, *unit, acquisition).await?;
+            let job = ThreadJob::start(work, scan, summary).await?;
+            job.run(summary).await?;
+            if summary.interrupted {
+                break;
+            }
+            self.children(work, summary).await?;
+            if summary.interrupted {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Converts repository lookup failure into scoped job failures without aborting siblings.
+    async fn repository(
+        &self,
+        units: &[ScopeUnit],
+        summary: &mut WorkSummary,
+    ) -> Result<Option<Repository>, EngineError> {
+        match fetch_repository(
+            self.client,
+            self.selector.host(),
+            self.selector.owner(),
+            self.selector.name(),
+            self.context.cancellation,
+        )
+        .await
+        {
+            Ok(repository) => Ok(Some(repository)),
+            Err(GitHubError::Cancelled) => {
+                summary.interrupted = true;
+                Ok(None)
+            }
+            Err(error) => self.lookup_failed(error, units, summary).await,
+        }
+    }
+
+    /// Attributes an unavailable repository to each selected parent/comment family and scope.
+    async fn lookup_failed(
+        &self,
+        error: GitHubError,
+        units: &[ScopeUnit],
+        summary: &mut WorkSummary,
+    ) -> Result<Option<Repository>, EngineError> {
+        let failure = github_failure(&error);
+        for unit in units {
+            self.record_lookup_failure(*unit, EvidenceFamily::Threads, &failure, summary)
+                .await?;
+            if self.context.include_comments {
+                self.record_lookup_failure(*unit, EvidenceFamily::Comments, &failure, summary)
+                    .await?;
+            }
+        }
+        Ok(None)
+    }
+
+    /// Writes one lookup failure before updating the run's completed-job accounting.
+    async fn record_lookup_failure(
+        &self,
+        unit: ScopeUnit,
+        family: EvidenceFamily,
+        failure: &Failure,
+        summary: &mut WorkSummary,
+    ) -> Result<(), EngineError> {
+        let target = self.selector.as_url();
+        let input = RunFailureInput {
+            run_id: self.context.run_id,
+            target: &target,
+            repository: None,
+            thread: None,
+            family: Some(family),
+            scope_key: unit.key,
+            failure,
+            created_at: now_utc()?,
+        };
+        self.archive
+            .record_run_failure(self.context.lease, input)
+            .await
+            .map_err(|source| EngineError::FailureLedger {
+                original: failure.clone(),
+                source,
+            })?;
+        count_failure(summary, failure);
+        summary.completed_jobs += 1;
+        self.publish(summary, progress_status(failure));
+        Ok(())
+    }
+
+    /// Builds the provider scan scope, applying overlap only to closed-thread sweeps.
+    async fn scan(
+        &self,
+        repository: &Repository,
+        unit: ScopeUnit,
+        acquisition: Acquisition,
+    ) -> Result<ThreadScanContext, EngineError> {
+        let since = if unit.state == ThreadListState::Closed {
+            self.archive
+                .closed_sweep_watermark(&repository.id)
+                .await?
+                .map(overlap_start)
+        } else {
+            None
+        };
+        Ok(ThreadScanContext {
+            repository: repository.clone(),
+            sequence: acquisition.sequence,
+            started_at: acquisition.started_at,
+            state: unit.state,
+            since,
+        })
+    }
+
+    /// Runs selected child families after the parent scan, stopping on interruption.
+    async fn children(
+        &self,
+        work: RepositoryWork<'_>,
+        summary: &mut WorkSummary,
+    ) -> Result<(), EngineError> {
+        if self.context.include_comments {
+            work.sync_comments(summary).await?;
+        }
+        if !summary.interrupted {
+            work.sync_pull_requests(summary).await?;
+        }
+        Ok(())
+    }
+
+    /// Publishes the repository's current accounting after a durable update.
+    fn publish(&self, summary: &WorkSummary, status: SyncProgressStatus) {
+        send_progress(
+            &self.context.progress,
+            self.context.run_id,
+            summary,
+            summary.total_jobs,
+            Some(self.selector.as_url()),
+            status,
+        );
+    }
+}
+
+/// Timestamp and local order reserved together before provider acquisition.
+#[derive(Clone, Copy)]
+struct Acquisition {
+    started_at: UtcTimestamp,
+    sequence: ObservationSequence,
+}
+
+impl Acquisition {
+    /// Establishes the scan's local order before repository or page requests can finish.
+    async fn reserve(archive: &Archive, context: &SyncRunContext<'_>) -> Result<Self, EngineError> {
+        let started_at = now_utc()?;
+        let sequence = archive
+            .reserve_observation_sequence_fenced(started_at, context.lease)
+            .await?;
+        Ok(Self {
+            started_at,
+            sequence,
+        })
+    }
+}
+
+impl WorkSummary {
+    /// Includes interrupted jobs in the remaining-work count when cancellation stopped the run.
+    fn finish_pending(&mut self) {
+        if self.interrupted {
+            self.pending_jobs = self
+                .total_jobs
+                .saturating_sub(self.completed_jobs)
+                .saturating_add(self.interrupted_jobs);
+        }
+    }
 }
