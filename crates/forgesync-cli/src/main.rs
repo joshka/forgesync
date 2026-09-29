@@ -5,6 +5,7 @@
 
 use std::process::ExitCode;
 
+/// Delegates process argument handling and exit status selection to the CLI library.
 fn main() -> ExitCode {
     forgesync_cli::run_from(std::env::args_os())
 }

@@ -135,6 +135,7 @@ pub async fn embed_repositories(
     RefreshStage::with_report(status, report, failure)
 }
 
+/// Rejects refresh selections that cannot run before any stage starts.
 pub fn validate_request(request: &RefreshRequest) -> Result<(), EngineError> {
     let mut seen_stages = HashSet::with_capacity(request.analysis.len());
     let unique_stages = request
@@ -150,6 +151,7 @@ pub fn validate_request(request: &RefreshRequest) -> Result<(), EngineError> {
     Ok(())
 }
 
+/// Keeps the first occurrence of each requested repository in stage order.
 pub fn unique_repositories(repositories: &[RepositorySelector]) -> Vec<RepositorySelector> {
     let mut seen = HashSet::with_capacity(repositories.len());
     repositories
@@ -159,6 +161,7 @@ pub fn unique_repositories(repositories: &[RepositorySelector]) -> Vec<Repositor
         .collect()
 }
 
+/// Preserves a sync report and its structured outcome as one refresh stage.
 pub fn stage_from_sync_report(report: SyncReport) -> RefreshStage<SyncReport> {
     let status = match report.outcome {
         OperationOutcome::Complete => RefreshStageStatus::Complete,

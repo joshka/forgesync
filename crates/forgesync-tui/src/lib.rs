@@ -69,6 +69,7 @@ pub async fn run(
     terminal_result.map_err(TuiError::Terminal)
 }
 
+/// Keeps keyboard input responsive while completed background messages update the view.
 fn run_event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     archive: Arc<Archive>,

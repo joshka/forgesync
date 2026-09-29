@@ -1,6 +1,7 @@
 //! Values command arguments.
 
 use clap::ValueEnum;
+use forgesync_core::coverage::EvidenceFamily;
 
 /// Evidence family accepted by explicit run retry filters.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -15,6 +16,18 @@ pub enum RunFamilyArg {
     Reviews,
     /// Current pull-request review threads.
     ReviewThreads,
+}
+
+impl From<RunFamilyArg> for EvidenceFamily {
+    fn from(value: RunFamilyArg) -> Self {
+        match value {
+            RunFamilyArg::Threads => Self::Threads,
+            RunFamilyArg::Comments => Self::Comments,
+            RunFamilyArg::PullRequestMetadata => Self::PullRequestMetadata,
+            RunFamilyArg::Reviews => Self::Reviews,
+            RunFamilyArg::ReviewThreads => Self::ReviewThreads,
+        }
+    }
 }
 
 /// Discussion kind accepted by local query filters.

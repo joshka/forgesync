@@ -137,10 +137,12 @@ pub fn fuse_hybrid(
     fused
 }
 
+/// Converts one source rank to its reciprocal-rank fusion contribution.
 pub fn reciprocal_rank_score(rank: u32) -> f64 {
     1.0 / (RRF_CONSTANT + f64::from(rank))
 }
 
+/// Limits keyword fallback to semantic failures that can be explained safely.
 pub fn fallback_allowed(error: &EngineError) -> bool {
     match error {
         EngineError::SemanticVectorsUnavailable | EngineError::EmbeddingServiceUnavailable => true,

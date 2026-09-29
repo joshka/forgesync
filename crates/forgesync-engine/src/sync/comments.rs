@@ -10,6 +10,7 @@ use super::{
     fetch_issue_comment_page, github_failure, now_utc,
 };
 
+/// Acquires and applies one comment-family job under the current run.
 pub async fn run_comment_job(
     archive: &Archive,
     client: &GitHubClient,
@@ -195,6 +196,7 @@ pub async fn run_comment_job(
     Ok(())
 }
 
+/// Classifies why a partially paged collection cannot replace complete membership.
 pub fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> IncompleteReason {
     if matches!(error, GitHubError::Cancelled) {
         IncompleteReason::Cancelled
@@ -207,6 +209,7 @@ pub fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> Incomplet
     }
 }
 
+/// Stages every comment page before completing a thread's comment family.
 pub async fn sync_thread_comments(
     archive: &Archive,
     client: &GitHubClient,
@@ -389,6 +392,7 @@ pub async fn sync_thread_comments(
     Ok(result)
 }
 
+/// Reads the source comment count used to decide whether acquisition is needed.
 pub fn comment_count(discussion: &forgesync_core::content::Discussion) -> Option<u64> {
     discussion
         .provider_data

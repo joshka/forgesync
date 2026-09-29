@@ -8,6 +8,7 @@ use super::{
     UtcTimestamp, WorkSummary, mpsc, now_utc,
 };
 
+/// Persists one family failure without discarding other acquired evidence.
 pub async fn record_thread_family_failure(
     archive: &Archive,
     context: &SyncRunContext<'_>,
@@ -39,6 +40,7 @@ pub async fn record_thread_family_failure(
     Ok(())
 }
 
+/// Maps a provider thread-state scope to its local query filter.
 pub fn store_state_filter(state: ThreadListState) -> ThreadStateFilter {
     match state {
         ThreadListState::All => ThreadStateFilter::All,
@@ -47,6 +49,7 @@ pub fn store_state_filter(state: ThreadListState) -> ThreadStateFilter {
     }
 }
 
+/// Resolves explicit or all-registered repositories before provider acquisition.
 pub async fn resolve_selectors(
     archive: &Archive,
     request: &SyncRequest,
@@ -63,6 +66,7 @@ pub async fn resolve_selectors(
     }
 }
 
+/// Builds a durable job completion from one selected family outcome.
 pub fn job_result(
     report: &ThreadEnumerationReport,
 ) -> (SyncJobStatus, Option<Failure>, SyncProgressStatus) {
@@ -88,6 +92,7 @@ pub fn job_result(
     (status, Some(failure.clone()), progress_status(&failure))
 }
 
+/// Maps a structured failure to the progress status shown to callers.
 pub fn progress_status(failure: &Failure) -> SyncProgressStatus {
     if failure.kind == FailureKind::RateLimited {
         SyncProgressStatus::Deferred
@@ -96,6 +101,7 @@ pub fn progress_status(failure: &Failure) -> SyncProgressStatus {
     }
 }
 
+/// Adds one failure to aggregate work counts without losing its category.
 pub fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
     if failure.kind == FailureKind::RateLimited {
         summary.deferred_jobs += 1;
@@ -107,6 +113,7 @@ pub fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
     }
 }
 
+/// Derives the final complete, partial, or interrupted run outcome.
 pub fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
     if work.interrupted {
         return OperationOutcome::Interrupted {
@@ -135,6 +142,7 @@ pub fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
     OperationOutcome::Complete
 }
 
+/// Adds a bounded overlap to a closed-thread sweep watermark.
 pub fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
     UtcTimestamp::from_unix_microseconds(
         watermark
@@ -144,6 +152,7 @@ pub fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
     .unwrap_or(watermark)
 }
 
+/// Sends an opportunistic progress snapshot without blocking acquisition.
 pub fn send_progress(
     sender: &Option<mpsc::Sender<SyncProgress>>,
     run_id: RunId,

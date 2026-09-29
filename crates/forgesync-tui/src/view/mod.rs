@@ -25,6 +25,7 @@ use failures::draw_failures;
 
 const COMPACT_WIDTH: u16 = 100;
 
+/// Selects the active screen renderer and keeps header and footer visible.
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
@@ -45,6 +46,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     draw_footer(frame, sections[2], app);
 }
 
+/// Shows the active screen and submitted search scope.
 fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let view = match app.screen {
         Screen::Browser => "Browse",
@@ -66,6 +68,7 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(Paragraph::new(line), area);
 }
 
+/// Shows operation progress, status, or key hints according to current state.
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let text = if app.searching {
         format!(" Search: {}▏  Enter search · Esc cancel", app.search_input)
@@ -106,6 +109,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Creates the shared bordered panel style for terminal panes.
 fn pane_block(title: &str, focused: bool) -> Block<'_> {
     let color = if focused {
         Color::Cyan
@@ -118,6 +122,7 @@ fn pane_block(title: &str, focused: bool) -> Block<'_> {
         .border_style(Style::default().fg(color))
 }
 
+/// Returns the highlight style used for the active row.
 fn selected_style() -> Style {
     Style::default()
         .fg(Color::White)
@@ -125,6 +130,7 @@ fn selected_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+/// Returns the terminal label for an evidence family.
 fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
         forgesync_core::coverage::EvidenceFamily::Threads => "threads",

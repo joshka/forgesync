@@ -121,6 +121,7 @@ pub async fn materialize_thread_document(
     Ok(DocumentBuildReport { document, write })
 }
 
+/// Produces the materialization timestamp after validating the system clock.
 pub(crate) fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -132,6 +133,7 @@ pub(crate) fn now_utc() -> Result<UtcTimestamp, EngineError> {
         .map_err(Into::into)
 }
 
+/// Adds current discussion comments to the selected document recipe.
 fn append_comments(sections: &mut Vec<String>, comments: &[StagedItem<Comment>]) {
     let mut ordered = comments.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
@@ -153,6 +155,7 @@ fn append_comments(sections: &mut Vec<String>, comments: &[StagedItem<Comment>])
     }
 }
 
+/// Adds review evidence without duplicating equivalent submitted text.
 fn append_reviews(sections: &mut Vec<String>, reviews: &[StagedItem<Review>]) {
     let mut ordered = reviews.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
@@ -184,6 +187,7 @@ fn append_reviews(sections: &mut Vec<String>, reviews: &[StagedItem<Review>]) {
     }
 }
 
+/// Adds current review threads and their nested comments to document text.
 fn append_review_threads(sections: &mut Vec<String>, review_threads: &[StagedItem<ReviewThread>]) {
     let mut ordered = review_threads.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
@@ -214,6 +218,7 @@ fn append_review_threads(sections: &mut Vec<String>, review_threads: &[StagedIte
     }
 }
 
+/// Collects the visible comments for one normalized review thread.
 fn review_thread_comments(thread: &StagedItem<ReviewThread>) -> Vec<StagedItem<Comment>> {
     thread
         .payload
@@ -226,6 +231,7 @@ fn review_thread_comments(thread: &StagedItem<ReviewThread>) -> Vec<StagedItem<C
         .collect()
 }
 
+/// Keeps author attribution with nonempty text in a document section.
 fn push_attributed_body(sections: &mut Vec<String>, kind: &str, author: Option<&str>, body: &str) {
     let body = body.trim();
     if body.is_empty() {
@@ -237,18 +243,21 @@ fn push_attributed_body(sections: &mut Vec<String>, kind: &str, author: Option<&
     sections.push(format!("{attribution}:\n\n{body}"));
 }
 
+/// Omits empty text so recipe output stays stable across missing fields.
 fn push_nonempty(sections: &mut Vec<String>, value: Option<&str>) {
     if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
         sections.push(value.to_owned());
     }
 }
 
+/// Recognizes automated authors for the selected document recipe.
 fn is_bot(user: &Option<&Value>) -> bool {
     user.and_then(|user| user.get("type"))
         .and_then(Value::as_str)
         .is_some_and(|kind| kind.eq_ignore_ascii_case("bot"))
 }
 
+/// Normalizes repeated review text before comparing document sections.
 fn normalize_for_deduplication(text: &str) -> String {
     text.replace('\0', " ")
         .split_whitespace()
@@ -257,6 +266,7 @@ fn normalize_for_deduplication(text: &str) -> String {
         .join(" ")
 }
 
+/// Converts a normalized review state to its document label.
 fn review_state_label(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",

@@ -168,6 +168,7 @@ pub async fn run_retry(
     })
 }
 
+/// Builds the minimal retry scope for one unresolved evidence family.
 fn scope_for_family(
     repository: RepositorySelector,
     scope: SyncThreadScope,
@@ -197,6 +198,7 @@ fn scope_for_family(
     retry
 }
 
+/// Reads the original thread scope from a persisted run request.
 fn scope_from_json(value: Option<&serde_json::Value>) -> SyncThreadScope {
     match value.and_then(serde_json::Value::as_str) {
         Some("open") => SyncThreadScope::Open,
@@ -206,6 +208,7 @@ fn scope_from_json(value: Option<&serde_json::Value>) -> SyncThreadScope {
     }
 }
 
+/// Recovers a recorded state scope when planning selected retry work.
 fn scope_from_failure_key(value: &str) -> Option<SyncThreadScope> {
     match value {
         "open" => Some(SyncThreadScope::Open),
@@ -215,10 +218,12 @@ fn scope_from_failure_key(value: &str) -> Option<SyncThreadScope> {
     }
 }
 
+/// Reads a persisted inclusion flag without treating malformed data as true.
 fn bool_from_json(value: Option<&serde_json::Value>) -> bool {
     value.and_then(serde_json::Value::as_bool).unwrap_or(false)
 }
 
+/// Returns the durable name used for a thread-state retry scope.
 fn scope_name(scope: SyncThreadScope) -> &'static str {
     match scope {
         SyncThreadScope::Default => "default",

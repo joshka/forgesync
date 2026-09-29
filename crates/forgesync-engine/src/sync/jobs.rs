@@ -11,6 +11,7 @@ use super::{
     github_failure, now_utc,
 };
 
+/// Coordinates the selected repository-family jobs within one durable run.
 pub async fn run_jobs(
     archive: &Archive,
     clients: &HashMap<GitHubHost, GitHubClient>,

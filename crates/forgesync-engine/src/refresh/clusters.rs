@@ -7,6 +7,7 @@ use super::{
     RefreshStageStatus, RepositorySelector, build_clusters,
 };
 
+/// Generates cluster reports independently for each selected repository.
 pub async fn build_repository_clusters(
     archive: &Archive,
     repositories: &[RepositorySelector],

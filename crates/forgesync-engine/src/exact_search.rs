@@ -101,10 +101,12 @@ pub(crate) fn merge_scored_pages(
     current.truncate(limit);
 }
 
+/// Orders exact-search candidates by score and stable discussion identity.
 pub(crate) fn sort_scored(scored: &mut [ScoredThread], sort: ThreadSort) {
     scored.sort_by(|left, right| compare_scored(left, right, sort));
 }
 
+/// Breaks equal vector scores with a deterministic archive thread order.
 fn compare_scored(left: &ScoredThread, right: &ScoredThread, sort: ThreadSort) -> Ordering {
     let primary = match sort {
         ThreadSort::Relevance => right.score.total_cmp(&left.score),
@@ -122,6 +124,7 @@ fn compare_scored(left: &ScoredThread, right: &ScoredThread, sort: ThreadSort) -
     primary.then_with(|| stable_thread_id_cmp(&left.summary, &right.summary))
 }
 
+/// Compares archive discussion identities without depending on retrieval order.
 pub(crate) fn stable_thread_id_cmp(left: &ThreadSummary, right: &ThreadSummary) -> Ordering {
     let left_id = &left.discussion.id;
     let right_id = &right.discussion.id;

@@ -20,6 +20,7 @@ struct EmbeddingResponseItem {
     embedding: Vec<f64>,
 }
 
+/// Rejects missing, reordered, or dimension-invalid vectors from the service.
 pub fn validate_response(
     response: EmbeddingResponse,
     input_count: usize,

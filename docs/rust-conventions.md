@@ -22,6 +22,17 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
   omission, side effect, or failure rule; do not narrate ordinary statements.
 - Keep command `match` arms short. Delegate substantial work to named operations; keep a visible
   branch when the branch itself expresses the domain rule.
+- Let dispatch matches identify the next operation. When an arm performs multiple effects, error
+  translations, or state updates, move that work into a verb-named method or nearby function. Define
+  the target directly below the dispatcher when practical so reading stays top down. Keep short
+  value mappings and meaningful domain policy visible in the match.
+- Put behavior on the command, request, or state type that owns it. A parsed command can consume
+  `self` in `run`; a reusable read can be a noun-named query on its owning archive or service. Use a
+  bare function when no single type owns the operation. Avoid names such as `*_command` that merely
+  repeat the enclosing module or type.
+- Keep parsed arguments near their execution when both change for the same feature. Retain separate
+  modules for genuinely shared parsing values, process output, or other cross-cutting concerns; do
+  not maintain parallel trees that force readers to locate one feature twice.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
   Keep a linear story together when extraction would add navigation without reducing context.
 - Name important intermediate values, especially around I/O, parsing, mutation, and errors. Make

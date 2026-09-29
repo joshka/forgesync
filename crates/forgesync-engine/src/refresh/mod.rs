@@ -86,6 +86,7 @@ pub struct RefreshStage<T> {
 }
 
 impl<T> RefreshStage<T> {
+    /// Constructs a failed stage without discarding the failure classification.
     fn failed(failure: RefreshStageFailure) -> Self {
         Self {
             status: status_for_failure(&failure),
@@ -94,6 +95,7 @@ impl<T> RefreshStage<T> {
         }
     }
 
+    /// Attaches a completed stage report and its outcome.
     fn with_report(
         status: RefreshStageStatus,
         report: T,

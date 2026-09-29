@@ -10,6 +10,7 @@ use super::{
     fetch_review_thread_page, github_failure, now_utc,
 };
 
+/// Acquires nested review threads only for the current pull-request head.
 pub async fn sync_thread_review_threads(
     archive: &Archive,
     client: &GitHubClient,

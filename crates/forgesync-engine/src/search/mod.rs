@@ -192,117 +192,149 @@ pub async fn retrieve_threads(
     {
         return Err(EngineError::InvalidSearchFallbackMode);
     }
-    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
     match request.mode {
-        SearchMode::Keyword | SearchMode::AdvancedFts => {
-            let page = search_threads(archive, request).await?;
-            Ok(keyword_result_page(
-                query,
-                request.mode,
-                request.mode,
-                sort,
-                page,
-                request.filters.offset,
-                None,
-            ))
-        }
+        SearchMode::Keyword | SearchMode::AdvancedFts => retrieve_keyword(archive, request).await,
         SearchMode::Semantic | SearchMode::Hybrid => {
-            let (limit, offset) = checked_page(request.filters.limit, request.filters.offset)?;
-            let window = usize::try_from(offset)
-                .ok()
-                .and_then(|offset| offset.checked_add(usize::try_from(limit.get()).ok()?))
-                .filter(|window| *window <= MAX_SEARCH_WINDOW)
-                .ok_or(EngineError::SearchWindowTooLarge)?;
-            let candidate_limit = window + 1;
-            let keyword_candidates = if request.mode == SearchMode::Hybrid {
-                Some(keyword_candidates(archive, request, candidate_limit).await?)
-            } else {
-                None
-            };
-
-            let semantic_result = match embedding_client {
-                Some(client) => {
-                    semantic_candidates(
-                        archive,
-                        request,
-                        recipe,
-                        client,
-                        candidate_limit,
-                        cancellation,
-                    )
-                    .await
-                }
-                None => Err(EngineError::EmbeddingServiceUnavailable),
-            };
-
-            let semantic = match semantic_result {
-                Ok(semantic) => semantic,
-                Err(error) if request.allow_keyword_fallback && fallback_allowed(&error) => {
-                    let reason = error.code().to_owned();
-                    if let Some(keyword) = keyword_candidates {
-                        return Ok(keyword_fallback_page(
-                            query,
-                            request.mode,
-                            sort,
-                            keyword,
-                            offset,
-                            limit.get(),
-                            reason,
-                        ));
-                    }
-                    let fallback_request = SearchRequest {
-                        mode: SearchMode::Keyword,
-                        allow_keyword_fallback: false,
-                        ..request.clone()
-                    };
-                    let page = search_threads(archive, &fallback_request).await?;
-                    return Ok(keyword_result_page(
-                        query,
-                        request.mode,
-                        SearchMode::Keyword,
-                        sort,
-                        page,
-                        offset,
-                        Some(reason),
-                    ));
-                }
-                Err(error) => return Err(error),
-            };
-
-            let coverage_repositories =
-                resolve_repositories(archive, &request.filters.repositories).await?;
-            let coverage = archive.coverage_summary(&coverage_repositories).await?;
-            match request.mode {
-                SearchMode::Semantic => Ok(semantic_result_page(
-                    query,
-                    request.mode,
-                    sort,
-                    semantic,
-                    offset,
-                    limit.get(),
-                    coverage,
-                )),
-                SearchMode::Hybrid => {
-                    let keyword =
-                        keyword_candidates.expect("hybrid mode loaded keyword candidates");
-                    let fused = fuse_hybrid(keyword.items, semantic, sort, candidate_limit);
-                    Ok(result_page(ResultPageRequest {
-                        query,
-                        requested_mode: request.mode,
-                        mode: request.mode,
-                        ranking: SearchRanking::ReciprocalRankFusion,
-                        sort,
-                        fallback_reason: None,
-                        candidates: fused,
-                        offset,
-                        limit: limit.get(),
-                        coverage,
-                    }))
-                }
-                SearchMode::Keyword | SearchMode::AdvancedFts => unreachable!(),
-            }
+            retrieve_ranked(archive, request, recipe, embedding_client, cancellation).await
         }
     }
+}
+
+/// Runs the local full-text path and marks keyword provenance in the result.
+async fn retrieve_keyword(
+    archive: &Archive,
+    request: &SearchRequest,
+) -> Result<SearchResultPage, EngineError> {
+    let query = request.query.trim();
+    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
+    let page = search_threads(archive, request).await?;
+    Ok(keyword_result_page(
+        query,
+        request.mode,
+        request.mode,
+        sort,
+        page,
+        request.filters.offset,
+        None,
+    ))
+}
+
+/// Runs vector retrieval, optional keyword fusion, and explicit fallback policy.
+async fn retrieve_ranked(
+    archive: &Archive,
+    request: &SearchRequest,
+    recipe: DocumentRecipe,
+    embedding_client: Option<&EmbeddingClient>,
+    cancellation: &CancellationToken,
+) -> Result<SearchResultPage, EngineError> {
+    let query = request.query.trim();
+    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
+    let (limit, offset) = checked_page(request.filters.limit, request.filters.offset)?;
+    let window = usize::try_from(offset)
+        .ok()
+        .and_then(|offset| offset.checked_add(usize::try_from(limit.get()).ok()?))
+        .filter(|window| *window <= MAX_SEARCH_WINDOW)
+        .ok_or(EngineError::SearchWindowTooLarge)?;
+    let candidate_limit = window + 1;
+    let keyword_candidates = if request.mode == SearchMode::Hybrid {
+        Some(keyword_candidates(archive, request, candidate_limit).await?)
+    } else {
+        None
+    };
+
+    let semantic_result = match embedding_client {
+        Some(client) => {
+            semantic_candidates(
+                archive,
+                request,
+                recipe,
+                client,
+                candidate_limit,
+                cancellation,
+            )
+            .await
+        }
+        None => Err(EngineError::EmbeddingServiceUnavailable),
+    };
+
+    let semantic = match semantic_result {
+        Ok(semantic) => semantic,
+        Err(error) if request.allow_keyword_fallback && fallback_allowed(&error) => {
+            return retrieve_keyword_fallback(archive, request, keyword_candidates, &error).await;
+        }
+        Err(error) => return Err(error),
+    };
+
+    let coverage_repositories =
+        resolve_repositories(archive, &request.filters.repositories).await?;
+    let coverage = archive.coverage_summary(&coverage_repositories).await?;
+    match request.mode {
+        SearchMode::Semantic => Ok(semantic_result_page(
+            query,
+            request.mode,
+            sort,
+            semantic,
+            offset,
+            limit.get(),
+            coverage,
+        )),
+        SearchMode::Hybrid => {
+            let keyword = keyword_candidates.expect("hybrid mode loaded keyword candidates");
+            let fused = fuse_hybrid(keyword.items, semantic, sort, candidate_limit);
+            Ok(result_page(ResultPageRequest {
+                query,
+                requested_mode: request.mode,
+                mode: request.mode,
+                ranking: SearchRanking::ReciprocalRankFusion,
+                sort,
+                fallback_reason: None,
+                candidates: fused,
+                offset,
+                limit: limit.get(),
+                coverage,
+            }))
+        }
+        SearchMode::Keyword | SearchMode::AdvancedFts => unreachable!(),
+    }
+}
+
+/// Reuses hybrid keyword candidates or performs a local keyword search after semantic failure.
+async fn retrieve_keyword_fallback(
+    archive: &Archive,
+    request: &SearchRequest,
+    keyword_candidates: Option<KeywordCandidates>,
+    error: &EngineError,
+) -> Result<SearchResultPage, EngineError> {
+    let query = request.query.trim();
+    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
+    let (limit, offset) = checked_page(request.filters.limit, request.filters.offset)?;
+    let reason = error.code().to_owned();
+    if let Some(keyword) = keyword_candidates {
+        return Ok(keyword_fallback_page(
+            query,
+            request.mode,
+            sort,
+            keyword,
+            offset,
+            limit.get(),
+            reason,
+        ));
+    }
+    let fallback_request = SearchRequest {
+        mode: SearchMode::Keyword,
+        allow_keyword_fallback: false,
+        ..request.clone()
+    };
+    let page = search_threads(archive, &fallback_request).await?;
+    Ok(keyword_result_page(
+        query,
+        request.mode,
+        SearchMode::Keyword,
+        sort,
+        page,
+        offset,
+        Some(reason),
+    ))
 }
 
 struct KeywordCandidates {

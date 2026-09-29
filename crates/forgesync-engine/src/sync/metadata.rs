@@ -9,6 +9,7 @@ use super::{
     fetch_pull_request_metadata, github_failure, now_utc,
 };
 
+/// Acquires head-bound pull-request metadata as an independent evidence family.
 pub async fn sync_thread_pull_request_metadata(
     archive: &Archive,
     client: &GitHubClient,

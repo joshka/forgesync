@@ -7,6 +7,7 @@ use super::{
     load_failures, search_threads, show_cluster, show_thread,
 };
 
+/// Starts an archive-only repository read and tags its result with the current generation.
 pub fn start_repositories(
     app: &mut App,
     archive: &Arc<Archive>,
@@ -33,6 +34,7 @@ pub struct ThreadRead {
     pub offset: u64,
 }
 
+/// Starts a local discussion query for the selected repository and search scope.
 pub fn start_threads(
     request: ThreadRead,
     app: &mut App,
@@ -89,6 +91,7 @@ pub fn start_threads(
     }));
 }
 
+/// Starts a local detail read for the selected discussion.
 pub fn start_detail(
     selector: ThreadSelector,
     app: &mut App,
@@ -111,6 +114,7 @@ pub fn start_detail(
     }));
 }
 
+/// Starts a local archive coverage read without provider access.
 pub fn start_coverage(
     app: &mut App,
     archive: &Arc<Archive>,
@@ -132,6 +136,7 @@ pub fn start_coverage(
     }));
 }
 
+/// Starts the local durable-run failure summary read.
 pub fn start_failures(
     app: &mut App,
     archive: &Arc<Archive>,
@@ -150,6 +155,7 @@ pub fn start_failures(
     }));
 }
 
+/// Starts a local cluster-list read for the selected repositories.
 pub fn start_clusters(
     repositories: Vec<RepositorySelector>,
     app: &mut App,
@@ -180,6 +186,7 @@ pub fn start_clusters(
     }));
 }
 
+/// Starts a local detail read for the selected cluster generation.
 pub fn start_cluster_detail(
     generation: u64,
     id: u64,

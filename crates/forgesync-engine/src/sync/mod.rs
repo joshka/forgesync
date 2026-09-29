@@ -215,6 +215,7 @@ struct SyncRunContext<'a> {
 }
 
 impl SyncThreadScope {
+    /// Expands a thread scope into the provider enumerations it requires.
     fn units(self) -> Vec<ScopeUnit> {
         match self {
             Self::Default => vec![
@@ -356,6 +357,7 @@ pub async fn sync_repositories(
     result
 }
 
+/// Runs selected jobs and persists the terminal run outcome.
 async fn execute_and_finalize(
     archive: &Archive,
     clients: &HashMap<GitHubHost, GitHubClient>,

@@ -13,7 +13,11 @@ use super::github::github_api_base_url;
 use crate::reports::{SyncFailure, outcome_exit_code, retry_summary};
 use crate::{OutputMode, render_engine_error, render_error, render_result, render_store_error};
 
-pub async fn retry_command(
+/// Plans unresolved work, constructs host clients, and retries selected run families.
+///
+/// The initial plan is read from the archive before provider clients are constructed. A partial
+/// retry remains a durable run report, with its own exit status and failure details.
+pub async fn execute_retry(
     archive_path: &std::path::Path,
     run_id: RunId,
     families: Vec<forgesync_core::coverage::EvidenceFamily>,

@@ -93,6 +93,7 @@ pub async fn list_clusters(
     Ok(archive.list_clusters(&query).await?)
 }
 
+/// Loads compatible evidence and persists one deterministic cluster generation.
 async fn execute_cluster_build(
     archive: &Archive,
     request: &ClusterBuildRequest,
@@ -179,6 +180,7 @@ async fn execute_cluster_build(
     })
 }
 
+/// Measures eligible open discussions for cluster coverage reporting.
 async fn count_open_threads(
     archive: &Archive,
     repositories: &[RepositoryId],
@@ -216,6 +218,7 @@ async fn count_open_threads(
     }
 }
 
+/// Loads current compatible vectors before graph construction.
 async fn load_cluster_vectors(
     archive: &Archive,
     repositories: &[RepositoryId],
@@ -252,6 +255,7 @@ async fn load_cluster_vectors(
     }
 }
 
+/// Constructs candidate edges under configured similarity and memory bounds.
 async fn build_cluster_candidates_bounded(
     documents: Vec<EmbeddingSearchDocument>,
     repository_full_name: String,

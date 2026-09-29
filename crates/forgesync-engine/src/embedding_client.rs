@@ -194,6 +194,7 @@ impl EmbeddingClient {
         Err(EmbeddingClientError::RetryBudgetExhausted)
     }
 
+    /// Limits simultaneous embedding calls before provider I/O begins.
     async fn acquire_request_slot(
         &self,
         cancellation: &CancellationToken,
@@ -206,6 +207,7 @@ impl EmbeddingClient {
         }
     }
 
+    /// Sends one bounded service request and returns its validated response.
     async fn request_once(
         &self,
         inputs: &[String],
@@ -245,6 +247,7 @@ impl EmbeddingClient {
         validate_response(response, inputs.len(), self.dimensions, &self.model)
     }
 
+    /// Rejects empty or oversized inputs before consuming a request slot.
     fn validate_inputs(&self, inputs: &[String]) -> Result<(), EmbeddingClientError> {
         if inputs.len() > self.batch_size || inputs.len() > MAX_BATCH_INPUTS {
             return Err(EmbeddingClientError::BatchTooLarge);
@@ -277,6 +280,7 @@ struct EmbeddingRequest<'a> {
     encoding_format: &'static str,
 }
 
+/// Checks endpoint and resource bounds before constructing the client.
 fn validate_config(config: &EmbeddingClientConfig) -> Result<(), EmbeddingClientError> {
     if !valid_endpoint(&config.endpoint)
         || config.model.trim().is_empty()
@@ -303,6 +307,7 @@ fn validate_config(config: &EmbeddingClientConfig) -> Result<(), EmbeddingClient
     Ok(())
 }
 
+/// Restricts embedding requests to supported endpoint URLs.
 fn valid_endpoint(endpoint: &Url) -> bool {
     let secure = endpoint.scheme() == "https";
     let local_http =
@@ -315,6 +320,7 @@ fn valid_endpoint(endpoint: &Url) -> bool {
         && endpoint.fragment().is_none()
 }
 
+/// Identifies a local endpoint eligible for development configuration.
 fn is_loopback_host(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost")
         || host
@@ -322,11 +328,13 @@ fn is_loopback_host(host: &str) -> bool {
             .is_ok_and(|address| address.is_loopback())
 }
 
+/// Bounds the backoff applied after a retryable embedding failure.
 fn retry_delay(attempt: u32) -> Duration {
     let exponent = attempt.min(5);
     Duration::from_millis(200_u64.saturating_mul(1_u64 << exponent)).min(MAX_RETRY_DELAY)
 }
 
+/// Classifies transport failures without exposing request content.
 fn map_request_error(error: reqwest::Error) -> EmbeddingClientError {
     if error.is_timeout() {
         EmbeddingClientError::Timeout
@@ -335,6 +343,7 @@ fn map_request_error(error: reqwest::Error) -> EmbeddingClientError {
     }
 }
 
+/// Stops oversized responses before decoding provider data.
 async fn read_bounded_body(
     mut response: reqwest::Response,
     cancellation: &CancellationToken,

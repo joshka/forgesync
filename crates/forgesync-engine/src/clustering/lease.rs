@@ -2,6 +2,7 @@
 
 use super::{Archive, ArchiveLeaseToken, EngineError, now_utc};
 
+/// Releases the generation lease after success or failure.
 pub async fn finish_cluster_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
@@ -10,6 +11,7 @@ pub async fn finish_cluster_lease<T>(
     finish_cluster_lease_result(archive, lease, operation.map_err(Into::into)).await
 }
 
+/// Releases the decision lease while preserving the original operation result.
 pub async fn finish_cluster_decision_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
@@ -24,6 +26,7 @@ pub async fn finish_cluster_decision_lease<T>(
     finish_cluster_lease_result(archive, lease, operation).await
 }
 
+/// Combines operation and lease-release results without hiding the first failure.
 pub async fn finish_cluster_lease_result<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,

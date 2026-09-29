@@ -14,7 +14,8 @@ use forgesync_store::archive::Archive;
 use crate::reports::{ClusterDecisionOutput, cluster_decision_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success};
 
-pub async fn dismiss_cluster_command(
+/// Records a local dismissal and optional rationale without changing GitHub.
+pub async fn run_dismiss(
     id: u64,
     reason: Option<String>,
     path: &Path,
@@ -29,7 +30,8 @@ pub async fn dismiss_cluster_command(
     .await
 }
 
-pub async fn restore_cluster_command(id: u64, path: &Path, json: OutputMode) -> ExitCode {
+/// Restores a locally dismissed cluster to maintainer triage.
+pub async fn run_restore(id: u64, path: &Path, json: OutputMode) -> ExitCode {
     mutate_cluster(json, "cluster restore", id, "restored", async {
         let archive = Archive::open_read_write(path).await?;
         let result = restore_cluster(&archive, id).await;
@@ -39,7 +41,8 @@ pub async fn restore_cluster_command(id: u64, path: &Path, json: OutputMode) -> 
     .await
 }
 
-pub async fn exclude_cluster_command(
+/// Excludes a member from local cluster triage and retains an optional reason.
+pub async fn run_exclude(
     id: u64,
     member: ThreadSelector,
     reason: Option<String>,
@@ -56,7 +59,8 @@ pub async fn exclude_cluster_command(
     .await
 }
 
-pub async fn include_cluster_command(
+/// Returns a previously excluded member to its generated cluster.
+pub async fn run_include(
     id: u64,
     member: ThreadSelector,
     path: &Path,
@@ -71,7 +75,8 @@ pub async fn include_cluster_command(
     .await
 }
 
-pub async fn canonical_cluster_command(
+/// Records the canonical discussion selected by the maintainer.
+pub async fn run_set_canonical(
     id: u64,
     member: ThreadSelector,
     path: &Path,
@@ -86,6 +91,7 @@ pub async fn canonical_cluster_command(
     .await
 }
 
+/// Renders a local decision consistently while preserving typed engine and store failures.
 async fn mutate_cluster<F>(
     json: OutputMode,
     command: &'static str,

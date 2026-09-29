@@ -117,6 +117,7 @@ pub fn build_cluster_candidates(
     Ok((candidates, edge_count))
 }
 
+/// Keeps only the strongest bounded neighbors for one discussion.
 fn offer_neighbor(heap: &mut BinaryHeap<Neighbor>, candidate: Neighbor, capacity: usize) {
     if heap.len() < capacity {
         heap.push(candidate);
@@ -134,6 +135,7 @@ fn offer_neighbor(heap: &mut BinaryHeap<Neighbor>, candidate: Neighbor, capacity
     }
 }
 
+/// Scores compatible discussion vectors for a candidate edge.
 fn document_similarity(
     left: &EmbeddingSearchDocument,
     right: &EmbeddingSearchDocument,
@@ -149,6 +151,7 @@ fn document_similarity(
         .max_by(f64::total_cmp)
 }
 
+/// Adds stable reference-based links independently of vector ranking.
 fn deterministic_reference_edges(
     documents: &[EmbeddingSearchDocument],
     repository_full_name: &str,
@@ -192,6 +195,7 @@ fn deterministic_reference_edges(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Finds explicit discussion references among eligible candidates.
 fn collect_reference_edges(
     edges: &mut HashMap<(usize, usize), f64>,
     source_index: usize,
@@ -245,6 +249,7 @@ fn collect_reference_edges(
     }
 }
 
+/// Extracts comparable title tokens for reference heuristics.
 fn title_tokens(value: &str) -> HashSet<String> {
     TITLE_TOKEN
         .find_iter(value)
@@ -252,6 +257,7 @@ fn title_tokens(value: &str) -> HashSet<String> {
         .collect()
 }
 
+/// Measures title-token overlap for candidate support.
 fn overlap_ratio(left: &HashSet<String>, right: &HashSet<String>) -> f64 {
     if left.is_empty() || right.is_empty() {
         return 0.0;
@@ -260,6 +266,7 @@ fn overlap_ratio(left: &HashSet<String>, right: &HashSet<String>) -> f64 {
     overlap as f64 / left.len().min(right.len()) as f64
 }
 
+/// Orders edges deterministically before component construction.
 fn compare_edges(left: &CandidateEdge, right: &CandidateEdge) -> Ordering {
     right
         .score
@@ -268,6 +275,7 @@ fn compare_edges(left: &CandidateEdge, right: &CandidateEdge) -> Ordering {
         .then_with(|| left.right.cmp(&right.right))
 }
 
+/// Builds connected groups without exceeding the configured size.
 fn bounded_components(
     documents: &[EmbeddingSearchDocument],
     edges: &[CandidateEdge],
@@ -299,6 +307,7 @@ fn bounded_components(
     (components, kept_edges)
 }
 
+/// Converts graph components into stable generation inputs.
 fn format_clusters(
     documents: &[EmbeddingSearchDocument],
     components: &[Vec<usize>],
@@ -371,6 +380,7 @@ struct UnionFind {
 }
 
 impl UnionFind {
+    /// Creates one disjoint-set entry per candidate discussion.
     fn new(count: usize) -> Self {
         Self {
             parent: (0..count).collect(),
@@ -378,6 +388,7 @@ impl UnionFind {
         }
     }
 
+    /// Finds a component root while shortening its parent path.
     fn find(&mut self, index: usize) -> usize {
         if self.parent[index] != index {
             self.parent[index] = self.find(self.parent[index]);
@@ -385,6 +396,7 @@ impl UnionFind {
         self.parent[index]
     }
 
+    /// Joins eligible components when the resulting group stays bounded.
     fn union(&mut self, left: usize, right: usize, max_size: usize) -> bool {
         let mut left_root = self.find(left);
         let mut right_root = self.find(right);
@@ -403,6 +415,7 @@ impl UnionFind {
     }
 }
 
+/// Returns the strongest similarity supporting a component edge.
 fn max_score(left: Option<f64>, right: Option<f64>) -> Option<f64> {
     match (left, right) {
         (Some(left), Some(right)) => Some(left.max(right)),

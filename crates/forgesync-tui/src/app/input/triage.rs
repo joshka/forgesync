@@ -4,6 +4,7 @@ use super::{App, KeyCode, QueryAction, RepositorySelector};
 use crate::app::{RunId, ThreadSelector, move_index};
 
 impl App {
+    /// Maps failure-view keys to run selection and retry actions.
     pub fn handle_failures_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Char('t') => self
@@ -32,6 +33,7 @@ impl App {
         }
     }
 
+    /// Maps cluster-list keys to selection and local decision actions.
     pub fn handle_clusters_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Char('d') => self
@@ -68,6 +70,7 @@ impl App {
         }
     }
 
+    /// Maps cluster-detail keys to member selection and decisions.
     pub fn handle_cluster_detail_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Char('d') => self
@@ -105,6 +108,7 @@ impl App {
         }
     }
 
+    /// Builds a local maintainer action for the currently selected cluster member.
     fn cluster_member_action(&self, code: KeyCode) -> Vec<QueryAction> {
         let Some(detail) = &self.cluster_detail else {
             return Vec::new();

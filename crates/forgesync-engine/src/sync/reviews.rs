@@ -10,6 +10,7 @@ use super::{
     github_failure, now_utc,
 };
 
+/// Acquires pull-request reviews independently from comments and metadata.
 pub async fn sync_thread_reviews(
     archive: &Archive,
     client: &GitHubClient,

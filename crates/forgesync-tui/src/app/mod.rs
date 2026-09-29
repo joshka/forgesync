@@ -131,6 +131,7 @@ pub enum QueryMessage {
 mod input;
 mod state;
 
+/// Moves a bounded selection by one row without underflow or overshoot.
 fn move_index(current: usize, max: usize, direction: i8) -> usize {
     if direction < 0 {
         current.saturating_sub(1)

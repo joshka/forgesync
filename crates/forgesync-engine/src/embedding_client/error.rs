@@ -83,6 +83,7 @@ impl EmbeddingClientError {
         }
     }
 
+    /// Identifies service failures eligible for the bounded retry policy.
     pub(super) fn retryable(self) -> bool {
         match self {
             Self::Network | Self::Timeout => true,

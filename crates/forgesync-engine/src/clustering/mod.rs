@@ -78,6 +78,7 @@ impl Default for ClusterOptions {
 }
 
 impl ClusterOptions {
+    /// Rejects cluster policies that cannot produce deterministic bounded groups.
     pub(crate) fn validate(self) -> Result<Self, EngineError> {
         if !self.threshold.is_finite()
             || !(0.0..=1.0).contains(&self.threshold)

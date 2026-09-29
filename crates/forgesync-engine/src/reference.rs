@@ -144,6 +144,7 @@ pub enum ReferenceParseError {
     InvalidThread,
 }
 
+/// Extracts a checked thread selector from a GitHub HTTPS URL.
 fn parse_thread_url(value: &str) -> Result<ThreadSelector, ReferenceParseError> {
     let (host, path) = parse_https_path(value)?.ok_or(ReferenceParseError::InvalidThread)?;
     let mut segments = path.split('/');
@@ -168,6 +169,7 @@ fn parse_thread_url(value: &str) -> Result<ThreadSelector, ReferenceParseError> 
     })
 }
 
+/// Separates an explicit host from a selector path without provider I/O.
 fn parse_https_path(value: &str) -> Result<Option<(GitHubHost, &str)>, ReferenceParseError> {
     if !value.contains("://") {
         return Ok(None);
@@ -191,6 +193,7 @@ fn parse_https_path(value: &str) -> Result<Option<(GitHubHost, &str)>, Reference
     Ok(Some((host, path)))
 }
 
+/// Rejects zero and malformed repository-local discussion numbers.
 fn parse_thread_number(value: &str) -> Result<ThreadNumber, ReferenceParseError> {
     let number = value
         .parse::<u64>()
@@ -198,6 +201,7 @@ fn parse_thread_number(value: &str) -> Result<ThreadNumber, ReferenceParseError>
     ThreadNumber::new(number).map_err(|_| ReferenceParseError::InvalidThread)
 }
 
+/// Checks an owner or repository path segment before constructing a selector.
 fn valid_segment(value: &str) -> bool {
     !value.is_empty()
         && value

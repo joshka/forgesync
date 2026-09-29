@@ -6,15 +6,12 @@ use std::process::ExitCode;
 use forgesync_engine::clustering::{ClusterListRequest, list_clusters, show_cluster};
 use forgesync_store::archive::Archive;
 
-use crate::args::ClusterListArgs;
+use crate::command::ClusterListArgs;
 use crate::reports::{cluster_detail_summary, cluster_page_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success};
 
-pub async fn list_cluster_command(
-    args: ClusterListArgs,
-    path: &Path,
-    json: OutputMode,
-) -> ExitCode {
+/// Lists generated clusters from a read-only archive handle.
+pub async fn run_list(args: ClusterListArgs, path: &Path, json: OutputMode) -> ExitCode {
     let ClusterListArgs {
         repositories,
         include_retired,
@@ -39,7 +36,8 @@ pub async fn list_cluster_command(
     }
 }
 
-pub async fn show_cluster_command(id: u64, path: &Path, json: OutputMode) -> ExitCode {
+/// Shows one cluster and its current local decisions without provider access.
+pub async fn run_show(id: u64, path: &Path, json: OutputMode) -> ExitCode {
     let archive = match Archive::open_read_only(path).await {
         Ok(archive) => archive,
         Err(error) => return render_store_error(json, "cluster show", error),

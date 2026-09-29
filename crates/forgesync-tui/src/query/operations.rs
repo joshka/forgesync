@@ -11,6 +11,7 @@ use super::{
     set_canonical_cluster_member, sync_repositories,
 };
 
+/// Starts one writer operation and reports progress through the UI message channel.
 pub fn start_operation(
     action: QueryAction,
     app: &mut App,
@@ -85,6 +86,7 @@ pub fn start_operation(
     });
 }
 
+/// Runs the selected engine mutation with cancellation and a writable archive.
 async fn execute_operation(
     action: &QueryAction,
     archive: &Archive,
@@ -225,6 +227,7 @@ async fn execute_operation(
     }
 }
 
+/// Resolves the UI repository scope before provider-backed work starts.
 async fn resolve_operation_repositories(
     archive: &Archive,
     repositories: &[RepositorySelector],
@@ -246,6 +249,7 @@ async fn resolve_operation_repositories(
     }
 }
 
+/// Keeps a stable engine error classification in terminal status output.
 async fn format_engine_error(
     archive: &Archive,
     error: forgesync_engine::error::EngineError,
@@ -270,6 +274,7 @@ async fn format_engine_error(
     error.to_string()
 }
 
+/// Returns the terminal label for a structured workflow outcome.
 fn outcome_name(outcome: &OperationOutcome) -> &'static str {
     match outcome {
         OperationOutcome::Complete => "complete",
@@ -280,6 +285,7 @@ fn outcome_name(outcome: &OperationOutcome) -> &'static str {
     }
 }
 
+/// Summarizes completed and failed retry scopes for the status bar.
 fn retry_summary(report: &RetryReport) -> String {
     let status = if report
         .runs

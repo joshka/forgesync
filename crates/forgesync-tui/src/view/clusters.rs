@@ -6,6 +6,7 @@ use super::{
     selected_style,
 };
 
+/// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
         .clusters
@@ -51,6 +52,7 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Draws one cluster and its member decisions.
 pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut lines = if app.cluster_detail_loading && app.cluster_detail.is_none() {
         vec![Line::from("Loading cluster neighbors…")]
@@ -74,6 +76,7 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Builds the ordered detail lines for one generated cluster.
 fn cluster_detail_lines(detail: &ClusterDetail, selected_member: usize) -> Vec<Line<'static>> {
     let cluster = &detail.cluster;
     let mut lines = vec![

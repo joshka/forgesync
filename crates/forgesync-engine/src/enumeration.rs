@@ -119,6 +119,7 @@ pub async fn enumerate_repository_threads_in_scope(
     .await
 }
 
+/// Commits each acquired page before advancing the durable scan cursor.
 pub(crate) async fn enumerate_repository_thread_pages(
     archive: &Archive,
     client: &GitHubClient,
@@ -282,6 +283,7 @@ pub(crate) async fn enumerate_repository_thread_pages(
     }
 }
 
+/// Preserves the checkpoint and failure when a repository scan stops early.
 async fn incomplete_report(
     archive: &Archive,
     repository: Repository,
@@ -302,6 +304,7 @@ async fn incomplete_report(
     .await
 }
 
+/// Marks a completed scan only after the final provider page is committed.
 async fn finish_report(
     archive: &Archive,
     repository: Repository,
@@ -347,6 +350,7 @@ async fn finish_report(
     })
 }
 
+/// Converts a typed provider error to structured family failure evidence.
 pub(super) fn github_failure(error: &GitHubError) -> Failure {
     let kind = match error {
         GitHubError::Api {
@@ -383,6 +387,7 @@ pub(super) fn github_failure(error: &GitHubError) -> Failure {
     }
 }
 
+/// Validates local acquisition time before recording a scan.
 pub(super) fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)

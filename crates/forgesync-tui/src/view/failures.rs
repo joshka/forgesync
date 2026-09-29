@@ -5,6 +5,7 @@ use super::{
     ListState, Modifier, Paragraph, Rect, Style, Text, Wrap, pane_block, selected_style,
 };
 
+/// Arranges the failed-run list and selected failure detail.
 pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
     if area.width >= COMPACT_WIDTH {
         let panes = Layout::default()
@@ -23,6 +24,7 @@ pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
 }
 
+/// Draws non-complete runs and the current selection.
 fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items = app
         .failures
@@ -49,6 +51,7 @@ fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Draws unresolved failure entries for the selected run.
 fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let lines = if let Some(run) = app.failures.get(app.selected_failure) {
         let mut lines = vec![

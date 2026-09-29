@@ -5,6 +5,7 @@ use super::{
     pane_block,
 };
 
+/// Draws family coverage for the currently selected archive scope.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = pane_block("Archive coverage and health", true);
     let mut lines = if app.coverage_loading && app.coverage.is_none() {
@@ -27,6 +28,7 @@ pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Converts coverage counts and state into ordered terminal lines.
 fn coverage_lines(status: &ArchiveStatus) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(format!("Archive {}", status.archive.archive_id)),

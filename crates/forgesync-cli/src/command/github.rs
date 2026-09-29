@@ -9,6 +9,7 @@ use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 
 use crate::{OutputMode, render_error_with_status};
 
+/// Builds one provider client per selected host, using process-level credential discovery.
 pub async fn github_clients_for_selectors(
     selectors: &[RepositorySelector],
     verbose: u8,
@@ -70,6 +71,7 @@ pub enum GitHubClientSetupError {
     Initialization(String),
 }
 
+/// Converts provider client setup failures into the CLI's stable error envelope.
 pub fn render_github_client_setup_error(
     json: OutputMode,
     command: &str,
@@ -98,6 +100,7 @@ pub fn render_github_client_setup_error(
     render_error_with_status(json, command, code, &message, status)
 }
 
+/// Returns the API base URL corresponding to a validated GitHub host.
 pub fn github_api_base_url(host: &GitHubHost) -> String {
     if host.as_str() == "github.com" {
         "https://api.github.com/".to_owned()

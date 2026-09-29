@@ -1,17 +1,40 @@
-//! Sync command handling.
+//! Sync arguments and provider acquisition process behavior.
 
 use std::process::ExitCode;
 
+use clap::{ArgAction, Args};
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::{SyncProgress, SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 
 use super::github::{github_clients_for_selectors, render_github_client_setup_error};
-use crate::args::{SyncArgs, SyncIncludeArg, SyncThreadStateArg};
+use super::{SyncIncludeArg, SyncThreadStateArg};
 use crate::reports::{outcome_exit_code, sync_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
-pub async fn sync_command(
+/// Acquire GitHub discussions into the local archive.
+#[derive(Clone, Debug, Args)]
+pub struct SyncArgs {
+    /// Repositories to sync; required unless `--all` is supplied.
+    #[arg(
+        value_name = "OWNER/REPO",
+        required_unless_present = "all",
+        conflicts_with = "all"
+    )]
+    pub repositories: Vec<RepositorySelector>,
+    /// Sync every repository already registered in the archive.
+    #[arg(long, action = ArgAction::SetTrue, conflicts_with = "repositories")]
+    pub all: bool,
+    /// Select open threads, closed threads, or a complete all-state enumeration.
+    #[arg(long, value_enum)]
+    pub state: Option<SyncThreadStateArg>,
+    /// Add selected evidence families to the thread sync.
+    #[arg(long = "with", value_enum, value_delimiter = ',')]
+    pub with: Vec<SyncIncludeArg>,
+}
+
+/// Opens an archive and runs one prepared acquisition request.
+async fn execute_sync(
     archive_path: &std::path::Path,
     request: SyncRequest,
     json: OutputMode,
@@ -88,40 +111,38 @@ pub async fn sync_command(
     }
 }
 
-pub async fn sync_from_cli(
-    args: SyncArgs,
-    path: &std::path::Path,
-    json: OutputMode,
-    verbose: u8,
-) -> ExitCode {
-    let SyncArgs {
-        repositories,
-        all,
-        state,
-        with,
-    } = args;
-    let cancellation = tokio_util::sync::CancellationToken::new();
-    let interrupt_cancellation = cancellation.clone();
-    let interrupt_task = tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            interrupt_cancellation.cancel();
-        }
-    });
-    let sync_request = SyncRequest {
-        repositories,
-        all,
-        scope: match state {
-            None => SyncThreadScope::Default,
-            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
-            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
-            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
-        },
-        include_comments: with.contains(&SyncIncludeArg::Comments),
-        include_reviews: with.contains(&SyncIncludeArg::Reviews),
-        include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
-        parent_run: None,
-    };
-    let result = sync_command(path, sync_request, json, verbose, &cancellation).await;
-    interrupt_task.abort();
-    result
+impl SyncArgs {
+    /// Converts parsed selection into a sync request and installs cancellation handling.
+    pub async fn run(self, path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
+        let SyncArgs {
+            repositories,
+            all,
+            state,
+            with,
+        } = self;
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let interrupt_cancellation = cancellation.clone();
+        let interrupt_task = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                interrupt_cancellation.cancel();
+            }
+        });
+        let sync_request = SyncRequest {
+            repositories,
+            all,
+            scope: match state {
+                None => SyncThreadScope::Default,
+                Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+                Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+                Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+            },
+            include_comments: with.contains(&SyncIncludeArg::Comments),
+            include_reviews: with.contains(&SyncIncludeArg::Reviews),
+            include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
+            parent_run: None,
+        };
+        let result = execute_sync(path, sync_request, json, verbose, &cancellation).await;
+        interrupt_task.abort();
+        result
+    }
 }

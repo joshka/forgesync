@@ -8,6 +8,7 @@ use super::{
     ThreadStateFilter, embed_documents, list_threads, materialize_thread_document,
 };
 
+/// Materializes documents per repository before requesting missing vectors.
 pub async fn collect_embedding_repositories(
     archive: &Archive,
     repositories: &[RepositorySelector],
@@ -97,6 +98,7 @@ pub async fn collect_embedding_repositories(
     (result, first_failure)
 }
 
+/// Derives stage status from document and vector failures.
 pub fn embedding_status(
     report: &RefreshEmbeddingReport,
     failure: Option<&RefreshStageFailure>,

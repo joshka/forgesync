@@ -1,7 +1,23 @@
 //! Cluster command arguments.
 
+use std::path::Path;
+use std::process::ExitCode;
+
 use clap::{ArgAction, Args, Subcommand};
+use forgesync_core::document::DocumentRecipe;
+use tokio_util::sync::CancellationToken;
+
+use crate::OutputMode;
+use crate::config::{EmbeddingServiceConfig, ForgesyncConfig};
+
+mod build;
+mod decisions;
+mod read;
+
+use build::run_build;
+use decisions::{run_dismiss, run_exclude, run_include, run_restore, run_set_canonical};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use read::{run_list, run_show};
 
 /// Deterministic cluster generation, inspection, and local governance operations.
 #[derive(Clone, Debug, Subcommand)]
@@ -60,6 +76,7 @@ pub enum ClusterCommand {
     },
 }
 
+/// Accepts finite inclusive thresholds so clustering never receives NaN or an invalid range.
 fn parse_unit_float(value: &str) -> Result<f64, String> {
     let parsed = value
         .parse::<f64>()
@@ -122,4 +139,76 @@ pub struct ClusterListArgs {
     /// Number of clusters to skip.
     #[arg(long, default_value_t = 0)]
     pub offset: u64,
+}
+
+impl ClusterCommand {
+    /// Runs a cluster read, build, or local maintainer decision.
+    pub async fn run(
+        self,
+        path: &Path,
+        json: OutputMode,
+        verbose: u8,
+        config: ForgesyncConfig,
+    ) -> ExitCode {
+        let cancellation = CancellationToken::new();
+        let interrupt_cancellation = cancellation.clone();
+        let interrupt_task = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                interrupt_cancellation.cancel();
+            }
+        });
+        let result = self
+            .execute(
+                path,
+                config.embeddings,
+                config.documents.recipe,
+                json,
+                verbose,
+                &cancellation,
+            )
+            .await;
+        interrupt_task.abort();
+        result
+    }
+
+    /// Routes a selected cluster operation after installing cancellation.
+    async fn execute(
+        self,
+        archive_path: &Path,
+        embedding_service: EmbeddingServiceConfig,
+        recipe: DocumentRecipe,
+        json: OutputMode,
+        verbose: u8,
+        cancellation: &CancellationToken,
+    ) -> ExitCode {
+        match self {
+            ClusterCommand::Build(args) => {
+                run_build(
+                    args,
+                    archive_path,
+                    embedding_service,
+                    recipe,
+                    json,
+                    verbose,
+                    cancellation,
+                )
+                .await
+            }
+            ClusterCommand::List(args) => run_list(args, archive_path, json).await,
+            ClusterCommand::Show { id } => run_show(id, archive_path, json).await,
+            ClusterCommand::Dismiss { id, reason } => {
+                run_dismiss(id, reason, archive_path, json).await
+            }
+            ClusterCommand::Restore { id } => run_restore(id, archive_path, json).await,
+            ClusterCommand::Exclude { id, member, reason } => {
+                run_exclude(id, member, reason, archive_path, json).await
+            }
+            ClusterCommand::Include { id, member } => {
+                run_include(id, member, archive_path, json).await
+            }
+            ClusterCommand::Canonical { id, member } => {
+                run_set_canonical(id, member, archive_path, json).await
+            }
+        }
+    }
 }

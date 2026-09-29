@@ -110,6 +110,7 @@ pub async fn list_threads(
     archive.query_threads(&query).await.map_err(Into::into)
 }
 
+/// Maps a read request state to the store query representation.
 pub(crate) fn store_state_filter(state: ThreadStateFilter) -> StoreThreadStateFilter {
     match state {
         ThreadStateFilter::All => StoreThreadStateFilter::All,
@@ -118,6 +119,7 @@ pub(crate) fn store_state_filter(state: ThreadStateFilter) -> StoreThreadStateFi
     }
 }
 
+/// Maps presentation sort policy to the store's stable ordering.
 pub(crate) fn store_sort(sort: ThreadSort) -> StoreThreadSort {
     match sort {
         ThreadSort::Relevance => StoreThreadSort::Relevance,
@@ -150,6 +152,7 @@ pub async fn show_thread(
         })
 }
 
+/// Resolves selected repository names before constructing a local query.
 pub(crate) async fn resolve_repositories(
     archive: &Archive,
     selectors: &[RepositorySelector],
@@ -167,6 +170,7 @@ pub(crate) async fn resolve_repositories(
     Ok(repositories)
 }
 
+/// Validates a bounded page window before it reaches SQLite.
 pub(crate) fn checked_page(limit: u32, offset: u64) -> Result<(NonZeroU32, u64), EngineError> {
     let limit = NonZeroU32::new(limit).filter(|value| value.get() <= 1000);
     let limit = limit.ok_or(EngineError::InvalidPageLimit)?;
@@ -176,6 +180,7 @@ pub(crate) fn checked_page(limit: u32, offset: u64) -> Result<(NonZeroU32, u64),
     Ok((limit, offset))
 }
 
+/// Builds the typed error for an absent repository selector.
 fn repository_missing(selector: &RepositorySelector) -> EngineError {
     EngineError::RepositoryMissing {
         host: selector.host().as_str().to_owned(),

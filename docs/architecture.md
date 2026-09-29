@@ -14,7 +14,9 @@ offline reads and presents maintainer decisions. This map names the owner of eac
 
 For a sync change, start at the CLI command, follow the engine sync operation through the GitHub
 resource method and store application method, then inspect the matching fixture and regression test.
-For an offline read, start at the engine request, inspect the store query, then the CLI or TUI
+CLI parsing and execution share `crates/forgesync-cli/src/command/`; the parsed command type owns
+its process `run` method. Shared configuration and result rendering remain separate modules. For an
+offline read, start at the engine request, inspect the store query, then the CLI or TUI
 presentation. The engine accepts an opened archive; the store alone decides transaction and
 observation ordering. GitHub code does not open the archive.
 

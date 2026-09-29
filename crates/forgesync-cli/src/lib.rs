@@ -7,28 +7,26 @@
 //! delegates here. Library callers normally use [`forgesync_engine`] for workflows and
 //! [`forgesync_store`] for archive access; this crate is useful when embedding the complete CLI.
 //!
-//! [`args`] defines the command vocabulary, [`config`] and [`credentials`] resolve local process
-//! inputs, and [`output`] defines the versioned JSON envelope. These process DTOs are separate from
-//! domain and archive types.
+//! The private command tree owns parsing and execution. [`config`] and [`credentials`] resolve
+//! local process inputs, and [`output`] defines the versioned JSON envelope. These process DTOs are
+//! separate from domain and archive types.
 
-pub mod args;
+mod command;
 pub mod config;
 pub mod credentials;
 pub mod output;
 
-mod commands;
 mod reports;
 
 use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
-#[cfg(feature = "tui")]
-use args::Command;
-use args::{CliArgs, LogFormat};
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
-use commands::dispatch;
+#[cfg(feature = "tui")]
+use command::Command;
+use command::{CliArgs, LogFormat};
 use config::ForgesyncConfig;
 use forgesync_engine::error::EngineError;
 use forgesync_store::error::StoreError;
@@ -88,9 +86,10 @@ where
             );
         }
     };
-    runtime.block_on(dispatch(args, config))
+    runtime.block_on(args.dispatch(config))
 }
 
+/// Installs process-owned diagnostics at the requested verbosity and encoding.
 fn initialize_tracing(verbose: u8, format: LogFormat) {
     let max_level = match verbose {
         0 => LevelFilter::WARN,
@@ -117,6 +116,7 @@ fn initialize_tracing(verbose: u8, format: LogFormat) {
     }
 }
 
+/// Selects the configuration source needed by the chosen command.
 fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigError> {
     #[cfg(feature = "tui")]
     if matches!(&args.command, Command::Tui) {
@@ -144,6 +144,7 @@ impl OutputMode {
     }
 }
 
+/// Renders a successful operation while keeping JSON and human presentation in one place.
 fn render_success<T>(
     json: OutputMode,
     command: &str,
@@ -183,6 +184,7 @@ where
     }
 }
 
+/// Preserves the store error classification in process output.
 fn render_store_error(json: OutputMode, command: &str, error: StoreError) -> ExitCode {
     render_error(json, command, error.code(), &error.to_string())
 }
@@ -200,10 +202,12 @@ fn render_engine_error(json: OutputMode, command: &str, error: EngineError) -> E
     render_error_with_status(json, command, code, &message, status)
 }
 
+/// Writes an application error in the selected output format.
 fn render_error(json: OutputMode, command: &str, code: &str, message: &str) -> ExitCode {
     render_error_with_status(json, command, code, message, ExitCode::FAILURE)
 }
 
+/// Writes an application error and returns its selected process status.
 fn render_error_with_status(
     json: OutputMode,
     command: &str,
@@ -222,6 +226,7 @@ fn render_error_with_status(
     exit_status
 }
 
+/// Reports invalid command usage with the conventional usage exit code.
 fn usage_error(message: &str) -> ExitCode {
     let mut command = CliArgs::command();
     let error = command.error(ErrorKind::MissingRequiredArgument, message.to_owned());

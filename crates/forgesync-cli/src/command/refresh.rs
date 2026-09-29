@@ -1,10 +1,12 @@
-//! Refresh command handling.
+//! Refresh arguments and process behavior.
 
 use std::collections::HashMap;
 use std::process::ExitCode;
 
+use clap::{ArgAction, Args};
 use forgesync_engine::clustering::ClusterOptions;
 use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::refresh::{
     EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshRequest, RefreshSyncOptions, refresh,
 };
@@ -12,31 +14,58 @@ use forgesync_engine::sync::SyncThreadScope;
 use forgesync_store::archive::Archive;
 
 use super::github::{github_clients_for_selectors, render_github_client_setup_error};
-use crate::args::{RefreshAnalysisArg, RefreshArgs, SyncIncludeArg, SyncThreadStateArg};
+use super::{RefreshAnalysisArg, SyncIncludeArg, SyncThreadStateArg};
 use crate::config::ForgesyncConfig;
 use crate::reports::{outcome_exit_code, refresh_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, usage_error};
 
-pub async fn refresh_from_cli(
-    args: RefreshArgs,
-    path: &std::path::Path,
-    json: OutputMode,
-    verbose: u8,
-    config: ForgesyncConfig,
-) -> ExitCode {
-    let cancellation = tokio_util::sync::CancellationToken::new();
-    let interrupt_cancellation = cancellation.clone();
-    let interrupt_task = tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            interrupt_cancellation.cancel();
-        }
-    });
-    let result = refresh_command(args, path, json, verbose, config, &cancellation).await;
-    interrupt_task.abort();
-    result
+/// Sync a repository and run explicitly selected local analysis stages.
+#[derive(Clone, Debug, Args)]
+pub struct RefreshArgs {
+    /// Repository scope shared by sync, embedding, and clustering stages.
+    #[arg(value_name = "OWNER/REPO", required = true)]
+    pub repositories: Vec<RepositorySelector>,
+    /// Skip GitHub acquisition and analyze only the local archive.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub no_sync: bool,
+    /// Select open threads, closed threads, or a complete all-state enumeration.
+    #[arg(long, value_enum)]
+    pub state: Option<SyncThreadStateArg>,
+    /// Add selected evidence families to the sync stage.
+    #[arg(long = "with", value_enum, value_delimiter = ',')]
+    pub with: Vec<SyncIncludeArg>,
+    /// Explicitly select model-backed stages; clustering uses stored vectors.
+    #[arg(long, value_enum, value_delimiter = ',')]
+    pub analyze: Vec<RefreshAnalysisArg>,
+    /// Force embedding requests even when compatible vectors are stored.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub force: bool,
 }
 
-async fn refresh_command(
+impl RefreshArgs {
+    /// Runs the selected refresh workflow with process cancellation and result rendering.
+    pub async fn run(
+        self,
+        path: &std::path::Path,
+        json: OutputMode,
+        verbose: u8,
+        config: ForgesyncConfig,
+    ) -> ExitCode {
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let interrupt_cancellation = cancellation.clone();
+        let interrupt_task = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                interrupt_cancellation.cancel();
+            }
+        });
+        let result = execute_refresh(self, path, json, verbose, config, &cancellation).await;
+        interrupt_task.abort();
+        result
+    }
+}
+
+/// Executes one prepared refresh request against the selected archive.
+async fn execute_refresh(
     args: RefreshArgs,
     path: &std::path::Path,
     json: OutputMode,
@@ -143,6 +172,10 @@ async fn refresh_command(
     }
 }
 
+/// Builds an embedding client when the configured service is usable.
+///
+/// Invalid optional configuration returns `None` so a refresh without embedding analysis can
+/// proceed. The selected embedding stage reports an unavailable service if it needs this client.
 pub fn optional_embedding_client(
     service: &crate::config::EmbeddingServiceConfig,
 ) -> Option<EmbeddingClient> {
@@ -152,6 +185,7 @@ pub fn optional_embedding_client(
     EmbeddingClient::new(config).ok()
 }
 
+/// Derives the stable endpoint and model identity used to select compatible stored vectors.
 pub fn configured_embedding_identity(
     service: &crate::config::EmbeddingServiceConfig,
 ) -> Option<EmbeddingServiceIdentity> {

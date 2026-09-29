@@ -801,3 +801,18 @@ RUSTDOCFLAGS='-D warnings -D missing_docs -D rustdoc::broken_intra_doc_links' \
 The next documentation task is a manual review of the rendered pages with downstream users,
 especially the larger workflow request and report types; lint coverage alone cannot establish
 whether an explanation is sufficient.
+
+## Source shape pass
+
+The [cross-crate source shape audit](source-shape-audit.md) records the ownership and dispatch
+review across CLI, TUI, engine, store, GitHub, and core. CLI parsing and execution now share one
+private `command/` tree; archive, thread, run, search, sync, refresh, embed, and cluster commands
+run through their parsed types. TUI result handling delegates by message, and engine search
+delegates by retrieval path. Non-test application functions across all six crates now have source
+docs explaining their purpose or invariant; trait implementations and descriptive tests use their
+existing contracts. The next structural review is browser input and the larger correctness-sensitive
+workflow phases.
+
+Validation for this pass: nightly formatting check, workspace Clippy with all targets and features,
+strict Rustdoc, and the CLI build without default features passed. Tests were not run for this
+source-shape and documentation pass.

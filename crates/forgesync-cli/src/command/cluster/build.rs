@@ -8,14 +8,17 @@ use forgesync_engine::clustering::{ClusterBuildRequest, ClusterOptions, build_cl
 use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 
-use crate::args::ClusterBuildArgs;
+use crate::command::ClusterBuildArgs;
 use crate::config::EmbeddingServiceConfig;
 use crate::reports::cluster_build_summary;
 use crate::{
     OutputMode, render_engine_error, render_error_with_status, render_result, render_store_error,
 };
 
-pub async fn build_cluster_command(
+/// Builds one deterministic cluster generation using the selected model and policy overrides.
+///
+/// The archive is closed before rendering either the generated report or a failure.
+pub async fn run_build(
     args: ClusterBuildArgs,
     archive_path: &Path,
     mut embedding_service: EmbeddingServiceConfig,

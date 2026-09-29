@@ -6,6 +6,7 @@ use super::{
     ThreadTimelineEvent, Wrap, family_name, pane_block, selected_style,
 };
 
+/// Arranges repository, discussion, and detail panes for the available width.
 pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     if area.width >= COMPACT_WIDTH {
         let columns = Layout::default()
@@ -34,6 +35,7 @@ pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     }
 }
 
+/// Draws registered repositories with the active picker selection.
 fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items = vec![ListItem::new("All repositories")];
     items.extend(
@@ -70,6 +72,7 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Draws the current discussion page and selected row.
 fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
         .threads
@@ -108,6 +111,7 @@ fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
+/// Draws selected discussion content or its loading and failure state.
 fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let lines = detail_lines(
         app.detail.as_ref(),
@@ -129,6 +133,7 @@ fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     );
 }
 
+/// Builds the ordered summary and timeline lines for one discussion.
 fn detail_lines(
     detail: Option<&ThreadDetail>,
     loading: bool,
@@ -200,6 +205,7 @@ fn detail_lines(
     lines
 }
 
+/// Formats one archive timeline event for the detail pane.
 fn timeline_line(event: &ThreadTimelineEvent) -> Line<'static> {
     match event {
         ThreadTimelineEvent::ThreadCreated { title, .. } => Line::from(format!("Created: {title}")),

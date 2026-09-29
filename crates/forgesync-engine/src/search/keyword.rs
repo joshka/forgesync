@@ -7,6 +7,7 @@ use super::{
     ThreadSort, search_threads,
 };
 
+/// Collects local full-text candidates for hybrid rank fusion.
 pub async fn keyword_candidates(
     archive: &Archive,
     request: &SearchRequest,
@@ -61,6 +62,7 @@ pub async fn keyword_candidates(
     })
 }
 
+/// Wraps a keyword page with requested and effective mode metadata.
 pub fn keyword_result_page(
     query: &str,
     requested_mode: SearchMode,
@@ -97,6 +99,7 @@ pub fn keyword_result_page(
     }
 }
 
+/// Keeps the semantic failure reason when returning keyword candidates.
 pub fn keyword_fallback_page(
     query: &str,
     requested_mode: SearchMode,
@@ -120,6 +123,7 @@ pub fn keyword_fallback_page(
     })
 }
 
+/// Quotes ordinary search terms for the local FTS index.
 pub fn keyword_expression(query: &str) -> Option<String> {
     let mut terms = Vec::new();
     let mut term = String::new();

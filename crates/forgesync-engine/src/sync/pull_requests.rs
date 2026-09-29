@@ -11,6 +11,7 @@ use super::{
     ThreadKind, ThreadQuery, ThreadSort, WorkSummary, now_utc,
 };
 
+/// Runs selected pull-request families with independent failure boundaries.
 pub async fn run_pull_request_jobs(
     archive: &Archive,
     client: &GitHubClient,
@@ -198,6 +199,7 @@ pub async fn run_pull_request_jobs(
     Ok(())
 }
 
+/// Selects pull requests whose family evidence is requested.
 pub async fn pull_request_targets(
     archive: &Archive,
     repository: &forgesync_core::content::Repository,
@@ -231,6 +233,7 @@ pub async fn pull_request_targets(
     Ok(targets)
 }
 
+/// Adds a thread-family result to aggregate job counts and failures.
 pub fn accumulate_thread_result<T>(
     job: &mut FamilyJobAccumulator,
     result: &ThreadFamilyResult<T>,
@@ -257,6 +260,7 @@ pub fn accumulate_thread_result<T>(
     Ok(())
 }
 
+/// Persists one family job's terminal state before moving to the next.
 pub async fn finish_family_sync_job(
     archive: &Archive,
     context: &SyncRunContext<'_>,

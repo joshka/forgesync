@@ -1,18 +1,22 @@
-//! Command-line arguments and subcommands.
+//! Parsed commands and their process behavior.
 //!
-//! Clap command definitions and value parsers for the process interface. These types describe user
-//! input only; command execution lives in the private `commands` module.
+//! Parsing and execution live together by feature. Shared provider setup and retry helpers are
+//! private to this command tree; process output and configuration have separate owners.
 
 use std::path::PathBuf;
 
 mod archive;
 mod cluster;
 mod embed;
+mod github;
 mod refresh;
+mod retry;
 mod run;
 mod search;
 mod sync;
 mod thread;
+#[cfg(feature = "tui")]
+mod tui;
 mod values;
 
 pub use archive::ArchiveCommand;
@@ -31,7 +35,14 @@ pub use values::{
 #[cfg(test)]
 mod tests;
 
+use std::process::ExitCode;
+
 use clap::{ArgAction, Parser, Subcommand};
+#[cfg(feature = "tui")]
+use tui::run_tui;
+
+use crate::config::ForgesyncConfig;
+use crate::{OutputMode, usage_error};
 
 /// Global process options shared by every command.
 #[derive(Clone, Debug, Parser)]
@@ -110,4 +121,32 @@ pub enum Command {
     /// Browse and maintain the local archive in an interactive terminal.
     #[cfg(feature = "tui")]
     Tui,
+}
+
+impl CliArgs {
+    /// Resolves process options and delegates the selected command to its owner.
+    pub async fn dispatch(self, config: ForgesyncConfig) -> ExitCode {
+        let Some(path) = self.archive else {
+            return usage_error("--archive PATH is required for local archive commands");
+        };
+        let output = OutputMode::from(self.json);
+
+        match self.command {
+            Command::Archive { command } => command.run(&path, output).await,
+            Command::Search(args) => {
+                args.run(&path, output, config.embeddings, config.documents.recipe)
+                    .await
+            }
+            Command::Sync(sync_args) => sync_args.run(&path, output, self.verbose).await,
+            Command::Refresh(refresh_args) => {
+                refresh_args.run(&path, output, self.verbose, config).await
+            }
+            Command::Embed(embed_args) => embed_args.run(&path, output, self.verbose, config).await,
+            Command::Cluster { command } => command.run(&path, output, self.verbose, config).await,
+            Command::Thread { command } => command.run(&path, output).await,
+            Command::Run { command } => command.run(&path, output, self.verbose).await,
+            #[cfg(feature = "tui")]
+            Command::Tui => run_tui(&path, output, self.verbose).await,
+        }
+    }
 }

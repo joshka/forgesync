@@ -90,6 +90,7 @@ struct ActiveOperation {
 }
 
 impl QueryTasks {
+    /// Tracks a read task after pruning handles for completed reads.
     fn push(&mut self, handle: JoinHandle<()>) {
         self.handles.retain(|task| !task.is_finished());
         self.handles.push(handle);
@@ -176,6 +177,7 @@ pub fn start_query(
     }
 }
 
+/// Loads recent non-complete runs and their unresolved failure summaries.
 async fn load_failures(archive: &Archive) -> Result<Vec<RunFailureSummary>, String> {
     let runs = list_runs(archive, RUNS_TO_SCAN)
         .await

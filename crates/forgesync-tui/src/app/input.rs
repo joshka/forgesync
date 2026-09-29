@@ -6,6 +6,7 @@ mod browser;
 mod triage;
 
 impl App {
+    /// Routes a key to the active screen while honoring global exit and search controls.
     pub fn handle_key(&mut self, key: KeyEvent) -> Vec<QueryAction> {
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             return self.request_quit();
@@ -28,6 +29,7 @@ impl App {
         }
     }
 
+    /// Handles keys that have the same meaning on every screen.
     fn handle_global_key(&mut self, code: KeyCode) -> Option<Vec<QueryAction>> {
         let actions = match code {
             KeyCode::Char('q') => self.request_quit(),
@@ -65,6 +67,7 @@ impl App {
         Some(actions)
     }
 
+    /// Returns to the browser or closes a transient view without losing its scope.
     fn leave_current_view(&mut self) -> Vec<QueryAction> {
         if self.screen == Screen::ClusterDetail {
             self.screen = Screen::Clusters;
@@ -79,6 +82,7 @@ impl App {
         Vec::new()
     }
 
+    /// Edits the pending search query until submission or cancellation.
     fn handle_search_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Esc => {
@@ -126,6 +130,7 @@ impl App {
             .collect()
     }
 
+    /// Cancels an active writer before allowing the terminal to close.
     fn request_quit(&mut self) -> Vec<QueryAction> {
         if self.operation_busy {
             self.status = Some("Cancellation requested; waiting for the active action…".to_owned());

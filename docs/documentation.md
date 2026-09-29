@@ -24,6 +24,12 @@ their invariant and who constructs them. Fallible operations should explain rele
 partial state, cancellation, retry, and recovery. State the lifecycle of archives, network clients,
 and terminal state at their owning APIs.
 
+Document application functions and methods in private modules too. A brief name does not tell a
+reader who calls an operation, which state it changes, or why it is separate from neighboring
+operations. Put the useful contract at the function rather than relying on a distant module guide.
+For trait implementations whose contract is already defined by the trait and for descriptive tests,
+avoid comments that only repeat the signature or test name.
+
 Keep provider DTOs, domain values, database rows, and CLI JSON shapes distinct in prose as well as
 code. Document the difference between a complete collection and an incomplete observation where the
 distinction controls stored membership. Keep examples practical: opening an existing archive and

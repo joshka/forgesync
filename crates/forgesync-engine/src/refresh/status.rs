@@ -5,6 +5,7 @@ use super::{
     RefreshStageStatus,
 };
 
+/// Converts an engine error into a safe, stable stage failure.
 pub fn stage_failure(error: &EngineError) -> RefreshStageFailure {
     RefreshStageFailure {
         code: error.code(),
@@ -20,6 +21,7 @@ pub fn keep_first_failure(first: &mut Option<RefreshStageFailure>, candidate: Re
     }
 }
 
+/// Selects a stage status from the recorded failure category.
 pub fn status_for_failure(failure: &RefreshStageFailure) -> RefreshStageStatus {
     if failure.code == "operation_cancelled" {
         RefreshStageStatus::Interrupted
@@ -86,6 +88,7 @@ pub fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
     }
 }
 
+/// Looks up the selected stage's terminal status in a refresh report.
 pub fn stage_status(report: &RefreshReport, stage: RefreshStageKind) -> Option<RefreshStageStatus> {
     match stage {
         RefreshStageKind::Sync => report.sync.as_ref().map(|stage| stage.status),

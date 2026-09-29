@@ -154,6 +154,7 @@ pub async fn embed_documents(
     }
 }
 
+/// Runs bounded embedding batches while keeping successes when a later batch fails.
 async fn process_batches(
     archive: &Archive,
     client: &EmbeddingClient,
@@ -223,6 +224,7 @@ async fn process_batches(
     Ok(())
 }
 
+/// Stores only validated vectors for a completed service batch.
 async fn persist_batch(
     archive: &Archive,
     client: &EmbeddingClient,
@@ -254,6 +256,7 @@ async fn persist_batch(
     Ok(())
 }
 
+/// Selects chunks matching the current document and model identity.
 fn compatible_chunks(
     existing: Vec<StoredEmbeddingChunk>,
     chunks: Vec<DocumentChunk>,
@@ -293,6 +296,7 @@ struct CompatibleChunks {
     skipped: usize,
 }
 
+/// Groups pending inputs under both count and byte budgets.
 fn make_batches(
     tasks: Vec<EmbeddingTask>,
     max_inputs: usize,
@@ -320,6 +324,7 @@ fn make_batches(
     batches
 }
 
+/// Splits one document into deterministic model inputs.
 fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>, EngineError> {
     if max_bytes < 4 {
         return Err(EngineError::EmbeddingWorkerFailed);
@@ -369,6 +374,7 @@ fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>, En
         .collect())
 }
 
+/// Hashes one chunk with its recipe context for reuse decisions.
 fn chunk_hash(index: u32, text: &str) -> String {
     let mut hasher = Sha256::new();
     add_hash_field(&mut hasher, b"forgesync-embedding-chunk-v1");
@@ -378,6 +384,7 @@ fn chunk_hash(index: u32, text: &str) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Adds a length-delimited field to the stable chunk hash.
 fn add_hash_field(hasher: &mut Sha256, value: &[u8]) {
     hasher.update(u64::try_from(value.len()).unwrap_or(u64::MAX).to_be_bytes());
     hasher.update(value);

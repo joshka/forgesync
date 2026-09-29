@@ -10,6 +10,7 @@ use super::{
     store_sort, store_state_filter,
 };
 
+/// Ranks current dimension-compatible chunks with exact cosine similarity.
 pub async fn semantic_candidates(
     archive: &Archive,
     request: &SearchRequest,
@@ -115,6 +116,7 @@ pub async fn semantic_candidates(
     Ok(ranked)
 }
 
+/// Counts vectors matching the selected model and query dimension.
 pub fn count_dimension_compatible(
     documents: &[forgesync_store::embeddings::EmbeddingSearchDocument],
     dimensions: u32,
@@ -130,6 +132,7 @@ pub fn count_dimension_compatible(
         .count()
 }
 
+/// Scores one archive page within the exact-search worker limit.
 pub async fn score_page_bounded(
     query: EmbeddingVector,
     documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
@@ -158,6 +161,7 @@ pub async fn score_page_bounded(
     .map_err(|_| EngineError::SearchWorkerFailed)?
 }
 
+/// Paginates ranked semantic hits with coverage provenance.
 pub fn semantic_result_page(
     query: &str,
     requested_mode: SearchMode,

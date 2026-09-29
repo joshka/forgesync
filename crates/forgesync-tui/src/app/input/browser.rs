@@ -10,6 +10,7 @@ enum Edge {
 }
 
 impl App {
+    /// Maps browser keys to navigation or a query action without blocking on I/O.
     pub fn handle_browser_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Char('r') => {
@@ -61,6 +62,7 @@ impl App {
         }
     }
 
+    /// Cycles focus through repository, thread, and detail panes.
     fn next_focus(&self) -> Focus {
         match self.focus {
             Focus::Repositories => Focus::Threads,
@@ -69,6 +71,7 @@ impl App {
         }
     }
 
+    /// Cycles focus through the browser panes in reverse order.
     fn previous_focus(&self) -> Focus {
         match self.focus {
             Focus::Repositories => Focus::Detail,
@@ -77,6 +80,7 @@ impl App {
         }
     }
 
+    /// Moves the active pane selection while invalidating stale detail where needed.
     fn move_selection(&mut self, direction: i8) {
         match self.focus {
             Focus::Repositories => {
@@ -101,6 +105,7 @@ impl App {
         }
     }
 
+    /// Moves by one visible page while keeping the selection in range.
     fn move_page(&mut self, direction: i8) {
         match self.focus {
             Focus::Detail => {
@@ -134,6 +139,7 @@ impl App {
         }
     }
 
+    /// Moves the active selection to the first or final item.
     fn move_to_edge(&mut self, edge: Edge) {
         let end = edge == Edge::End;
         match self.focus {
@@ -150,6 +156,7 @@ impl App {
         }
     }
 
+    /// Opens the selected item according to the active browser pane.
     fn select(&mut self) -> Vec<QueryAction> {
         match self.focus {
             Focus::Repositories => {

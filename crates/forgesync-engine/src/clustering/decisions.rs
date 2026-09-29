@@ -75,6 +75,7 @@ enum ClusterMemberAction<'a> {
     Include,
 }
 
+/// Applies one local member decision under the archive's writer lease.
 async fn update_cluster_member(
     archive: &Archive,
     id: u64,
