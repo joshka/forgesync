@@ -5,8 +5,8 @@ one behavior, follow its main path top-down, and find direct tests without loadi
 workflows into memory. File length is a signal to inspect ownership, not a pass/fail target.
 
 The crate-root, CLI command, engine sync/search/clustering/refresh, GitHub resource/transport, store
-operation, and TUI view/state splits are complete. Remaining review targets include GitHub
-review-thread acquisition, TUI query dispatch, embedding client, core identities, and oversized
+operation, TUI view/state, and TUI read/operation splits are complete. Remaining review targets
+include GitHub review-thread acquisition, the embedding client, core identities, and oversized
 integration suites. Each split should follow a coherent behavior and preserve the nearby test path.
 
 ## Order of work
