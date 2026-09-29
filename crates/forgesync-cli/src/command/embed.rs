@@ -71,72 +71,27 @@ impl EmbedArgs {
                 interrupt_cancellation.cancel();
             }
         });
-        let result = execute_embed(self, path, json, verbose, config, &cancellation).await;
+        let result = self
+            .execute(path, json, verbose, config, &cancellation)
+            .await;
         interrupt_task.abort();
         result
     }
-}
 
-/// Executes one prepared embed request against the selected archive.
-async fn execute_embed(
-    args: EmbedArgs,
-    path: &std::path::Path,
-    json: OutputMode,
-    verbose: u8,
-    config: ForgesyncConfig,
-    cancellation: &tokio_util::sync::CancellationToken,
-) -> ExitCode {
-    let EmbedArgs {
-        repositories,
-        force,
-        endpoint,
-        model,
-        api_key_env,
-        dimensions,
-        max_input_bytes,
-        max_batch_input_bytes,
-        batch_size,
-        concurrency,
-    } = args;
-    let mut service = config.embeddings;
-    let recipe = config.documents.recipe;
-    if let Some(endpoint) = endpoint {
-        service.endpoint = endpoint;
-    }
-    if let Some(model) = model {
-        service.model = model;
-    }
-    if let Some(api_key_env) = api_key_env {
-        service.api_key_env = api_key_env;
-    }
-    if let Some(dimensions) = dimensions {
-        service.dimensions = Some(dimensions);
-    }
-    if let Some(max_input_bytes) = max_input_bytes {
-        service.max_input_bytes = max_input_bytes as usize;
-    }
-    if let Some(max_batch_input_bytes) = max_batch_input_bytes {
-        service.max_batch_input_bytes = max_batch_input_bytes as usize;
-    }
-    if let Some(batch_size) = batch_size {
-        service.batch_size = batch_size as usize;
-    }
-    if let Some(concurrency) = concurrency {
-        service.concurrency = concurrency as usize;
-    }
-    if let Err(error) = service.validate() {
-        return render_error_with_status(
-            json,
-            "embed",
-            error.code(),
-            &error.to_string(),
-            ExitCode::from(2),
-        );
-    }
-    let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
-    let client_config = match service.client_config(api_key) {
-        Ok(config) => config,
-        Err(error) => {
+    /// Executes one prepared embed request against the selected archive.
+    async fn execute(
+        self,
+        path: &std::path::Path,
+        json: OutputMode,
+        verbose: u8,
+        config: ForgesyncConfig,
+        cancellation: &tokio_util::sync::CancellationToken,
+    ) -> ExitCode {
+        let service = self.service(config.embeddings);
+        let recipe = config.documents.recipe;
+        let repositories = self.repositories;
+        let force = self.force;
+        if let Err(error) = service.validate() {
             return render_error_with_status(
                 json,
                 "embed",
@@ -145,78 +100,123 @@ async fn execute_embed(
                 ExitCode::from(2),
             );
         }
-    };
-    let client = match EmbeddingClient::new(client_config) {
-        Ok(client) => client,
-        Err(error) => {
-            return render_error_with_status(
-                json,
-                "embed",
-                error.code(),
-                &error.to_string(),
-                ExitCode::from(2),
-            );
-        }
-    };
-    let archive = match Archive::open_read_write(path).await {
-        Ok(archive) => archive,
-        Err(error) => return render_store_error(json, "embed", error),
-    };
-    let mut repositories = repositories
-        .into_iter()
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    repositories.sort_by_key(RepositorySelector::as_url);
-    if verbose > 0 && !json.is_json() {
-        eprintln!(
-            "forgesync: embedding discussions in {} repository(s)",
-            repositories.len()
-        );
-    }
-    let stage = embed_repositories(
-        &archive,
-        &repositories,
-        &client,
-        recipe,
-        force,
-        cancellation,
-    )
-    .await;
-    archive.close().await;
-    let Some(stage_report) = stage.report else {
-        let failure = stage.failure.unwrap_or(RefreshStageFailure {
-            code: "embedding_stage_failed",
-            message: "embedding stage did not produce a report".to_owned(),
-        });
-        let status = if failure.code == "operation_cancelled" {
-            ExitCode::from(130)
-        } else {
-            ExitCode::FAILURE
+        let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
+        let client_config = match service.client_config(api_key) {
+            Ok(config) => config,
+            Err(error) => {
+                return render_error_with_status(
+                    json,
+                    "embed",
+                    error.code(),
+                    &error.to_string(),
+                    ExitCode::from(2),
+                );
+            }
         };
-        return render_error_with_status(json, "embed", failure.code, &failure.message, status);
-    };
+        let client = match EmbeddingClient::new(client_config) {
+            Ok(client) => client,
+            Err(error) => {
+                return render_error_with_status(
+                    json,
+                    "embed",
+                    error.code(),
+                    &error.to_string(),
+                    ExitCode::from(2),
+                );
+            }
+        };
+        let archive = match Archive::open_read_write(path).await {
+            Ok(archive) => archive,
+            Err(error) => return render_store_error(json, "embed", error),
+        };
+        let mut repositories = repositories
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        repositories.sort_by_key(RepositorySelector::as_url);
+        if verbose > 0 && !json.is_json() {
+            eprintln!(
+                "forgesync: embedding discussions in {} repository(s)",
+                repositories.len()
+            );
+        }
+        let stage = embed_repositories(
+            &archive,
+            &repositories,
+            &client,
+            recipe,
+            force,
+            cancellation,
+        )
+        .await;
+        archive.close().await;
+        let Some(stage_report) = stage.report else {
+            let failure = stage.failure.unwrap_or(RefreshStageFailure {
+                code: "embedding_stage_failed",
+                message: "embedding stage did not produce a report".to_owned(),
+            });
+            let status = if failure.code == "operation_cancelled" {
+                ExitCode::from(130)
+            } else {
+                ExitCode::FAILURE
+            };
+            return render_error_with_status(json, "embed", failure.code, &failure.message, status);
+        };
 
-    let output = EmbeddingOutput {
-        repositories: repositories
-            .iter()
-            .map(RepositorySelector::as_url)
-            .collect(),
-        recipe,
-        endpoint: client.endpoint_identity().to_owned(),
-        model: client.model().to_owned(),
-        dimensions: service.dimensions,
-        status: stage.status,
-        report: stage_report.embeddings,
-        documents_materialized: stage_report.documents_materialized,
-        document_failures: stage_report.document_failures,
-        failure: stage.failure,
-    };
-    let exit_status = match output.status {
-        RefreshStageStatus::Complete => ExitCode::SUCCESS,
-        RefreshStageStatus::Partial | RefreshStageStatus::Deferred => ExitCode::from(3),
-        RefreshStageStatus::Interrupted => ExitCode::from(130),
-        RefreshStageStatus::Failed => ExitCode::FAILURE,
-    };
-    render_result(json, "embed", &output, embedding_summary, exit_status)
+        let output = EmbeddingOutput {
+            repositories: repositories
+                .iter()
+                .map(RepositorySelector::as_url)
+                .collect(),
+            recipe,
+            endpoint: client.endpoint_identity().to_owned(),
+            model: client.model().to_owned(),
+            dimensions: service.dimensions,
+            status: stage.status,
+            report: stage_report.embeddings,
+            documents_materialized: stage_report.documents_materialized,
+            document_failures: stage_report.document_failures,
+            failure: stage.failure,
+        };
+        let exit_status = match output.status {
+            RefreshStageStatus::Complete => ExitCode::SUCCESS,
+            RefreshStageStatus::Partial | RefreshStageStatus::Deferred => ExitCode::from(3),
+            RefreshStageStatus::Interrupted => ExitCode::from(130),
+            RefreshStageStatus::Failed => ExitCode::FAILURE,
+        };
+        render_result(json, "embed", &output, embedding_summary, exit_status)
+    }
+
+    /// Applies command-line service overrides after file and environment config resolution.
+    fn service(
+        &self,
+        mut service: crate::config::EmbeddingServiceConfig,
+    ) -> crate::config::EmbeddingServiceConfig {
+        if let Some(endpoint) = self.endpoint.clone() {
+            service.endpoint = endpoint;
+        }
+        if let Some(model) = self.model.clone() {
+            service.model = model;
+        }
+        if let Some(api_key_env) = self.api_key_env.clone() {
+            service.api_key_env = api_key_env;
+        }
+        if let Some(dimensions) = self.dimensions {
+            service.dimensions = Some(dimensions);
+        }
+        if let Some(max_input_bytes) = self.max_input_bytes {
+            service.max_input_bytes = max_input_bytes as usize;
+        }
+        if let Some(max_batch_input_bytes) = self.max_batch_input_bytes {
+            service.max_batch_input_bytes = max_batch_input_bytes as usize;
+        }
+        if let Some(batch_size) = self.batch_size {
+            service.batch_size = batch_size as usize;
+        }
+        if let Some(concurrency) = self.concurrency {
+            service.concurrency = concurrency as usize;
+        }
+        service
+    }
 }

@@ -6,18 +6,18 @@
 //! Retry is based on durable failure records and current archive state. It should not infer work
 //! merely from absent content, because a family may never have been requested.
 
-use std::collections::HashMap;
 use std::process::ExitCode;
 
 use forgesync_core::identity::RunId;
 use forgesync_engine::runs::{plan_run_retry, run_retry};
 use forgesync_engine::sync::SyncProgress;
-use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;
 
-use super::github::github_api_base_url;
+use super::github::{
+    GitHubClientSetupError, github_clients_for_selectors, render_github_client_setup_error,
+};
 use crate::reports::{SyncFailure, outcome_exit_code, retry_summary};
-use crate::{OutputMode, render_engine_error, render_error, render_result, render_store_error};
+use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
 /// Plans unresolved work, constructs host clients, and retries selected run families.
 ///
@@ -42,85 +42,31 @@ pub async fn execute_retry(
             return render_engine_error(json, "run retry", error);
         }
     };
-    let mut hosts = plan
+    let repositories = plan
         .scopes
         .iter()
-        .map(|scope| scope.repository.host().clone())
+        .map(|scope| scope.repository.clone())
         .collect::<Vec<_>>();
-    hosts.sort();
-    hosts.dedup();
-
-    let mut clients = HashMap::with_capacity(hosts.len());
-    for host in hosts {
-        let token = match crate::credentials::resolve_github_token(
-            &crate::credentials::GitHubCredentialSettings::default(),
-            &host,
-            cancellation,
-        )
-        .await
-        {
-            Ok(token) => Some(token),
-            Err(
-                crate::credentials::CredentialError::NoCredential
-                | crate::credentials::CredentialError::CommandUnavailable
-                | crate::credentials::CredentialError::CommandFailed
-                | crate::credentials::CredentialError::TimedOut,
-            ) => {
-                if verbose > 0 {
-                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
-                }
-                None
-            }
-            Err(crate::credentials::CredentialError::Cancelled) => {
-                archive.close().await;
-                return render_result(
-                    json,
-                    "run retry",
-                    &SyncFailure {
-                        code: "operation_cancelled",
-                        message: "retry was cancelled before acquisition began".to_owned(),
-                    },
-                    |failure| failure.message.clone(),
-                    ExitCode::from(130),
-                );
-            }
-            Err(error) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "run retry",
-                    "github_credential_invalid",
-                    &error.to_string(),
-                );
-            }
-        };
-        let config = match url::Url::parse(&github_api_base_url(&host)) {
-            Ok(url) => GitHubClientConfig::new(url),
-            Err(_) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "run retry",
-                    "github_api_url_invalid",
-                    "could not build GitHub API URL",
-                );
-            }
-        };
-        match GitHubClient::new(config, token) {
-            Ok(client) => {
-                clients.insert(host, client);
-            }
-            Err(error) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "run retry",
-                    "github_client_initialization_failed",
-                    &error.to_string(),
-                );
-            }
+    let clients = match github_clients_for_selectors(&repositories, verbose, cancellation).await {
+        Ok(clients) => clients,
+        Err(GitHubClientSetupError::Cancelled) => {
+            archive.close().await;
+            return render_result(
+                json,
+                "run retry",
+                &SyncFailure {
+                    code: "operation_cancelled",
+                    message: "retry was cancelled before acquisition began".to_owned(),
+                },
+                |failure| failure.message.clone(),
+                ExitCode::from(130),
+            );
         }
-    }
+        Err(error) => {
+            archive.close().await;
+            return render_github_client_setup_error(json, "run retry", error);
+        }
+    };
 
     let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
     let progress_task = if verbose > 0 && !json.is_json() {

@@ -2,6 +2,10 @@
 
 ## Current position
 
+- CLI retry reuses shared provider setup while preserving cancellation JSON and exit status.
+  Embed and refresh execution belongs to their parsed command types; argument overrides and
+  refresh selection validation now have named methods. CLI Clippy passed.
+
 - CLI and TUI discussion detail now assemble named source, coverage, metadata/body, and timeline
   sections. TUI loading/error resolution precedes its prepared detail view, whose lines still
   determine scroll limits. All 20 TUI state, snapshot, and resize tests passed.

@@ -65,117 +65,128 @@ impl RefreshArgs {
                 interrupt_cancellation.cancel();
             }
         });
-        let result = execute_refresh(self, path, json, verbose, config, &cancellation).await;
+        let result = self
+            .execute(path, json, verbose, config, &cancellation)
+            .await;
         interrupt_task.abort();
         result
     }
-}
 
-/// Executes one prepared refresh request against the selected archive.
-async fn execute_refresh(
-    args: RefreshArgs,
-    path: &std::path::Path,
-    json: OutputMode,
-    verbose: u8,
-    config: ForgesyncConfig,
-    cancellation: &tokio_util::sync::CancellationToken,
-) -> ExitCode {
-    let RefreshArgs {
-        repositories,
-        no_sync,
-        state,
-        with,
-        analyze,
-        force,
-    } = args;
-    let embedding_service = config.embeddings;
-    let recipe = config.documents.recipe;
-    if no_sync && analyze.is_empty() {
-        return usage_error("refresh requires sync or at least one --analyze stage");
-    }
-    if analyze
-        .iter()
-        .enumerate()
-        .any(|(index, stage)| analyze[..index].contains(stage))
-    {
-        return usage_error("refresh analysis stages must be selected only once");
-    }
-    if no_sync && (state.is_some() || !with.is_empty()) {
-        return usage_error("--state and --with require the refresh sync stage");
-    }
+    /// Executes one prepared refresh request against the selected archive.
+    async fn execute(
+        self,
+        path: &std::path::Path,
+        json: OutputMode,
+        verbose: u8,
+        config: ForgesyncConfig,
+        cancellation: &tokio_util::sync::CancellationToken,
+    ) -> ExitCode {
+        if let Err(message) = self.validate() {
+            return usage_error(message);
+        }
+        let RefreshArgs {
+            repositories,
+            no_sync,
+            state,
+            with,
+            analyze,
+            force,
+        } = self;
+        let embedding_service = config.embeddings;
+        let recipe = config.documents.recipe;
 
-    let archive = match Archive::open_read_write(path).await {
-        Ok(archive) => archive,
-        Err(error) => return render_store_error(json, "refresh", error),
-    };
-    let clients = if no_sync {
-        HashMap::new()
-    } else {
-        match github_clients_for_selectors(&repositories, verbose, cancellation).await {
-            Ok(clients) => clients,
-            Err(error) => {
-                archive.close().await;
-                return render_github_client_setup_error(json, "refresh", error);
+        let archive = match Archive::open_read_write(path).await {
+            Ok(archive) => archive,
+            Err(error) => return render_store_error(json, "refresh", error),
+        };
+        let clients = if no_sync {
+            HashMap::new()
+        } else {
+            match github_clients_for_selectors(&repositories, verbose, cancellation).await {
+                Ok(clients) => clients,
+                Err(error) => {
+                    archive.close().await;
+                    return render_github_client_setup_error(json, "refresh", error);
+                }
             }
-        }
-    };
+        };
 
-    let analysis = analyze
-        .into_iter()
-        .map(|stage| match stage {
-            RefreshAnalysisArg::Embeddings => RefreshAnalysisStage::Embeddings,
-            RefreshAnalysisArg::Clusters => RefreshAnalysisStage::Clusters,
-        })
-        .collect::<Vec<_>>();
-    let wants_embeddings = analysis.contains(&RefreshAnalysisStage::Embeddings);
-    let wants_clusters = analysis.contains(&RefreshAnalysisStage::Clusters);
-    let embedding_client = if wants_embeddings {
-        optional_embedding_client(&embedding_service)
-    } else {
-        None
-    };
-    let embedding_identity = wants_clusters
-        .then(|| configured_embedding_identity(&embedding_service))
-        .flatten();
-    let sync = (!no_sync).then_some(RefreshSyncOptions {
-        scope: match state {
-            None => SyncThreadScope::Default,
-            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
-            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
-            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
-        },
-        include_comments: with.contains(&SyncIncludeArg::Comments),
-        include_reviews: with.contains(&SyncIncludeArg::Reviews),
-        include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
-    });
-    if verbose > 0 && !json.is_json() {
-        eprintln!("forgesync: refreshing {}", repositories.len());
-    }
-    let request = RefreshRequest {
-        repositories,
-        sync,
-        analysis,
-        recipe,
-        embedding_identity,
-        force_embeddings: force,
-        cluster_options: ClusterOptions::default(),
-    };
-    let result = refresh(
-        &archive,
-        &clients,
-        embedding_client.as_ref(),
-        &request,
-        cancellation,
-        None,
-    )
-    .await;
-    archive.close().await;
-    match result {
-        Ok(report) => {
-            let exit_status = outcome_exit_code(&report.outcome);
-            render_result(json, "refresh", &report, refresh_summary, exit_status)
+        let analysis = analyze
+            .into_iter()
+            .map(|stage| match stage {
+                RefreshAnalysisArg::Embeddings => RefreshAnalysisStage::Embeddings,
+                RefreshAnalysisArg::Clusters => RefreshAnalysisStage::Clusters,
+            })
+            .collect::<Vec<_>>();
+        let wants_embeddings = analysis.contains(&RefreshAnalysisStage::Embeddings);
+        let wants_clusters = analysis.contains(&RefreshAnalysisStage::Clusters);
+        let embedding_client = if wants_embeddings {
+            optional_embedding_client(&embedding_service)
+        } else {
+            None
+        };
+        let embedding_identity = wants_clusters
+            .then(|| configured_embedding_identity(&embedding_service))
+            .flatten();
+        let sync = (!no_sync).then_some(RefreshSyncOptions {
+            scope: match state {
+                None => SyncThreadScope::Default,
+                Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+                Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+                Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+            },
+            include_comments: with.contains(&SyncIncludeArg::Comments),
+            include_reviews: with.contains(&SyncIncludeArg::Reviews),
+            include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
+        });
+        if verbose > 0 && !json.is_json() {
+            eprintln!("forgesync: refreshing {}", repositories.len());
         }
-        Err(error) => render_engine_error(json, "refresh", error),
+        let request = RefreshRequest {
+            repositories,
+            sync,
+            analysis,
+            recipe,
+            embedding_identity,
+            force_embeddings: force,
+            cluster_options: ClusterOptions::default(),
+        };
+        let result = refresh(
+            &archive,
+            &clients,
+            embedding_client.as_ref(),
+            &request,
+            cancellation,
+            None,
+        )
+        .await;
+        archive.close().await;
+        match result {
+            Ok(report) => {
+                let exit_status = outcome_exit_code(&report.outcome);
+                render_result(json, "refresh", &report, refresh_summary, exit_status)
+            }
+            Err(error) => render_engine_error(json, "refresh", error),
+        }
+    }
+
+    /// Rejects inconsistent stage selections before opening an archive or resolving credentials.
+    fn validate(&self) -> Result<(), &'static str> {
+        if self.no_sync && self.analyze.is_empty() {
+            return Err("refresh requires sync or at least one --analyze stage");
+        }
+        if self
+            .analyze
+            .iter()
+            .enumerate()
+            .any(|(index, stage)| self.analyze[..index].contains(stage))
+        {
+            return Err("refresh analysis stages must be selected only once");
+        }
+        if self.no_sync && (self.state.is_some() || !self.with.is_empty()) {
+            return Err("--state and --with require the refresh sync stage");
+        }
+        Ok(())
     }
 }
 
