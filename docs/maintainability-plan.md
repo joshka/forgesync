@@ -1,7 +1,7 @@
 # Maintainability work
 
-This is the migration plan for the existing implementation. Completion means a maintainer can
-locate one behavior, follow its main path top-down, and find direct tests without loading unrelated
+This is the migration plan for the existing implementation. Completion means a maintainer can locate
+one behavior, follow its main path top-down, and find direct tests without loading unrelated
 workflows into memory. File length is a signal to inspect ownership, not a pass/fail target.
 
 ## Order of work
@@ -31,5 +31,5 @@ without mentally executing helper logic. Confirm that archive ordering, complete
 CLI JSON, and recovery contracts still hold. Update the module map and public docs when ownership
 moves.
 
-The existing implementation status is historical evidence of feature completion. Record evidence
-for each migration slice there; do not mark this plan complete merely because formatting passes.
+The existing implementation status is historical evidence of feature completion. Record evidence for
+each migration slice there; do not mark this plan complete merely because formatting passes.

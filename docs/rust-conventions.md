@@ -10,8 +10,8 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 
 - Let a module own one recognizable concept. Split by the reason code changes, not a target line
   count. A file near 200–350 lines is easy to scan; review files past 500 lines for mixed ownership.
-- Put the central type or operation first, followed by its methods and local helpers in caller-before-
-  callee order where possible. Put tests close to the behavior they prove.
+- Put the central type or operation first, followed by its methods and local helpers in
+  caller-before- callee order where possible. Put tests close to the behavior they prove.
 - Keep command `match` arms short. Delegate substantial work to named operations; keep a visible
   branch when the branch itself expresses the domain rule.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
@@ -19,14 +19,14 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Name important intermediate values, especially around I/O, parsing, mutation, and errors. Make
   each fallible step and its error context clear. Use explaining variables when they also improve
   line wrapping.
-- Avoid behavioral boolean parameters. Use distinct operations, a meaningful enum, or named
-  options. A boolean recording a domain fact can remain a boolean.
+- Avoid behavioral boolean parameters. Use distinct operations, a meaningful enum, or named options.
+  A boolean recording a domain fact can remain a boolean.
 - Use newtypes when they distinguish identities or preserve a repeated invariant. Put behavior on
   the concept that owns it. Avoid one-use wrappers, parameter bags, generic frameworks, and traits
   without a real variation point.
 
-Use `mod.rs` for directory-root modules, as in Girt and epage's guide. Keep these roots short:
-they introduce the concept and point to its children. Use named leaf files for the actual behavior.
+Use `mod.rs` for directory-root modules, as in Girt and epage's guide. Keep these roots short: they
+introduce the concept and point to its children. Use named leaf files for the actual behavior.
 
 ## Public APIs and dependencies
 

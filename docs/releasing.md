@@ -32,7 +32,7 @@ python scripts/package_binary.py \
   --output target/package-smoke
 ```
 
-On Windows, use `target/release/forgesync.exe` and
-`x86_64-pc-windows-msvc`. `smoke_binary.py` removes provider credential variables from the child
-environment, creates a temporary archive, checks all doctor probes including FTS5, and runs an
-offline keyword query. It makes no network request.
+On Windows, use `target/release/forgesync.exe` and `x86_64-pc-windows-msvc`. `smoke_binary.py`
+removes provider credential variables from the child environment, creates a temporary archive,
+checks all doctor probes including FTS5, and runs an offline keyword query. It makes no network
+request.

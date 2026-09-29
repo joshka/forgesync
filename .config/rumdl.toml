@@ -1,5 +1,10 @@
-[MD013]
+[line-length]
 line-length = 100
-heading-line-length = 100
-code-block-line-length = 100
+reflow = true
+reflow-mode = "normalize"
+# Keep tables aligned even when their contents require wider lines.
 tables = false
+
+[table-format]
+enabled = true
+style = "aligned"

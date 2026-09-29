@@ -2,8 +2,8 @@
 
 Forgesync is a local Rust archive for GitHub issues and pull requests. It syncs discussion and
 selected review evidence into SQLite, then provides offline search and local maintainer triage.
-Keyword search and the TUI do not need model credentials. GitHub access is needed only for sync
-and explicit retry actions.
+Keyword search and the TUI do not need model credentials. GitHub access is needed only for sync and
+explicit retry actions.
 
 ## Install and initialize
 

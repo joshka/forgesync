@@ -16,8 +16,8 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
 
 - Core owns domain identities, normalized content, observations, coverage, and outcomes.
 - Store owns SQLite lifecycle, SQL, ordering/application, recovery, and local decisions.
-- GitHub owns typed provider DTOs, transport, pagination, and normalization; it does not write to the
-  archive or load application config.
+- GitHub owns typed provider DTOs, transport, pagination, and normalization; it does not write to
+  the archive or load application config.
 - Engine owns workflow and analysis policy. CLI and TUI build requests and present results.
 - TUI depends on engine/core, never CLI. Add GitHub, engine, and TUI crates only when their first
   implementation task begins.
@@ -49,13 +49,13 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
 
 - Use jj for version control. Start a described new change for each separable task and run jj
   operations sequentially. Do not create Git worktree threads.
-- Read the plan, this file, implementation status, and the selected reference tests before each task.
-  Implement the earliest unblocked task and update docs/implementation-status.md with evidence and
-  the next task.
+- Read the plan, this file, implementation status, and the selected reference tests before each
+  task. Implement the earliest unblocked task and update docs/implementation-status.md with evidence
+  and the next task.
 - Add dependencies only when the current selected feature needs them. Keep deferred crates and
   features out of the workspace and normal build.
-- Run focused tests, then applicable workspace gates: cargo +nightly fmt --all -- --check,
-  cargo clippy --workspace --all-targets --all-features -- -D warnings,
-  cargo test --workspace --all-features --locked, cargo build -p forgesync-cli
-  --no-default-features --locked, and cargo doc --workspace --no-deps --all-features.
+- Run focused tests, then applicable workspace gates: cargo +nightly fmt --all -- --check, cargo
+  clippy --workspace --all-targets --all-features -- -D warnings, cargo test --workspace
+  --all-features --locked, cargo build -p forgesync-cli --no-default-features --locked, and cargo
+  doc --workspace --no-deps --all-features.
 - Lint changed Markdown with markdownlint-cli2 and /Users/joshka/.markdownlint-cli2.yaml.

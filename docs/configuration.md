@@ -42,17 +42,18 @@ batch_size = 64
 concurrency = 4
 ```
 
-The default endpoint is the OpenAI `/v1` base; Forgesync appends `/embeddings`. A local HTTP URL
-is allowed for loopback fixtures. Other endpoints must use HTTPS. Requests use `model`, `input`,
+The default endpoint is the OpenAI `/v1` base; Forgesync appends `/embeddings`. A local HTTP URL is
+allowed for loopback fixtures. Other endpoints must use HTTPS. Requests use `model`, `input`,
 optional `dimensions`, and `encoding_format = "float"`, and map response vectors back by their
-returned input index. See the [Create embeddings API reference](https://developers.openai.com/api/reference/resources/embeddings/methods/create).
+returned input index. See the
+[Create embeddings API reference](https://developers.openai.com/api/reference/resources/embeddings/methods/create).
 
 `max_input_bytes` limits each deterministic UTF-8 chunk. `max_batch_input_bytes` limits the combined
 bytes in one request. These are byte budgets, not token estimates; lower them for services with a
 smaller model input limit. Forgesync does not infer a token limit from error text. `batch_size` and
 `concurrency` bound request count and parallel requests. `request_timeout_seconds`,
-`retry_budget_seconds`, and `max_attempts` configure bounded transient retries. `dimensions` can
-set the expected output length; when omitted, vectors in each response must still agree in length.
+`retry_budget_seconds`, and `max_attempts` configure bounded transient retries. `dimensions` can set
+the expected output length; when omitted, vectors in each response must still agree in length.
 
 The `embed` command accepts `--endpoint`, `--model`, `--api-key-env`, `--dimensions`,
 `--max-input-bytes`, `--max-batch-input-bytes`, `--batch-size`, and `--concurrency` overrides.
@@ -80,16 +81,16 @@ create missing vectors first. Command-line `--endpoint` and `--model` select whi
 identity to use.
 
 Clustering defaults to a cosine threshold of `0.80`, a cross-kind issue/pull-request threshold of
-`0.93`, fanout `16`, maximum component size `40`, and minimum component size `1`. Override these with
-`--threshold`, `--cross-kind-threshold`, `--fanout`, `--max-cluster-size`, and
+`0.93`, fanout `16`, maximum component size `40`, and minimum component size `1`. Override these
+with `--threshold`, `--cross-kind-threshold`, `--fanout`, `--max-cluster-size`, and
 `--min-cluster-size`. The graph is deterministic for the same archive content, vectors, and options.
 
 The command compares the number of current open discussions with the number that have complete
 compatible vectors. A run with partial vector coverage records groups from available vectors and
-preserves unseen groups and memberships. A complete run can retire groups that no longer qualify.
-If eligible discussions exist but none has a compatible vector, the command reports that vectors
-are unavailable and writes no generation. JSON and human output report eligible and vector counts
-so the coverage policy is visible.
+preserves unseen groups and memberships. A complete run can retire groups that no longer qualify. If
+eligible discussions exist but none has a compatible vector, the command reports that vectors are
+unavailable and writes no generation. JSON and human output report eligible and vector counts so the
+coverage policy is visible.
 
 `cluster list`, `cluster show`, `cluster dismiss`, `cluster restore`, `cluster exclude`,
 `cluster include`, and `cluster canonical` inspect or change archive-local triage decisions. These
@@ -99,11 +100,11 @@ matched regenerated clusters.
 ## Retrieval modes
 
 `search QUERY` defaults to local keyword search and does not use an embedding service. Use
-`--mode semantic` for exact cosine ranking or `--mode hybrid` to combine keyword and semantic
-ranks with reciprocal rank fusion (constant 60). Semantic and hybrid search use the configured
-document recipe, endpoint, and model, and only consider complete vectors whose document matches the
-current archived thread and evidence coverage. A document's score is the best cosine similarity
-among its deterministic chunks.
+`--mode semantic` for exact cosine ranking or `--mode hybrid` to combine keyword and semantic ranks
+with reciprocal rank fusion (constant 60). Semantic and hybrid search use the configured document
+recipe, endpoint, and model, and only consider complete vectors whose document matches the current
+archived thread and evidence coverage. A document's score is the best cosine similarity among its
+deterministic chunks.
 
 Semantic and hybrid modes return an explicit error when compatible vectors or the embedding service
 are unavailable. Add `--keyword-fallback` to opt into keyword-only results for those cases; JSON

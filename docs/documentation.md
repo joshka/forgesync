@@ -41,5 +41,5 @@ Rustdoc. Remove duplicated setup and stale promises. Preserve explanations that 
 even when they take more words. Wrap Markdown prose at 100 columns and run the repository's rumdl
 and markdownlint checks after editing.
 
-This guidance distills the local Practice documentation workflow and Girt documentation standard
-for Forgesync's archive, sync, search, and triage workflows.
+This guidance distills the local Practice documentation workflow and Girt documentation standard for
+Forgesync's archive, sync, search, and triage workflows.
