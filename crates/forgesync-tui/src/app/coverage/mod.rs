@@ -65,3 +65,6 @@ impl CoveragePanel {
         Some(error)
     }
 }
+
+#[cfg(test)]
+mod tests;

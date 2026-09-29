@@ -79,3 +79,6 @@ impl FailureList {
         Some(error)
     }
 }
+
+#[cfg(test)]
+mod tests;
