@@ -11,16 +11,16 @@ use ratatui::layout::Rect;
 use super::draw;
 use crate::app::{App, Screen};
 
-#[test]
-fn browser_renders_in_small_and_large_terminal_sizes() {
-    for (width, height) in [(40, 10), (140, 40)] {
-        let backend = TestBackend::new(width, height);
-        let mut terminal = Terminal::new(backend).expect("test terminal");
-        let mut app = sample_app();
-        terminal
-            .draw(|frame| draw(frame, &mut app))
-            .expect("draw browser");
-    }
+#[rstest::rstest]
+#[case::narrow(40, 10)]
+#[case::wide(140, 40)]
+fn browser_renders_at_terminal_size(#[case] width: u16, #[case] height: u16) {
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).expect("test terminal");
+    let mut app = sample_app();
+    terminal
+        .draw(|frame| draw(frame, &mut app))
+        .expect("draw browser");
 }
 
 #[test]
@@ -45,8 +45,18 @@ fn resizing_clamps_detail_scroll_to_visible_content() {
     assert!(app.detail_scroll <= small_offset);
 }
 
-#[test]
-fn cluster_and_failure_views_render_at_narrow_and_wide_sizes() {
+#[rstest::rstest]
+#[case::clusters_narrow(Screen::Clusters, 40, 10)]
+#[case::clusters_wide(Screen::Clusters, 140, 40)]
+#[case::cluster_detail_narrow(Screen::ClusterDetail, 40, 10)]
+#[case::cluster_detail_wide(Screen::ClusterDetail, 140, 40)]
+#[case::failures_narrow(Screen::Failures, 40, 10)]
+#[case::failures_wide(Screen::Failures, 140, 40)]
+fn maintainer_view_renders_at_terminal_size(
+    #[case] screen: Screen,
+    #[case] width: u16,
+    #[case] height: u16,
+) {
     let thread = sample_summary();
     let cluster = ClusterSummary {
         id: 3,
@@ -61,29 +71,20 @@ fn cluster_and_failure_views_render_at_narrow_and_wide_sizes() {
         last_run_id: Some(1),
         updated_at: thread.discussion.updated_at,
     };
-    for (screen, width, height) in [
-        (Screen::Clusters, 40, 10),
-        (Screen::Clusters, 140, 40),
-        (Screen::ClusterDetail, 40, 10),
-        (Screen::ClusterDetail, 140, 40),
-        (Screen::Failures, 40, 10),
-        (Screen::Failures, 140, 40),
-    ] {
-        let backend = TestBackend::new(width, height);
-        let mut terminal = Terminal::new(backend).expect("test terminal");
-        let mut app = App {
-            screen,
-            clusters: vec![cluster.clone()],
-            cluster_detail: Some(ClusterDetail {
-                cluster: cluster.clone(),
-                members: Vec::new(),
-            }),
-            ..App::default()
-        };
-        terminal
-            .draw(|frame| draw(frame, &mut app))
-            .expect("draw maintainer view");
-    }
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).expect("test terminal");
+    let mut app = App {
+        screen,
+        clusters: vec![cluster.clone()],
+        cluster_detail: Some(ClusterDetail {
+            cluster,
+            members: Vec::new(),
+        }),
+        ..App::default()
+    };
+    terminal
+        .draw(|frame| draw(frame, &mut app))
+        .expect("draw maintainer view");
 }
 
 fn sample_app() -> App {

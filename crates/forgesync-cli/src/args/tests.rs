@@ -35,96 +35,54 @@ fn global_options_parse_together() {
     assert_eq!(args.verbose, 2);
 }
 
-#[test]
-fn sync_families_are_selected_with_with() {
-    let args =
-        CliArgs::try_parse_from(["forgesync", "--archive", "archive.db", "sync", "owner/repo"])
-            .expect("sync without comments should parse");
-    assert!(matches!(
-        args.command,
-        Command::Sync {
-            with,
-            ..
-        } if with.is_empty()
-    ));
-
-    let args = CliArgs::try_parse_from([
-        "forgesync",
-        "--archive",
-        "archive.db",
-        "sync",
-        "owner/repo",
-        "--with",
-        "comments",
-    ])
-    .expect("sync with comments should parse");
-    assert!(matches!(
-        args.command,
-        Command::Sync {
-            with,
-            ..
-        } if with == vec![SyncIncludeArg::Comments]
-    ));
-
-    let args = CliArgs::try_parse_from([
-        "forgesync",
-        "--archive",
-        "archive.db",
-        "sync",
-        "owner/repo",
-        "--with",
-        "comments,reviews",
-    ])
-    .expect("sync with reviews should parse");
-    assert!(matches!(
-        args.command,
-        Command::Sync { with, .. }
-            if with == vec![SyncIncludeArg::Comments, SyncIncludeArg::Reviews]
-    ));
-
-    let args = CliArgs::try_parse_from([
-        "forgesync",
-        "--archive",
-        "archive.db",
-        "sync",
-        "owner/repo",
-        "--with",
-        "review-threads",
-    ])
-    .expect("sync with review threads should parse");
-    assert!(matches!(
-        args.command,
-        Command::Sync { with, .. }
-            if with == vec![SyncIncludeArg::ReviewThreads]
-    ));
+#[rstest::rstest]
+#[case::default(&["forgesync", "--archive", "archive.db", "sync", "owner/repo"], vec![])]
+#[case::comments(
+    &["forgesync", "--archive", "archive.db", "sync", "owner/repo", "--with", "comments"],
+    vec![SyncIncludeArg::Comments]
+)]
+#[case::comments_and_reviews(
+    &["forgesync", "--archive", "archive.db", "sync", "owner/repo", "--with", "comments,reviews"],
+    vec![SyncIncludeArg::Comments, SyncIncludeArg::Reviews]
+)]
+#[case::review_threads(
+    &["forgesync", "--archive", "archive.db", "sync", "owner/repo", "--with", "review-threads"],
+    vec![SyncIncludeArg::ReviewThreads]
+)]
+fn sync_families_are_selected_with_with(
+    #[case] arguments: &[&str],
+    #[case] expected: Vec<SyncIncludeArg>,
+) {
+    let args = CliArgs::try_parse_from(arguments).expect("sync arguments should parse");
+    let Command::Sync { with, .. } = args.command else {
+        panic!("expected sync command");
+    };
+    assert_eq!(with, expected);
 }
 
-#[test]
-fn refresh_analysis_stages_are_explicit_and_comma_separated() {
-    let args = CliArgs::try_parse_from([
-        "forgesync",
-        "--archive",
-        "archive.db",
-        "refresh",
-        "owner/repo",
-    ])
-    .expect("sync-only refresh should parse");
-    assert!(matches!(args.command, Command::Refresh { analyze, .. } if analyze.is_empty()));
-
-    let args = CliArgs::try_parse_from([
-        "forgesync",
-        "--archive",
-        "archive.db",
-        "refresh",
-        "owner/repo",
-        "--no-sync",
-        "--analyze",
-        "embeddings,clusters",
-    ])
-    .expect("explicit analysis stages should parse");
-    assert!(matches!(
-        args.command,
-        Command::Refresh { no_sync: true, analyze, .. }
-            if analyze == vec![RefreshAnalysisArg::Embeddings, RefreshAnalysisArg::Clusters]
-    ));
+#[rstest::rstest]
+#[case::sync_only(
+    &["forgesync", "--archive", "archive.db", "refresh", "owner/repo"],
+    false,
+    vec![]
+)]
+#[case::explicit_analysis(
+    &["forgesync", "--archive", "archive.db", "refresh", "owner/repo", "--no-sync", "--analyze", "embeddings,clusters"],
+    true,
+    vec![RefreshAnalysisArg::Embeddings, RefreshAnalysisArg::Clusters]
+)]
+fn refresh_analysis_stages_are_explicit_and_comma_separated(
+    #[case] arguments: &[&str],
+    #[case] expected_no_sync: bool,
+    #[case] expected_analysis: Vec<RefreshAnalysisArg>,
+) {
+    let args = CliArgs::try_parse_from(arguments).expect("refresh arguments should parse");
+    let Command::Refresh {
+        no_sync, analyze, ..
+    } = args.command
+    else {
+        panic!("expected refresh command");
+    };
+    assert_eq!(no_sync, expected_no_sync);
+    assert_eq!(analyze, expected_analysis);
 }

@@ -12,3 +12,4 @@ thiserror.workspace = true
 time.workspace = true
 
 [dev-dependencies]
+rstest = "0.27.0"

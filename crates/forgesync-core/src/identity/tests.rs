@@ -19,22 +19,21 @@ fn host_identity_normalizes_authorities_and_rejects_paths() {
             .as_str(),
         "github.com"
     );
+}
 
-    for value in [
-        "http://github.com",
-        "https://github.com/api/v3",
-        "https://user:pass@github.com",
-        "github..com",
-        "bad host",
-        "github.com:0",
-        "[not-ipv6]",
-    ] {
-        assert_eq!(
-            GitHubHost::parse(value),
-            Err(IdentityError::InvalidGitHubHost),
-            "accepted invalid host {value}"
-        );
-    }
+#[rstest::rstest]
+#[case::insecure_scheme("http://github.com")]
+#[case::api_path("https://github.com/api/v3")]
+#[case::credentials("https://user:pass@github.com")]
+#[case::empty_dns_label("github..com")]
+#[case::whitespace("bad host")]
+#[case::zero_port("github.com:0")]
+#[case::invalid_ipv6("[not-ipv6]")]
+fn host_identity_rejects_invalid_authority(#[case] value: &str) {
+    assert_eq!(
+        GitHubHost::parse(value),
+        Err(IdentityError::InvalidGitHubHost)
+    );
 }
 
 #[test]

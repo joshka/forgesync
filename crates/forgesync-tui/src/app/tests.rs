@@ -89,19 +89,18 @@ fn repository_picker_applies_the_highlighted_repository() {
 
     assert_eq!(app.applied_repository, Some(0));
     assert!(matches!(app.screen, Screen::Browser));
-    match actions.as_slice() {
-        [
-            QueryAction::Threads {
-                repositories,
-                offset: 0,
-                ..
-            },
-        ] => {
-            assert_eq!(repositories.len(), 1);
-            assert_eq!(repositories[0].as_url(), "https://github.com/owner/repo");
-        }
-        _ => panic!("expected a repository-scoped thread query"),
-    }
+    let [
+        QueryAction::Threads {
+            repositories,
+            offset: 0,
+            ..
+        },
+    ] = actions.as_slice()
+    else {
+        panic!("expected a repository-scoped thread query");
+    };
+    assert_eq!(repositories.len(), 1);
+    assert_eq!(repositories[0].as_url(), "https://github.com/owner/repo");
 }
 
 #[test]

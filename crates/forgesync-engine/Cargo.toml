@@ -19,6 +19,7 @@ tokio-util.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+rstest = "0.27.0"
 serde_json.workspace = true
 sqlx.workspace = true
 wiremock.workspace = true
