@@ -10,8 +10,6 @@
 //!
 //! Configuration precedence is resolved before calling this method, including embed overrides.
 
-use std::fmt;
-
 use forgesync_engine::embedding_client::{EmbeddingClient, EmbeddingClientError};
 
 use crate::config::{ConfigError, EmbeddingServiceConfig};
@@ -30,9 +28,14 @@ impl EmbeddingServiceConfig {
 }
 
 /// Setup phase retained for command-specific usage versus execution error handling.
+#[derive(Debug, thiserror::Error)]
 pub enum EmbeddingSetupError {
-    Configuration(ConfigError),
-    Client(EmbeddingClientError),
+    /// File, environment, or command settings do not describe a usable service.
+    #[error("{0}")]
+    Configuration(#[source] ConfigError),
+    /// Validated settings could not initialize the transport adapter.
+    #[error("{0}")]
+    Client(#[source] EmbeddingClientError),
 }
 impl EmbeddingSetupError {
     /// Preserves the underlying stable code in the CLI error envelope.
@@ -40,14 +43,6 @@ impl EmbeddingSetupError {
         match self {
             Self::Configuration(error) => error.code(),
             Self::Client(error) => error.code(),
-        }
-    }
-}
-impl fmt::Display for EmbeddingSetupError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Configuration(error) => error.fmt(formatter),
-            Self::Client(error) => error.fmt(formatter),
         }
     }
 }

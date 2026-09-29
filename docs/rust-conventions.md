@@ -82,7 +82,9 @@ repeated `pub(crate)` or `pub(super)` as a prompt to examine ownership and data 
 default way to draw a seam. Keep restricted visibility when changing it would expose internals of a
 public type or an intentional public module. Keep domain values separate from provider DTOs, SQL
 rows, and CLI output. Use standard conversion traits when they communicate the relationship, and
-document errors, side effects, cancellation, and lifecycle where callers look.
+document errors, side effects, cancellation, and lifecycle where callers look. Typed errors should
+implement `Debug`, `Display`, and `std::error::Error`, retaining an underlying error as a source
+when it helps diagnosis. Keep stable presentation codes separate from that typed cause.
 
 The app has no established external users, so remove development-era aliases when restructuring.
 Preserve persisted archive semantics and documented CLI behavior deliberately. Refresh compatible

@@ -2,10 +2,11 @@
 
 ## Current position
 
-- Follow-up cleanup gives six CLI workflows a shared interruption lifetime owner. The listener
-  stops on scope exit while engine cancellation retains durable cleanup and reports. CLI tests
-  and Clippy passed. The Rust conventions now record this task-lifetime rule.
-
+- Embedding setup failures now implement the standard error traits and retain their typed cause;
+  configuration/client phase, CLI codes, and displayed messages remain separate concerns.
+- Follow-up cleanup gives six CLI workflows a shared interruption lifetime owner. The listener stops
+  on scope exit while engine cancellation retains durable cleanup and reports. CLI tests and Clippy
+  passed. The Rust conventions now record this task-lifetime rule.
 - The function/state ownership pass covers all twelve surveyed areas. The maintainability plan now
   records the implemented owners, focused evidence, and reasons for retaining linear SQL and simple
   display mappings. Reusable rules cover shared eligibility policy, transaction ownership, and
