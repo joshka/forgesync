@@ -218,6 +218,7 @@ fn is_stale(
     }
 }
 
+/// Reads the current source comment count for coverage display.
 fn comment_count(discussion: &Discussion) -> Option<u64> {
     discussion
         .provider_data
@@ -225,6 +226,7 @@ fn comment_count(discussion: &Discussion) -> Option<u64> {
         .and_then(serde_json::Value::as_u64)
 }
 
+/// Excludes issue rows from pull-request-only coverage totals.
 fn is_pull_request_family(family: EvidenceFamily) -> bool {
     matches!(
         family,
@@ -234,6 +236,7 @@ fn is_pull_request_family(family: EvidenceFamily) -> bool {
     )
 }
 
+/// Maps one family to its persisted archive label.
 fn evidence_family_name(family: EvidenceFamily) -> &'static str {
     match family {
         EvidenceFamily::Threads => "threads",
@@ -244,6 +247,7 @@ fn evidence_family_name(family: EvidenceFamily) -> &'static str {
     }
 }
 
+/// Rejects stored family labels unsupported by this binary.
 fn parse_evidence_family(value: &str) -> Result<EvidenceFamily, StoreError> {
     match value {
         "threads" => Ok(EvidenceFamily::Threads),

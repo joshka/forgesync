@@ -19,6 +19,7 @@ impl Archive {
         self.upsert_repository_inner(repository, Some(token)).await
     }
 
+    /// Updates repository identity and current name under optional lease fencing.
     async fn upsert_repository_inner(
         &self,
         repository: &Repository,

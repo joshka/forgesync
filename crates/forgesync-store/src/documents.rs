@@ -106,6 +106,7 @@ impl Archive {
     }
 }
 
+/// Resolves a normalized discussion identity before storing derived text.
 async fn find_thread_row_id(
     pool: &sqlx::SqlitePool,
     identity: &ThreadId,
@@ -121,6 +122,7 @@ async fn find_thread_row_id(
     .await?)
 }
 
+/// Resolves the same discussion identity inside an active write connection.
 async fn find_thread_row_id_on_connection(
     connection: &mut sqlx::SqliteConnection,
     identity: &ThreadId,
@@ -136,6 +138,7 @@ async fn find_thread_row_id_on_connection(
     .await?)
 }
 
+/// Converts a stored document row back to a versioned domain document.
 fn decode_document(row: sqlx::sqlite::SqliteRow) -> Result<Document, StoreError> {
     let recipe_name: String = row.try_get("recipe")?;
     let recipe = parse_recipe(&recipe_name)?;
@@ -162,6 +165,7 @@ fn decode_document(row: sqlx::sqlite::SqliteRow) -> Result<Document, StoreError>
     Ok(document)
 }
 
+/// Rejects stored recipe labels unknown to this binary.
 fn parse_recipe(value: &str) -> Result<DocumentRecipe, StoreError> {
     match value {
         "original_body" => Ok(DocumentRecipe::OriginalBody),

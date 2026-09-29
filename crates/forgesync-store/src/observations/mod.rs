@@ -101,6 +101,7 @@ mod coverage;
 mod repository;
 mod sequence;
 
+/// Maps a domain family to its stable archive label.
 pub(crate) fn evidence_family_name(family: EvidenceFamily) -> &'static str {
     match family {
         EvidenceFamily::Threads => "threads",
@@ -111,6 +112,7 @@ pub(crate) fn evidence_family_name(family: EvidenceFamily) -> &'static str {
     }
 }
 
+/// Distinguishes independently paged children from parent discussion evidence.
 pub(crate) fn is_child_family(family: EvidenceFamily) -> bool {
     matches!(
         family,
@@ -121,6 +123,7 @@ pub(crate) fn is_child_family(family: EvidenceFamily) -> bool {
     )
 }
 
+/// Validates a provider source clock before replacement ordering.
 pub(crate) fn normalize_source_clock(clock: &SourceClock) -> Result<SourceClock, StoreError> {
     match clock {
         SourceClock::Invalid(raw) if raw.trim().is_empty() => Ok(SourceClock::Missing),
@@ -130,6 +133,7 @@ pub(crate) fn normalize_source_clock(clock: &SourceClock) -> Result<SourceClock,
     }
 }
 
+/// Splits a checked source clock into persisted state and value columns.
 pub(crate) fn source_clock_columns(clock: &SourceClock) -> Result<SourceClockColumns, StoreError> {
     match clock {
         SourceClock::Missing => Ok(SourceClockColumns {
@@ -153,6 +157,7 @@ pub(crate) fn source_clock_columns(clock: &SourceClock) -> Result<SourceClockCol
     }
 }
 
+/// Reconstructs a source clock from checked stored columns.
 pub(crate) fn source_clock_from_columns(
     state: &str,
     raw: &str,
@@ -171,6 +176,7 @@ pub(crate) fn source_clock_from_columns(
     }
 }
 
+/// Rejects zero or invalid stored acquisition sequences.
 pub(crate) fn checked_sequence(value: i64) -> Result<ObservationSequence, StoreError> {
     if value <= 0 {
         return Err(StoreError::InvalidStoredSequence);
@@ -179,14 +185,17 @@ pub(crate) fn checked_sequence(value: i64) -> Result<ObservationSequence, StoreE
     ObservationSequence::new(value).map_err(|_| StoreError::InvalidStoredSequence)
 }
 
+/// Checks a sequence before binding it to SQLite's signed integer range.
 pub(crate) fn to_sql_sequence(sequence: ObservationSequence) -> Result<i64, StoreError> {
     i64::try_from(sequence.get()).map_err(|_| StoreError::IntegerOutOfRange)
 }
 
+/// Checks an unsigned provider number before storing it in SQLite.
 pub(crate) fn sqlite_integer(value: u64) -> Result<i64, StoreError> {
     i64::try_from(value).map_err(|_| StoreError::IntegerOutOfRange)
 }
 
+/// Resolves the registered repository key for an observation transaction.
 pub(crate) async fn repository_row_id(
     connection: &mut SqliteConnection,
     host: &str,
@@ -200,6 +209,7 @@ pub(crate) async fn repository_row_id(
         .ok_or(StoreError::RepositoryMissing)
 }
 
+/// Resolves the stored parent discussion key for child evidence.
 pub(crate) async fn thread_row_id(
     connection: &mut SqliteConnection,
     thread: &ThreadId,
@@ -216,6 +226,7 @@ pub(crate) async fn thread_row_id(
     id.ok_or(StoreError::ThreadMissing)
 }
 
+/// Records a family's completeness separately from its current membership.
 pub(crate) async fn write_coverage(
     connection: &mut SqliteConnection,
     thread_row_id: i64,

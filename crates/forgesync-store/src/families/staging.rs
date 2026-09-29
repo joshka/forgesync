@@ -42,6 +42,7 @@ impl Archive {
             .await
     }
 
+    /// Stages one page without changing canonical complete membership.
     async fn stage_child_family_page_inner<T>(
         &self,
         thread: &ThreadId,
@@ -144,6 +145,7 @@ impl Archive {
     }
 }
 
+/// Loads pages for the reserved generation in page-number order.
 pub async fn load_staged_pages(
     connection: &mut SqliteConnection,
     thread_row_id: i64,
@@ -170,6 +172,7 @@ pub async fn load_staged_pages(
         .collect()
 }
 
+/// Counts distinct staged provider items before finalization.
 pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
     pages.iter().try_fold(0_u64, |count, page| {
         let item_count =
@@ -180,6 +183,7 @@ pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
     })
 }
 
+/// Requires every declared page before a collection can become complete.
 pub fn validate_page_set(pages: &[StagedPage], expected_pages: u32) -> Result<(), StoreError> {
     let found = u32::try_from(pages.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
     if found != expected_pages {
@@ -200,6 +204,7 @@ pub fn validate_page_set(pages: &[StagedPage], expected_pages: u32) -> Result<()
     Ok(())
 }
 
+/// Rejects conflicting duplicate provider IDs within one generation.
 pub fn merge_staged_items(
     pages: &[StagedPage],
 ) -> Result<BTreeMap<String, StagedItem<serde_json::Value>>, StoreError> {

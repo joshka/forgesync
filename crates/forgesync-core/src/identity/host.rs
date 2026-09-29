@@ -137,6 +137,7 @@ fn canonicalize_dns_authority(authority: &str) -> Result<String, IdentityError> 
     })
 }
 
+/// Accepts an optional authority port without allowing path or credential syntax.
 fn parse_port_suffix(suffix: &str) -> Result<Option<u16>, IdentityError> {
     if suffix.is_empty() {
         return Ok(None);
@@ -147,6 +148,7 @@ fn parse_port_suffix(suffix: &str) -> Result<Option<u16>, IdentityError> {
     parse_port(port_text).map(Some)
 }
 
+/// Rejects zero and out-of-range ports before the host becomes an identity.
 fn parse_port(value: &str) -> Result<u16, IdentityError> {
     let port = value
         .parse::<u16>()

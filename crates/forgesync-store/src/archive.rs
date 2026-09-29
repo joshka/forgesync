@@ -100,6 +100,7 @@ impl Archive {
         result
     }
 
+    /// Initializes schema and metadata after exclusive file creation.
     async fn create_new_archive(path: &Path) -> Result<Self, StoreError> {
         let writer = connect_writer(path).await?;
         let setup_result = async {
@@ -221,6 +222,7 @@ impl Archive {
     }
 }
 
+/// Checks archive format and migration history before exposing a handle.
 pub(crate) async fn validate_and_load_info(
     path: &Path,
     pool: &SqlitePool,
@@ -242,6 +244,7 @@ pub(crate) async fn validate_and_load_info(
     load_info(path, pool, current).await
 }
 
+/// Loads validated archive identity and SQLite metadata for status output.
 async fn load_info(
     path: &Path,
     pool: &SqlitePool,
@@ -276,6 +279,7 @@ async fn load_info(
     })
 }
 
+/// Reads the singleton metadata row without creating it.
 async fn load_metadata(pool: &SqlitePool) -> Result<(), StoreError> {
     let has_metadata_table: i64 = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archive_meta')",
@@ -296,6 +300,7 @@ async fn load_metadata(pool: &SqlitePool) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// Rejects absent paths and non-file paths before opening SQLite.
 pub(crate) fn existing_archive_file(path: &Path) -> Result<PathBuf, StoreError> {
     let metadata = std::fs::metadata(path).map_err(|source| {
         if source.kind() == std::io::ErrorKind::NotFound {
@@ -313,6 +318,7 @@ pub(crate) fn existing_archive_file(path: &Path) -> Result<PathBuf, StoreError> 
     Ok(path.to_path_buf())
 }
 
+/// Opens a read-only pool with archive-safe SQLite settings.
 async fn connect_reader(path: &Path) -> Result<SqlitePool, StoreError> {
     let options = SqliteConnectOptions::new()
         .filename(path)
@@ -326,6 +332,7 @@ async fn connect_reader(path: &Path) -> Result<SqlitePool, StoreError> {
         .await?)
 }
 
+/// Opens the serialized writer pool with foreign keys enabled.
 async fn connect_writer(path: &Path) -> Result<SqlitePool, StoreError> {
     let options = SqliteConnectOptions::new()
         .filename(path)
@@ -340,6 +347,7 @@ async fn connect_writer(path: &Path) -> Result<SqlitePool, StoreError> {
         .await?)
 }
 
+/// Validates the system clock before storing archive creation time.
 fn now_utc() -> Result<UtcTimestamp, StoreError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -349,12 +357,14 @@ fn now_utc() -> Result<UtcTimestamp, StoreError> {
     UtcTimestamp::from_unix_microseconds(microseconds).map_err(StoreError::InvalidCreatedAt)
 }
 
+/// Cleans up an incomplete newly created archive after setup fails.
 fn remove_archive_files(path: &Path) {
     let _ = std::fs::remove_file(path);
     remove_sqlite_sidecar(path, "-wal");
     remove_sqlite_sidecar(path, "-shm");
 }
 
+/// Removes a SQLite sidecar left by failed archive creation.
 fn remove_sqlite_sidecar(path: &Path, suffix: &str) {
     let mut sidecar = path.as_os_str().to_os_string();
     sidecar.push(suffix);

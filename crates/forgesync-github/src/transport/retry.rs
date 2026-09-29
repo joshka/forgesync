@@ -4,6 +4,7 @@ use super::{
     ApiFailureKind, Duration, RETRY_AFTER, RetryPolicy, StatusCode, SystemTime, UNIX_EPOCH,
 };
 
+/// Classifies an HTTP response for bounded retry or terminal reporting.
 pub fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {
     if rate_limited {
         return ApiFailureKind::RateLimited;
@@ -18,6 +19,7 @@ pub fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKin
     }
 }
 
+/// Recognizes a provider rate-limit response when status alone is ambiguous.
 pub fn body_identifies_rate_limit(body: &[u8]) -> bool {
     let body = String::from_utf8_lossy(body).to_ascii_lowercase();
     [

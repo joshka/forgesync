@@ -59,6 +59,7 @@ impl Archive {
     }
 }
 
+/// Converts a durable run row and its original scope to a typed record.
 fn decode_run(row: sqlx::sqlite::SqliteRow) -> Result<RunRecord, StoreError> {
     let raw_id: i64 = row.try_get("id")?;
     let parent_id: Option<i64> = row.try_get("parent_run_id")?;
@@ -85,6 +86,7 @@ fn decode_run(row: sqlx::sqlite::SqliteRow) -> Result<RunRecord, StoreError> {
     })
 }
 
+/// Converts a persisted family job row to a typed job record.
 fn decode_job(row: sqlx::sqlite::SqliteRow) -> Result<SyncJobRecord, StoreError> {
     let run_id: i64 = row.try_get("run_id")?;
     let repository_json: String = row.try_get("repository_json")?;
@@ -110,6 +112,7 @@ fn decode_job(row: sqlx::sqlite::SqliteRow) -> Result<SyncJobRecord, StoreError>
     })
 }
 
+/// Converts a persisted failure row without exposing raw provider payloads.
 fn decode_failure(row: sqlx::sqlite::SqliteRow) -> Result<RunFailureRecord, StoreError> {
     let family: Option<String> = row.try_get("family")?;
     let failure_json: String = row.try_get("failure_json")?;
@@ -139,6 +142,7 @@ fn decode_failure(row: sqlx::sqlite::SqliteRow) -> Result<RunFailureRecord, Stor
     })
 }
 
+/// Rejects an unsupported stored evidence family label.
 fn parse_family(value: &str) -> Result<EvidenceFamily, StoreError> {
     match value {
         "threads" => Ok(EvidenceFamily::Threads),
@@ -150,6 +154,7 @@ fn parse_family(value: &str) -> Result<EvidenceFamily, StoreError> {
     }
 }
 
+/// Rejects an unsupported durable run status label.
 fn parse_run_status(value: &str) -> Result<RunStatus, StoreError> {
     match value {
         "in_progress" => Ok(RunStatus::InProgress),
@@ -162,6 +167,7 @@ fn parse_run_status(value: &str) -> Result<RunStatus, StoreError> {
     }
 }
 
+/// Rejects an unsupported durable job status label.
 fn parse_job_status(value: &str) -> Result<SyncJobStatus, StoreError> {
     match value {
         "pending" => Ok(SyncJobStatus::Pending),

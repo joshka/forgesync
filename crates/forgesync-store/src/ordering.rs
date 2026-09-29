@@ -75,10 +75,12 @@ fn compare_source_clocks(
     }
 }
 
+/// Identifies clock pairs that need ambiguity protection before sequence ordering.
 fn both_clocks_are_unusable(incoming: &SourceClock, current: &SourceClock) -> bool {
     !matches!(incoming, SourceClock::Valid(_)) && !matches!(current, SourceClock::Valid(_))
 }
 
+/// Retains a stable diagnostic form of an invalid or missing source clock.
 fn normalized_unusable_clock(clock: &SourceClock) -> String {
     match clock {
         SourceClock::Missing => String::new(),

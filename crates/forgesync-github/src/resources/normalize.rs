@@ -8,6 +8,7 @@ use super::{
     Value,
 };
 
+/// Converts a provider repository response to checked domain identity.
 pub fn normalize_repository(
     host: &GitHubHost,
     repository: RestRepository,
@@ -41,6 +42,7 @@ pub fn normalize_repository(
     })
 }
 
+/// Converts an issue or pull-request issue record to normalized discussion content.
 pub fn normalize_issue(
     repository: &Repository,
     issue: RestIssue,
@@ -107,6 +109,7 @@ pub fn normalize_issue(
     })
 }
 
+/// Converts a REST comment while preserving source fields needed by the archive.
 pub fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comment, GitHubError> {
     let provider_id =
         ProviderId::new(comment.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
@@ -137,6 +140,7 @@ pub fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comm
     })
 }
 
+/// Converts head and base metadata into normalized pull-request evidence.
 pub fn normalize_pull_request(
     repository: &Repository,
     pull_request: RestPullRequest,
@@ -158,6 +162,7 @@ pub fn normalize_pull_request(
     })
 }
 
+/// Validates a provider branch reference before it enters domain content.
 pub fn normalize_branch_ref(
     host: &GitHubHost,
     branch: RestBranchRef,
@@ -179,6 +184,7 @@ pub fn normalize_branch_ref(
     })
 }
 
+/// Converts a REST review and its reviewer identity to domain evidence.
 pub fn normalize_review(thread: &ThreadId, review: RestReview) -> Result<Review, GitHubError> {
     let provider_id =
         ProviderId::new(review.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
@@ -205,6 +211,7 @@ pub fn normalize_review(thread: &ThreadId, review: RestReview) -> Result<Review,
     })
 }
 
+/// Extracts an optional reviewer identity from provider user data.
 pub fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
     let object = user.as_object()?;
     let provider_id = object.get("id").and_then(provider_id_from_value);
@@ -220,6 +227,7 @@ pub fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
     })
 }
 
+/// Reads a provider-issued opaque identity from a JSON value.
 pub fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
     let value = value
         .as_u64()
@@ -228,6 +236,7 @@ pub fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
     ProviderId::new(value).ok()
 }
 
+/// Preserves unknown provider review states without inventing approval.
 pub fn normalize_review_state(state: &str) -> ReviewState {
     match state {
         "APPROVED" => ReviewState::Approved,
@@ -239,10 +248,12 @@ pub fn normalize_review_state(state: &str) -> ReviewState {
     }
 }
 
+/// Rejects provider timestamps outside the archive's UTC representation.
 pub fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
 }
 
+/// Retains unmapped provider fields alongside normalized domain values.
 pub fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
     let mut provider_data = ProviderData::new();
     for (name, value) in extra {
@@ -251,6 +262,7 @@ pub fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
     provider_data
 }
 
+/// Hides raw provider payloads when converting a JSON decoding failure.
 pub fn json_error(_: serde_json::Error) -> GitHubError {
     GitHubError::InvalidProviderData
 }

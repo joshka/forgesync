@@ -5,6 +5,7 @@ use super::{
     ProviderId, ReviewId, ReviewThread, ReviewThreadId, ThreadId, UtcTimestamp, Value,
 };
 
+/// Converts a fully paged GraphQL thread into normalized review evidence.
 pub fn normalize_review_thread(
     thread: &ThreadId,
     head_sha: &CommitSha,
@@ -38,6 +39,7 @@ pub fn normalize_review_thread(
     })
 }
 
+/// Converts a GraphQL review comment without losing provider identity.
 fn normalize_comment(thread: &ThreadId, comment: GraphqlComment) -> Result<Comment, GitHubError> {
     let mut provider_data =
         ProviderData::from_value(Value::Object(comment.extra.into_iter().collect()))

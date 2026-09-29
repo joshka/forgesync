@@ -25,6 +25,7 @@ impl Archive {
             .await
     }
 
+    /// Allocates the next acquisition sequence inside a fenced write.
     async fn reserve_observation_sequence_inner(
         &self,
         started_at: UtcTimestamp,

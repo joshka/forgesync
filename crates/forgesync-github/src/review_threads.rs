@@ -130,6 +130,7 @@ pub async fn fetch_review_thread_page(
     })
 }
 
+/// Rejects a review-thread request for a thread outside the selected repository.
 fn validate_scope(repository: &Repository, thread: &ThreadId) -> Result<(), GitHubError> {
     if thread.repository() != &repository.id {
         return Err(GitHubError::InvalidProviderData);
@@ -200,12 +201,14 @@ fn cursor_from_page_info(page_info: GraphqlPageInfo) -> Result<Option<GraphqlCur
     }
 }
 
+/// Reads the provider's pagination flag while rejecting missing page metadata.
 fn has_next_page(page_info: &GraphqlPageInfo) -> Result<bool, GitHubError> {
     page_info
         .has_next_page
         .ok_or(GitHubError::InvalidProviderData)
 }
 
+/// Requires a usable cursor whenever another GraphQL page is declared.
 fn required_next_cursor(page_info: &GraphqlPageInfo) -> Result<String, GitHubError> {
     page_info
         .end_cursor
@@ -215,6 +218,7 @@ fn required_next_cursor(page_info: &GraphqlPageInfo) -> Result<String, GitHubErr
         .ok_or(GitHubError::InvalidPaginationLink)
 }
 
+/// Sends one bounded GraphQL request through the configured transport client.
 async fn execute_graphql<T, V>(
     client: &GitHubClient,
     query: &str,

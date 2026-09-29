@@ -67,6 +67,7 @@ impl Archive {
     }
 }
 
+/// Resolves a registered repository to its SQLite key before checkpoint mutation.
 async fn repository_row_id(
     connection: &mut SqliteConnection,
     repository: &RepositoryId,

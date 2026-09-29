@@ -7,6 +7,7 @@ use super::{
     TrustedOrigin, Url,
 };
 
+/// Waits for a client permit or caller cancellation before sending a request.
 pub async fn acquire_request_slot(
     slots: &std::sync::Arc<Semaphore>,
     cancellation: &CancellationToken,
@@ -54,6 +55,7 @@ pub async fn classify_api_response(
     }
 }
 
+/// Retains only a bounded diagnostic prefix of a failed provider response.
 pub async fn read_error_prefix(response: Response) -> Result<Vec<u8>, reqwest::Error> {
     read_body_prefix(response, MAX_ERROR_BODY_BYTES).await
 }
@@ -78,6 +80,7 @@ pub async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, Body
     Ok(bytes)
 }
 
+/// Reads a bounded prefix without exposing an unbounded provider payload.
 pub async fn read_body_prefix(
     mut response: Response,
     limit: usize,
@@ -111,6 +114,7 @@ pub fn redirect_target(response: &Response, origin: &TrustedOrigin) -> Result<Ur
     Ok(target)
 }
 
+/// Maps reqwest failures to retryable or terminal provider categories.
 pub fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
     if error.is_timeout() {
         RequestFailure::retryable(GitHubError::Timeout, None)

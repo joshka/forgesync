@@ -151,6 +151,7 @@ impl Archive {
     }
 }
 
+/// Adds bound repository IDs to a read query without string interpolation.
 pub fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories: &[RepositoryId]) {
     if repositories.is_empty() {
         return;
@@ -170,6 +171,7 @@ pub fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories:
     statement.push(")");
 }
 
+/// Adds state, kind, and date predicates to a local discussion query.
 pub fn push_discussion_filters(
     statement: &mut QueryBuilder<Sqlite>,
     kind: Option<ThreadKind>,
@@ -192,6 +194,7 @@ pub fn push_discussion_filters(
     }
 }
 
+/// Selects deterministic ordering for one discussion-list sort mode.
 fn sort_order(sort: ThreadSort, uses_fts: bool) -> &'static str {
     match (sort, uses_fts) {
         (ThreadSort::Relevance, true) => {
@@ -206,6 +209,7 @@ fn sort_order(sort: ThreadSort, uses_fts: bool) -> &'static str {
     }
 }
 
+/// Separates invalid user FTS syntax from other SQLite failures.
 fn is_fts_syntax_error(error: &sqlx::Error) -> bool {
     error
         .as_database_error()

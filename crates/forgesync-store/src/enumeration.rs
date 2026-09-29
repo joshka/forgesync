@@ -86,6 +86,7 @@ impl Archive {
         .await
     }
 
+    /// Reserves scan state before fetching repository pages.
     async fn begin_repository_thread_scan_inner(
         &self,
         repository: &RepositoryId,
@@ -166,6 +167,7 @@ impl Archive {
         .await
     }
 
+    /// Applies one page and advances its durable cursor atomically.
     async fn record_repository_thread_scan_page_inner(
         &self,
         repository: &RepositoryId,
@@ -251,6 +253,7 @@ impl Archive {
         .await
     }
 
+    /// Marks a scan complete only after all selected pages are committed.
     async fn finish_repository_thread_scan_inner(
         &self,
         repository: &RepositoryId,
@@ -350,6 +353,7 @@ impl Archive {
     }
 }
 
+/// Resolves the repository key used by a durable scan.
 async fn repository_row_id(
     connection: &mut SqliteConnection,
     repository: &RepositoryId,
@@ -362,23 +366,28 @@ async fn repository_row_id(
         .ok_or(StoreError::RepositoryMissing)
 }
 
+/// Checks a provider count before binding it to SQLite.
 fn to_sql_integer(value: u64) -> Result<i64, StoreError> {
     i64::try_from(value).map_err(|_| StoreError::IntegerOutOfRange)
 }
 
+/// Rejects negative or overflowing stored scan counts.
 fn checked_count(value: i64) -> Result<u64, StoreError> {
     u64::try_from(value).map_err(|_| StoreError::InvalidStoredCount)
 }
 
+/// Rejects an invalid stored observation sequence.
 fn checked_positive_sequence(value: i64) -> Result<ObservationSequence, StoreError> {
     let value = u64::try_from(value).map_err(|_| StoreError::InvalidStoredSequence)?;
     ObservationSequence::new(value).map_err(|_| StoreError::InvalidStoredSequence)
 }
 
+/// Converts a stored scan timestamp to checked UTC time.
 fn decode_timestamp(value: i64) -> Result<UtcTimestamp, StoreError> {
     UtcTimestamp::from_unix_microseconds(value).map_err(StoreError::InvalidCreatedAt)
 }
 
+/// Rejects scan status labels unknown to this binary.
 fn decode_status(value: String) -> Result<RepositoryThreadScanStatus, StoreError> {
     match value.as_str() {
         "in_progress" => Ok(RepositoryThreadScanStatus::InProgress),

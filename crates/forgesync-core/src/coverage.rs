@@ -178,6 +178,7 @@ impl Coverage {
     }
 }
 
+/// Retains the default false stale marker when serializing coverage.
 fn is_not_stale(stale: &bool) -> bool {
     !stale
 }

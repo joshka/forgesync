@@ -345,6 +345,7 @@ fn complete_chunk_set(chunks: &[StoredEmbeddingChunk]) -> bool {
     })
 }
 
+/// Finds the current document version before attaching vector chunks.
 async fn current_document_row_id(
     connection: &mut sqlx::SqliteConnection,
     document: &Document,
@@ -363,6 +364,7 @@ async fn current_document_row_id(
     .await?)
 }
 
+/// Validates stored dimensions and bytes before yielding a search vector.
 fn decode_embedding_chunk(
     row: sqlx::sqlite::SqliteRow,
 ) -> Result<StoredEmbeddingChunk, StoreError> {
@@ -390,6 +392,7 @@ fn decode_embedding_chunk(
     })
 }
 
+/// Checks a persisted chunk hash before using it as a cache identity.
 fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64
         && value

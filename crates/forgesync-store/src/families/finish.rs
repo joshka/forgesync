@@ -54,6 +54,7 @@ impl Archive {
             .await
     }
 
+    /// Atomically promotes complete staged membership or records incomplete coverage.
     async fn finish_child_family_observation_inner(
         &self,
         observation: ChildFamilyObservation<'_>,

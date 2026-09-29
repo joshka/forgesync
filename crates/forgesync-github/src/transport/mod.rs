@@ -107,6 +107,7 @@ struct ResponseBody {
 }
 
 impl RequestFailure {
+    /// Constructs a terminal request failure for a non-retryable condition.
     fn terminal(error: GitHubError) -> Self {
         Self {
             error,
@@ -115,6 +116,7 @@ impl RequestFailure {
         }
     }
 
+    /// Constructs a request failure that carries retry timing information.
     fn retryable(error: GitHubError, retry_after: Option<Duration>) -> Self {
         Self {
             error,
@@ -136,6 +138,7 @@ struct TrustedOrigin {
 }
 
 impl TrustedOrigin {
+    /// Validates the configured origin before credentials can be attached.
     fn parse(base_url: &Url) -> Result<Self, GitHubError> {
         if !base_url.username().is_empty()
             || base_url.password().is_some()
@@ -157,6 +160,7 @@ impl TrustedOrigin {
         Ok(Self { origin, display })
     }
 
+    /// Rejects redirects or pagination URLs outside the trusted origin.
     fn validate(&self, candidate: &Url) -> Result<(), GitHubError> {
         if candidate.username().is_empty()
             && candidate.password().is_none()
@@ -169,6 +173,7 @@ impl TrustedOrigin {
     }
 }
 
+/// Restricts credential-bearing requests to an allowed URL scheme.
 fn is_allowed_scheme(url: &Url) -> bool {
     if url.scheme() == "https" {
         return true;

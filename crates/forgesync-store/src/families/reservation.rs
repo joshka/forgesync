@@ -51,6 +51,7 @@ impl Archive {
         .await
     }
 
+    /// Reserves a generation before provider pages arrive, under optional fencing.
     async fn reserve_child_family_observation_inner(
         &self,
         thread: &ThreadId,

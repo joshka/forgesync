@@ -84,6 +84,7 @@ impl Archive {
             .await
     }
 
+    /// Checks whether staged child evidence still belongs to the current parent.
     async fn child_family_is_current_inner(
         &self,
         thread: &ThreadId,

@@ -57,6 +57,7 @@ impl Archive {
     }
 }
 
+/// Combines selected family evidence into one stable discussion timeline.
 fn build_thread_timeline(
     discussion: &Discussion,
     comments: &[StagedItem<Comment>],
@@ -127,6 +128,7 @@ fn build_thread_timeline(
     entries
 }
 
+/// Orders timeline events by source time when available.
 fn compare_timeline_time(
     left: Option<UtcTimestamp>,
     right: Option<UtcTimestamp>,
@@ -139,6 +141,7 @@ fn compare_timeline_time(
     }
 }
 
+/// Breaks equal timeline timestamps with a stable event identity.
 fn timeline_event_key(event: &ThreadTimelineEvent) -> (u8, String) {
     match event {
         ThreadTimelineEvent::ThreadCreated { thread, .. }
@@ -165,6 +168,7 @@ fn timeline_event_key(event: &ThreadTimelineEvent) -> (u8, String) {
     }
 }
 
+/// Loads current complete family membership for a discussion.
 async fn load_family_members<T>(
     pool: &sqlx::SqlitePool,
     thread_id: i64,

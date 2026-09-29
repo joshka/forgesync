@@ -41,6 +41,7 @@ impl Archive {
             .await
     }
 
+    /// Records a local cluster decision without changing generated membership.
     async fn set_cluster_decision(
         &self,
         token: &ArchiveLeaseToken,
@@ -117,6 +118,7 @@ impl Archive {
             .await
     }
 
+    /// Records an include or exclude decision for one current member.
     async fn set_member_decision(
         &self,
         token: &ArchiveLeaseToken,
@@ -226,6 +228,7 @@ impl Archive {
     }
 }
 
+/// Appends a durable audit event for a local maintainer action.
 pub async fn insert_cluster_event(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -249,6 +252,7 @@ pub async fn insert_cluster_event(
     Ok(())
 }
 
+/// Rejects a decision targeting a removed or unknown cluster member.
 async fn current_cluster_member_id(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -284,6 +288,7 @@ async fn current_cluster_member_id(
     Ok(thread_id)
 }
 
+/// Checks an archive-local cluster ID before binding it to SQLite.
 pub fn checked_cluster_id(id: u64) -> Result<i64, StoreError> {
     i64::try_from(id)
         .ok()

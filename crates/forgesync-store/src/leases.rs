@@ -100,6 +100,7 @@ impl Archive {
     }
 }
 
+/// Fences a write against the current unexpired archive lease.
 pub(crate) async fn require_active_archive_lease(
     connection: &mut SqliteConnection,
     token: &ArchiveLeaseToken,
@@ -120,6 +121,7 @@ pub(crate) async fn require_active_archive_lease(
     }
 }
 
+/// Checks a lease duration before converting it to archive units.
 fn duration_microseconds(duration: Duration) -> Result<i64, StoreError> {
     if duration.is_zero() {
         return Err(StoreError::InvalidArchiveLeaseDuration);
@@ -127,6 +129,7 @@ fn duration_microseconds(duration: Duration) -> Result<i64, StoreError> {
     i64::try_from(duration.as_micros()).map_err(|_| StoreError::InvalidArchiveLeaseDuration)
 }
 
+/// Reads a checked local clock value for lease expiry.
 fn current_unix_microseconds() -> Result<i64, StoreError> {
     let elapsed = SystemTime::now()
         .duration_since(UNIX_EPOCH)

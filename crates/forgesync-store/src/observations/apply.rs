@@ -30,6 +30,7 @@ impl Archive {
             .await
     }
 
+    /// Applies a parent observation atomically under optional lease fencing.
     async fn apply_thread_observation_inner(
         &self,
         observation: &Observation<Discussion>,
@@ -249,6 +250,7 @@ impl Archive {
     }
 }
 
+/// Maps a normalized discussion kind to its stored label.
 fn thread_kind_name(kind: ThreadKind) -> &'static str {
     match kind {
         ThreadKind::Issue => "issue",
@@ -256,6 +258,7 @@ fn thread_kind_name(kind: ThreadKind) -> &'static str {
     }
 }
 
+/// Maps a provider source state to its stored label.
 fn source_state_name(state: &SourceState) -> &str {
     match state {
         SourceState::Open => "open",
@@ -264,6 +267,7 @@ fn source_state_name(state: &SourceState) -> &str {
     }
 }
 
+/// Derives coverage only from the declared completeness of the observation.
 fn coverage_state(
     completeness: &CollectionCompleteness,
     observed_at: UtcTimestamp,
@@ -289,6 +293,7 @@ fn coverage_state(
     }
 }
 
+/// Loads current clocks and payload before deciding canonical replacement.
 async fn load_thread_observation(
     connection: &mut SqliteConnection,
     repository_row_id: i64,
@@ -334,6 +339,7 @@ async fn load_thread_observation(
     }))
 }
 
+/// Updates canonical discussion content without rewriting child evidence.
 async fn update_thread_payload(
     connection: &mut SqliteConnection,
     id: i64,

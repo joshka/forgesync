@@ -160,6 +160,7 @@ pub async fn fetch_pull_request_review_page(
     })
 }
 
+/// Checks that a requested pull request belongs to the selected repository.
 pub fn validate_pull_request_scope(
     repository: &Repository,
     thread: &ThreadId,
@@ -170,6 +171,7 @@ pub fn validate_pull_request_scope(
     Ok(())
 }
 
+/// Builds the first review page URL from checked repository and thread identity.
 pub fn initial_pull_request_review_url(
     client: &GitHubClient,
     repository: &Repository,
@@ -197,6 +199,7 @@ pub fn issue_comment_list_url(
     initial_issue_comment_url(client, repository, thread)
 }
 
+/// Builds the first issue-comment page URL for a selected discussion.
 pub fn initial_issue_comment_url(
     client: &GitHubClient,
     repository: &Repository,
@@ -215,6 +218,7 @@ pub fn initial_issue_comment_url(
     Ok(url)
 }
 
+/// Builds the first repository thread page for the selected state scope.
 pub fn initial_thread_list_url(
     client: &GitHubClient,
     repository: &Repository,

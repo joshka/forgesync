@@ -102,10 +102,12 @@ impl Archive {
     }
 }
 
+/// Defines the common projection used by cluster list and detail reads.
 fn cluster_summary_select() -> &'static str {
     "SELECT cg.id, r.payload_json AS repository_json, cg.title, cg.status, cg.dismissed_at_us, cg.dismissal_reason, cg.last_run_id, cg.updated_at_us, cg.canonical_thread_id, cg.representative_thread_id, COALESCE((SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.thread_id = cg.canonical_thread_id AND cm.state = 'active'), (SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.thread_id = cg.representative_thread_id AND cm.state = 'active'), (SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.state = 'active' ORDER BY t.number, t.id LIMIT 1)) AS representative_number, (SELECT COUNT(*) FROM cluster_memberships cm WHERE cm.cluster_id = cg.id AND cm.state = 'active') AS active_member_count, (SELECT COUNT(*) FROM cluster_memberships cm WHERE cm.cluster_id = cg.id AND cm.state = 'excluded') AS excluded_member_count FROM clusters cg JOIN repositories r ON r.id = cg.repository_id WHERE 1 = 1"
 }
 
+/// Adds bound repository scope to a cluster query.
 fn push_cluster_repository_filter(
     statement: &mut QueryBuilder<Sqlite>,
     repositories: &[RepositoryId],
@@ -128,6 +130,7 @@ fn push_cluster_repository_filter(
     statement.push(")");
 }
 
+/// Converts a SQL projection to a typed cluster summary.
 fn cluster_summary_from_row(row: sqlx::sqlite::SqliteRow) -> Result<ClusterSummary, StoreError> {
     let repository: Repository =
         serde_json::from_str(&row.try_get::<String, _>("repository_json")?)?;
@@ -171,6 +174,7 @@ fn cluster_summary_from_row(row: sqlx::sqlite::SqliteRow) -> Result<ClusterSumma
     })
 }
 
+/// Rejects unknown stored member-decision labels.
 fn parse_member_state(value: &str) -> Result<ClusterMemberState, StoreError> {
     match value {
         "active" => Ok(ClusterMemberState::Active),

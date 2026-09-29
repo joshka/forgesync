@@ -2,6 +2,7 @@
 
 use super::{GitHubError, LINK, TrustedOrigin, Url};
 
+/// Extracts a validated next-page destination from provider Link headers.
 pub fn next_page_from_headers(
     current_url: &Url,
     headers: &reqwest::header::HeaderMap,
@@ -24,6 +25,7 @@ pub fn next_page_from_headers(
     Ok(None)
 }
 
+/// Separates Link entries without splitting inside quoted values.
 pub fn split_link_header(value: &str) -> Vec<&str> {
     let mut items = Vec::new();
     let mut start = 0;
@@ -58,6 +60,7 @@ pub fn split_link_header(value: &str) -> Vec<&str> {
     items
 }
 
+/// Returns the target of a next relation from one Link entry.
 pub fn next_link_target(item: &str) -> Result<Option<&str>, GitHubError> {
     let Some(close_bracket) = item.find('>') else {
         if item.to_ascii_lowercase().contains("rel=\"next\"") {

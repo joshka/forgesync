@@ -131,6 +131,7 @@ impl GitHubClient {
         Ok(url)
     }
 
+    /// Sends a JSON request with retries and validated pagination metadata.
     async fn request_json<T>(
         &self,
         url: &Url,
@@ -143,6 +144,7 @@ impl GitHubClient {
             .await
     }
 
+    /// Sends a bounded JSON body while enforcing the trusted API origin.
     async fn request_json_with_body<T>(
         &self,
         url: &Url,
@@ -231,6 +233,7 @@ impl GitHubClient {
         Err(GitHubError::Deferred { retry_after: None })
     }
 
+    /// Executes one transport attempt before retry policy decides the next step.
     async fn perform_once(
         &self,
         url: &Url,

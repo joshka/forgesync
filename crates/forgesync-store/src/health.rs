@@ -56,6 +56,7 @@ impl Archive {
     }
 }
 
+/// Runs SQLite integrity checking and retains its diagnostic detail.
 async fn check_integrity(pool: &sqlx::SqlitePool) -> HealthCheck {
     match sqlx::query_scalar::<_, String>("PRAGMA quick_check")
         .fetch_one(pool)
@@ -67,6 +68,7 @@ async fn check_integrity(pool: &sqlx::SqlitePool) -> HealthCheck {
     }
 }
 
+/// Checks whether required foreign-key enforcement works on this connection.
 async fn check_foreign_keys(pool: &sqlx::SqlitePool) -> HealthCheck {
     let result: Result<(), String> = async {
         let mut connection = pool
@@ -94,6 +96,7 @@ async fn check_foreign_keys(pool: &sqlx::SqlitePool) -> HealthCheck {
     }
 }
 
+/// Probes a temporary violation to verify SQLite rejects broken references.
 async fn foreign_key_violation_is_enforced(connection: &mut SqliteConnection) -> Result<(), ()> {
     drop_foreign_key_probe_tables(connection).await?;
     let probe_result = async {
@@ -126,6 +129,7 @@ async fn foreign_key_violation_is_enforced(connection: &mut SqliteConnection) ->
     probe_result.and(cleanup_result)
 }
 
+/// Removes temporary integrity-probe tables after the check.
 async fn drop_foreign_key_probe_tables(connection: &mut SqliteConnection) -> Result<(), ()> {
     sqlx::query("DROP TABLE IF EXISTS temp.__forgesync_fk_child")
         .execute(&mut *connection)
@@ -138,6 +142,7 @@ async fn drop_foreign_key_probe_tables(connection: &mut SqliteConnection) -> Res
     Ok(())
 }
 
+/// Checks the full-text capability required by offline keyword search.
 async fn check_fts5(pool: &sqlx::SqlitePool) -> HealthCheck {
     let result = async {
         let mut connection = pool.acquire().await.map_err(|_| ())?;
@@ -175,6 +180,7 @@ async fn check_fts5(pool: &sqlx::SqlitePool) -> HealthCheck {
     }
 }
 
+/// Builds a successful named archive health check.
 fn pass(name: &str, detail: impl Into<String>) -> HealthCheck {
     HealthCheck {
         name: name.to_owned(),
@@ -183,6 +189,7 @@ fn pass(name: &str, detail: impl Into<String>) -> HealthCheck {
     }
 }
 
+/// Builds a failed named archive health check with its diagnostic reason.
 fn fail(name: &str, detail: impl Into<String>) -> HealthCheck {
     HealthCheck {
         name: name.to_owned(),

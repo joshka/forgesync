@@ -147,6 +147,7 @@ fn validate_generation(input: &ClusterGenerationInput) -> Result<(), StoreError>
     Ok(())
 }
 
+/// Resolves the repository whose cluster generation is being replaced.
 async fn repository_row_id(
     connection: &mut SqliteConnection,
     repository: &RepositoryId,
@@ -159,6 +160,7 @@ async fn repository_row_id(
         .ok_or(StoreError::RepositoryMissing)
 }
 
+/// Validates generated groups before opening the write transaction.
 async fn prepare_clusters(
     connection: &mut SqliteConnection,
     input: &ClusterGenerationInput,
@@ -183,6 +185,7 @@ async fn prepare_clusters(
     Ok(prepared)
 }
 
+/// Resolves a candidate discussion to its stored row identity.
 pub async fn thread_row_id(
     connection: &mut SqliteConnection,
     repository_row_id: i64,
@@ -200,6 +203,7 @@ pub async fn thread_row_id(
     .ok_or(StoreError::ThreadMissing)
 }
 
+/// Loads current stable keys so regenerated groups retain identity.
 async fn load_existing_clusters(
     connection: &mut SqliteConnection,
     repository_id: i64,
@@ -280,6 +284,7 @@ fn match_cluster_identities(
     matches
 }
 
+/// Records the generation attempt before replacing current groups.
 async fn insert_cluster_run(
     connection: &mut SqliteConnection,
     input: &ClusterGenerationInput,
@@ -317,6 +322,7 @@ async fn insert_cluster_run(
     .await?)
 }
 
+/// Preserves a stable cluster identity while updating generated evidence.
 async fn upsert_generated_cluster(
     connection: &mut SqliteConnection,
     repository_id: i64,
@@ -355,6 +361,7 @@ async fn upsert_generated_cluster(
     .await?)
 }
 
+/// Derives a deterministic key from current generated membership.
 fn cluster_stable_key(cluster: &PreparedCluster) -> String {
     let mut hash = Sha256::new();
     hash.update(b"forgesync-cluster-members-v1\0");
@@ -370,6 +377,7 @@ fn cluster_stable_key(cluster: &PreparedCluster) -> String {
     key
 }
 
+/// Carries compatible local member decisions into a new generation.
 async fn move_current_members(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -389,6 +397,7 @@ async fn move_current_members(
     Ok(())
 }
 
+/// Marks former members absent from a complete new generation.
 async fn mark_missing_members_removed(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -417,6 +426,7 @@ async fn mark_missing_members_removed(
     Ok(())
 }
 
+/// Adds or updates one generated member without losing local decision state.
 async fn upsert_generated_member(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -442,6 +452,7 @@ async fn upsert_generated_member(
     Ok(())
 }
 
+/// Retires groups absent from a complete replacement generation.
 async fn retire_unseen_clusters(
     connection: &mut SqliteConnection,
     repository_id: i64,
@@ -471,6 +482,7 @@ async fn retire_unseen_clusters(
     usize::try_from(result.rows_affected()).map_err(|_| StoreError::InvalidStoredCount)
 }
 
+/// Records the final outcome after generation writes finish.
 async fn finish_cluster_run(
     connection: &mut SqliteConnection,
     run_id: i64,

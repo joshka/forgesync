@@ -204,6 +204,7 @@ mod failures;
 mod lifecycle;
 mod query;
 
+/// Derives durable run status from terminal job outcomes.
 fn run_status(outcome: &OperationOutcome) -> RunStatus {
     match outcome {
         OperationOutcome::Complete => RunStatus::Complete,
@@ -214,6 +215,7 @@ fn run_status(outcome: &OperationOutcome) -> RunStatus {
     }
 }
 
+/// Returns the persisted label of one run state.
 fn run_status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::InProgress => "in_progress",
@@ -225,6 +227,7 @@ fn run_status_name(status: RunStatus) -> &'static str {
     }
 }
 
+/// Returns the persisted label of one job state.
 fn job_status_name(status: SyncJobStatus) -> &'static str {
     match status {
         SyncJobStatus::Pending => "pending",
@@ -236,23 +239,28 @@ fn job_status_name(status: SyncJobStatus) -> &'static str {
     }
 }
 
+/// Rejects a nonpositive archive-local run identity.
 fn checked_run_id(value: i64) -> Result<RunId, StoreError> {
     let value = u64::try_from(value).map_err(|_| StoreError::InvalidRunData)?;
     RunId::new(value).map_err(|_| StoreError::InvalidRunData)
 }
 
+/// Checks a run identity before binding it to SQLite.
 fn to_sql_id(value: RunId) -> Result<i64, StoreError> {
     i64::try_from(value.get()).map_err(|_| StoreError::IntegerOutOfRange)
 }
 
+/// Checks an unsigned archive identity before binding it to SQLite.
 fn to_sql_id_u64(value: u64) -> Result<i64, StoreError> {
     i64::try_from(value).map_err(|_| StoreError::IntegerOutOfRange)
 }
 
+/// Rejects a negative or overflowing stored count.
 fn decode_count(value: i64) -> Result<u64, StoreError> {
     u64::try_from(value).map_err(|_| StoreError::InvalidSyncCount)
 }
 
+/// Converts a stored instant to the checked UTC representation.
 fn decode_timestamp(value: i64) -> Result<UtcTimestamp, StoreError> {
     UtcTimestamp::from_unix_microseconds(value).map_err(StoreError::InvalidCreatedAt)
 }

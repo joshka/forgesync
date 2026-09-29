@@ -30,6 +30,7 @@ pub struct MigrationReport {
     pub applied_migrations: Vec<AppliedMigration>,
 }
 
+/// Reports the newest embedded migration understood by this binary.
 pub(crate) fn supported_schema_version() -> i64 {
     MIGRATOR
         .iter()
@@ -38,6 +39,7 @@ pub(crate) fn supported_schema_version() -> i64 {
         .unwrap_or(0)
 }
 
+/// Reads the archive migration level without applying pending SQL.
 pub(crate) async fn current_schema_version(pool: &SqlitePool) -> Result<i64, StoreError> {
     let has_migration_table: i64 = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '_sqlx_migrations')",
@@ -65,6 +67,7 @@ pub(crate) async fn current_schema_version(pool: &SqlitePool) -> Result<i64, Sto
     version.ok_or(StoreError::MigrationHistoryMissing)
 }
 
+/// Rejects dirty, unknown, or checksum-mismatched migration records.
 pub(crate) async fn validate_migration_history(
     pool: &SqlitePool,
     schema_version: i64,
@@ -103,6 +106,7 @@ pub(crate) async fn validate_migration_history(
     Ok(())
 }
 
+/// Applies ordered pending SQL only during explicit migration.
 pub(crate) async fn apply_pending_migrations(
     pool: &SqlitePool,
     previous_schema_version: i64,

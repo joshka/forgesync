@@ -197,11 +197,13 @@ impl Archive {
     }
 }
 
+/// Counts one diagnostic category without changing archive state.
 async fn count(pool: &sqlx::SqlitePool, sql: &'static str) -> Result<u64, StoreError> {
     let value: i64 = sqlx::query_scalar(sql).fetch_one(pool).await?;
     u64::try_from(value).map_err(|_| StoreError::InvalidStoredCount)
 }
 
+/// Counts a diagnostic category scoped by a bound archive value.
 async fn count_bound(
     pool: &sqlx::SqlitePool,
     sql: &'static str,
