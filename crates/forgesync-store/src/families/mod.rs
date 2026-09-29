@@ -11,21 +11,21 @@
 //! without replacing complete canonical membership. That boundary is why child-family writes are
 //! not folded into the parent observation transaction.
 
-use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::{CommitSha, ObservationSequence, ThreadId};
-use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::observation::CollectionCompleteness;
 use forgesync_core::timestamp::UtcTimestamp;
-use serde::de::DeserializeOwned;
 
-use crate::archive::Archive;
-use crate::error::StoreError;
-use crate::observations::{
-    StagedItem, evidence_family_name, is_child_family, normalize_source_clock,
-    source_clock_columns, thread_row_id,
-};
+use crate::observations::StagedItem;
 
+/// One durable page decoded for generation validation and canonical membership application.
+///
+/// The page index preserves pagination order; items retain provider identities so application
+/// can detect duplicate members across pages before replacing the previous complete collection.
 struct StagedPage {
+    /// Zero-based position within the reserved generation.
     index: i64,
+    /// Provider identities and payloads awaiting family-specific decoding.
     items: Vec<StagedItem<serde_json::Value>>,
 }
 

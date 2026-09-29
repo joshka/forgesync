@@ -10,11 +10,16 @@
 //! `FamilyFreshness` evaluates those expectations against coverage and canonical rows without
 //! changing the archive. Membership reads decode payloads separately from the reuse decision.
 
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::{CommitSha, ThreadId};
+use forgesync_core::observation::SourceClock;
+use serde::de::DeserializeOwned;
 use sqlx::Row;
 
-use super::{
-    Archive, CommitSha, CoverageState, DeserializeOwned, EvidenceFamily, SourceClock, StagedItem,
-    StoreError, ThreadId, evidence_family_name, is_child_family, normalize_source_clock,
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::observations::{
+    StagedItem, evidence_family_name, is_child_family, normalize_source_clock,
     source_clock_columns, thread_row_id,
 };
 
