@@ -1292,3 +1292,26 @@ without default features, strict public/private Rustdoc, nightly formatting, rum
 Markdown linting. Generated proposal module, projection type, and function docs were checked for
 stable-index contracts and the direct-score distinction. The next concrete workflow review is CLI
 refresh preparation and archive cleanup, alongside the full remaining source checklist.
+
+## Continued maintenance: refresh preparation and archive lifetime
+
+CLI refresh no longer combines argument destructuring, credential setup, optional model capability
+selection, scope construction, execution, cleanup, and presentation in one long function. Parsed
+arguments own validation, client selection, and sync-option conversion. `PreparedRefresh` keeps the
+ordered engine request with its selected embedding capability and executes it against explicit
+services. The outer command closes the archive once, then renders the report or a typed source
+error.
+
+Six nearby linear cases pass for cluster-only capability selection, explicit sync families/state,
+stage order and forced embedding with unusable optional configuration, duplicate-stage validation,
+engine source retention, and local-only client setup with cancellation already signalled.
+Cluster-only preparation does not request an embedding client. Invalid optional configuration still
+leaves its selected analysis stage present for structured partial outcomes. Workspace Clippy passes.
+Remaining CLI embedding and cluster-build workflow candidates stay in the full source review.
+
+Final validation passes: six refresh preparation/boundary cases, all forty-five CLI unit tests,
+workspace Clippy with warnings denied, all workspace tests/doctests, the CLI build without default
+features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown
+linting. Generated refresh module, prepared-request, and typed-failure documentation were checked
+for stage capability ownership and cleanup ordering. The next concrete command workflow is embedding
+preparation and its report/failure presentation.

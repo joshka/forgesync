@@ -144,3 +144,9 @@ owns representative selection and proposed members, and `references` owns mentio
 title-token policy. These representations use indexes into one stable document snapshot; they are
 not durable archive identities. The clustering root presents requests, reports, and shared options,
 while child modules import store and runtime types directly.
+
+CLI refresh keeps parsed choices with request preparation. Its `PreparedRefresh` pairs ordered
+engine stages with the optional embedding capability selected for those stages. Credential setup is
+skipped for local-only refresh, and the outer command closes the archive before rendering typed
+setup or engine failures. An unusable optional embedding service remains a structured selected-stage
+failure, so earlier sync or analysis evidence can still be reported.

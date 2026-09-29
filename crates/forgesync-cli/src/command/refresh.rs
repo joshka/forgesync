@@ -1,26 +1,38 @@
 //! # Combine sync with requested analysis stages
 //!
-//! `RefreshArgs` describes the acquisition scope and optional document, embedding, or clustering
-//! work. Its run method builds the engine refresh request, supplies clients where needed, and
-//! renders each stage's outcome.
+//! `RefreshArgs` describes acquisition scope and optional embedding or clustering stages. Embedding
+//! analysis materializes its documents before model-backed work. Its run method builds the engine
+//! refresh request, supplies clients where needed, and renders each stage's outcome.
+//! `PreparedRefresh` keeps stage selection and its optional embedding capability together; it runs
+//! against an archive opened and closed by the command boundary.
 //!
 //! A stage can fail after earlier evidence has been committed. The command preserves the engine's
 //! structured stage report so the user can tell what succeeded and what remains to retry.
+//! Credential discovery is skipped for local-only refresh. Setup and engine errors retain typed
+//! causes through archive closure, then presentation applies the established output envelope and
+//! exit policy.
 
 use std::collections::HashMap;
 use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
+use forgesync_core::identity::GitHubHost;
 use forgesync_engine::clustering::ClusterOptions;
 use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::error::EngineError;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::refresh::{
-    EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshRequest, RefreshSyncOptions, refresh,
+    EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshReport, RefreshRequest,
+    RefreshSyncOptions, refresh,
 };
 use forgesync_engine::sync::SyncThreadScope;
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 
-use super::github::{github_clients_for_selectors, render_github_client_setup_error};
+use super::github::{
+    GitHubClientSetupError, github_clients_for_selectors, render_github_client_setup_error,
+};
 use crate::command::values::{RefreshAnalysisArg, SyncIncludeArg, SyncThreadStateArg};
 use crate::config::ForgesyncConfig;
 use crate::reports::sync::{outcome_exit_code, refresh_summary};
@@ -64,7 +76,7 @@ impl RefreshArgs {
             .await
     }
 
-    /// Executes one prepared refresh request against the selected archive.
+    /// Owns the archive lifetime across capability preparation and selected stage execution.
     async fn execute(
         self,
         path: &std::path::Path,
@@ -76,90 +88,109 @@ impl RefreshArgs {
         if let Err(message) = self.validate() {
             return usage_error(message);
         }
-        let RefreshArgs {
-            repositories,
-            no_sync,
-            state,
-            with,
-            analyze,
-            force,
-        } = self;
-        let embedding_service = config.embeddings;
-        let recipe = config.documents.recipe;
-
         let archive = match Archive::open_read_write(path).await {
             Ok(archive) => archive,
             Err(error) => return render_store_error(json, "refresh", error),
         };
-        let clients = if no_sync {
-            HashMap::new()
-        } else {
-            match github_clients_for_selectors(&repositories, verbose, cancellation).await {
-                Ok(clients) => clients,
-                Err(error) => {
-                    archive.close().await;
-                    return render_github_client_setup_error(json, "refresh", error);
-                }
-            }
-        };
+        let result = self
+            .acquire(&archive, json, verbose, config, cancellation)
+            .await;
+        archive.close().await;
+        match result {
+            Ok(report) => render_report(json, report),
+            Err(error) => error.render(json),
+        }
+    }
 
-        let analysis = analyze
+    /// Prepares only selected provider/service capabilities, then acquires the requested stages.
+    /// Optional embedding configuration remains stage-local so earlier sync work can still succeed.
+    async fn acquire(
+        self,
+        archive: &Archive,
+        output: OutputMode,
+        verbose: u8,
+        config: ForgesyncConfig,
+        cancellation: &CancellationToken,
+    ) -> Result<RefreshReport, RefreshFailure> {
+        let clients = self.clients(verbose, cancellation).await?;
+        let prepared = self.prepare(config);
+        if verbose > 0 && !output.is_json() {
+            eprintln!(
+                "forgesync: refreshing {}",
+                prepared.request.repositories.len()
+            );
+        }
+        prepared
+            .run(archive, &clients, cancellation)
+            .await
+            .map_err(RefreshFailure::Engine)
+    }
+
+    /// Skips credential discovery entirely when the selected workflow has no GitHub sync stage.
+    async fn clients(
+        &self,
+        verbose: u8,
+        cancellation: &CancellationToken,
+    ) -> Result<HashMap<GitHubHost, GitHubClient>, RefreshFailure> {
+        if self.no_sync {
+            return Ok(HashMap::new());
+        }
+        github_clients_for_selectors(&self.repositories, verbose, cancellation)
+            .await
+            .map_err(RefreshFailure::ClientSetup)
+    }
+
+    /// Keeps engine stage selection and its optional service capability in one prepared value.
+    /// Configuration/client failures remain absent capabilities, reported by the selected stage.
+    fn prepare(self, config: ForgesyncConfig) -> PreparedRefresh {
+        let sync = self.sync_options();
+        let analysis = self
+            .analyze
             .into_iter()
             .map(|stage| match stage {
                 RefreshAnalysisArg::Embeddings => RefreshAnalysisStage::Embeddings,
                 RefreshAnalysisArg::Clusters => RefreshAnalysisStage::Clusters,
             })
             .collect::<Vec<_>>();
-        let wants_embeddings = analysis.contains(&RefreshAnalysisStage::Embeddings);
-        let wants_clusters = analysis.contains(&RefreshAnalysisStage::Clusters);
-        let embedding_client = if wants_embeddings {
-            optional_embedding_client(&embedding_service)
-        } else {
-            None
-        };
-        let embedding_identity = wants_clusters
-            .then(|| configured_embedding_identity(&embedding_service))
+        let embedding_client = analysis
+            .contains(&RefreshAnalysisStage::Embeddings)
+            .then(|| optional_embedding_client(&config.embeddings))
             .flatten();
-        let sync = (!no_sync).then_some(RefreshSyncOptions {
-            scope: match state {
+        let embedding_identity = analysis
+            .contains(&RefreshAnalysisStage::Clusters)
+            .then(|| configured_embedding_identity(&config.embeddings))
+            .flatten();
+        let request = RefreshRequest {
+            repositories: self.repositories,
+            sync,
+            analysis,
+            recipe: config.documents.recipe,
+            embedding_identity,
+            force_embeddings: self.force,
+            cluster_options: ClusterOptions::default(),
+        };
+        PreparedRefresh {
+            request,
+            embedding_client,
+        }
+    }
+
+    /// Converts parsed state/family choices into the optional engine acquisition scope.
+    fn sync_options(&self) -> Option<RefreshSyncOptions> {
+        if self.no_sync {
+            return None;
+        }
+        Some(RefreshSyncOptions {
+            scope: match self.state {
                 None => SyncThreadScope::Default,
                 Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
                 Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
                 Some(SyncThreadStateArg::All) => SyncThreadScope::All,
             },
-            include_comments: with.contains(&SyncIncludeArg::Comments),
-            include_reviews: with.contains(&SyncIncludeArg::Reviews),
-            include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
-        });
-        if verbose > 0 && !json.is_json() {
-            eprintln!("forgesync: refreshing {}", repositories.len());
-        }
-        let request = RefreshRequest {
-            repositories,
-            sync,
-            analysis,
-            recipe,
-            embedding_identity,
-            force_embeddings: force,
-            cluster_options: ClusterOptions::default(),
-        };
-        let result = refresh(
-            &archive,
-            &clients,
-            embedding_client.as_ref(),
-            &request,
-            cancellation,
-            None,
-        )
-        .await;
-        archive.close().await;
-        match result {
-            Ok(report) => {
-                let exit_status = outcome_exit_code(&report.outcome);
-                render_result(json, "refresh", &report, refresh_summary, exit_status)
-            }
-            Err(error) => render_engine_error(json, "refresh", error),
-        }
+            include_comments: self.with.contains(&SyncIncludeArg::Comments),
+            include_reviews: self.with.contains(&SyncIncludeArg::Reviews),
+            include_review_threads: self.with.contains(&SyncIncludeArg::ReviewThreads),
+        })
     }
 
     /// Rejects inconsistent stage selections before opening an archive or resolving credentials.
@@ -179,6 +210,64 @@ impl RefreshArgs {
             return Err("--state and --with require the refresh sync stage");
         }
         Ok(())
+    }
+}
+
+/// Engine request and the model-service client prepared specifically for its selected stages.
+///
+/// An absent client is intentional for cluster-only analysis and preserves structured stage failure
+/// when embeddings are selected but optional service configuration is unusable.
+struct PreparedRefresh {
+    /// Repository scope, selected ordered stages, and local analysis policy.
+    request: RefreshRequest,
+    /// Optional embedding capability; cluster-only work reads stored vectors without one.
+    embedding_client: Option<EmbeddingClient>,
+}
+
+impl PreparedRefresh {
+    /// Executes the selected stages against an already opened archive and explicit cancellation.
+    async fn run(
+        self,
+        archive: &Archive,
+        clients: &HashMap<GitHubHost, GitHubClient>,
+        cancellation: &CancellationToken,
+    ) -> Result<RefreshReport, EngineError> {
+        refresh(
+            archive,
+            clients,
+            self.embedding_client.as_ref(),
+            &self.request,
+            cancellation,
+            None,
+        )
+        .await
+    }
+}
+
+/// Renders the structured stage report after archive closure, retaining aggregate outcome policy.
+fn render_report(output: OutputMode, report: RefreshReport) -> ExitCode {
+    let exit_status = outcome_exit_code(&report.outcome);
+    render_result(output, "refresh", &report, refresh_summary, exit_status)
+}
+
+/// Typed workflow boundary failure retained until the archive has been closed.
+#[derive(Debug, thiserror::Error)]
+enum RefreshFailure {
+    /// Credential discovery or provider transport setup failed before acquisition.
+    #[error("provider client setup failed: {0}")]
+    ClientSetup(#[source] GitHubClientSetupError),
+    /// The engine could not return a structured stage report.
+    #[error("refresh failed: {0}")]
+    Engine(#[source] EngineError),
+}
+
+impl RefreshFailure {
+    /// Preserves the established safe process envelope and exit policy after resource cleanup.
+    fn render(self, output: OutputMode) -> ExitCode {
+        match self {
+            Self::ClientSetup(error) => render_github_client_setup_error(output, "refresh", error),
+            Self::Engine(error) => render_engine_error(output, "refresh", error),
+        }
     }
 }
 
@@ -203,3 +292,7 @@ pub fn configured_embedding_identity(
         model: service.model.trim().to_owned(),
     })
 }
+
+#[cfg(test)]
+#[path = "refresh_tests.rs"]
+mod tests;
