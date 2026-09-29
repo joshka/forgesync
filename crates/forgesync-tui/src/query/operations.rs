@@ -11,7 +11,7 @@ use super::{
     set_canonical_cluster_member, sync_repositories,
 };
 
-pub(super) fn start_operation(
+pub fn start_operation(
     action: QueryAction,
     app: &mut App,
     archive: &Arc<Archive>,

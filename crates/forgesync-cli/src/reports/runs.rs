@@ -5,7 +5,7 @@ use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};
 
 use crate::reports::{family_name, sync_summary};
 
-pub(crate) fn run_list_summary(runs: &Vec<RunRecord>) -> String {
+pub fn run_list_summary(runs: &Vec<RunRecord>) -> String {
     let mut lines = vec!["ID\tSTATUS\tSTARTED\tPARENT".to_owned()];
     for run in runs {
         lines.push(format!(
@@ -26,7 +26,7 @@ pub(crate) fn run_list_summary(runs: &Vec<RunRecord>) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn run_detail_summary(detail: &RunDetail) -> String {
+pub fn run_detail_summary(detail: &RunDetail) -> String {
     let mut lines = vec![format!(
         "Run {}: {}\nStarted: {}\nParent: {}\nJobs: {}\nFailures: {}",
         detail.run.id.get(),
@@ -77,7 +77,7 @@ pub(crate) fn run_detail_summary(detail: &RunDetail) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn retry_summary(report: &RetryReport) -> String {
+pub fn retry_summary(report: &RetryReport) -> String {
     let mut lines = vec![format!(
         "Retry of run {}: {} failure(s), {} sync run(s)",
         report.parent_run_id.get(),
@@ -88,7 +88,7 @@ pub(crate) fn retry_summary(report: &RetryReport) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn run_status_name(status: RunStatus) -> &'static str {
+pub fn run_status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::InProgress => "in_progress",
         RunStatus::Complete => "complete",
@@ -99,7 +99,7 @@ pub(crate) fn run_status_name(status: RunStatus) -> &'static str {
     }
 }
 
-pub(crate) fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
+pub fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
     match status {
         SyncJobStatus::Pending => "pending",
         SyncJobStatus::InProgress => "in_progress",

@@ -8,7 +8,7 @@ use super::{
     ThreadStateFilter, embed_documents, list_threads, materialize_thread_document,
 };
 
-pub(super) async fn collect_embedding_repositories(
+pub async fn collect_embedding_repositories(
     archive: &Archive,
     repositories: &[RepositorySelector],
     client: &EmbeddingClient,
@@ -97,7 +97,7 @@ pub(super) async fn collect_embedding_repositories(
     (result, first_failure)
 }
 
-pub(super) fn embedding_status(
+pub fn embedding_status(
     report: &RefreshEmbeddingReport,
     failure: Option<&RefreshStageFailure>,
 ) -> RefreshStageStatus {
@@ -122,7 +122,7 @@ pub(super) fn embedding_status(
     }
 }
 
-pub(super) fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
+pub fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
     total.documents = total.documents.saturating_add(page.documents);
     total.chunks_selected = total.chunks_selected.saturating_add(page.chunks_selected);
     total.chunks_embedded = total.chunks_embedded.saturating_add(page.chunks_embedded);

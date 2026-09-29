@@ -10,7 +10,7 @@ use crate::commands::thread_filters;
 use crate::reports::{render_thread_detail, render_thread_page};
 use crate::{OutputMode, render_engine_error, render_store_error};
 
-pub(super) async fn thread_command(
+pub async fn thread_command(
     path: &std::path::Path,
     json: OutputMode,
     command: ThreadCommand,

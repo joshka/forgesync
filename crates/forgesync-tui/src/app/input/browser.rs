@@ -10,7 +10,7 @@ enum Edge {
 }
 
 impl App {
-    pub(super) fn handle_browser_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
+    pub fn handle_browser_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Char('r') => {
                 self.status = None;

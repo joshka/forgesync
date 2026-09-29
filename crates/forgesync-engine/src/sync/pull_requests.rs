@@ -11,7 +11,7 @@ use super::{
     ThreadKind, ThreadQuery, ThreadSort, WorkSummary, now_utc,
 };
 
-pub(super) async fn run_pull_request_jobs(
+pub async fn run_pull_request_jobs(
     archive: &Archive,
     client: &GitHubClient,
     repository: &forgesync_core::content::Repository,
@@ -198,7 +198,7 @@ pub(super) async fn run_pull_request_jobs(
     Ok(())
 }
 
-pub(super) async fn pull_request_targets(
+pub async fn pull_request_targets(
     archive: &Archive,
     repository: &forgesync_core::content::Repository,
     unit: ScopeUnit,
@@ -231,7 +231,7 @@ pub(super) async fn pull_request_targets(
     Ok(targets)
 }
 
-pub(super) fn accumulate_thread_result<T>(
+pub fn accumulate_thread_result<T>(
     job: &mut FamilyJobAccumulator,
     result: &ThreadFamilyResult<T>,
 ) -> Result<(), StoreError> {
@@ -257,7 +257,7 @@ pub(super) fn accumulate_thread_result<T>(
     Ok(())
 }
 
-pub(super) async fn finish_family_sync_job(
+pub async fn finish_family_sync_job(
     archive: &Archive,
     context: &SyncRunContext<'_>,
     summary: &mut WorkSummary,

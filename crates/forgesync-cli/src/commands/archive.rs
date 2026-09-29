@@ -12,7 +12,7 @@ use crate::reports::{
 };
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, render_success};
 
-pub(super) async fn archive_command(
+pub async fn archive_command(
     path: &std::path::Path,
     json: OutputMode,
     command: ArchiveCommand,

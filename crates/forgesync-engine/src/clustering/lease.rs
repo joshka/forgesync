@@ -2,7 +2,7 @@
 
 use super::{Archive, ArchiveLeaseToken, EngineError, now_utc};
 
-pub(super) async fn finish_cluster_lease<T>(
+pub async fn finish_cluster_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
     operation: Result<T, forgesync_store::error::StoreError>,
@@ -10,7 +10,7 @@ pub(super) async fn finish_cluster_lease<T>(
     finish_cluster_lease_result(archive, lease, operation.map_err(Into::into)).await
 }
 
-pub(super) async fn finish_cluster_decision_lease<T>(
+pub async fn finish_cluster_decision_lease<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
     operation: Result<T, forgesync_store::error::StoreError>,
@@ -24,7 +24,7 @@ pub(super) async fn finish_cluster_decision_lease<T>(
     finish_cluster_lease_result(archive, lease, operation).await
 }
 
-pub(super) async fn finish_cluster_lease_result<T>(
+pub async fn finish_cluster_lease_result<T>(
     archive: &Archive,
     lease: &ArchiveLeaseToken,
     operation: Result<T, EngineError>,

@@ -9,7 +9,7 @@ use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 
 use crate::{OutputMode, render_error_with_status};
 
-pub(super) async fn github_clients_for_selectors(
+pub async fn github_clients_for_selectors(
     selectors: &[RepositorySelector],
     verbose: u8,
     cancellation: &tokio_util::sync::CancellationToken,
@@ -63,14 +63,14 @@ pub(super) async fn github_clients_for_selectors(
 }
 
 #[derive(Debug)]
-pub(super) enum GitHubClientSetupError {
+pub enum GitHubClientSetupError {
     Cancelled,
     Credential(String),
     InvalidApiUrl,
     Initialization(String),
 }
 
-pub(super) fn render_github_client_setup_error(
+pub fn render_github_client_setup_error(
     json: OutputMode,
     command: &str,
     error: GitHubClientSetupError,
@@ -98,7 +98,7 @@ pub(super) fn render_github_client_setup_error(
     render_error_with_status(json, command, code, &message, status)
 }
 
-pub(super) fn github_api_base_url(host: &GitHubHost) -> String {
+pub fn github_api_base_url(host: &GitHubHost) -> String {
     if host.as_str() == "github.com" {
         "https://api.github.com/".to_owned()
     } else {

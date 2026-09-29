@@ -6,7 +6,7 @@ mod browser;
 mod triage;
 
 impl App {
-    pub(crate) fn handle_key(&mut self, key: KeyEvent) -> Vec<QueryAction> {
+    pub fn handle_key(&mut self, key: KeyEvent) -> Vec<QueryAction> {
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             return self.request_quit();
         }
@@ -101,7 +101,7 @@ impl App {
         Vec::new()
     }
 
-    pub(super) fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
+    pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self
             .applied_repository
             .and_then(|index| self.repositories.get(index))
@@ -115,7 +115,7 @@ impl App {
         }
     }
 
-    pub(super) fn repository_scope(&self) -> Vec<RepositorySelector> {
+    pub fn repository_scope(&self) -> Vec<RepositorySelector> {
         self.applied_repository
             .and_then(|index| self.repositories.get(index))
             .map(RepositorySelector::from_repository)
@@ -133,7 +133,7 @@ impl App {
         }
     }
 
-    pub(super) fn invalidate_detail(&mut self) {
+    pub fn invalidate_detail(&mut self) {
         self.detail_generation += 1;
         self.detail = None;
         self.detail_loading = false;

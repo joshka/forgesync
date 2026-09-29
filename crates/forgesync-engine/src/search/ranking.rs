@@ -5,7 +5,7 @@ use super::{
     SearchProvenance, SearchResultPage, ThreadId, ThreadSort, ThreadSummary, stable_thread_id_cmp,
 };
 
-pub(super) fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
+pub fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
     let ResultPageRequest {
         query,
         requested_mode,
@@ -44,7 +44,7 @@ pub(super) fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
     }
 }
 
-pub(super) fn fuse_hybrid(
+pub fn fuse_hybrid(
     keyword: Vec<SearchHit>,
     semantic: Vec<ScoredThread>,
     sort: ThreadSort,
@@ -133,11 +133,11 @@ pub(super) fn fuse_hybrid(
     fused
 }
 
-pub(super) fn reciprocal_rank_score(rank: u32) -> f64 {
+pub fn reciprocal_rank_score(rank: u32) -> f64 {
     1.0 / (RRF_CONSTANT + f64::from(rank))
 }
 
-pub(super) fn fallback_allowed(error: &EngineError) -> bool {
+pub fn fallback_allowed(error: &EngineError) -> bool {
     match error {
         EngineError::SemanticVectorsUnavailable | EngineError::EmbeddingServiceUnavailable => true,
         EngineError::Embedding(error) => !matches!(

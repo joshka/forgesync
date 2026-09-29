@@ -11,7 +11,7 @@ use crate::args::{RunCommand, RunFamilyArg};
 use crate::reports::{run_detail_summary, run_list_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success, usage_error};
 
-pub(super) async fn run_command(
+pub async fn run_command(
     path: &std::path::Path,
     json: OutputMode,
     verbose: u8,

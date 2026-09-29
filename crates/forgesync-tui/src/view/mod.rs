@@ -25,7 +25,7 @@ use failures::draw_failures;
 
 const COMPACT_WIDTH: u16 = 100;
 
-pub(crate) fn draw(frame: &mut Frame<'_>, app: &mut App) {
+pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

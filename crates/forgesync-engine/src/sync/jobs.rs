@@ -11,7 +11,7 @@ use super::{
     github_failure, now_utc,
 };
 
-pub(super) async fn run_jobs(
+pub async fn run_jobs(
     archive: &Archive,
     clients: &HashMap<GitHubHost, GitHubClient>,
     selectors: &[RepositorySelector],

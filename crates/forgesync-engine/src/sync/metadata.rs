@@ -9,7 +9,7 @@ use super::{
     fetch_pull_request_metadata, github_failure, now_utc,
 };
 
-pub(super) async fn sync_thread_pull_request_metadata(
+pub async fn sync_thread_pull_request_metadata(
     archive: &Archive,
     client: &GitHubClient,
     scope: &ThreadFamilyScope<'_>,

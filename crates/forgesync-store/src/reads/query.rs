@@ -151,10 +151,7 @@ impl Archive {
     }
 }
 
-pub(crate) fn push_repository_scope(
-    statement: &mut QueryBuilder<Sqlite>,
-    repositories: &[RepositoryId],
-) {
+pub fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories: &[RepositoryId]) {
     if repositories.is_empty() {
         return;
     }
@@ -173,7 +170,7 @@ pub(crate) fn push_repository_scope(
     statement.push(")");
 }
 
-pub(crate) fn push_discussion_filters(
+pub fn push_discussion_filters(
     statement: &mut QueryBuilder<Sqlite>,
     kind: Option<ThreadKind>,
     state: ThreadStateFilter,

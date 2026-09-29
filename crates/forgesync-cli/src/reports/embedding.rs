@@ -2,7 +2,7 @@
 
 use crate::reports::{EmbeddingOutput, refresh_status_name};
 
-pub(crate) fn embedding_summary(output: &EmbeddingOutput) -> String {
+pub fn embedding_summary(output: &EmbeddingOutput) -> String {
     let failure = output
         .failure
         .as_ref()

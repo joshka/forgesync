@@ -33,7 +33,7 @@ use thread::thread_command;
 #[cfg(feature = "tui")]
 use tui::tui_command;
 
-pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
+pub async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
     let Some(path) = args.archive else {
         return usage_error("--archive PATH is required for local archive commands");
     };
@@ -68,7 +68,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
     }
 }
 
-pub(super) fn thread_filters(
+pub fn thread_filters(
     repositories: Vec<forgesync_engine::reference::RepositorySelector>,
     kind: Option<ThreadKindArg>,
     state: ThreadStateArg,

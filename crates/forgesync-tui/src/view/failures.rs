@@ -5,7 +5,7 @@ use super::{
     ListState, Modifier, Paragraph, Rect, Style, Text, Wrap, pane_block, selected_style,
 };
 
-pub(super) fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
+pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
     if area.width >= COMPACT_WIDTH {
         let panes = Layout::default()
             .direction(Direction::Horizontal)

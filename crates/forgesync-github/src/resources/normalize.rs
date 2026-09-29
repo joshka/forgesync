@@ -8,7 +8,7 @@ use super::{
     Value,
 };
 
-pub(super) fn normalize_repository(
+pub fn normalize_repository(
     host: &GitHubHost,
     repository: RestRepository,
 ) -> Result<Repository, GitHubError> {
@@ -41,7 +41,7 @@ pub(super) fn normalize_repository(
     })
 }
 
-pub(super) fn normalize_issue(
+pub fn normalize_issue(
     repository: &Repository,
     issue: RestIssue,
 ) -> Result<Discussion, GitHubError> {
@@ -107,10 +107,7 @@ pub(super) fn normalize_issue(
     })
 }
 
-pub(super) fn normalize_comment(
-    thread: &ThreadId,
-    comment: RestComment,
-) -> Result<Comment, GitHubError> {
+pub fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comment, GitHubError> {
     let provider_id =
         ProviderId::new(comment.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
     let created_at =
@@ -140,7 +137,7 @@ pub(super) fn normalize_comment(
     })
 }
 
-pub(super) fn normalize_pull_request(
+pub fn normalize_pull_request(
     repository: &Repository,
     pull_request: RestPullRequest,
 ) -> Result<PullRequestMetadata, GitHubError> {
@@ -161,7 +158,7 @@ pub(super) fn normalize_pull_request(
     })
 }
 
-pub(super) fn normalize_branch_ref(
+pub fn normalize_branch_ref(
     host: &GitHubHost,
     branch: RestBranchRef,
 ) -> Result<BranchRef, GitHubError> {
@@ -182,10 +179,7 @@ pub(super) fn normalize_branch_ref(
     })
 }
 
-pub(super) fn normalize_review(
-    thread: &ThreadId,
-    review: RestReview,
-) -> Result<Review, GitHubError> {
+pub fn normalize_review(thread: &ThreadId, review: RestReview) -> Result<Review, GitHubError> {
     let provider_id =
         ProviderId::new(review.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
     let submitted_at = review.submitted_at.map(parse_timestamp).transpose()?;
@@ -211,7 +205,7 @@ pub(super) fn normalize_review(
     })
 }
 
-pub(super) fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
+pub fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
     let object = user.as_object()?;
     let provider_id = object.get("id").and_then(provider_id_from_value);
     let login = object
@@ -226,7 +220,7 @@ pub(super) fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
     })
 }
 
-pub(super) fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
+pub fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
     let value = value
         .as_u64()
         .map(|id| id.to_string())
@@ -234,7 +228,7 @@ pub(super) fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
     ProviderId::new(value).ok()
 }
 
-pub(super) fn normalize_review_state(state: &str) -> ReviewState {
+pub fn normalize_review_state(state: &str) -> ReviewState {
     match state {
         "APPROVED" => ReviewState::Approved,
         "CHANGES_REQUESTED" => ReviewState::ChangesRequested,
@@ -245,11 +239,11 @@ pub(super) fn normalize_review_state(state: &str) -> ReviewState {
     }
 }
 
-pub(super) fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
+pub fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
 }
 
-pub(super) fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
+pub fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
     let mut provider_data = ProviderData::new();
     for (name, value) in extra {
         provider_data.insert(name, value);
@@ -257,6 +251,6 @@ pub(super) fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
     provider_data
 }
 
-pub(super) fn json_error(_: serde_json::Error) -> GitHubError {
+pub fn json_error(_: serde_json::Error) -> GitHubError {
     GitHubError::InvalidProviderData
 }

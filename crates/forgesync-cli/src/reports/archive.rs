@@ -6,7 +6,7 @@ use forgesync_store::health::DoctorReport;
 use crate::output::ArchiveStatusOutput;
 use crate::reports::{MigrationOutput, family_name};
 
-pub(crate) fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
+pub fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
     let mut lines = vec![
         archive_summary(status.archive),
         format!(
@@ -68,7 +68,7 @@ pub(crate) fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String
     lines.join("\n")
 }
 
-pub(crate) fn archive_summary(info: &ArchiveInfo) -> String {
+pub fn archive_summary(info: &ArchiveInfo) -> String {
     format!(
         "Archive: {}\nID: {}\nFormat: {}\nSchema: {}\nCreated: {}\nSQLite: {}",
         info.path,
@@ -82,7 +82,7 @@ pub(crate) fn archive_summary(info: &ArchiveInfo) -> String {
     )
 }
 
-pub(crate) fn migration_summary(output: &MigrationOutput) -> String {
+pub fn migration_summary(output: &MigrationOutput) -> String {
     let applied = output.migration.applied_migrations.len();
     format!(
         "Archive schema is at version {} ({} migration{} applied)",
@@ -92,7 +92,7 @@ pub(crate) fn migration_summary(output: &MigrationOutput) -> String {
     )
 }
 
-pub(crate) fn doctor_summary(report: &DoctorReport) -> String {
+pub fn doctor_summary(report: &DoctorReport) -> String {
     let headline = if report.healthy {
         "Archive health: healthy"
     } else {

@@ -21,7 +21,7 @@ use decisions::{
 };
 use read::{list_cluster_command, show_cluster_command};
 
-pub(super) async fn cluster_from_cli(
+pub async fn cluster_from_cli(
     command: ClusterCommand,
     path: &Path,
     json: OutputMode,
@@ -49,7 +49,7 @@ pub(super) async fn cluster_from_cli(
     result
 }
 
-pub(super) async fn cluster_command(
+pub async fn cluster_command(
     archive_path: &Path,
     command: ClusterCommand,
     embedding_service: EmbeddingServiceConfig,

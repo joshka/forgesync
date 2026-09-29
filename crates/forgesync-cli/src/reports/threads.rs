@@ -11,22 +11,22 @@ use forgesync_store::reads::{ThreadDetail, ThreadPage, ThreadTimelineEvent};
 use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
 use crate::{OutputMode, render_success};
 
-pub(crate) fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
+pub fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
     let output = ThreadPageOutput::from(page);
     render_success(json, command, &output, thread_page_summary)
 }
 
-pub(crate) fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
+pub fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
     let output = SearchPageOutput::from(page);
     render_success(json, "search", &output, search_page_summary)
 }
 
-pub(crate) fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
+pub fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
     let output = ThreadDetailOutput::from(detail);
     render_success(json, "thread show", &output, thread_detail_summary)
 }
 
-pub(crate) fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
+pub fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
     let mut lines = vec!["REPOSITORY\tNUMBER\tKIND\tSTATE\tTITLE".to_owned()];
     for item in &page.items {
         let thread = item.thread;
@@ -59,7 +59,7 @@ pub(crate) fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
+pub fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
     let mut lines = vec![format!(
         "Mode: {:?} (requested {:?}), ranking: {:?}, sort: {:?}",
         page.mode, page.requested_mode, page.ranking, page.sort
@@ -104,7 +104,7 @@ pub(crate) fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
+pub fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
     let thread = detail.summary.thread;
     let mut lines = vec![format!(
         "{}/{}#{} — {}\nKind: {}\nState: {}\nUpdated: {}",
@@ -230,14 +230,14 @@ pub(crate) fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
+pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     match kind {
         DiscussionKind::Issue => "issue",
         DiscussionKind::PullRequest => "pull request",
     }
 }
 
-pub(crate) fn source_state_name(state: &SourceState) -> &str {
+pub fn source_state_name(state: &SourceState) -> &str {
     match state {
         SourceState::Open => "open",
         SourceState::Closed => "closed",
@@ -245,7 +245,7 @@ pub(crate) fn source_state_name(state: &SourceState) -> &str {
     }
 }
 
-pub(crate) fn review_state_name(state: &ReviewState) -> &str {
+pub fn review_state_name(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",
         ReviewState::ChangesRequested => "changes requested",
@@ -256,9 +256,7 @@ pub(crate) fn review_state_name(state: &ReviewState) -> &str {
     }
 }
 
-pub(crate) fn repository_identity(
-    repository: Option<&forgesync_core::identity::RepositoryId>,
-) -> String {
+pub fn repository_identity(repository: Option<&forgesync_core::identity::RepositoryId>) -> String {
     repository.map_or_else(
         || "unknown repository".to_owned(),
         |repository| {
@@ -271,7 +269,7 @@ pub(crate) fn repository_identity(
     )
 }
 
-pub(crate) fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
+pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
         forgesync_core::coverage::EvidenceFamily::Threads => "threads",
         forgesync_core::coverage::EvidenceFamily::Comments => "comments",
@@ -281,7 +279,7 @@ pub(crate) fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &
     }
 }
 
-pub(crate) fn coverage_state_name(state: &CoverageState) -> &'static str {
+pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     match state {
         CoverageState::Missing => "missing",
         CoverageState::Incomplete { .. } => "incomplete",
@@ -292,7 +290,7 @@ pub(crate) fn coverage_state_name(state: &CoverageState) -> &'static str {
     }
 }
 
-pub(crate) fn format_timestamp(timestamp: UtcTimestamp) -> String {
+pub fn format_timestamp(timestamp: UtcTimestamp) -> String {
     timestamp
         .format_rfc3339()
         .unwrap_or_else(|_| "invalid timestamp".to_owned())

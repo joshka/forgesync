@@ -5,7 +5,7 @@ use super::{
     ProviderId, ReviewId, ReviewThread, ReviewThreadId, ThreadId, UtcTimestamp, Value,
 };
 
-pub(super) fn normalize_review_thread(
+pub fn normalize_review_thread(
     thread: &ThreadId,
     head_sha: &CommitSha,
     provider_id: ProviderId,

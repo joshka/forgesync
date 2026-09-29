@@ -36,9 +36,13 @@ introduce the concept and point to its children. Use named leaf files for the ac
 ## Public APIs and dependencies
 
 Crate roots teach the primary path and expose concept modules. Re-export only a small primary API;
-do not flatten every module into the root. Keep visibility narrow and domain values separate from
-provider DTOs, SQL rows, and CLI output. Use standard conversion traits when they communicate the
-relationship, and document errors, side effects, cancellation, and lifecycle where callers look.
+do not flatten every module into the root. Prefer `pub` for items meant to be used outside their
+module, and restrict the enclosing module when those items are implementation details. Treat
+repeated `pub(crate)` or `pub(super)` as a prompt to examine ownership and data flow, not as the
+default way to draw a seam. Keep restricted visibility when changing it would expose internals of a
+public type or an intentional public module. Keep domain values separate from provider DTOs, SQL
+rows, and CLI output. Use standard conversion traits when they communicate the relationship, and
+document errors, side effects, cancellation, and lifecycle where callers look.
 
 The app has no established external users, so remove development-era aliases when restructuring.
 Preserve persisted archive semantics and documented CLI behavior deliberately. Refresh compatible

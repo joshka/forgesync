@@ -5,23 +5,20 @@ use super::{
     RefreshStageStatus,
 };
 
-pub(super) fn stage_failure(error: &EngineError) -> RefreshStageFailure {
+pub fn stage_failure(error: &EngineError) -> RefreshStageFailure {
     RefreshStageFailure {
         code: error.code(),
         message: error.to_string(),
     }
 }
 
-pub(super) fn keep_first_failure(
-    first: &mut Option<RefreshStageFailure>,
-    candidate: RefreshStageFailure,
-) {
+pub fn keep_first_failure(first: &mut Option<RefreshStageFailure>, candidate: RefreshStageFailure) {
     if first.is_none() {
         *first = Some(candidate);
     }
 }
 
-pub(super) fn status_for_failure(failure: &RefreshStageFailure) -> RefreshStageStatus {
+pub fn status_for_failure(failure: &RefreshStageFailure) -> RefreshStageStatus {
     if failure.code == "operation_cancelled" {
         RefreshStageStatus::Interrupted
     } else {
@@ -29,7 +26,7 @@ pub(super) fn status_for_failure(failure: &RefreshStageFailure) -> RefreshStageS
     }
 }
 
-pub(super) fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> {
+pub fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> {
     let mut remaining = Vec::new();
     if report
         .sync
@@ -55,7 +52,7 @@ pub(super) fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> 
     remaining
 }
 
-pub(super) fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
+pub fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
     if report.remaining.is_empty() {
         return OperationOutcome::Complete;
     }
@@ -83,10 +80,7 @@ pub(super) fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
     }
 }
 
-pub(super) fn stage_status(
-    report: &RefreshReport,
-    stage: RefreshStageKind,
-) -> Option<RefreshStageStatus> {
+pub fn stage_status(report: &RefreshReport, stage: RefreshStageKind) -> Option<RefreshStageStatus> {
     match stage {
         RefreshStageKind::Sync => report.sync.as_ref().map(|stage| stage.status),
         RefreshStageKind::Embeddings => report.embeddings.as_ref().map(|stage| stage.status),

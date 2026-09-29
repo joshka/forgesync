@@ -6,7 +6,7 @@ use super::{
     ThreadTimelineEvent, Wrap, family_name, pane_block, selected_style,
 };
 
-pub(super) fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     if area.width >= COMPACT_WIDTH {
         let columns = Layout::default()
             .direction(Direction::Horizontal)

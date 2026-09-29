@@ -11,7 +11,7 @@ use crate::args::{SyncArgs, SyncIncludeArg, SyncThreadStateArg};
 use crate::reports::{outcome_exit_code, sync_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
-pub(super) async fn sync_command(
+pub async fn sync_command(
     archive_path: &std::path::Path,
     request: SyncRequest,
     json: OutputMode,
@@ -88,7 +88,7 @@ pub(super) async fn sync_command(
     }
 }
 
-pub(super) async fn sync_from_cli(
+pub async fn sync_from_cli(
     args: SyncArgs,
     path: &std::path::Path,
     json: OutputMode,

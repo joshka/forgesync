@@ -8,7 +8,7 @@ use super::{
 };
 
 /// Builds sparse candidate components from current discussion vectors and references.
-pub(crate) fn build_cluster_candidates(
+pub fn build_cluster_candidates(
     mut documents: Vec<EmbeddingSearchDocument>,
     repository_full_name: &str,
     options: ClusterOptions,

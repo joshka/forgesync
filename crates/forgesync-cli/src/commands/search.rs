@@ -14,7 +14,7 @@ use crate::{
     OutputMode, render_engine_error, render_error, render_error_with_status, render_store_error,
 };
 
-pub(super) async fn search_command(
+pub async fn search_command(
     args: SearchArgs,
     path: &std::path::Path,
     json: OutputMode,

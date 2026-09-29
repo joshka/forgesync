@@ -14,48 +14,44 @@ mod runs;
 mod sync;
 mod threads;
 
-pub(super) use archive::{
-    archive_status_summary, archive_summary, doctor_summary, migration_summary,
-};
-pub(super) use clusters::{
+pub use archive::{archive_status_summary, archive_summary, doctor_summary, migration_summary};
+pub use clusters::{
     cluster_build_summary, cluster_decision_summary, cluster_detail_summary, cluster_page_summary,
 };
-pub(super) use embedding::embedding_summary;
-pub(super) use runs::{retry_summary, run_detail_summary, run_list_summary};
-pub(super) use sync::{outcome_exit_code, refresh_status_name, refresh_summary, sync_summary};
-pub(super) use threads::{
-    family_name, render_search_page, render_thread_detail, render_thread_page,
-};
+pub use embedding::embedding_summary;
+pub use runs::{retry_summary, run_detail_summary, run_list_summary};
+pub use sync::{outcome_exit_code, refresh_status_name, refresh_summary, sync_summary};
+pub use threads::{family_name, render_search_page, render_thread_detail, render_thread_page};
 
 #[derive(Serialize)]
-pub(super) struct SyncFailure {
-    pub(super) code: &'static str,
-    pub(super) message: String,
+pub struct SyncFailure {
+    pub code: &'static str,
+    pub message: String,
 }
 
 #[derive(Serialize)]
-pub(super) struct EmbeddingOutput {
-    pub(super) repositories: Vec<String>,
-    pub(super) recipe: DocumentRecipe,
-    pub(super) endpoint: String,
-    pub(super) model: String,
-    pub(super) dimensions: Option<u32>,
-    pub(super) status: RefreshStageStatus,
-    pub(super) report: EmbeddingReport,
-    pub(super) documents_materialized: usize,
-    pub(super) document_failures: Vec<RefreshDocumentFailure>,
+pub struct EmbeddingOutput {
+    pub repositories: Vec<String>,
+    pub recipe: DocumentRecipe,
+    pub endpoint: String,
+    pub model: String,
+    pub dimensions: Option<u32>,
+    pub status: RefreshStageStatus,
+    pub report: EmbeddingReport,
+    pub documents_materialized: usize,
+    pub document_failures: Vec<RefreshDocumentFailure>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) failure: Option<RefreshStageFailure>,
+    pub failure: Option<RefreshStageFailure>,
 }
 
 #[derive(Serialize)]
-pub(super) struct ClusterDecisionOutput {
-    pub(super) cluster_id: u64,
-    pub(super) action: &'static str,
+pub struct ClusterDecisionOutput {
+    pub cluster_id: u64,
+    pub action: &'static str,
 }
 
 #[derive(Serialize)]
-pub(super) struct MigrationOutput {
-    pub(super) migration: MigrationReport,
-    pub(super) archive: ArchiveInfo,
+pub struct MigrationOutput {
+    pub migration: MigrationReport,
+    pub archive: ArchiveInfo,
 }

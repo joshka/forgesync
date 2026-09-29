@@ -7,7 +7,7 @@ use super::{
     ThreadSort, search_threads,
 };
 
-pub(super) async fn keyword_candidates(
+pub async fn keyword_candidates(
     archive: &Archive,
     request: &SearchRequest,
     count: usize,
@@ -61,7 +61,7 @@ pub(super) async fn keyword_candidates(
     })
 }
 
-pub(super) fn keyword_result_page(
+pub fn keyword_result_page(
     query: &str,
     requested_mode: SearchMode,
     mode: SearchMode,
@@ -97,7 +97,7 @@ pub(super) fn keyword_result_page(
     }
 }
 
-pub(super) fn keyword_fallback_page(
+pub fn keyword_fallback_page(
     query: &str,
     requested_mode: SearchMode,
     sort: ThreadSort,
@@ -120,7 +120,7 @@ pub(super) fn keyword_fallback_page(
     })
 }
 
-pub(super) fn keyword_expression(query: &str) -> Option<String> {
+pub fn keyword_expression(query: &str) -> Option<String> {
     let mut terms = Vec::new();
     let mut term = String::new();
     for character in query.chars() {

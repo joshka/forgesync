@@ -8,7 +8,7 @@ use super::{
     UtcTimestamp, WorkSummary, mpsc, now_utc,
 };
 
-pub(super) async fn record_thread_family_failure(
+pub async fn record_thread_family_failure(
     archive: &Archive,
     context: &SyncRunContext<'_>,
     repository: &forgesync_core::content::Repository,
@@ -39,7 +39,7 @@ pub(super) async fn record_thread_family_failure(
     Ok(())
 }
 
-pub(super) fn store_state_filter(state: ThreadListState) -> ThreadStateFilter {
+pub fn store_state_filter(state: ThreadListState) -> ThreadStateFilter {
     match state {
         ThreadListState::All => ThreadStateFilter::All,
         ThreadListState::Open => ThreadStateFilter::Open,
@@ -47,7 +47,7 @@ pub(super) fn store_state_filter(state: ThreadListState) -> ThreadStateFilter {
     }
 }
 
-pub(super) async fn resolve_selectors(
+pub async fn resolve_selectors(
     archive: &Archive,
     request: &SyncRequest,
 ) -> Result<Vec<RepositorySelector>, EngineError> {
@@ -63,7 +63,7 @@ pub(super) async fn resolve_selectors(
     }
 }
 
-pub(super) fn job_result(
+pub fn job_result(
     report: &ThreadEnumerationReport,
 ) -> (SyncJobStatus, Option<Failure>, SyncProgressStatus) {
     if report.scan.status == RepositoryThreadScanStatus::Complete {
@@ -88,7 +88,7 @@ pub(super) fn job_result(
     (status, Some(failure.clone()), progress_status(&failure))
 }
 
-pub(super) fn progress_status(failure: &Failure) -> SyncProgressStatus {
+pub fn progress_status(failure: &Failure) -> SyncProgressStatus {
     if failure.kind == FailureKind::RateLimited {
         SyncProgressStatus::Deferred
     } else {
@@ -96,7 +96,7 @@ pub(super) fn progress_status(failure: &Failure) -> SyncProgressStatus {
     }
 }
 
-pub(super) fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
+pub fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
     if failure.kind == FailureKind::RateLimited {
         summary.deferred_jobs += 1;
     } else {
@@ -107,7 +107,7 @@ pub(super) fn count_failure(summary: &mut WorkSummary, failure: &Failure) {
     }
 }
 
-pub(super) fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
+pub fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
     if work.interrupted {
         return OperationOutcome::Interrupted {
             pending_items: work.pending_jobs,
@@ -135,7 +135,7 @@ pub(super) fn operation_outcome(work: &WorkSummary) -> OperationOutcome {
     OperationOutcome::Complete
 }
 
-pub(super) fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
+pub fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
     UtcTimestamp::from_unix_microseconds(
         watermark
             .unix_microseconds()
@@ -144,7 +144,7 @@ pub(super) fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
     .unwrap_or(watermark)
 }
 
-pub(super) fn send_progress(
+pub fn send_progress(
     sender: &Option<mpsc::Sender<SyncProgress>>,
     run_id: RunId,
     summary: &WorkSummary,

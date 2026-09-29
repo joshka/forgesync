@@ -7,7 +7,7 @@ use super::{
     RefreshStageStatus, RepositorySelector, build_clusters,
 };
 
-pub(super) async fn build_repository_clusters(
+pub async fn build_repository_clusters(
     archive: &Archive,
     repositories: &[RepositorySelector],
     identity: Option<&EmbeddingServiceIdentity>,

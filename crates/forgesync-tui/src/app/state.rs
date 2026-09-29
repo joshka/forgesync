@@ -3,11 +3,11 @@
 use super::{App, QueryAction, QueryMessage};
 
 impl App {
-    pub(crate) fn initial_actions(&self) -> [QueryAction; 2] {
+    pub fn initial_actions(&self) -> [QueryAction; 2] {
         [QueryAction::Repositories, self.thread_action(None, 0)]
     }
 
-    pub(crate) fn refresh_after_operation(&mut self) -> Vec<QueryAction> {
+    pub fn refresh_after_operation(&mut self) -> Vec<QueryAction> {
         let cluster_detail_id = self.cluster_detail.as_ref().map(|detail| detail.cluster.id);
         let mut actions = vec![
             QueryAction::Repositories,
@@ -30,7 +30,7 @@ impl App {
         actions
     }
 
-    pub(crate) fn apply(&mut self, message: QueryMessage) {
+    pub fn apply(&mut self, message: QueryMessage) {
         match message {
             QueryMessage::Repositories { generation, result } => {
                 if generation != self.repository_generation {
@@ -193,14 +193,14 @@ impl App {
         }
     }
 
-    pub(crate) fn begin_repositories(&mut self) -> u64 {
+    pub fn begin_repositories(&mut self) -> u64 {
         self.repository_generation += 1;
         self.repositories_loading = true;
         self.repository_error = None;
         self.repository_generation
     }
 
-    pub(crate) fn begin_threads(&mut self) -> u64 {
+    pub fn begin_threads(&mut self) -> u64 {
         self.thread_generation += 1;
         self.threads_loading = true;
         self.thread_error = None;
@@ -211,7 +211,7 @@ impl App {
         self.thread_generation
     }
 
-    pub(crate) fn begin_detail(&mut self) -> u64 {
+    pub fn begin_detail(&mut self) -> u64 {
         self.detail_generation += 1;
         self.detail_loading = true;
         self.detail_error = None;
@@ -220,28 +220,28 @@ impl App {
         self.detail_generation
     }
 
-    pub(crate) fn begin_coverage(&mut self) -> u64 {
+    pub fn begin_coverage(&mut self) -> u64 {
         self.coverage_generation += 1;
         self.coverage_loading = true;
         self.coverage_error = None;
         self.coverage_generation
     }
 
-    pub(crate) fn begin_failures(&mut self) -> u64 {
+    pub fn begin_failures(&mut self) -> u64 {
         self.failures_generation += 1;
         self.failures_loading = true;
         self.failures_error = None;
         self.failures_generation
     }
 
-    pub(crate) fn begin_clusters(&mut self) -> u64 {
+    pub fn begin_clusters(&mut self) -> u64 {
         self.clusters_generation += 1;
         self.clusters_loading = true;
         self.clusters_error = None;
         self.clusters_generation
     }
 
-    pub(crate) fn begin_cluster_detail(&mut self) -> Option<(u64, u64)> {
+    pub fn begin_cluster_detail(&mut self) -> Option<(u64, u64)> {
         let cluster_id = self.clusters.get(self.selected_cluster)?.id;
         self.cluster_detail_generation += 1;
         self.cluster_detail_loading = true;
@@ -249,7 +249,7 @@ impl App {
         Some((self.cluster_detail_generation, cluster_id))
     }
 
-    pub(crate) fn begin_operation(&mut self, label: &str) -> Option<u64> {
+    pub fn begin_operation(&mut self, label: &str) -> Option<u64> {
         if self.operation_busy {
             return None;
         }

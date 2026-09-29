@@ -17,7 +17,7 @@ use crate::config::ForgesyncConfig;
 use crate::reports::{outcome_exit_code, refresh_summary};
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, usage_error};
 
-pub(super) async fn refresh_from_cli(
+pub async fn refresh_from_cli(
     args: RefreshArgs,
     path: &std::path::Path,
     json: OutputMode,
@@ -143,7 +143,7 @@ async fn refresh_command(
     }
 }
 
-pub(super) fn optional_embedding_client(
+pub fn optional_embedding_client(
     service: &crate::config::EmbeddingServiceConfig,
 ) -> Option<EmbeddingClient> {
     service.validate().ok()?;
@@ -152,7 +152,7 @@ pub(super) fn optional_embedding_client(
     EmbeddingClient::new(config).ok()
 }
 
-pub(super) fn configured_embedding_identity(
+pub fn configured_embedding_identity(
     service: &crate::config::EmbeddingServiceConfig,
 ) -> Option<EmbeddingServiceIdentity> {
     service.validate().ok()?;

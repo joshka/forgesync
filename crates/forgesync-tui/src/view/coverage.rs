@@ -5,7 +5,7 @@ use super::{
     pane_block,
 };
 
-pub(super) fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
+pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = pane_block("Archive coverage and health", true);
     let mut lines = if app.coverage_loading && app.coverage.is_none() {
         vec![Line::from("Loading archive coverage…")]

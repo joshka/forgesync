@@ -7,7 +7,7 @@ use super::{
     load_failures, search_threads, show_cluster, show_thread,
 };
 
-pub(super) fn start_repositories(
+pub fn start_repositories(
     app: &mut App,
     archive: &Arc<Archive>,
     runtime: &Handle,
@@ -27,13 +27,13 @@ pub(super) fn start_repositories(
     }));
 }
 
-pub(super) struct ThreadRead {
-    pub(super) query: Option<String>,
-    pub(super) repositories: Vec<RepositorySelector>,
-    pub(super) offset: u64,
+pub struct ThreadRead {
+    pub query: Option<String>,
+    pub repositories: Vec<RepositorySelector>,
+    pub offset: u64,
 }
 
-pub(super) fn start_threads(
+pub fn start_threads(
     request: ThreadRead,
     app: &mut App,
     archive: &Arc<Archive>,
@@ -89,7 +89,7 @@ pub(super) fn start_threads(
     }));
 }
 
-pub(super) fn start_detail(
+pub fn start_detail(
     selector: ThreadSelector,
     app: &mut App,
     archive: &Arc<Archive>,
@@ -111,7 +111,7 @@ pub(super) fn start_detail(
     }));
 }
 
-pub(super) fn start_coverage(
+pub fn start_coverage(
     app: &mut App,
     archive: &Arc<Archive>,
     runtime: &Handle,
@@ -132,7 +132,7 @@ pub(super) fn start_coverage(
     }));
 }
 
-pub(super) fn start_failures(
+pub fn start_failures(
     app: &mut App,
     archive: &Arc<Archive>,
     runtime: &Handle,
@@ -150,7 +150,7 @@ pub(super) fn start_failures(
     }));
 }
 
-pub(super) fn start_clusters(
+pub fn start_clusters(
     repositories: Vec<RepositorySelector>,
     app: &mut App,
     archive: &Arc<Archive>,
@@ -180,7 +180,7 @@ pub(super) fn start_clusters(
     }));
 }
 
-pub(super) fn start_cluster_detail(
+pub fn start_cluster_detail(
     generation: u64,
     id: u64,
     archive: &Arc<Archive>,

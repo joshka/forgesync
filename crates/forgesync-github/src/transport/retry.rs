@@ -4,7 +4,7 @@ use super::{
     ApiFailureKind, Duration, RETRY_AFTER, RetryPolicy, StatusCode, SystemTime, UNIX_EPOCH,
 };
 
-pub(super) fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {
+pub fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {
     if rate_limited {
         return ApiFailureKind::RateLimited;
     }
@@ -18,7 +18,7 @@ pub(super) fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFai
     }
 }
 
-pub(super) fn body_identifies_rate_limit(body: &[u8]) -> bool {
+pub fn body_identifies_rate_limit(body: &[u8]) -> bool {
     let body = String::from_utf8_lossy(body).to_ascii_lowercase();
     [
         "api rate limit exceeded",
@@ -29,7 +29,7 @@ pub(super) fn body_identifies_rate_limit(body: &[u8]) -> bool {
     .any(|marker| body.contains(marker))
 }
 
-pub(super) fn retry_after_hint(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
+pub fn retry_after_hint(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     if let Some(value) = headers
         .get(RETRY_AFTER)
         .and_then(|value| value.to_str().ok())
@@ -65,7 +65,7 @@ pub(super) fn retry_after_hint(headers: &reqwest::header::HeaderMap) -> Option<D
     )
 }
 
-pub(super) fn retry_backoff(policy: &RetryPolicy, retry_index: u32) -> Duration {
+pub fn retry_backoff(policy: &RetryPolicy, retry_index: u32) -> Duration {
     let multiplier = 1_u32.checked_shl(retry_index.min(31)).unwrap_or(u32::MAX);
     policy
         .initial_backoff

@@ -7,7 +7,7 @@ use super::{
     TrustedOrigin, Url,
 };
 
-pub(super) async fn acquire_request_slot(
+pub async fn acquire_request_slot(
     slots: &std::sync::Arc<Semaphore>,
     cancellation: &CancellationToken,
 ) -> Result<OwnedSemaphorePermit, GitHubError> {
@@ -19,7 +19,7 @@ pub(super) async fn acquire_request_slot(
     }
 }
 
-pub(super) async fn classify_api_response(
+pub async fn classify_api_response(
     response: Response,
     status: StatusCode,
 ) -> Result<ResponseBody, RequestFailure> {
@@ -52,11 +52,11 @@ pub(super) async fn classify_api_response(
     }
 }
 
-pub(super) async fn read_error_prefix(response: Response) -> Result<Vec<u8>, reqwest::Error> {
+pub async fn read_error_prefix(response: Response) -> Result<Vec<u8>, reqwest::Error> {
     read_body_prefix(response, MAX_ERROR_BODY_BYTES).await
 }
 
-pub(super) async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, BodyReadError> {
+pub async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, BodyReadError> {
     let mut response = response;
     if response
         .content_length()
@@ -75,7 +75,7 @@ pub(super) async fn read_body(response: Response, limit: usize) -> Result<Vec<u8
     Ok(bytes)
 }
 
-pub(super) async fn read_body_prefix(
+pub async fn read_body_prefix(
     mut response: Response,
     limit: usize,
 ) -> Result<Vec<u8>, reqwest::Error> {
@@ -90,10 +90,7 @@ pub(super) async fn read_body_prefix(
     Ok(bytes)
 }
 
-pub(super) fn redirect_target(
-    response: &Response,
-    origin: &TrustedOrigin,
-) -> Result<Url, GitHubError> {
+pub fn redirect_target(response: &Response, origin: &TrustedOrigin) -> Result<Url, GitHubError> {
     let location = response
         .headers()
         .get(LOCATION)
@@ -109,7 +106,7 @@ pub(super) fn redirect_target(
     Ok(target)
 }
 
-pub(super) fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
+pub fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
     if error.is_timeout() {
         RequestFailure::retryable(GitHubError::Timeout, None)
     } else {

@@ -226,7 +226,7 @@ impl Archive {
     }
 }
 
-pub(super) async fn insert_cluster_event(
+pub async fn insert_cluster_event(
     connection: &mut SqliteConnection,
     cluster_id: i64,
     run_id: Option<i64>,
@@ -284,7 +284,7 @@ async fn current_cluster_member_id(
     Ok(thread_id)
 }
 
-pub(super) fn checked_cluster_id(id: u64) -> Result<i64, StoreError> {
+pub fn checked_cluster_id(id: u64) -> Result<i64, StoreError> {
     i64::try_from(id)
         .ok()
         .filter(|id| *id > 0)

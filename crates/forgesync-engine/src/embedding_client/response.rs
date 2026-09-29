@@ -8,7 +8,7 @@ use super::EmbeddingClientError;
 const MAX_EMBEDDING_DIMENSIONS: usize = 65_536;
 
 #[derive(Deserialize)]
-pub(super) struct EmbeddingResponse {
+pub struct EmbeddingResponse {
     data: Vec<EmbeddingResponseItem>,
     #[serde(default)]
     model: Option<String>,
@@ -20,7 +20,7 @@ struct EmbeddingResponseItem {
     embedding: Vec<f64>,
 }
 
-pub(super) fn validate_response(
+pub fn validate_response(
     response: EmbeddingResponse,
     input_count: usize,
     expected_dimensions: Option<u32>,

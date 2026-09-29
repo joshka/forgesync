@@ -6,7 +6,7 @@ use super::{
     selected_style,
 };
 
-pub(super) fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
+pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
         .clusters
         .iter()
@@ -51,7 +51,7 @@ pub(super) fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-pub(super) fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
+pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut lines = if app.cluster_detail_loading && app.cluster_detail.is_none() {
         vec![Line::from("Loading cluster neighbors…")]
     } else if let Some(error) = &app.cluster_detail_error {

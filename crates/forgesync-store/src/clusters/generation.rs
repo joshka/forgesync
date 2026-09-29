@@ -181,7 +181,7 @@ async fn prepare_clusters(
     Ok(prepared)
 }
 
-pub(super) async fn thread_row_id(
+pub async fn thread_row_id(
     connection: &mut SqliteConnection,
     repository_row_id: i64,
     thread: &ThreadId,

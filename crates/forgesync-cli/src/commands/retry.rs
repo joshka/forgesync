@@ -13,7 +13,7 @@ use super::github::github_api_base_url;
 use crate::reports::{SyncFailure, outcome_exit_code, retry_summary};
 use crate::{OutputMode, render_engine_error, render_error, render_result, render_store_error};
 
-pub(super) async fn retry_command(
+pub async fn retry_command(
     archive_path: &std::path::Path,
     run_id: RunId,
     families: Vec<forgesync_core::coverage::EvidenceFamily>,

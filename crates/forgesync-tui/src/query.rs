@@ -38,7 +38,7 @@ use crate::app::{App, QueryMessage, RunFailureSummary};
 const RUNS_TO_SCAN: u32 = 50;
 const RUNS_TO_DETAIL: usize = 20;
 
-pub(crate) enum QueryAction {
+pub enum QueryAction {
     Repositories,
     Threads {
         query: Option<String>,
@@ -79,7 +79,7 @@ pub(crate) enum QueryAction {
 }
 
 #[derive(Default)]
-pub(crate) struct QueryTasks {
+pub struct QueryTasks {
     handles: Vec<JoinHandle<()>>,
     operation: Option<ActiveOperation>,
 }
@@ -95,7 +95,7 @@ impl QueryTasks {
         self.handles.push(handle);
     }
 
-    pub(crate) async fn stop(&mut self) {
+    pub async fn stop(&mut self) {
         for task in self.handles.drain(..) {
             task.abort();
             let _ = task.await;
@@ -118,7 +118,7 @@ impl Drop for QueryTasks {
     }
 }
 
-pub(crate) fn start_query(
+pub fn start_query(
     action: QueryAction,
     app: &mut App,
     archive: &Arc<Archive>,

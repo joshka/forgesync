@@ -12,7 +12,7 @@ use crate::query::QueryAction;
 const PAGE_SIZE: u32 = 100;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum Screen {
+pub enum Screen {
     #[default]
     Browser,
     Coverage,
@@ -22,7 +22,7 @@ pub(crate) enum Screen {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum Focus {
+pub enum Focus {
     #[default]
     Repositories,
     Threads,
@@ -30,65 +30,65 @@ pub(crate) enum Focus {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct App {
-    pub(crate) screen: Screen,
-    pub(crate) focus: Focus,
-    pub(crate) repository_cursor: usize,
-    pub(crate) repositories: Vec<Repository>,
-    pub(crate) applied_repository: Option<usize>,
-    pub(crate) repository_generation: u64,
-    pub(crate) repositories_loading: bool,
-    pub(crate) repository_error: Option<String>,
-    pub(crate) threads: Vec<ThreadSummary>,
-    pub(crate) selected_thread: Option<usize>,
-    pub(crate) page_offset: u64,
-    pub(crate) next_offset: Option<u64>,
-    pub(crate) thread_generation: u64,
-    pub(crate) threads_loading: bool,
-    pub(crate) thread_error: Option<String>,
-    pub(crate) detail: Option<ThreadDetail>,
-    pub(crate) detail_generation: u64,
-    pub(crate) detail_loading: bool,
-    pub(crate) detail_error: Option<String>,
-    pub(crate) detail_scroll: u16,
-    pub(crate) coverage: Option<ArchiveStatus>,
-    pub(crate) coverage_generation: u64,
-    pub(crate) coverage_loading: bool,
-    pub(crate) coverage_error: Option<String>,
-    pub(crate) failures: Vec<RunFailureSummary>,
-    pub(crate) failures_generation: u64,
-    pub(crate) failures_loading: bool,
-    pub(crate) failures_error: Option<String>,
-    pub(crate) selected_failure: usize,
-    pub(crate) clusters: Vec<ClusterSummary>,
-    pub(crate) selected_cluster: usize,
-    pub(crate) clusters_generation: u64,
-    pub(crate) clusters_loading: bool,
-    pub(crate) clusters_error: Option<String>,
-    pub(crate) cluster_detail: Option<ClusterDetail>,
-    pub(crate) cluster_detail_generation: u64,
-    pub(crate) cluster_detail_loading: bool,
-    pub(crate) cluster_detail_error: Option<String>,
-    pub(crate) selected_cluster_member: usize,
-    pub(crate) operation_generation: u64,
-    pub(crate) operation_busy: bool,
-    pub(crate) operation_label: Option<String>,
-    pub(crate) operation_progress: Option<SyncProgress>,
-    pub(crate) search_query: Option<String>,
-    pub(crate) search_input: String,
-    pub(crate) searching: bool,
-    pub(crate) status: Option<String>,
-    pub(crate) quit: bool,
+pub struct App {
+    pub screen: Screen,
+    pub focus: Focus,
+    pub repository_cursor: usize,
+    pub repositories: Vec<Repository>,
+    pub applied_repository: Option<usize>,
+    pub repository_generation: u64,
+    pub repositories_loading: bool,
+    pub repository_error: Option<String>,
+    pub threads: Vec<ThreadSummary>,
+    pub selected_thread: Option<usize>,
+    pub page_offset: u64,
+    pub next_offset: Option<u64>,
+    pub thread_generation: u64,
+    pub threads_loading: bool,
+    pub thread_error: Option<String>,
+    pub detail: Option<ThreadDetail>,
+    pub detail_generation: u64,
+    pub detail_loading: bool,
+    pub detail_error: Option<String>,
+    pub detail_scroll: u16,
+    pub coverage: Option<ArchiveStatus>,
+    pub coverage_generation: u64,
+    pub coverage_loading: bool,
+    pub coverage_error: Option<String>,
+    pub failures: Vec<RunFailureSummary>,
+    pub failures_generation: u64,
+    pub failures_loading: bool,
+    pub failures_error: Option<String>,
+    pub selected_failure: usize,
+    pub clusters: Vec<ClusterSummary>,
+    pub selected_cluster: usize,
+    pub clusters_generation: u64,
+    pub clusters_loading: bool,
+    pub clusters_error: Option<String>,
+    pub cluster_detail: Option<ClusterDetail>,
+    pub cluster_detail_generation: u64,
+    pub cluster_detail_loading: bool,
+    pub cluster_detail_error: Option<String>,
+    pub selected_cluster_member: usize,
+    pub operation_generation: u64,
+    pub operation_busy: bool,
+    pub operation_label: Option<String>,
+    pub operation_progress: Option<SyncProgress>,
+    pub search_query: Option<String>,
+    pub search_input: String,
+    pub searching: bool,
+    pub status: Option<String>,
+    pub quit: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct RunFailureSummary {
-    pub(crate) id: u64,
-    pub(crate) status: RunStatus,
-    pub(crate) entries: Vec<String>,
+pub struct RunFailureSummary {
+    pub id: u64,
+    pub status: RunStatus,
+    pub entries: Vec<String>,
 }
 
-pub(crate) enum QueryMessage {
+pub enum QueryMessage {
     Repositories {
         generation: u64,
         result: Result<Vec<Repository>, String>,

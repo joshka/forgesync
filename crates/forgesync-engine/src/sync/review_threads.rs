@@ -10,7 +10,7 @@ use super::{
     fetch_review_thread_page, github_failure, now_utc,
 };
 
-pub(super) async fn sync_thread_review_threads(
+pub async fn sync_thread_review_threads(
     archive: &Archive,
     client: &GitHubClient,
     scope: &ThreadFamilyScope<'_>,

@@ -5,7 +5,7 @@ use forgesync_store::clusters::{ClusterDetail, ClusterPage};
 
 use crate::reports::ClusterDecisionOutput;
 
-pub(crate) fn cluster_build_summary(report: &ClusterBuildReport) -> String {
+pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     let coverage = if report.generation.complete_coverage {
         "complete"
     } else {
@@ -23,7 +23,7 @@ pub(crate) fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     )
 }
 
-pub(crate) fn cluster_page_summary(page: &ClusterPage) -> String {
+pub fn cluster_page_summary(page: &ClusterPage) -> String {
     if page.items.is_empty() {
         return "No clusters found".to_owned();
     }
@@ -51,7 +51,7 @@ pub(crate) fn cluster_page_summary(page: &ClusterPage) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn cluster_detail_summary(detail: &ClusterDetail) -> String {
+pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     let cluster = &detail.cluster;
     let lifecycle = match cluster.lifecycle {
         forgesync_store::clusters::ClusterLifecycle::Active => "active",
@@ -96,6 +96,6 @@ pub(crate) fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
+pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
     format!("Cluster #{}: {}", output.cluster_id, output.action)
 }

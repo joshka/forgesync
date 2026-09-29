@@ -131,7 +131,7 @@ pub async fn embed_repositories(
     RefreshStage::with_report(status, report, failure)
 }
 
-pub(super) fn validate_request(request: &RefreshRequest) -> Result<(), EngineError> {
+pub fn validate_request(request: &RefreshRequest) -> Result<(), EngineError> {
     let mut seen_stages = HashSet::with_capacity(request.analysis.len());
     let unique_stages = request
         .analysis
@@ -146,7 +146,7 @@ pub(super) fn validate_request(request: &RefreshRequest) -> Result<(), EngineErr
     Ok(())
 }
 
-pub(super) fn unique_repositories(repositories: &[RepositorySelector]) -> Vec<RepositorySelector> {
+pub fn unique_repositories(repositories: &[RepositorySelector]) -> Vec<RepositorySelector> {
     let mut seen = HashSet::with_capacity(repositories.len());
     repositories
         .iter()
@@ -155,7 +155,7 @@ pub(super) fn unique_repositories(repositories: &[RepositorySelector]) -> Vec<Re
         .collect()
 }
 
-pub(super) fn stage_from_sync_report(report: SyncReport) -> RefreshStage<SyncReport> {
+pub fn stage_from_sync_report(report: SyncReport) -> RefreshStage<SyncReport> {
     let status = match report.outcome {
         OperationOutcome::Complete => RefreshStageStatus::Complete,
         OperationOutcome::Partial { .. } => RefreshStageStatus::Partial,

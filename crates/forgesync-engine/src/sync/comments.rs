@@ -10,7 +10,7 @@ use super::{
     fetch_issue_comment_page, github_failure, now_utc,
 };
 
-pub(super) async fn run_comment_job(
+pub async fn run_comment_job(
     archive: &Archive,
     client: &GitHubClient,
     repository: &forgesync_core::content::Repository,
@@ -195,7 +195,7 @@ pub(super) async fn run_comment_job(
     Ok(())
 }
 
-pub(super) fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> IncompleteReason {
+pub fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> IncompleteReason {
     if matches!(error, GitHubError::Cancelled) {
         IncompleteReason::Cancelled
     } else if matches!(error, GitHubError::Deferred { .. }) {
@@ -207,7 +207,7 @@ pub(super) fn incomplete_reason(error: &GitHubError, pages_completed: u32) -> In
     }
 }
 
-pub(super) async fn sync_thread_comments(
+pub async fn sync_thread_comments(
     archive: &Archive,
     client: &GitHubClient,
     repository: &forgesync_core::content::Repository,
@@ -389,7 +389,7 @@ pub(super) async fn sync_thread_comments(
     Ok(result)
 }
 
-pub(super) fn comment_count(discussion: &forgesync_core::content::Discussion) -> Option<u64> {
+pub fn comment_count(discussion: &forgesync_core::content::Discussion) -> Option<u64> {
     discussion
         .provider_data
         .get("comments")

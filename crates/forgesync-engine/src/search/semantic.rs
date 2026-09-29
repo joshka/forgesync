@@ -10,7 +10,7 @@ use super::{
     store_sort, store_state_filter,
 };
 
-pub(super) async fn semantic_candidates(
+pub async fn semantic_candidates(
     archive: &Archive,
     request: &SearchRequest,
     recipe: DocumentRecipe,
@@ -115,7 +115,7 @@ pub(super) async fn semantic_candidates(
     Ok(ranked)
 }
 
-pub(super) fn count_dimension_compatible(
+pub fn count_dimension_compatible(
     documents: &[forgesync_store::embeddings::EmbeddingSearchDocument],
     dimensions: u32,
 ) -> usize {
@@ -130,7 +130,7 @@ pub(super) fn count_dimension_compatible(
         .count()
 }
 
-pub(super) async fn score_page_bounded(
+pub async fn score_page_bounded(
     query: EmbeddingVector,
     documents: Vec<forgesync_store::embeddings::EmbeddingSearchDocument>,
     sort: ThreadSort,
@@ -158,7 +158,7 @@ pub(super) async fn score_page_bounded(
     .map_err(|_| EngineError::SearchWorkerFailed)?
 }
 
-pub(super) fn semantic_result_page(
+pub fn semantic_result_page(
     query: &str,
     requested_mode: SearchMode,
     sort: ThreadSort,

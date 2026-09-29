@@ -15,7 +15,7 @@ use crate::{
     OutputMode, render_engine_error, render_error_with_status, render_result, render_store_error,
 };
 
-pub(super) async fn build_cluster_command(
+pub async fn build_cluster_command(
     args: ClusterBuildArgs,
     archive_path: &Path,
     mut embedding_service: EmbeddingServiceConfig,

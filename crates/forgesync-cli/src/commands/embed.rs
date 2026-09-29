@@ -13,7 +13,7 @@ use crate::config::ForgesyncConfig;
 use crate::reports::{EmbeddingOutput, embedding_summary};
 use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
 
-pub(super) async fn embed_from_cli(
+pub async fn embed_from_cli(
     args: EmbedArgs,
     path: &std::path::Path,
     json: OutputMode,

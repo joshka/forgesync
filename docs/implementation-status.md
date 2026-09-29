@@ -14,13 +14,17 @@
   modules now import their types and functions at the point of use, leaving the crate root focused
   on startup and output. Other module glob imports were replaced with named imports. Workspace
   formatting and Clippy passed after the import cleanup.
+- Restricted visibility within private CLI and TUI modules and private engine, GitHub, and store
+  leaf modules now uses `pub` with the enclosing module as the boundary. Restrictions on public
+  types and public modules remain where widening them would expose implementation details.
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
 - Next action: **Run the hosted platform matrix before preparing a release**.
-- Next maintainability pass: review the remaining long parent import lists for misplaced
-  responsibilities; split only where a concept gains a clearer owner.
+- Next maintainability pass: review the remaining restricted visibility in public modules for
+  brittle cross-module data access, starting with observation storage helpers and TUI state
+  ownership; split only where a concept gains a clearer owner.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.

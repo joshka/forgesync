@@ -9,7 +9,7 @@ use forgesync_store::archive::Archive;
 use super::github::{github_clients_for_selectors, render_github_client_setup_error};
 use crate::{OutputMode, render_error, render_store_error, usage_error};
 
-pub(super) async fn tui_command(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
+pub async fn tui_command(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
     if json.is_json() {
         return usage_error("--json is not supported by the interactive tui command");
     }

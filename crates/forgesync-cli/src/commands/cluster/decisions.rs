@@ -14,7 +14,7 @@ use forgesync_store::archive::Archive;
 use crate::reports::{ClusterDecisionOutput, cluster_decision_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success};
 
-pub(super) async fn dismiss_cluster_command(
+pub async fn dismiss_cluster_command(
     id: u64,
     reason: Option<String>,
     path: &Path,
@@ -29,7 +29,7 @@ pub(super) async fn dismiss_cluster_command(
     .await
 }
 
-pub(super) async fn restore_cluster_command(id: u64, path: &Path, json: OutputMode) -> ExitCode {
+pub async fn restore_cluster_command(id: u64, path: &Path, json: OutputMode) -> ExitCode {
     mutate_cluster(json, "cluster restore", id, "restored", async {
         let archive = Archive::open_read_write(path).await?;
         let result = restore_cluster(&archive, id).await;
@@ -39,7 +39,7 @@ pub(super) async fn restore_cluster_command(id: u64, path: &Path, json: OutputMo
     .await
 }
 
-pub(super) async fn exclude_cluster_command(
+pub async fn exclude_cluster_command(
     id: u64,
     member: ThreadSelector,
     reason: Option<String>,
@@ -56,7 +56,7 @@ pub(super) async fn exclude_cluster_command(
     .await
 }
 
-pub(super) async fn include_cluster_command(
+pub async fn include_cluster_command(
     id: u64,
     member: ThreadSelector,
     path: &Path,
@@ -71,7 +71,7 @@ pub(super) async fn include_cluster_command(
     .await
 }
 
-pub(super) async fn canonical_cluster_command(
+pub async fn canonical_cluster_command(
     id: u64,
     member: ThreadSelector,
     path: &Path,

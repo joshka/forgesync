@@ -160,7 +160,7 @@ pub async fn fetch_pull_request_review_page(
     })
 }
 
-pub(super) fn validate_pull_request_scope(
+pub fn validate_pull_request_scope(
     repository: &Repository,
     thread: &ThreadId,
 ) -> Result<(), GitHubError> {
@@ -170,7 +170,7 @@ pub(super) fn validate_pull_request_scope(
     Ok(())
 }
 
-pub(super) fn initial_pull_request_review_url(
+pub fn initial_pull_request_review_url(
     client: &GitHubClient,
     repository: &Repository,
     thread: &ThreadId,
@@ -197,7 +197,7 @@ pub fn issue_comment_list_url(
     initial_issue_comment_url(client, repository, thread)
 }
 
-pub(super) fn initial_issue_comment_url(
+pub fn initial_issue_comment_url(
     client: &GitHubClient,
     repository: &Repository,
     thread: &ThreadId,
@@ -215,7 +215,7 @@ pub(super) fn initial_issue_comment_url(
     Ok(url)
 }
 
-pub(super) fn initial_thread_list_url(
+pub fn initial_thread_list_url(
     client: &GitHubClient,
     repository: &Repository,
     state: ThreadListState,

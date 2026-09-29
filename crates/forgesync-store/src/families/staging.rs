@@ -144,7 +144,7 @@ impl Archive {
     }
 }
 
-pub(super) async fn load_staged_pages(
+pub async fn load_staged_pages(
     connection: &mut SqliteConnection,
     thread_row_id: i64,
     family: &str,
@@ -170,7 +170,7 @@ pub(super) async fn load_staged_pages(
         .collect()
 }
 
-pub(super) fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
+pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
     pages.iter().try_fold(0_u64, |count, page| {
         let item_count =
             u64::try_from(page.items.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
@@ -180,10 +180,7 @@ pub(super) fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError
     })
 }
 
-pub(super) fn validate_page_set(
-    pages: &[StagedPage],
-    expected_pages: u32,
-) -> Result<(), StoreError> {
+pub fn validate_page_set(pages: &[StagedPage], expected_pages: u32) -> Result<(), StoreError> {
     let found = u32::try_from(pages.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
     if found != expected_pages {
         return Err(StoreError::IncompletePageSet {
@@ -203,7 +200,7 @@ pub(super) fn validate_page_set(
     Ok(())
 }
 
-pub(super) fn merge_staged_items(
+pub fn merge_staged_items(
     pages: &[StagedPage],
 ) -> Result<BTreeMap<String, StagedItem<serde_json::Value>>, StoreError> {
     let mut items = BTreeMap::new();

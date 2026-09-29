@@ -92,7 +92,7 @@ impl Archive {
     }
 }
 
-pub(crate) async fn load_thread_coverage(
+pub async fn load_thread_coverage(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
 ) -> Result<HashMap<i64, HashMap<EvidenceFamily, StoredCoverage>>, StoreError> {
@@ -156,7 +156,7 @@ pub(crate) async fn load_thread_coverage(
     Ok(coverage)
 }
 
-pub(crate) fn coverage_for_kind(
+pub fn coverage_for_kind(
     discussion: &Discussion,
     stored: Option<&HashMap<EvidenceFamily, StoredCoverage>>,
 ) -> Vec<Coverage> {

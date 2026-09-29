@@ -6,7 +6,7 @@ use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::refresh::{RefreshReport, RefreshStageKind, RefreshStageStatus};
 use forgesync_engine::sync::SyncReport;
 
-pub(crate) fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
+pub fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
     match outcome {
         OperationOutcome::Complete => ExitCode::SUCCESS,
         OperationOutcome::Partial { .. } | OperationOutcome::Deferred { .. } => ExitCode::from(3),
@@ -15,7 +15,7 @@ pub(crate) fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
     }
 }
 
-pub(crate) fn sync_summary(report: &SyncReport) -> String {
+pub fn sync_summary(report: &SyncReport) -> String {
     let state = match report.outcome {
         OperationOutcome::Complete => "complete",
         OperationOutcome::Partial { .. } => "partial",
@@ -39,7 +39,7 @@ pub(crate) fn sync_summary(report: &SyncReport) -> String {
     )
 }
 
-pub(crate) fn refresh_summary(report: &RefreshReport) -> String {
+pub fn refresh_summary(report: &RefreshReport) -> String {
     let mut parts = Vec::new();
     for selected in &report.selected {
         let (status, detail, failure) = match selected {
@@ -129,7 +129,7 @@ pub(crate) fn refresh_summary(report: &RefreshReport) -> String {
     )
 }
 
-pub(crate) fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
+pub fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
     match report.outcome {
         OperationOutcome::Complete => RefreshStageStatus::Complete,
         OperationOutcome::Interrupted { .. } => RefreshStageStatus::Interrupted,
@@ -139,7 +139,7 @@ pub(crate) fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatu
     }
 }
 
-pub(crate) fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
+pub fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     match stage {
         RefreshStageKind::Sync => "sync",
         RefreshStageKind::Embeddings => "embeddings",
@@ -147,7 +147,7 @@ pub(crate) fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     }
 }
 
-pub(crate) fn refresh_status_name(status: RefreshStageStatus) -> &'static str {
+pub fn refresh_status_name(status: RefreshStageStatus) -> &'static str {
     match status {
         RefreshStageStatus::Complete => "complete",
         RefreshStageStatus::Partial => "partial",
