@@ -2,7 +2,9 @@
 
 ## Current position
 
-- Next task: **P6.1 — V2 scope and packaging**.
+- P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain
+  to be collected by CI.
+- Next action: **Run the hosted platform matrix before preparing a release**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -661,6 +663,42 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/tui.md
   docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
 
+## P6.1 evidence
+
+Reconciled the release description against the selected feature ledger. Native packages contain only
+the Forgesync executable; cloud and portable distribution, code indexing, summaries, metrics,
+analytics, legacy import, full revision history, deep PR details, and GitHub write-back remain
+deferred. Forgesync keeps a separate archive format, and no Gitcrawl database or installation was
+opened or changed.
+
+Added installation and operations guidance for fresh archive setup, credential-free offline
+queries, evidence coverage, interrupted-run recovery, diagnostic tracing, optional model settings,
+and the TUI. Added Rust examples that call the engine's `search_threads` and `sync_repositories`
+APIs directly. The CLI now installs its tracing subscriber at process startup, routes text or JSON
+diagnostics to stderr, and maps `-v`, `-vv`, and `-vvv` to info, debug, and trace verbosity.
+
+CI builds native binaries on Linux x86_64, Intel and Apple Silicon macOS, and Windows x86_64. Each
+platform runs the credential-free archive/doctor/FTS5/offline-search smoke and package check. A
+manual tag-based workflow packages four target-qualified archives, verifies the tag matches the
+binary version, creates SHA-256 checksums, and can publish only after a user dispatches it.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 147 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- Local Apple Silicon release build and `scripts/smoke_binary.py`: passed; SQLite integrity,
+  foreign keys, FTS5, and offline keyword search all passed without provider credentials.
+- Local Apple Silicon package creation and archive member verification: passed.
+- `offline_search` example run against a fresh temporary archive: passed without credentials.
+- `actionlint .github/workflows/ci.yml .github/workflows/release.yml`: passed.
+- Markdownlint for `README.md`, `docs/installation.md`, `docs/releasing.md`,
+  `docs/compatibility.md`, and `docs/implementation-status.md`: passed, 0 issues.
+- Hosted Windows, Linux, and Intel macOS jobs are configured but have not run from this checkout.
+  No GitHub release has been published.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -687,7 +725,7 @@ Validation:
 | P4.5 — Refresh composition | Complete | Optional shared-engine stages, durable partial reports, explicit model selection |
 | P5.1 — Read-only browser | Complete | Responsive background queries, repository/thread detail, local search, coverage and failure views |
 | P5.2 — Maintainer actions/live progress | Complete | Engine-backed cluster decisions, sync/retry/refresh, non-blocking progress, and writer ownership |
-| P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |
+| P6.1 — V2 scope and packaging | Implemented; hosted matrix pending | Local Apple Silicon smoke/package pass; collect native Linux, Intel macOS, and Windows CI results before release |
 
 A task is complete only when its acceptance checks pass. Keep deferred capabilities absent from code,
 workspace members, runtime dependencies, command help, and schema.

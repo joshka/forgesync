@@ -16,9 +16,9 @@ use std::process::ExitCode;
 use std::io::IsTerminal;
 
 use args::{
-    ArchiveCommand, CliArgs, ClusterCommand, Command, RefreshAnalysisArg, RunCommand, RunFamilyArg,
-    SearchModeArg, SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
-    ThreadStateArg,
+    ArchiveCommand, CliArgs, ClusterCommand, Command, LogFormat, RefreshAnalysisArg, RunCommand,
+    RunFamilyArg, SearchModeArg, SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg,
+    ThreadSortArg, ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use config::ForgesyncConfig;
@@ -44,6 +44,7 @@ use forgesync_store::{
     StoreError, SyncJobStatus, ThreadTimelineEvent,
 };
 use serde::Serialize;
+use tracing_subscriber::filter::LevelFilter;
 
 use crate::output::{
     ArchiveStatusOutput, JsonEnvelope, SearchPageOutput, ThreadDetailOutput, ThreadPageOutput,
@@ -63,6 +64,11 @@ where
             return ExitCode::from(u8::try_from(code).unwrap_or(2));
         }
     };
+    initialize_tracing(args.verbose, args.log_format);
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        "Forgesync command started"
+    );
 
     let config = match config_for_command(&args) {
         Ok(config) => config,
@@ -92,6 +98,32 @@ where
         }
     };
     runtime.block_on(dispatch(args, config))
+}
+
+fn initialize_tracing(verbose: u8, format: LogFormat) {
+    let max_level = match verbose {
+        0 => LevelFilter::WARN,
+        1 => LevelFilter::INFO,
+        2 => LevelFilter::DEBUG,
+        _ => LevelFilter::TRACE,
+    };
+
+    let result = match format {
+        LogFormat::Text => tracing_subscriber::fmt()
+            .compact()
+            .with_writer(std::io::stderr)
+            .with_max_level(max_level)
+            .try_init(),
+        LogFormat::Json => tracing_subscriber::fmt()
+            .json()
+            .flatten_event(true)
+            .with_writer(std::io::stderr)
+            .with_max_level(max_level)
+            .try_init(),
+    };
+    if let Err(error) = result {
+        eprintln!("could not initialize diagnostic logging: {error}");
+    }
 }
 
 fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigError> {

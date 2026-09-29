@@ -143,3 +143,11 @@ Repository metrics (#206), analytics and review state (#216), and owner-directed
 were proposals, recorded as unmerged in the design investigation. They are not baseline behavior.
 The revised v2 scope defers all three. Recheck proposal status only if later work explicitly depends
 on one.
+
+## P6.1 release boundary
+
+Release readiness packages only the selected native CLI workflows. Keyword search and the terminal
+browser work without model credentials; embeddings and clustering remain optional. Each binary uses
+the native Forgesync SQLite archive and does not import or modify a Gitcrawl archive. The existing
+deferred dispositions above remain outside the runtime dependencies, archive schema, and release
+prerequisites. See [installation and operations](installation.md) for supported targets and setup.
