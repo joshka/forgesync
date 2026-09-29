@@ -1,12 +1,23 @@
-//! # Apply query results and maintain selection
+//! # Coordinate panel results and cross-panel transitions
 //!
-//! State methods receive `QueryMessage` values, update loaded pages or detail, and keep selection
-//! valid as data changes. This is the point where asynchronous archive results become visible app
-//! state.
+//! These [`App`] methods connect [`QueryMessage`] delivery with panel owners. Each panel rejects
+//! stale generations and applies its own cache, selection, and loading rules. The coordinator
+//! forwards current failures to the shared status line without treating failure as an empty
+//! success.
 //!
-//! Input asks for work and `query` performs it; `view` only reads the resulting state.
-//! Centralizing the application step prevents stale results or failed operations from being
-//! silently treated as a successful empty page.
+//! Starting a discussion-page read also invalidates selected detail; that relationship belongs
+//! here because neither panel owns the other. Opening cluster detail resolves a highlighted list
+//! row before beginning the member read. Standalone repository, coverage, failed-run, and cluster
+//! list reads start directly on their owning panel rather than through extra app wrappers.
+//!
+//! A finished writer requests fresh repository choices, the current discussion page, coverage,
+//! failures, and scoped clusters. If cluster detail is open, its current identity is refreshed too.
+//! The writer's durable report and task cleanup remain with the query layer; this file schedules
+//! local views of its effects and does not perform archive or provider I/O.
+//!
+//! Input changes intent and query tasks execute it asynchronously. Rendering only reads these
+//! projections (and clamps scroll to its viewport). Keeping these coordination points explicit
+//! prevents an obsolete selection from returning through a late successful reply.
 
 use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;
@@ -142,32 +153,12 @@ impl App {
         }
     }
 
-    /// Advances repository generation so older read results cannot replace this request.
-    pub fn begin_repositories(&mut self) -> u64 {
-        self.repository_picker.begin()
-    }
-
     /// Starts a new thread-list generation and invalidates the selected detail; replies from an
     /// older list must not restore a stale selection after the scope changes.
     pub fn begin_threads(&mut self) -> u64 {
         let generation = self.thread_list.begin();
         self.detail_pane.invalidate();
         generation
-    }
-
-    /// Starts a new coverage generation and clears the previous loading error.
-    pub fn begin_coverage(&mut self) -> u64 {
-        self.coverage_panel.begin()
-    }
-
-    /// Starts a new failure-list generation for the current archive.
-    pub fn begin_failures(&mut self) -> u64 {
-        self.failure_list.begin()
-    }
-
-    /// Starts a new cluster-list generation for the current scope.
-    pub fn begin_clusters(&mut self) -> u64 {
-        self.cluster_list.begin()
     }
 
     /// Requests the selected cluster only when a valid selection exists.

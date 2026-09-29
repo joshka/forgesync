@@ -34,7 +34,7 @@ pub fn start_repositories(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let generation = app.begin_repositories();
+    let generation = app.repository_picker.begin();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {
@@ -141,7 +141,7 @@ pub fn start_coverage(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let generation = app.begin_coverage();
+    let generation = app.coverage_panel.begin();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {
@@ -163,7 +163,7 @@ pub fn start_failures(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let generation = app.begin_failures();
+    let generation = app.failure_list.begin();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {
@@ -183,7 +183,7 @@ pub fn start_clusters(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let generation = app.begin_clusters();
+    let generation = app.cluster_list.begin();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {

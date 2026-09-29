@@ -4,10 +4,14 @@
 //! line. [`Screen`] selects the workflow being shown; [`Focus`] chooses the browser pane whose
 //! selection responds to navigation. Switching an inspection screen does not apply a new filter.
 //!
-//! [`repositories::RepositoryPicker`] owns repository choices, the applied scope, and its read
-//! lifecycle. [`operation::OperationDisplay`] owns idle/running writer presentation. The other
-//! projections remain coordinated here so a scope or thread selection change invalidates the
-//! corresponding detail rather than leaving an unrelated result visible.
+//! [`repositories::RepositoryPicker`] owns choices and applied scope. [`threads::ThreadList`] owns
+//! discussion pages, while [`detail::DetailPane`] owns the selected discussion's evidence and
+//! scroll. [`coverage::CoveragePanel`] and [`failures::FailureList`] show archive completeness and
+//! retry choices. [`clusters::ClusterList`] and [`clusters::ClusterDetailPane`] show scoped
+//! duplicate groups and their current members. [`operation::OperationDisplay`] owns idle/running
+//! writer presentation. Each panel carries its own generation and cache policy; the app coordinates
+//! changes that affect another panel, such as invalidating detail when discussion selection or
+//! repository scope changes.
 //!
 //! `input` maps keys to named actions. `state` starts generations and applies
 //! [`messages::QueryMessage`] results only when they still belong to the requested panel. Query
@@ -59,7 +63,9 @@ pub enum Focus {
 /// here.
 #[derive(Debug, Default)]
 pub struct App {
+    /// Active workflow; screen changes do not implicitly change the applied repository filter.
     pub screen: Screen,
+    /// Browser pane receiving navigation, retained while inspecting another screen.
     pub focus: Focus,
     /// Repository choices, applied scope, and pending repository read state.
     pub repository_picker: repositories::RepositoryPicker,
@@ -77,10 +83,15 @@ pub struct App {
     pub cluster_detail_pane: clusters::ClusterDetailPane,
     /// Current writer generation and its transient label/progress display.
     pub operation: operation::OperationDisplay,
+    /// Applied local keyword query; absent when browsing without text filtering.
     pub search_query: Option<String>,
+    /// Unsubmitted search draft; editing it does not change current discussion results.
     pub search_input: String,
+    /// Whether keyboard input edits the draft instead of navigating the current screen.
     pub searching: bool,
+    /// Safe action summary, read failure, or cancellation notice shown in the footer.
     pub status: Option<String>,
+    /// Terminal exit intent, set only after no writer requires cancellation cleanup.
     pub quit: bool,
 }
 
