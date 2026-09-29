@@ -47,6 +47,10 @@ read-only execution. The execution owner keeps the request, recipe, and optional
 closes the archive before rendering and retains cancellation for engine retrieval. Module docs
 correct the stale offline claim for service-backed semantic queries.
 
+Sync preparation and acquisition now belong to its parsed command, with one archive-close point and
+typed selection/client/engine failures. Nearby request cases and existing CLI sync contracts cover
+selection and output behavior.
+
 Retry now has a command-local request owner and typed boundary failures. Its outer method closes the
 archive once before rendering. Sync and retry share a progress owner that drains before result
 output and aborts on unexpected drop. Engine retry planning names failure selection, repository
@@ -146,7 +150,7 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 - Document remaining private representations, policy constants, and trait implementation contracts
   with their local behavior; inspect short module introductions for missing relationships rather
   than adding words.
-- Review CLI sync preparation, TUI read scheduling and progress forwarding, refresh cluster
+- Review CLI embed/refresh execution, TUI search editing and rendering policy, refresh cluster
   traversal, embedding batch scheduling, and sync run coordination against the dispatch and
   state-owner rules.
 - Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now

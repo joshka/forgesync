@@ -1120,3 +1120,11 @@ query, request, failure selection, discussion-page, read-dispatch, and progress 
 read for its contracts. The broader audit remains open: ordinary production-function comments are
 present, but forty-one trait implementation methods still need review for meaningful local contract
 docs, alongside the existing private-item, function-shape, and test-readability targets.
+
+## Continued maintenance: CLI sync ownership
+
+`SyncArgs` now owns scope conversion and acquisition. Its outer execution closes the archive once
+after successful opening, before rendering either a report or a typed selection/client/engine
+failure. Client preparation and progress draining remain explicit phases. The module uses ordinary
+owner imports and `mod.rs` with nearby request-conversion tests. Five named scope/family cases and
+all three existing CLI sync contract cases pass; focused Clippy and strict Rustdoc pass.
