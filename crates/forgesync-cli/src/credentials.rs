@@ -6,7 +6,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use forgesync_core::identity::GitHubHost;
-use forgesync_github::GitHubToken;
+use forgesync_github::token::GitHubToken;
 use thiserror::Error;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;

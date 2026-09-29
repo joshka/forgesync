@@ -14,7 +14,7 @@ use std::time::Duration;
 use app::{App, QueryMessage};
 use crossterm::event::{self, Event, KeyEventKind};
 use forgesync_core::identity::GitHubHost;
-use forgesync_github::GitHubClient;
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::Archive;
 use query::{QueryTasks, start_query};
 use thiserror::Error;

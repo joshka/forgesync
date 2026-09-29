@@ -12,7 +12,7 @@ use forgesync_engine::{
     plan_run_retry, refresh, restore_cluster, run_retry, search_threads,
     set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
 };
-use forgesync_github::GitHubClient;
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::Archive;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Sender};

@@ -1,5 +1,5 @@
 use forgesync_core::coverage::Failure;
-use forgesync_github::{ApiFailureKind, GitHubError};
+use forgesync_github::error::{ApiFailureKind, GitHubError};
 use forgesync_store::StoreError;
 use thiserror::Error;
 

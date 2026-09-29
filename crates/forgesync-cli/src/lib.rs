@@ -44,7 +44,7 @@ use forgesync_engine::{
     list_threads, plan_run_retry, refresh, restore_cluster, retrieve_threads, run_retry,
     set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
 };
-use forgesync_github::{GitHubClient, GitHubClientConfig};
+use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{
     Archive, ArchiveInfo, DoctorReport, MigrationReport, RunDetail, RunRecord, RunStatus,
     StoreError, SyncJobStatus, ThreadTimelineEvent,

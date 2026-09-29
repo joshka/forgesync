@@ -1,3 +1,5 @@
+//! Typed provider and transport failures.
+
 use std::time::Duration;
 
 use thiserror::Error;

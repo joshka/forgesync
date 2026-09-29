@@ -19,7 +19,7 @@ use forgesync_engine::{
     materialize_thread_document, plan_run_retry, refresh, retrieve_threads, run_retry,
     sync_repositories,
 };
-use forgesync_github::{GitHubClient, GitHubClientConfig};
+use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::{Archive, SyncJobStatus, ThreadQuery};
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};

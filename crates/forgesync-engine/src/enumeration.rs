@@ -5,10 +5,11 @@ use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure, FailureKind};
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_github::{
-    ApiFailureKind, GitHubClient, GitHubError, ThreadListState, fetch_repository,
-    fetch_thread_page_in_scope, thread_list_url_in_scope,
+use forgesync_github::error::{ApiFailureKind, GitHubError};
+use forgesync_github::resources::{
+    ThreadListState, fetch_repository, fetch_thread_page_in_scope, thread_list_url_in_scope,
 };
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::{
     Archive, ArchiveLeaseToken, RepositoryThreadScan, RepositoryThreadScanStatus, StoreError,
 };

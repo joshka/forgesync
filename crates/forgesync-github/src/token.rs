@@ -1,3 +1,5 @@
+//! Credential wrapper with redacted diagnostic output.
+
 use std::fmt;
 
 /// A GitHub credential that is redacted from debug output.

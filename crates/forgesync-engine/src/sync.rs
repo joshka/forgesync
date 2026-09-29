@@ -8,11 +8,13 @@ use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_github::{
-    GitHubClient, GitHubError, GraphqlCursor, ThreadListState, fetch_issue_comment_page,
-    fetch_pull_request_metadata, fetch_pull_request_review_page, fetch_repository,
-    fetch_review_thread_page,
+use forgesync_github::error::GitHubError;
+use forgesync_github::resources::{
+    ThreadListState, fetch_issue_comment_page, fetch_pull_request_metadata,
+    fetch_pull_request_review_page, fetch_repository,
 };
+use forgesync_github::review_threads::{GraphqlCursor, fetch_review_thread_page};
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::{
     Archive, ArchiveLeaseToken, ChildFamilyFailureScope, ChildFamilyObservation,
     ObservationDisposition, RepositoryThreadScanStatus, RunFailureInput, RunFailureScope,

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;
-use forgesync_github::GitHubClient;
+use forgesync_github::transport::GitHubClient;
 use forgesync_store::Archive;
 use serde::Serialize;
 use tokio::sync::mpsc;

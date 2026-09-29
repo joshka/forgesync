@@ -1,3 +1,5 @@
+//! GraphQL review-thread acquisition and nested pagination.
+
 use std::collections::{BTreeMap, HashSet};
 
 use forgesync_core::content::{Comment, Repository, ReviewThread};
@@ -10,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
-use crate::{GitHubClient, GitHubError};
+use crate::error::GitHubError;
+use crate::transport::GitHubClient;
 
 const REVIEW_THREADS_QUERY: &str = r#"
 query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
@@ -423,7 +426,7 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::fetch_review_thread_page;
-    use crate::{GitHubClient, GitHubClientConfig};
+    use crate::transport::{GitHubClient, GitHubClientConfig};
 
     fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
         let repository_id = RepositoryId::new(
@@ -584,7 +587,7 @@ mod tests {
         )
         .await
         .expect_err("partial GraphQL result must fail");
-        assert_eq!(error, crate::GitHubError::GraphqlErrors { count: 1 });
+        assert_eq!(error, crate::error::GitHubError::GraphqlErrors { count: 1 });
     }
 
     #[tokio::test]
@@ -639,7 +642,7 @@ mod tests {
         )
         .await
         .expect_err("nested partial GraphQL result must fail");
-        assert_eq!(error, crate::GitHubError::GraphqlErrors { count: 1 });
+        assert_eq!(error, crate::error::GitHubError::GraphqlErrors { count: 1 });
     }
 
     #[tokio::test]
@@ -673,6 +676,6 @@ mod tests {
         )
         .await
         .expect_err("missing cursor must not claim complete pagination");
-        assert_eq!(error, crate::GitHubError::InvalidPaginationLink);
+        assert_eq!(error, crate::error::GitHubError::InvalidPaginationLink);
     }
 }

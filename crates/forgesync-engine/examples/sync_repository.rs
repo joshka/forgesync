@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 use forgesync_core::identity::GitHubHost;
 use forgesync_engine::{RepositorySelector, SyncRequest, SyncThreadScope, sync_repositories};
-use forgesync_github::{GitHubClient, GitHubClientConfig, GitHubToken};
+use forgesync_github::token::GitHubToken;
+use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::Archive;
 use tokio_util::sync::CancellationToken;
 use url::Url;

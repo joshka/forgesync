@@ -1,3 +1,5 @@
+//! REST acquisition and normalization for repositories, threads, comments, and reviews.
+
 use std::collections::BTreeMap;
 
 use forgesync_core::content::{
@@ -14,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
-use crate::{GitHubClient, GitHubError, GitHubResponse};
+use crate::error::GitHubError;
+use crate::transport::{GitHubClient, GitHubResponse};
 
 /// One normalized issue-list page and its validated next-page destination.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -660,7 +663,7 @@ mod tests {
         fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
         fetch_repository, fetch_thread_page,
     };
-    use crate::{GitHubClient, GitHubClientConfig};
+    use crate::transport::{GitHubClient, GitHubClientConfig};
 
     fn fixture(name: &str) -> serde_json::Value {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))

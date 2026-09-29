@@ -1,3 +1,5 @@
+//! HTTP client configuration, retries, redirects, and pagination safety.
+
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -10,7 +12,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
-use crate::{ApiFailureKind, GitHubError, GitHubToken};
+use crate::error::{ApiFailureKind, GitHubError};
+use crate::token::GitHubToken;
 
 const MAX_SUCCESS_BODY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
@@ -734,7 +737,9 @@ mod tests {
     use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
     use super::{GitHubClientConfig as ClientConfig, RetryPolicy};
-    use crate::{ApiFailureKind, GitHubClient, GitHubClientConfig, GitHubError, GitHubToken};
+    use crate::error::{ApiFailureKind, GitHubError};
+    use crate::token::GitHubToken;
+    use crate::transport::{GitHubClient, GitHubClientConfig};
 
     #[derive(Debug, Deserialize, Eq, PartialEq)]
     struct Message {
