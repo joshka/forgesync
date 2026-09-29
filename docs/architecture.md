@@ -137,3 +137,9 @@ than a parent alias. Workflow-specific output DTOs live with their report format
 presentation selects stage formatters in request order, then renders each existing `RefreshStage`
 through the common status/detail/failure pattern. Report preparation stays pure and separate from
 archive cleanup and output stream policy.
+
+Clustering keeps graph evidence and bounded proposals with their algorithms: `clustering/evidence`
+owns the neighbor heap and selected edges, `components` owns proposed groups and members, and
+`references` owns mention parsing and title-token policy. These representations use indexes into one
+stable document snapshot; they are not durable archive identities. The clustering root presents
+requests, reports, and shared options, while child modules import store and runtime types directly.

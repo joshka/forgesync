@@ -13,10 +13,39 @@
 
 use std::collections::HashMap;
 
+use forgesync_core::identity::ThreadId;
 use forgesync_store::embeddings::EmbeddingSearchDocument;
+use forgesync_store::reads::ThreadSummary;
 
-use super::{CandidateEdge, ClusterCandidate, ClusterMemberCandidate, ClusterOptions};
+use super::ClusterOptions;
+use super::evidence::CandidateEdge;
 use crate::exact_search::stable_thread_id_cmp;
+
+/// Derived member projection awaiting reconciliation with durable local maintainer decisions.
+#[derive(Clone, Debug)]
+pub struct ClusterMemberCandidate {
+    /// Archived discussion identity and display content selected for this generation.
+    pub summary: ThreadSummary,
+    /// Direct retained edge weight to the representative, or none for transitive-only membership.
+    /// The representative receives `1.0`; other weights may come from vector or reference
+    /// evidence.
+    pub score_to_representative: Option<f64>,
+}
+
+/// Bounded graph component proposed for one derived cluster generation.
+///
+/// Representative selection uses retained degree and deterministic identity ties. It is an
+/// analysis proposal: the store owns durable cluster identity and reconciles canonical-member and
+/// inclusion decisions before presenting the resulting cluster.
+#[derive(Clone, Debug)]
+pub struct ClusterCandidate {
+    /// Automatically selected member identity, before applying local canonical choices.
+    pub representative: ThreadId,
+    /// Archived title copied from the automatically selected representative.
+    pub title: String,
+    /// Stable identity-ordered members that satisfy component size limits.
+    pub members: Vec<ClusterMemberCandidate>,
+}
 
 /// Builds connected groups without exceeding the configured size.
 pub fn bounded_components(
@@ -117,8 +146,14 @@ pub fn format_clusters(
         .collect()
 }
 
+/// Disjoint-set forest that refuses unions exceeding the configured component size.
+///
+/// Each candidate starts as a singleton. Only root sizes are authoritative; path compression
+/// shortens later lookups while union-by-size bounds tree depth.
 struct UnionFind {
+    /// Parent indexes into the same forest; a root points to itself.
     parent: Vec<usize>,
+    /// Current component sizes at root indexes; non-root entries are not consulted.
     size: Vec<usize>,
 }
 

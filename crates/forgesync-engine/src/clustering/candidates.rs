@@ -13,9 +13,9 @@ use std::collections::HashMap;
 use forgesync_store::embeddings::EmbeddingSearchDocument;
 use tokio_util::sync::CancellationToken;
 
-use super::components::{bounded_components, format_clusters};
+use super::ClusterOptions;
+use super::components::{ClusterCandidate, bounded_components, format_clusters};
 use super::evidence::CandidateEvidence;
-use super::{ClusterCandidate, ClusterOptions};
 use crate::error::EngineError;
 use crate::exact_search::stable_thread_id_cmp;
 

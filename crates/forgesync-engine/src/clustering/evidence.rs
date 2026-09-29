@@ -16,19 +16,29 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use forgesync_store::embeddings::EmbeddingSearchDocument;
 use tokio_util::sync::CancellationToken;
 
-use super::references::{deterministic_reference_edges, overlap_ratio, title_tokens};
-use super::{CandidateEdge, ClusterOptions, HIGH_CONFIDENCE_SCORE, MIN_TITLE_OVERLAP, Neighbor};
+use super::ClusterOptions;
+use super::references::{
+    MIN_TITLE_OVERLAP, deterministic_reference_edges, overlap_ratio, title_tokens,
+};
 use crate::error::EngineError;
 use crate::exact_search::cosine_similarity;
+
+/// Vector score above which same-kind edges need no additional title-token support.
+/// Cross-kind edges still need the independently configured cross-kind threshold.
+const HIGH_CONFIDENCE_SCORE: f64 = 0.90;
 
 /// Pairwise evidence selected under one validated clustering policy.
 ///
 /// References and title tokens are computed once. Both bounded neighbor selection and final edge
 /// construction use `score`, so their eligibility rules cannot drift independently.
 pub struct CandidateEvidence<'a> {
+    /// Stable ordered vector/document snapshot shared by all pairwise indexes.
     documents: &'a [EmbeddingSearchDocument],
+    /// Eligible explicit mention weights keyed by increasing source/target indexes.
     reference_edges: HashMap<(usize, usize), f64>,
+    /// Precomputed title token sets in exactly the document snapshot order.
     title_overlaps: Vec<HashSet<String>>,
+    /// Validated thresholds and neighbor bounds applied consistently by `score`.
     options: ClusterOptions,
 }
 
@@ -186,4 +196,58 @@ fn max_score(left: Option<f64>, right: Option<f64>) -> Option<f64> {
         (Some(score), None) | (None, Some(score)) => Some(score),
         (None, None) => None,
     }
+}
+
+/// One retained neighbor in a bounded max-heap whose head is the worst retained candidate.
+///
+/// Reverse score ordering permits constant-time rejection of weaker incoming candidates. Equal
+/// scores retain the lower stable document index; indexes belong to this build's snapshot only.
+#[derive(Clone, Copy, Debug)]
+pub struct Neighbor {
+    /// Target index in the stable candidate document snapshot.
+    pub node_index: usize,
+    /// Finite ranking weight from eligible vector or explicit-reference evidence.
+    pub score: f64,
+}
+
+impl PartialEq for Neighbor {
+    /// Compares node identity and total-order score, keeping equality consistent with heap
+    /// ordering.
+    fn eq(&self, other: &Self) -> bool {
+        self.node_index == other.node_index && self.score.total_cmp(&other.score) == Ordering::Equal
+    }
+}
+
+impl Eq for Neighbor {}
+
+impl PartialOrd for Neighbor {
+    /// Uses the total heap order even for floating-point scores, avoiding unordered comparisons.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Neighbor {
+    /// Places the worst retained neighbor at the max-heap head by reversing score order.
+    /// Node-index ties are deterministic, allowing pruning to retain the lower-index neighbor.
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .score
+            .total_cmp(&self.score)
+            .then_with(|| self.node_index.cmp(&other.node_index))
+    }
+}
+
+/// Eligible undirected relationship proposed to bounded component construction.
+///
+/// Endpoints are increasing snapshot indexes. The score is the strongest eligible vector or
+/// reference evidence, so it must not be interpreted as a probability or exclusively as cosine.
+#[derive(Clone, Copy, Debug)]
+pub struct CandidateEdge {
+    /// Lower endpoint index in the candidate document snapshot.
+    pub left: usize,
+    /// Higher endpoint index in the candidate document snapshot.
+    pub right: usize,
+    /// Finite ranking weight from eligible vector or explicit-reference evidence.
+    pub score: f64,
 }

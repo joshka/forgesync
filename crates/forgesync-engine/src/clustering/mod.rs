@@ -11,52 +11,38 @@
 //! analysis concurrently. The store owns durable generations and decision events; this module owns
 //! analysis policy and workflow boundaries. Cluster actions affect the local archive only.
 
-use std::cmp::Ordering;
-use std::sync::{Arc, LazyLock, OnceLock};
-use std::time::Duration;
-
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::identity::{RepositoryId, ThreadId};
-use forgesync_store::archive::Archive;
-use forgesync_store::clusters::{
-    ClusterDetail, ClusterGenerationInput, ClusterGenerationResult, ClusterInput,
-    ClusterListQuery as StoreClusterListQuery, ClusterMemberInput, ClusterPage,
-};
-use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocument};
-use forgesync_store::leases::ArchiveLeaseToken;
-use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter, ThreadSummary};
-use regex::Regex;
+use forgesync_store::clusters::ClusterGenerationResult;
 use serde::Serialize;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio::time::{Instant, interval_at};
-use tokio_util::sync::CancellationToken;
 
-use crate::documents::now_utc;
 use crate::error::EngineError;
-use crate::inspect::{checked_page, resolve_repositories};
-use crate::reference::{RepositorySelector, ThreadSelector};
+use crate::reference::RepositorySelector;
 
-const CLUSTER_PAGE_SIZE: u32 = 500;
-const CLUSTER_LEASE_DURATION: Duration = Duration::from_secs(180);
-const CLUSTER_WORKER_LIMIT: usize = 1;
-
-static CLUSTER_WORKER_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
-
+/// Baseline cosine threshold for same-kind candidate edges; supporting title policy still applies.
 const DEFAULT_CLUSTER_THRESHOLD: f64 = 0.80;
+/// Stricter cosine threshold for issue/pull-request edges, where similarity can reflect related
+/// work.
 const DEFAULT_CROSS_KIND_THRESHOLD: f64 = 0.93;
-const HIGH_CONFIDENCE_SCORE: f64 = 0.90;
-const MIN_TITLE_OVERLAP: f64 = 0.18;
-const REFERENCE_SCORE: f64 = 0.94;
-const EARLY_BODY_REFERENCE_BYTES: usize = 240;
-
-static TITLE_TOKEN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[A-Za-z0-9]{4,}").expect("valid title token pattern"));
-static THREAD_REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(?:\b([\w.-]+/[\w.-]+)#(\d+)|(?:\b([\w.-]+/[\w.-]+)/)?(?:issues|pull)/(\d+)|#(\d{2,}))")
-        .expect("valid issue reference pattern")
-});
 
 /// Tuning options for deterministic related-discussion clustering.
+///
+/// Similarity thresholds govern vector evidence. Explicit repository-scoped references can provide
+/// separate evidence; the resulting graph is then pruned by fanout and bounded component size.
+/// These are analysis heuristics, not probabilities that two discussions are duplicates.
+///
+/// Validate a customized policy before building a request:
+///
+/// ```
+/// use forgesync_engine::clustering::ClusterOptions;
+///
+/// let options = ClusterOptions {
+///     max_cluster_size: 20,
+///     ..Default::default()
+/// };
+/// let options = options.validate()?;
+/// assert_eq!(options.max_cluster_size, 20);
+/// # Ok::<(), forgesync_engine::error::EngineError>(())
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ClusterOptions {
     /// Minimum cosine similarity for an embedding edge.
@@ -86,8 +72,14 @@ impl Default for ClusterOptions {
 }
 
 impl ClusterOptions {
-    /// Rejects cluster policies that cannot produce deterministic bounded groups.
-    pub(crate) fn validate(self) -> Result<Self, EngineError> {
+    /// Returns this policy after checking finite thresholds and bounded graph sizes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EngineError::InvalidClusterOptions`] unless both thresholds are in `0..=1`,
+    /// fanout is in `1..=256`, maximum size is in `1..=10_000`, and minimum size is positive
+    /// and no larger than the maximum. Each threshold is validated independently.
+    pub fn validate(self) -> Result<Self, EngineError> {
         if !self.threshold.is_finite()
             || !(0.0..=1.0).contains(&self.threshold)
             || !self.cross_kind_threshold.is_finite()
@@ -146,60 +138,6 @@ pub struct ClusterListRequest {
     pub offset: u64,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct ClusterMemberCandidate {
-    pub summary: ThreadSummary,
-    pub score_to_representative: Option<f64>,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct ClusterCandidate {
-    pub representative: ThreadId,
-    pub title: String,
-    pub members: Vec<ClusterMemberCandidate>,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Neighbor {
-    node_index: usize,
-    score: f64,
-}
-
-impl PartialEq for Neighbor {
-    /// Compares node identity and total-order score, keeping equality consistent with heap
-    /// ordering.
-    fn eq(&self, other: &Self) -> bool {
-        self.node_index == other.node_index && self.score.total_cmp(&other.score) == Ordering::Equal
-    }
-}
-
-impl Eq for Neighbor {}
-
-impl PartialOrd for Neighbor {
-    /// Uses the total heap order even for floating-point scores, avoiding unordered comparisons.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Neighbor {
-    /// Places the worst retained neighbor at the max-heap head by reversing score order.
-    /// Node-index ties are deterministic, allowing pruning to retain the lower-index neighbor.
-    fn cmp(&self, other: &Self) -> Ordering {
-        other
-            .score
-            .total_cmp(&self.score)
-            .then_with(|| self.node_index.cmp(&other.node_index))
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct CandidateEdge {
-    left: usize,
-    right: usize,
-    score: f64,
-}
-
 mod build;
 mod candidates;
 mod components;
@@ -209,12 +147,10 @@ mod lease;
 mod references;
 
 pub use build::{build_clusters, list_clusters};
-use candidates::build_cluster_candidates;
 pub use decisions::{
     dismiss_cluster, exclude_cluster_member, include_cluster_member, restore_cluster,
     set_canonical_cluster_member, show_cluster,
 };
-use lease::{finish_cluster_decision_lease, finish_cluster_lease, finish_cluster_lease_result};
 
 #[cfg(test)]
 mod tests;

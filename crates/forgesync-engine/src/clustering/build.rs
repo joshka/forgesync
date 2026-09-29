@@ -8,16 +8,37 @@
 //! construction lives below in `candidates`; generation persistence belongs to the store. This
 //! separation makes the analysis choice and the durable write visible at different entry points.
 
-use super::{
-    Arc, Archive, ArchiveLeaseToken, CLUSTER_LEASE_DURATION, CLUSTER_PAGE_SIZE,
-    CLUSTER_WORKER_LIMIT, CLUSTER_WORKER_SLOTS, CancellationToken, ClusterBuildReport,
-    ClusterBuildRequest, ClusterCandidate, ClusterGenerationInput, ClusterInput,
-    ClusterListRequest, ClusterMemberInput, ClusterOptions, ClusterPage, DocumentRecipe,
-    EmbeddingDocumentQuery, EmbeddingSearchDocument, EngineError, Instant, OwnedSemaphorePermit,
-    RepositoryId, Semaphore, StoreClusterListQuery, ThreadQuery, ThreadSort, ThreadStateFilter,
-    build_cluster_candidates, checked_page, finish_cluster_lease_result, interval_at, now_utc,
-    resolve_repositories,
+use std::sync::{Arc, OnceLock};
+
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::RepositoryId;
+use forgesync_store::archive::Archive;
+use forgesync_store::clusters::{
+    ClusterGenerationInput, ClusterInput, ClusterListQuery as StoreClusterListQuery,
+    ClusterMemberInput, ClusterPage,
 };
+use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocument};
+use forgesync_store::leases::ArchiveLeaseToken;
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::time::{Instant, interval_at};
+use tokio_util::sync::CancellationToken;
+
+use super::candidates::build_cluster_candidates;
+use super::components::ClusterCandidate;
+use super::lease::{CLUSTER_LEASE_DURATION, finish_cluster_lease_result};
+use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
+use crate::documents::now_utc;
+use crate::error::EngineError;
+use crate::inspect::{checked_page, resolve_repositories};
+
+/// Archive page size used by eligible-thread counting and compatible-vector traversal.
+const CLUSTER_PAGE_SIZE: u32 = 500;
+/// Process-wide bound on simultaneous CPU-heavy graph builds.
+const CLUSTER_WORKER_LIMIT: usize = 1;
+
+/// Shared permits retained by blocking workers until graph construction actually ends.
+static CLUSTER_WORKER_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
 /// Builds and persists deterministic clusters from current open discussions and stored vectors.
 ///

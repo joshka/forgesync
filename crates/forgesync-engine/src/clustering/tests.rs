@@ -16,7 +16,9 @@ use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk}
 use forgesync_store::reads::ThreadSummary;
 use tokio_util::sync::CancellationToken;
 
-use super::{ClusterOptions, build_cluster_candidates};
+use super::ClusterOptions;
+use super::candidates::build_cluster_candidates;
+use super::components::ClusterCandidate;
 
 #[test]
 fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
@@ -156,7 +158,7 @@ fn fanout_and_maximum_size_keep_deterministic_components() {
         &CancellationToken::new(),
     )
     .expect("second graph");
-    let memberships = |clusters: &[super::ClusterCandidate]| {
+    let memberships = |clusters: &[ClusterCandidate]| {
         clusters
             .iter()
             .map(|cluster| {

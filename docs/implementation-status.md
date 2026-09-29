@@ -1248,3 +1248,24 @@ Current-tree gates pass: fifteen sync workflow scenarios, workspace Clippy with 
 workspace tests/doctests, the CLI build without default features, strict public/private Rustdoc,
 nightly formatting, rumdl, and changed-page Markdown linting. The generated lease module/type docs
 were checked for writer ownership, cooperative cleanup, and release-policy distinctions.
+
+## Continued maintenance: clustering representation ownership
+
+Neighbor heaps and candidate edges now live with evidence selection; proposed clusters and members
+live with bounded component construction. Private representations use public items inside private
+modules rather than exposing crate-only models at the public clustering root. Mention regexes,
+worker permits, page sizes, and lease lifetime now live at their behavioral owners. Production child
+imports name store, runtime, and engine owners directly instead of depending on a parent import
+prelude.
+
+Type and field contracts explain stable snapshot indexes, heap ordering, transitive membership,
+proposal-versus-maintainer decisions, and vector-versus-reference weights. Constants explain their
+policy role, including byte offsets and non-probabilistic heuristic scores. Options validation is
+available on its public owning type, with explicit limits and a runnable customization example. The
+four candidate-policy cases and cluster-generation integration scenario pass; workspace Clippy
+passes. Deeper algorithm shape and the other private representations remain review targets.
+
+Current-tree workspace tests and doctests pass, including the new public options validation example.
+The CLI build without default features, strict public/private Rustdoc, nightly formatting, rumdl,
+and changed-page Markdown linting also pass. Generated options, member-proposal, and edge docs were
+checked for threshold limits and the distinction between heuristic weights and durable identities.

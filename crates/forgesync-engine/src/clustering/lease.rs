@@ -8,7 +8,16 @@
 //! transactions. These helpers keep cleanup near the operation that needs it without hiding the
 //! analysis or decision steps.
 
-use super::{Archive, ArchiveLeaseToken, EngineError, now_utc};
+use std::time::Duration;
+
+use forgesync_store::archive::Archive;
+use forgesync_store::leases::ArchiveLeaseToken;
+
+use crate::documents::now_utc;
+use crate::error::EngineError;
+
+/// Writer fence lifetime, renewed every third of this interval during a generation build.
+pub const CLUSTER_LEASE_DURATION: Duration = Duration::from_secs(180);
 
 /// Releases the generation lease after success or failure.
 pub async fn finish_cluster_lease<T>(

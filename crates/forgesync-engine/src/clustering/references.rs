@@ -11,12 +11,27 @@
 //! Title tokens also provide the evidence guard against weak semantic matches.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
 use forgesync_store::embeddings::EmbeddingSearchDocument;
+use regex::Regex;
 
-use super::{
-    EARLY_BODY_REFERENCE_BYTES, MIN_TITLE_OVERLAP, REFERENCE_SCORE, THREAD_REFERENCE, TITLE_TOKEN,
-};
+/// Minimum intersection/smaller-title token ratio for weak vector or later-body mention support.
+pub const MIN_TITLE_OVERLAP: f64 = 0.18;
+/// Deterministic ranking weight for an eligible explicit mention, not a measured probability.
+const REFERENCE_SCORE: f64 = 0.94;
+/// Last byte offset at which a body mention receives the early-context exemption.
+const EARLY_BODY_REFERENCE_BYTES: usize = 240;
+
+/// ASCII alphanumeric title words of at least four characters, compared without case.
+static TITLE_TOKEN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[A-Za-z0-9]{4,}").expect("valid title token pattern"));
+/// Qualified and local issue/pull-request mentions; bare `#` references require two digits.
+/// Repository equality and non-self target existence are checked after matching.
+static THREAD_REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(?:\b([\w.-]+/[\w.-]+)#(\d+)|(?:\b([\w.-]+/[\w.-]+)/)?(?:issues|pull)/(\d+)|#(\d{2,}))")
+        .expect("valid issue reference pattern")
+});
 
 /// Adds stable reference-based links independently of vector ranking.
 pub fn deterministic_reference_edges(
@@ -53,7 +68,9 @@ pub fn deterministic_reference_edges(
 
 /// Location of a mention, which determines the supporting-context requirement.
 enum ReferenceText<'a> {
+    /// Mentions in the title need no additional title-token overlap.
     Title(&'a str),
+    /// Later body mentions need title overlap; early byte offsets are exempt.
     Body(&'a str),
 }
 impl ReferenceText<'_> {
@@ -67,11 +84,17 @@ impl ReferenceText<'_> {
 
 /// Reference lookup context for one source discussion.
 struct ReferenceCollector<'a> {
+    /// Undirected reference weights, keyed by increasing document-index pairs.
     edges: &'a mut HashMap<(usize, usize), f64>,
+    /// Current source index in the already ordered document snapshot.
     source_index: usize,
+    /// Parent discussion number, used to reject self references.
     source_number: u64,
+    /// Selected owner/name; qualified mentions of another repository are ignored.
     repository: &'a str,
+    /// Available target numbers mapped to the same snapshot indexes.
     by_number: &'a HashMap<u64, usize>,
+    /// Title token sets indexed identically to source and target documents.
     titles: &'a [HashSet<String>],
 }
 impl ReferenceCollector<'_> {
