@@ -1,26 +1,33 @@
-//! # Manage asynchronous archive requests
+//! # Dispatch explicit terminal requests
 //!
-//! `QueryAction` identifies a requested read or local operation. `QueryTasks` owns in-flight tasks
-//! and their lifecycle, including cancellation on drop. `start_query` dispatches work and sends a
-//! typed result back to the app.
+//! [`requests::QueryAction`] carries keyboard and navigation intent into [`start_query`]. Read
+//! starters begin the appropriate panel generation before spawning archive-only work. Their typed
+//! replies return through [`QueryMessage`]; the app's panel owners reject stale generations and
+//! decide which cache or selection remains visible.
 //!
-//! `reads` contains local inspection calls and `operations` contains actions that change local
-//! archive state. The event loop stays responsive while a query runs, and the app remains the
-//! owner of how results affect navigation.
+//! `reads` prepares pending state and sends read results. `failures` selects bounded recent ledger
+//! candidates, isolating unreadable run details. `operations` admits one writer through the app's
+//! operation display, spawns its execution, and forwards progress and completion. `action` owns
+//! request construction and engine mutation semantics, including provider-backed acquisition and
+//! local maintainer decisions.
+//!
+//! [`tasks::QueryTasks`] keeps task handles and cooperative writer cancellation together. The
+//! terminal event loop awaits orderly shutdown; read completion, writer status, and navigation
+//! remain separate concerns. This module opens no archive and creates no runtime: callers supply
+//! the already opened archive, provider clients, active runtime, and UI result channel.
 
 use std::sync::Arc;
 
 mod action;
+mod failures;
 mod operations;
 mod reads;
 pub mod requests;
 pub mod tasks;
 
 use forgesync_core::identity::GitHubHost;
-use forgesync_engine::runs::{list_runs, show_run};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
-use forgesync_store::runs::{RunStatus, SyncJobStatus};
 use operations::start_operation;
 use reads::{
     ThreadRead, start_cluster_detail, start_clusters, start_coverage, start_detail, start_failures,
@@ -30,13 +37,9 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::App;
-use crate::app::failures::RunFailureSummary;
 use crate::app::messages::QueryMessage;
 use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
-
-const RUNS_TO_SCAN: u32 = 50;
-const RUNS_TO_DETAIL: usize = 20;
 
 /// Routes a UI action to a background read or operation. Each completion returns through the
 /// message channel so rendering and key handling stay responsive.
@@ -90,53 +93,4 @@ pub fn start_query(
             start_operation(action, app, archive, clients, runtime, sender, tasks);
         }
     }
-}
-
-/// Loads recent non-complete runs and their unresolved failure summaries.
-async fn load_failures(archive: &Archive) -> Result<Vec<RunFailureSummary>, String> {
-    let runs = list_runs(archive, RUNS_TO_SCAN)
-        .await
-        .map_err(|error| error.to_string())?;
-    let mut summaries = Vec::new();
-    for run in runs
-        .into_iter()
-        .filter(|run| run.status != RunStatus::Complete)
-        .take(RUNS_TO_DETAIL)
-    {
-        let detail = match show_run(archive, run.id).await {
-            Ok(detail) => detail,
-            Err(error) => {
-                summaries.push(RunFailureSummary {
-                    id: run.id.get(),
-                    status: run.status,
-                    entries: vec![format!("Could not load run detail: {error}")],
-                });
-                continue;
-            }
-        };
-        let mut entries: Vec<String> = detail
-            .jobs
-            .iter()
-            .filter(|job| job.status != SyncJobStatus::Complete)
-            .map(|job| {
-                format!(
-                    "{} / {:?}: {:?}",
-                    job.repository.full_name, job.family, job.status
-                )
-            })
-            .collect();
-        entries.extend(
-            detail
-                .failures
-                .iter()
-                .filter(|failure| failure.resolved_at.is_none())
-                .map(|failure| format!("{}: {}", failure.target, failure.failure.message)),
-        );
-        summaries.push(RunFailureSummary {
-            id: detail.run.id.get(),
-            status: detail.run.status,
-            entries,
-        });
-    }
-    Ok(summaries)
 }

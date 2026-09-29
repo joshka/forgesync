@@ -1,6 +1,6 @@
 //! # Fixed domain data for interactive transition tests
 //!
-//! These constructors supply complete repository and cluster values for app and cluster-state
+//! These constructors supply complete repository, cluster, and run values for app and read-state
 //! scenarios. They contain static data rather than behavior: no loops, conditional setup, provider
 //! access, or terminal operations are hidden behind the fixture names.
 //!
@@ -81,5 +81,20 @@ pub fn sample_cluster_detail() -> ClusterDetail {
             state: ClusterMemberState::Active,
             score_to_representative: Some(1.0),
         }],
+    }
+}
+
+/// One unfinished run used to test ledger selection and failure presentation without database I/O.
+pub fn sample_run_record() -> forgesync_store::runs::RunRecord {
+    let timestamp = UtcTimestamp::parse("2026-09-29T00:00:00Z").expect("timestamp");
+    forgesync_store::runs::RunRecord {
+        id: forgesync_core::identity::RunId::new(23).expect("run identity"),
+        parent_id: None,
+        status: forgesync_store::runs::RunStatus::Failed,
+        started_at: timestamp,
+        updated_at: timestamp,
+        finished_at: Some(timestamp),
+        scope: Default::default(),
+        outcome: None,
     }
 }

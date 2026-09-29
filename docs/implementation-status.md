@@ -1070,3 +1070,14 @@ local versus provider-backed effects. Dismiss/restore and exclude/include are se
 instead of boolean-selected commands. All callers import the request owner directly. Two nearby
 triage tests assert restore and include requests, including the exact member selector. All fifty-six
 TUI tests and its doctest pass; focused Clippy and strict public/private Rustdoc also pass.
+
+## Continued maintenance: failure-ledger presentation
+
+The query root now dispatches requests without carrying run-history scanning or string formatting.
+`query/failures` owns the bounded recent-run selection and isolated detail failure projection.
+`RunFailureSummary::from` owns its detailed-ledger conversion, documenting job/failure ordering,
+omission of completed/resolved rows, and the separation from retry eligibility. Static ledger tests
+cover selection order, the twenty-detail bound, unreadable-detail identity, and presentation rows.
+
+All sixty-one TUI tests and its doctest pass. Focused Clippy with warnings denied, strict
+public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.

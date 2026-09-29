@@ -64,8 +64,10 @@ separate, and the applied repository is retained across reordered or empty refre
 index-based targeting risk while keeping stale replies and failed refreshes isolated. A documented
 idle/running writer display replaces independent busy, label, and progress fields; it cannot retain
 active progress after completion. Discussion list/detail, coverage, failed-run, and cluster
-list/detail now have documented owners with direct transition tests. Query task/request ownership
-still needs review. Renderer dependencies now name their defining modules directly.
+list/detail now have documented owners with direct transition tests. Query tasks own cancellation
+and shutdown draining. Query requests document each intent; local cluster transitions use separate
+named variants rather than boolean-selected commands. Renderer dependencies name their defining
+modules directly. Failure summary selection and ledger projection have dedicated owners and tests.
 
 Discussion replies now bind generation, offset, and page together. The detail pane uses explicit
 empty/loading/ready/failed states and invalidates old selections before beginning another read.
@@ -140,8 +142,9 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
   now use `mod.rs`; Cargo integration-test entry files remain a separate discovery contract.
 - Document remaining private representations, policy constants, and TUI state fields with their
   contracts; inspect short module introductions for missing relationships rather than adding words.
-- Review CLI sync preparation, TUI query task/request ownership, refresh cluster traversal,
-  embedding batch scheduling, and sync run coordination against the dispatch and state-owner rules.
+- Review CLI sync preparation, TUI read scheduling and progress forwarding, refresh cluster
+  traversal, embedding batch scheduling, and sync run coordination against the dispatch and
+  state-owner rules.
 - Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
   expose named cases without loops. Review catalog-validation loops separately: checking a complete
   fixture catalog is a different contract from selecting multiple behavioral scenarios.

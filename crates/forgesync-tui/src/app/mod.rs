@@ -119,4 +119,4 @@ fn move_index(current: usize, max: usize, direction: i8) -> usize {
 mod tests;
 
 #[cfg(test)]
-mod test_data;
+pub mod test_data;

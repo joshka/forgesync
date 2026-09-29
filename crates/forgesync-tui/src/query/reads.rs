@@ -24,7 +24,7 @@ use tokio::sync::mpsc::Sender;
 use crate::app::App;
 use crate::app::messages::QueryMessage;
 use crate::app::threads::ThreadReply;
-use crate::query::load_failures;
+use crate::query::failures::recent_failures;
 use crate::query::tasks::QueryTasks;
 
 /// Starts an archive-only repository read and tags its result with the current generation.
@@ -168,7 +168,7 @@ pub fn start_failures(
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {
-        let result = load_failures(&archive).await;
+        let result = recent_failures(&archive).await;
         let _ = sender
             .send(QueryMessage::Failures { generation, result })
             .await;

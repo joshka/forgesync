@@ -3,6 +3,9 @@
 //! [`FailureList`] owns loaded run summaries, the highlighted row, and its independent refresh
 //! generation. [`RunFailureSummary`] is the safe presentation projection supplied by query tasks;
 //! the engine and store retain the full job/failure ledger and determine retry eligibility.
+//! Its `From<RunDetail>` conversion formats unfinished jobs and unresolved failure rows in ledger
+//! order. Query failure selection supplies bounded recent candidates and isolates unreadable
+//! details.
 //!
 //! Beginning a refresh retains rows while clearing the previous error. Success replaces rows and
 //! clamps selection to their bounds. Failure retains the prior rows but exposes a safe error;
@@ -12,7 +15,7 @@
 //! This owner only manages read state and cursor validity. Query task ownership still controls
 //! acquisition, cancellation, and refreshing the archive after a writer completes.
 
-use forgesync_store::runs::RunStatus;
+use forgesync_store::runs::{RunDetail, RunStatus, SyncJobStatus};
 
 /// Loaded retry choices and the pending read that may replace them.
 #[derive(Debug, Default)]
@@ -38,6 +41,39 @@ pub struct RunFailureSummary {
     pub status: RunStatus,
     /// Safe human-readable job and failure summaries; never raw provider payloads.
     pub entries: Vec<String>,
+}
+
+impl From<RunDetail> for RunFailureSummary {
+    /// Formats unfinished jobs followed by unresolved ledger failures, retaining ledger order.
+    ///
+    /// Completed jobs and resolved failures are omitted. A job and its failure row may both be
+    /// shown because they explain different evidence; entries do not determine retry eligibility.
+    /// The engine reads the full ledger when a retry is requested.
+    fn from(detail: RunDetail) -> Self {
+        let mut entries: Vec<String> = detail
+            .jobs
+            .iter()
+            .filter(|job| job.status != SyncJobStatus::Complete)
+            .map(|job| {
+                format!(
+                    "{} / {:?}: {:?}",
+                    job.repository.full_name, job.family, job.status
+                )
+            })
+            .collect();
+        entries.extend(
+            detail
+                .failures
+                .iter()
+                .filter(|failure| failure.resolved_at.is_none())
+                .map(|failure| format!("{}: {}", failure.target, failure.failure.message)),
+        );
+        Self {
+            id: detail.run.id.get(),
+            status: detail.run.status,
+            entries,
+        }
+    }
 }
 
 impl FailureList {
@@ -82,3 +118,6 @@ impl FailureList {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod summary_tests;
