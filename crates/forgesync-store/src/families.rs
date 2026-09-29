@@ -317,7 +317,8 @@ impl Archive {
         Ok(())
     }
 
-    /// Commits a complete membership snapshot or records an incomplete attempt without replacing it.
+    /// Commits a complete membership snapshot or records an incomplete attempt without replacing
+    /// it.
     pub async fn finish_child_family_observation(
         &self,
         thread: &ThreadId,

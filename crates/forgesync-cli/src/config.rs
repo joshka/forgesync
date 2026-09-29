@@ -208,8 +208,9 @@ fn is_loopback_host(host: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
     use forgesync_core::DocumentRecipe;
+
+    use super::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
 
     #[test]
     fn config_defaults_to_discussion_enriched_documents() {

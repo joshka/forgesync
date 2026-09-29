@@ -652,12 +652,11 @@ mod tests {
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    use crate::{GitHubClient, GitHubClientConfig};
-
     use super::{
         fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
         fetch_repository, fetch_thread_page,
     };
+    use crate::{GitHubClient, GitHubClientConfig};
 
     fn fixture(name: &str) -> serde_json::Value {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))

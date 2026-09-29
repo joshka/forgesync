@@ -5,6 +5,13 @@ local implementation plan. Do not add deferred cloud/portable distribution, code
 summaries, metrics, analytics, legacy import, full revision history, old CLI compatibility, or
 GitHub write-back as dependencies of the selected workflows.
 
+Read [documentation guidance](docs/documentation.md), [Rust conventions](docs/rust-conventions.md),
+and the [module map](docs/architecture.md) when changing their respective surfaces. Apply the
+[Rust API Guidelines checklist](https://rust-lang.github.io/api-guidelines/checklist.html),
+[Microsoft's Pragmatic Rust Guidelines](https://microsoft.github.io/rust-guidelines/), and
+[epage's Rust style guide](https://epage.github.io/dev/rust-style/) where they improve this app's
+reader locality, correctness, and API clarity. Local rules resolve conflicting layout preferences.
+
 ## Boundaries
 
 - Core owns domain identities, normalized content, observations, coverage, and outcomes.
@@ -47,7 +54,7 @@ GitHub write-back as dependencies of the selected workflows.
   the next task.
 - Add dependencies only when the current selected feature needs them. Keep deferred crates and
   features out of the workspace and normal build.
-- Run focused tests, then applicable workspace gates: cargo fmt --all -- --check,
+- Run focused tests, then applicable workspace gates: cargo +nightly fmt --all -- --check,
   cargo clippy --workspace --all-targets --all-features -- -D warnings,
   cargo test --workspace --all-features --locked, cargo build -p forgesync-cli
   --no-default-features --locked, and cargo doc --workspace --no-deps --all-features.

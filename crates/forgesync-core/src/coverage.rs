@@ -163,7 +163,8 @@ impl Coverage {
         &self.state
     }
 
-    /// Returns whether this family's evidence predates its current parent or interpretation context.
+    /// Returns whether this family's evidence predates its current parent or interpretation
+    /// context.
     pub fn is_stale(&self) -> bool {
         self.stale
     }
@@ -177,9 +178,8 @@ fn is_not_stale(stale: &bool) -> bool {
 mod tests {
     use serde_json::json;
 
-    use crate::{ObservationSequence, UtcTimestamp};
-
     use super::{Coverage, CoverageState, EvidenceFamily};
+    use crate::{ObservationSequence, UtcTimestamp};
 
     #[test]
     fn complete_empty_coverage_is_distinct_from_missing_coverage() {

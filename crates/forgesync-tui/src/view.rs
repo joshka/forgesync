@@ -651,9 +651,8 @@ mod tests {
     use ratatui::backend::TestBackend;
     use ratatui::layout::Rect;
 
-    use crate::app::{App, Screen};
-
     use super::draw;
+    use crate::app::{App, Screen};
 
     #[test]
     fn browser_renders_in_small_and_large_terminal_sizes() {

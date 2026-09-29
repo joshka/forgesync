@@ -1,4 +1,6 @@
-use std::{env, error::Error, path::PathBuf};
+use std::env;
+use std::error::Error;
+use std::path::PathBuf;
 
 use forgesync_engine::{SearchMode, SearchRequest, ThreadFilters, search_threads};
 use forgesync_store::Archive;

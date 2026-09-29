@@ -733,9 +733,8 @@ mod tests {
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
-    use crate::{ApiFailureKind, GitHubClient, GitHubClientConfig, GitHubError, GitHubToken};
-
     use super::{GitHubClientConfig as ClientConfig, RetryPolicy};
+    use crate::{ApiFailureKind, GitHubClient, GitHubClientConfig, GitHubError, GitHubToken};
 
     #[derive(Debug, Deserialize, Eq, PartialEq)]
     struct Message {

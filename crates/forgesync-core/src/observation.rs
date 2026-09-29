@@ -126,9 +126,8 @@ impl<T> Observation<T> {
 mod tests {
     use serde_json::json;
 
-    use crate::{EvidenceFamily, IncompleteReason, ObservationSequence, UtcTimestamp};
-
     use super::{CollectionCompleteness, Observation, SourceClock};
+    use crate::{EvidenceFamily, IncompleteReason, ObservationSequence, UtcTimestamp};
 
     #[test]
     fn source_clock_keeps_missing_valid_and_invalid_states_distinct() {

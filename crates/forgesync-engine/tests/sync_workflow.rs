@@ -22,9 +22,8 @@ use forgesync_store::{Archive, SyncJobStatus, ThreadQuery};
 use serde_json::json;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
-use wiremock::Respond;
 use wiremock::matchers::{body_string_contains, method, path, query_param};
-use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 

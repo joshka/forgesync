@@ -420,9 +420,8 @@ mod tests {
     use wiremock::matchers::{body_string_contains, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    use crate::{GitHubClient, GitHubClientConfig};
-
     use super::fetch_review_thread_page;
+    use crate::{GitHubClient, GitHubClientConfig};
 
     fn scope() -> (Repository, forgesync_core::ThreadId) {
         let repository_id = RepositoryId::new(

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use forgesync_core::{
     CollectionCompleteness, Coverage, CoverageState, Discussion, EvidenceFamily, Observation,
     ObservationSequence, ProviderId, Repository, SourceClock, SourceState, ThreadId, ThreadKind,
@@ -5,7 +7,6 @@ use forgesync_core::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqliteConnection};
-use std::cmp::Ordering;
 
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::ordering::compare_observation_order;

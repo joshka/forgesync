@@ -6,7 +6,8 @@ use forgesync_core::{
     PullRequestMetadata, Repository, RepositoryId, Review, ReviewThread, ReviewThreadId, ThreadId,
     ThreadKind, ThreadReference, UtcTimestamp,
 };
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::{Archive, ArchiveDiagnostics, ArchiveInfo, StagedItem, StoreError};

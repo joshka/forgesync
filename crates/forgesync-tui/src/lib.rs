@@ -11,16 +11,15 @@ use std::io::{self, IsTerminal};
 use std::sync::Arc;
 use std::time::Duration;
 
+use app::{App, QueryMessage};
 use crossterm::event::{self, Event, KeyEventKind};
 use forgesync_core::GitHubHost;
 use forgesync_github::GitHubClient;
 use forgesync_store::Archive;
+use query::{QueryTasks, start_query};
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
-
-use app::{App, QueryMessage};
-use query::{QueryTasks, start_query};
 
 /// Runs the interactive archive browser and closes its writable archive handle on exit.
 pub async fn run(

@@ -29,15 +29,16 @@ fn help_lists_global_options_and_no_deferred_commands() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("help is UTF-8");
-    for option in ["--archive", "--config", "--json", "--color", "--log-format"] {
-        assert!(stdout.contains(option), "help must contain {option}");
-    }
-    for deferred in ["portable", "cloud", "summarize", "code index", "serve"] {
-        assert!(
-            !stdout.contains(deferred),
-            "help must not advertise {deferred}"
-        );
-    }
+    assert!(stdout.contains("--archive"));
+    assert!(stdout.contains("--config"));
+    assert!(stdout.contains("--json"));
+    assert!(stdout.contains("--color"));
+    assert!(stdout.contains("--log-format"));
+    assert!(!stdout.contains("portable"));
+    assert!(!stdout.contains("cloud"));
+    assert!(!stdout.contains("summarize"));
+    assert!(!stdout.contains("code index"));
+    assert!(!stdout.contains("serve"));
     assert!(stdout.contains("search"));
     assert!(stdout.contains("thread"));
     assert!(stdout.contains("run"));
