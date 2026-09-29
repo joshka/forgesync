@@ -13,8 +13,8 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use args::{
-    ArchiveCommand, CliArgs, ClusterCommand, Command, RunCommand, RunFamilyArg, SearchModeArg,
-    SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
+    ArchiveCommand, CliArgs, ClusterCommand, Command, RefreshAnalysisArg, RunCommand, RunFamilyArg,
+    SearchModeArg, SyncIncludeArg, SyncThreadStateArg, ThreadCommand, ThreadKindArg, ThreadSortArg,
     ThreadStateArg,
 };
 use clap::{CommandFactory, Parser, error::ErrorKind};
@@ -25,12 +25,14 @@ use forgesync_core::{
 };
 use forgesync_engine::{
     ClusterBuildReport, ClusterBuildRequest, ClusterDetail, ClusterListRequest, ClusterOptions,
-    ClusterPage, EmbeddingClient, EmbeddingReport, EngineError, RepositorySelector, RetryReport,
-    SearchMode, SearchRequest, SearchResultPage, SyncProgress, SyncReport, SyncRequest,
-    SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest, ThreadPage, ThreadSelector,
-    ThreadSort, ThreadStateFilter, archive_status, build_clusters, dismiss_cluster,
-    embed_documents, exclude_cluster_member, include_cluster_member, list_clusters, list_runs,
-    list_threads, plan_run_retry, restore_cluster, retrieve_threads, run_retry,
+    ClusterPage, EmbeddingClient, EmbeddingReport, EmbeddingServiceIdentity, EngineError,
+    RefreshAnalysisStage, RefreshDocumentFailure, RefreshReport, RefreshRequest,
+    RefreshStageFailure, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
+    RepositorySelector, RetryReport, SearchMode, SearchRequest, SearchResultPage, SyncProgress,
+    SyncReport, SyncRequest, SyncThreadScope, ThreadDetail, ThreadFilters, ThreadListRequest,
+    ThreadPage, ThreadSort, ThreadStateFilter, archive_status, build_clusters, dismiss_cluster,
+    embed_repositories, exclude_cluster_member, include_cluster_member, list_clusters, list_runs,
+    list_threads, plan_run_retry, refresh, restore_cluster, retrieve_threads, run_retry,
     set_canonical_cluster_member, show_cluster, show_run, show_thread, sync_repositories,
 };
 use forgesync_github::{GitHubClient, GitHubClientConfig};
@@ -278,6 +280,39 @@ async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode {
             interrupt_task.abort();
             result
         }
+        Command::Refresh {
+            repositories,
+            no_sync,
+            state,
+            with,
+            analyze,
+            force,
+        } => {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let interrupt_cancellation = cancellation.clone();
+            let interrupt_task = tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    interrupt_cancellation.cancel();
+                }
+            });
+            let result = refresh_command(RefreshCommandRequest {
+                archive_path: &path,
+                repositories,
+                no_sync,
+                state,
+                with,
+                analyze,
+                force,
+                embedding_service: config.embeddings,
+                recipe: config.documents.recipe,
+                json: args.json,
+                verbose: args.verbose,
+                cancellation: &cancellation,
+            })
+            .await;
+            interrupt_task.abort();
+            result
+        }
         Command::Embed {
             repositories,
             force,
@@ -517,85 +552,13 @@ async fn sync_command(
     } else {
         request.repositories.clone()
     };
-    let mut hosts = selectors
-        .iter()
-        .map(|selector| selector.host().clone())
-        .collect::<Vec<_>>();
-    hosts.sort();
-    hosts.dedup();
-
-    let mut clients = HashMap::with_capacity(hosts.len());
-    for host in hosts {
-        let token = match crate::credentials::resolve_github_token(
-            &crate::credentials::GitHubCredentialSettings::default(),
-            &host,
-            cancellation,
-        )
-        .await
-        {
-            Ok(token) => Some(token),
-            Err(
-                crate::credentials::CredentialError::NoCredential
-                | crate::credentials::CredentialError::CommandUnavailable
-                | crate::credentials::CredentialError::CommandFailed
-                | crate::credentials::CredentialError::TimedOut,
-            ) => {
-                if verbose > 0 {
-                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
-                }
-                None
-            }
-            Err(crate::credentials::CredentialError::Cancelled) => {
-                archive.close().await;
-                return render_result(
-                    json,
-                    "sync",
-                    &SyncFailure {
-                        code: "operation_cancelled",
-                        message: "sync was cancelled before acquisition began".to_owned(),
-                    },
-                    |failure| failure.message.clone(),
-                    ExitCode::from(130),
-                );
-            }
-            Err(error) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "sync",
-                    "github_credential_invalid",
-                    &error.to_string(),
-                );
-            }
-        };
-        let base_url = github_api_base_url(&host);
-        let config = match url::Url::parse(&base_url) {
-            Ok(url) => GitHubClientConfig::new(url),
-            Err(_) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "sync",
-                    "github_api_url_invalid",
-                    "could not build GitHub API URL",
-                );
-            }
-        };
-        match GitHubClient::new(config, token) {
-            Ok(client) => {
-                clients.insert(host, client);
-            }
-            Err(error) => {
-                archive.close().await;
-                return render_error(
-                    json,
-                    "sync",
-                    "github_client_initialization_failed",
-                    &error.to_string(),
-                );
-            }
+    let clients = match github_clients_for_selectors(&selectors, verbose, cancellation).await {
+        Ok(clients) => clients,
+        Err(error) => {
+            archive.close().await;
+            return render_github_client_setup_error(json, "sync", error);
         }
-    }
+    };
 
     let (progress_sender, mut progress_receiver) = tokio::sync::mpsc::channel::<SyncProgress>(4);
     let progress_task = if verbose > 0 && !json {
@@ -639,6 +602,234 @@ async fn sync_command(
         }
         Err(error) => render_engine_error(json, "sync", error),
     }
+}
+
+struct RefreshCommandRequest<'a> {
+    archive_path: &'a std::path::Path,
+    repositories: Vec<RepositorySelector>,
+    no_sync: bool,
+    state: Option<SyncThreadStateArg>,
+    with: Vec<SyncIncludeArg>,
+    analyze: Vec<RefreshAnalysisArg>,
+    force: bool,
+    embedding_service: crate::config::EmbeddingServiceConfig,
+    recipe: DocumentRecipe,
+    json: bool,
+    verbose: u8,
+    cancellation: &'a tokio_util::sync::CancellationToken,
+}
+
+async fn refresh_command(request: RefreshCommandRequest<'_>) -> ExitCode {
+    let RefreshCommandRequest {
+        archive_path,
+        repositories,
+        no_sync,
+        state,
+        with,
+        analyze,
+        force,
+        embedding_service,
+        recipe,
+        json,
+        verbose,
+        cancellation,
+    } = request;
+    if no_sync && analyze.is_empty() {
+        return usage_error("refresh requires sync or at least one --analyze stage");
+    }
+    if analyze
+        .iter()
+        .enumerate()
+        .any(|(index, stage)| analyze[..index].contains(stage))
+    {
+        return usage_error("refresh analysis stages must be selected only once");
+    }
+    if no_sync && (state.is_some() || !with.is_empty()) {
+        return usage_error("--state and --with require the refresh sync stage");
+    }
+
+    let archive = match Archive::open_read_write(archive_path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "refresh", error),
+    };
+    let clients = if no_sync {
+        HashMap::new()
+    } else {
+        match github_clients_for_selectors(&repositories, verbose, cancellation).await {
+            Ok(clients) => clients,
+            Err(error) => {
+                archive.close().await;
+                return render_github_client_setup_error(json, "refresh", error);
+            }
+        }
+    };
+
+    let analysis = analyze
+        .into_iter()
+        .map(|stage| match stage {
+            RefreshAnalysisArg::Embeddings => RefreshAnalysisStage::Embeddings,
+            RefreshAnalysisArg::Clusters => RefreshAnalysisStage::Clusters,
+        })
+        .collect::<Vec<_>>();
+    let wants_embeddings = analysis.contains(&RefreshAnalysisStage::Embeddings);
+    let wants_clusters = analysis.contains(&RefreshAnalysisStage::Clusters);
+    let embedding_client = if wants_embeddings {
+        optional_embedding_client(&embedding_service)
+    } else {
+        None
+    };
+    let embedding_identity = wants_clusters
+        .then(|| configured_embedding_identity(&embedding_service))
+        .flatten();
+    let sync = (!no_sync).then_some(RefreshSyncOptions {
+        scope: match state {
+            None => SyncThreadScope::Default,
+            Some(SyncThreadStateArg::Open) => SyncThreadScope::Open,
+            Some(SyncThreadStateArg::Closed) => SyncThreadScope::Closed,
+            Some(SyncThreadStateArg::All) => SyncThreadScope::All,
+        },
+        include_comments: with.contains(&SyncIncludeArg::Comments),
+        include_reviews: with.contains(&SyncIncludeArg::Reviews),
+        include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
+    });
+    if verbose > 0 && !json {
+        eprintln!("forgesync: refreshing {}", repositories.len());
+    }
+    let request = RefreshRequest {
+        repositories,
+        sync,
+        analysis,
+        recipe,
+        embedding_identity,
+        force_embeddings: force,
+        cluster_options: ClusterOptions::default(),
+    };
+    let result = refresh(
+        &archive,
+        &clients,
+        embedding_client.as_ref(),
+        &request,
+        cancellation,
+        None,
+    )
+    .await;
+    archive.close().await;
+    match result {
+        Ok(report) => {
+            let exit_status = outcome_exit_code(&report.outcome);
+            render_result(json, "refresh", &report, refresh_summary, exit_status)
+        }
+        Err(error) => render_engine_error(json, "refresh", error),
+    }
+}
+
+fn optional_embedding_client(
+    service: &crate::config::EmbeddingServiceConfig,
+) -> Option<EmbeddingClient> {
+    service.validate().ok()?;
+    let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
+    let config = service.client_config(api_key).ok()?;
+    EmbeddingClient::new(config).ok()
+}
+
+fn configured_embedding_identity(
+    service: &crate::config::EmbeddingServiceConfig,
+) -> Option<EmbeddingServiceIdentity> {
+    service.validate().ok()?;
+    let endpoint = url::Url::parse(&service.endpoint).ok()?;
+    Some(EmbeddingServiceIdentity {
+        endpoint: endpoint.as_str().trim_end_matches('/').to_owned(),
+        model: service.model.trim().to_owned(),
+    })
+}
+
+async fn github_clients_for_selectors(
+    selectors: &[RepositorySelector],
+    verbose: u8,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> Result<HashMap<GitHubHost, GitHubClient>, GitHubClientSetupError> {
+    let mut hosts = selectors
+        .iter()
+        .map(|selector| selector.host().clone())
+        .collect::<Vec<_>>();
+    hosts.sort();
+    hosts.dedup();
+
+    let mut clients = HashMap::with_capacity(hosts.len());
+    for host in hosts {
+        let token = match crate::credentials::resolve_github_token(
+            &crate::credentials::GitHubCredentialSettings::default(),
+            &host,
+            cancellation,
+        )
+        .await
+        {
+            Ok(token) => Some(token),
+            Err(
+                crate::credentials::CredentialError::NoCredential
+                | crate::credentials::CredentialError::CommandUnavailable
+                | crate::credentials::CredentialError::CommandFailed
+                | crate::credentials::CredentialError::TimedOut,
+            ) => {
+                if verbose > 0 {
+                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
+                }
+                None
+            }
+            Err(crate::credentials::CredentialError::Cancelled) => {
+                return Err(GitHubClientSetupError::Cancelled);
+            }
+            Err(error) => return Err(GitHubClientSetupError::Credential(error.to_string())),
+        };
+        let base_url = github_api_base_url(&host);
+        let config = match url::Url::parse(&base_url) {
+            Ok(url) => GitHubClientConfig::new(url),
+            Err(_) => return Err(GitHubClientSetupError::InvalidApiUrl),
+        };
+        match GitHubClient::new(config, token) {
+            Ok(client) => {
+                clients.insert(host, client);
+            }
+            Err(error) => return Err(GitHubClientSetupError::Initialization(error.to_string())),
+        }
+    }
+    Ok(clients)
+}
+
+#[derive(Debug)]
+enum GitHubClientSetupError {
+    Cancelled,
+    Credential(String),
+    InvalidApiUrl,
+    Initialization(String),
+}
+
+fn render_github_client_setup_error(
+    json: bool,
+    command: &str,
+    error: GitHubClientSetupError,
+) -> ExitCode {
+    let (code, message, status) = match error {
+        GitHubClientSetupError::Cancelled => (
+            "operation_cancelled",
+            "operation was cancelled before GitHub acquisition began".to_owned(),
+            ExitCode::from(130),
+        ),
+        GitHubClientSetupError::Credential(message) => {
+            ("github_credential_invalid", message, ExitCode::FAILURE)
+        }
+        GitHubClientSetupError::InvalidApiUrl => (
+            "github_api_url_invalid",
+            "could not build GitHub API URL".to_owned(),
+            ExitCode::FAILURE,
+        ),
+        GitHubClientSetupError::Initialization(message) => (
+            "github_client_initialization_failed",
+            message,
+            ExitCode::FAILURE,
+        ),
+    };
+    render_error_with_status(json, command, code, &message, status)
 }
 
 struct EmbedCommandRequest<'a> {
@@ -707,75 +898,34 @@ async fn embed_command(request: EmbedCommandRequest<'_>) -> ExitCode {
         .into_iter()
         .collect::<Vec<_>>();
     repositories.sort_by_key(RepositorySelector::as_url);
-    let mut report = EmbeddingReport::default();
-
-    for repository in &repositories {
-        let mut offset = 0u64;
-        loop {
-            let page = match list_threads(
-                &archive,
-                &ThreadListRequest {
-                    filters: ThreadFilters {
-                        repositories: vec![repository.clone()],
-                        kind: None,
-                        state: ThreadStateFilter::All,
-                        sort: Some(ThreadSort::Updated),
-                        limit: 1000,
-                        offset,
-                    },
-                },
-            )
-            .await
-            {
-                Ok(page) => page,
-                Err(error) => {
-                    archive.close().await;
-                    return render_engine_error(json, "embed", error);
-                }
-            };
-            let next_offset = page.next_offset;
-            let mut documents = Vec::with_capacity(page.items.len());
-            for thread in page.items {
-                let selector = ThreadSelector::new(
-                    RepositorySelector::from_repository(&thread.repository),
-                    thread.discussion.id.number(),
-                );
-                if verbose > 0 && !json {
-                    eprintln!(
-                        "forgesync: building {}#{} document",
-                        thread.repository.full_name,
-                        thread.discussion.id.number().get()
-                    );
-                }
-                match forgesync_engine::materialize_thread_document(&archive, &selector, recipe)
-                    .await
-                {
-                    Ok(built) => documents.push(built.document),
-                    Err(error) => {
-                        archive.close().await;
-                        return render_engine_error(json, "embed", error);
-                    }
-                }
-            }
-            if !documents.is_empty() {
-                match embed_documents(&archive, &client, &documents, force, cancellation).await {
-                    Ok(page_report) => add_embedding_report(&mut report, page_report),
-                    Err(error) => {
-                        archive.close().await;
-                        return render_engine_error(json, "embed", error);
-                    }
-                }
-            }
-            let Some(next_offset) = next_offset else {
-                break;
-            };
-            offset = next_offset;
-        }
-        if report.cancelled {
-            break;
-        }
+    if verbose > 0 && !json {
+        eprintln!(
+            "forgesync: embedding discussions in {} repository(s)",
+            repositories.len()
+        );
     }
+    let stage = embed_repositories(
+        &archive,
+        &repositories,
+        &client,
+        recipe,
+        force,
+        cancellation,
+    )
+    .await;
     archive.close().await;
+    let Some(stage_report) = stage.report else {
+        let failure = stage.failure.unwrap_or(RefreshStageFailure {
+            code: "embedding_stage_failed",
+            message: "embedding stage did not produce a report".to_owned(),
+        });
+        let status = if failure.code == "operation_cancelled" {
+            ExitCode::from(130)
+        } else {
+            ExitCode::FAILURE
+        };
+        return render_error_with_status(json, "embed", failure.code, &failure.message, status);
+    };
 
     let output = EmbeddingOutput {
         repositories: repositories
@@ -786,16 +936,17 @@ async fn embed_command(request: EmbedCommandRequest<'_>) -> ExitCode {
         endpoint: client.endpoint_identity().to_owned(),
         model: client.model().to_owned(),
         dimensions: service.dimensions,
-        report,
+        status: stage.status,
+        report: stage_report.embeddings,
+        documents_materialized: stage_report.documents_materialized,
+        document_failures: stage_report.document_failures,
+        failure: stage.failure,
     };
-    let exit_status = if output.report.cancelled {
-        ExitCode::from(130)
-    } else if output.report.failed_batches.is_empty() {
-        ExitCode::SUCCESS
-    } else if output.report.chunks_embedded > 0 || output.report.chunks_skipped > 0 {
-        ExitCode::from(3)
-    } else {
-        ExitCode::FAILURE
+    let exit_status = match output.status {
+        RefreshStageStatus::Complete => ExitCode::SUCCESS,
+        RefreshStageStatus::Partial | RefreshStageStatus::Deferred => ExitCode::from(3),
+        RefreshStageStatus::Interrupted => ExitCode::from(130),
+        RefreshStageStatus::Failed => ExitCode::FAILURE,
     };
     render_result(json, "embed", &output, embedding_summary, exit_status)
 }
@@ -1000,15 +1151,6 @@ where
     }
 }
 
-fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
-    total.documents = total.documents.saturating_add(page.documents);
-    total.chunks_selected = total.chunks_selected.saturating_add(page.chunks_selected);
-    total.chunks_embedded = total.chunks_embedded.saturating_add(page.chunks_embedded);
-    total.chunks_skipped = total.chunks_skipped.saturating_add(page.chunks_skipped);
-    total.failed_batches.extend(page.failed_batches);
-    total.cancelled |= page.cancelled;
-}
-
 async fn retry_command(
     archive_path: &std::path::Path,
     run_id: RunId,
@@ -1198,6 +1340,124 @@ fn sync_summary(report: &SyncReport) -> String {
     )
 }
 
+fn refresh_summary(report: &RefreshReport) -> String {
+    let mut parts = Vec::new();
+    for selected in &report.selected {
+        let (status, detail, failure) = match selected {
+            RefreshStageKind::Sync => {
+                let Some(stage) = &report.sync else {
+                    continue;
+                };
+                let detail = stage
+                    .report
+                    .as_ref()
+                    .map(|sync| {
+                        format!(
+                            "{} repositories, {}/{} jobs complete",
+                            sync.repositories_selected, sync.completed_jobs, sync.total_jobs
+                        )
+                    })
+                    .unwrap_or_default();
+                (stage.status, detail, stage.failure.as_ref())
+            }
+            RefreshStageKind::Embeddings => {
+                let Some(stage) = &report.embeddings else {
+                    continue;
+                };
+                let detail = stage
+                    .report
+                    .as_ref()
+                    .map(|embedding| {
+                        format!(
+                            "{} documents, {} chunks embedded, {} current, {} failed batches, {} document failures",
+                            embedding.embeddings.documents,
+                            embedding.embeddings.chunks_embedded,
+                            embedding.embeddings.chunks_skipped,
+                            embedding.embeddings.failed_batches.len(),
+                            embedding.document_failures.len()
+                        )
+                    })
+                    .unwrap_or_default();
+                (stage.status, detail, stage.failure.as_ref())
+            }
+            RefreshStageKind::Clusters => {
+                let Some(stage) = &report.clusters else {
+                    continue;
+                };
+                let detail = stage
+                    .report
+                    .as_ref()
+                    .map(|repositories| {
+                        let generated = repositories
+                            .iter()
+                            .filter_map(|repository| repository.report.as_ref())
+                            .map(|cluster| cluster.generation.cluster_count)
+                            .sum::<u64>();
+                        format!(
+                            "{} repositories, {generated} generated groups",
+                            repositories.len()
+                        )
+                    })
+                    .unwrap_or_default();
+                (stage.status, detail, stage.failure.as_ref())
+            }
+        };
+        let name = refresh_stage_name(*selected);
+        let mut part = format!("{name} {}", refresh_status_name(status));
+        if !detail.is_empty() {
+            part.push_str(": ");
+            part.push_str(&detail);
+        }
+        if let Some(failure) = failure {
+            part.push_str("; ");
+            part.push_str(&failure.message);
+        }
+        parts.push(part);
+    }
+    if !report.remaining.is_empty() {
+        let remaining = report
+            .remaining
+            .iter()
+            .map(|stage| refresh_stage_name(*stage))
+            .collect::<Vec<_>>()
+            .join(", ");
+        parts.push(format!("remaining: {remaining}"));
+    }
+    format!(
+        "Refresh {}: {}",
+        refresh_status_name(refresh_report_status(report)),
+        parts.join("; ")
+    )
+}
+
+fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
+    match report.outcome {
+        OperationOutcome::Complete => RefreshStageStatus::Complete,
+        OperationOutcome::Interrupted { .. } => RefreshStageStatus::Interrupted,
+        OperationOutcome::Failed { .. } => RefreshStageStatus::Failed,
+        OperationOutcome::Deferred { .. } => RefreshStageStatus::Deferred,
+        OperationOutcome::Partial { .. } => RefreshStageStatus::Partial,
+    }
+}
+
+fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
+    match stage {
+        RefreshStageKind::Sync => "sync",
+        RefreshStageKind::Embeddings => "embeddings",
+        RefreshStageKind::Clusters => "clusters",
+    }
+}
+
+fn refresh_status_name(status: RefreshStageStatus) -> &'static str {
+    match status {
+        RefreshStageStatus::Complete => "complete",
+        RefreshStageStatus::Partial => "partial",
+        RefreshStageStatus::Failed => "failed",
+        RefreshStageStatus::Interrupted => "interrupted",
+        RefreshStageStatus::Deferred => "deferred",
+    }
+}
+
 #[derive(Serialize)]
 struct SyncFailure {
     code: &'static str,
@@ -1211,7 +1471,12 @@ struct EmbeddingOutput {
     endpoint: String,
     model: String,
     dimensions: Option<u32>,
+    status: RefreshStageStatus,
     report: EmbeddingReport,
+    documents_materialized: usize,
+    document_failures: Vec<RefreshDocumentFailure>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failure: Option<RefreshStageFailure>,
 }
 
 #[derive(Serialize)]
@@ -1221,24 +1486,35 @@ struct ClusterDecisionOutput {
 }
 
 fn embedding_summary(output: &EmbeddingOutput) -> String {
-    let state = if output.report.cancelled {
-        "cancelled"
-    } else if output.report.failed_batches.is_empty() {
-        "complete"
-    } else if output.report.chunks_embedded > 0 || output.report.chunks_skipped > 0 {
-        "partial"
-    } else {
-        "failed"
-    };
-    format!(
-        "Embedding {state}: {} documents, {} chunks embedded, {} already current, {} failed batches using {} ({})",
+    let failure = output
+        .failure
+        .as_ref()
+        .map(|failure| failure.message.as_str())
+        .or_else(|| {
+            output
+                .report
+                .failed_batches
+                .first()
+                .map(|failure| failure.message.as_str())
+        })
+        .or_else(|| {
+            output
+                .document_failures
+                .first()
+                .map(|failure| failure.message.as_str())
+        });
+    let summary = format!(
+        "Embedding {}: {} documents, {} chunks embedded, {} already current, {} failed batches, {} document failures using {} ({})",
+        refresh_status_name(output.status),
         output.report.documents,
         output.report.chunks_embedded,
         output.report.chunks_skipped,
         output.report.failed_batches.len(),
+        output.document_failures.len(),
         output.model,
         output.endpoint
-    )
+    );
+    failure.map_or(summary.clone(), |failure| format!("{summary}; {failure}"))
 }
 
 fn cluster_build_summary(report: &ClusterBuildReport) -> String {

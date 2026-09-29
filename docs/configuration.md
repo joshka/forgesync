@@ -59,6 +59,18 @@ The `embed` command accepts `--endpoint`, `--model`, `--api-key-env`, `--dimensi
 Completed vector batches are stored independently; a later run reuses matching chunks and requests
 only missing ones. Provider keys are never included in archive identity or output.
 
+## Refresh
+
+`refresh OWNER/REPO` runs the selected GitHub sync without requiring an embedding service. Analysis
+stages are opt-in with `--analyze embeddings,clusters`; `embeddings` materializes current discussion
+documents and requests missing vectors, while `clusters` uses compatible vectors already in the
+archive. Clustering does not read the API key or contact the embedding provider. Use `--no-sync` to
+run selected analysis against only the local archive.
+
+Refresh output reports each selected stage independently. A later stage failure keeps earlier
+results and lists the stages that may need another run. The embedding key is read only when
+`embeddings` is selected.
+
 ## Related-discussion clusters
 
 `cluster build OWNER/REPO` uses the configured embedding endpoint and model identity together with

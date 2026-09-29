@@ -133,6 +133,57 @@ async fn embed_empty_registered_repository_needs_no_provider_request() {
 }
 
 #[tokio::test]
+async fn refresh_can_cluster_local_archive_without_reading_a_model_key() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository_id = RepositoryId::new(
+        GitHubHost::parse("github.com").expect("host"),
+        ProviderId::new("41").expect("repository ID"),
+    );
+    archive
+        .upsert_repository(&Repository {
+            id: repository_id,
+            owner: "owner".to_owned(),
+            name: "repo".to_owned(),
+            full_name: "owner/repo".to_owned(),
+            default_branch: Some("main".to_owned()),
+            updated_at: None,
+            provider_data: ProviderData::new(),
+        })
+        .await
+        .expect("register repository");
+    archive.close().await;
+
+    let output = forgesync()
+        .args([
+            "refresh",
+            "owner/repo",
+            "--no-sync",
+            "--analyze",
+            "clusters",
+            "--archive",
+        ])
+        .arg(&path)
+        .arg("--json")
+        .env_remove("OPENAI_API_KEY")
+        .output()
+        .expect("run local cluster refresh without an API key");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).expect("refresh JSON");
+    assert_eq!(result["data"]["selected"], serde_json::json!(["clusters"]));
+    assert_eq!(result["data"]["clusters"]["status"], "complete");
+    assert!(result["data"]["embeddings"].is_null());
+    assert_eq!(result["data"]["remaining"], serde_json::json!([]));
+
+    remove_archive(&path);
+}
+
+#[tokio::test]
 async fn semantic_search_requires_current_vectors_and_fallback_is_explicit() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");

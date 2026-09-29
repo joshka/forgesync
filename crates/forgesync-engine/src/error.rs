@@ -47,6 +47,9 @@ pub enum EngineError {
     /// Sync requires either a non-empty explicit repository list or `--all`.
     #[error("sync requires repositories or --all, but not both")]
     InvalidSyncScope,
+    /// Refresh requires a repository and at least one selected stage.
+    #[error("refresh requires repositories and at least one selected stage")]
+    InvalidRefreshScope,
     /// No GitHub API client was provided for a selected host.
     #[error("no GitHub API client was configured for host {host}")]
     GitHubClientMissing {
@@ -138,6 +141,7 @@ impl EngineError {
             Self::NoRetryableWork { .. } => "run_no_retryable_work",
             Self::RetryTargetInvalid { .. } => "run_retry_target_invalid",
             Self::InvalidSyncScope => "sync_scope_invalid",
+            Self::InvalidRefreshScope => "refresh_scope_invalid",
             Self::GitHubClientMissing { .. } => "github_client_missing",
             Self::InvalidSearchQuery => "search_query_invalid",
             Self::InvalidPageLimit => "page_limit_invalid",

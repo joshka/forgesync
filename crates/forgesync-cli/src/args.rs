@@ -103,6 +103,27 @@ pub enum Command {
         #[arg(long = "with", value_enum, value_delimiter = ',')]
         with: Vec<SyncIncludeArg>,
     },
+    /// Sync a repository and run explicitly selected local analysis stages.
+    Refresh {
+        /// Repository scope shared by sync, embedding, and clustering stages.
+        #[arg(value_name = "OWNER/REPO", required = true)]
+        repositories: Vec<RepositorySelector>,
+        /// Skip GitHub acquisition and analyze only the local archive.
+        #[arg(long, action = ArgAction::SetTrue)]
+        no_sync: bool,
+        /// Select open threads, closed threads, or a complete all-state enumeration.
+        #[arg(long, value_enum)]
+        state: Option<SyncThreadStateArg>,
+        /// Add selected evidence families to the sync stage.
+        #[arg(long = "with", value_enum, value_delimiter = ',')]
+        with: Vec<SyncIncludeArg>,
+        /// Explicitly select model-backed stages; clustering uses stored vectors.
+        #[arg(long, value_enum, value_delimiter = ',')]
+        analyze: Vec<RefreshAnalysisArg>,
+        /// Force embedding requests even when compatible vectors are stored.
+        #[arg(long, action = ArgAction::SetTrue)]
+        force: bool,
+    },
     /// Build deterministic documents and store compatible embeddings for local discussions.
     Embed {
         /// One or more registered repositories to embed.
@@ -428,6 +449,16 @@ pub enum SyncIncludeArg {
     ReviewThreads,
 }
 
+/// Optional analysis stage accepted by refresh.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum RefreshAnalysisArg {
+    /// Build current documents and request missing embedding vectors.
+    #[value(name = "embeddings")]
+    Embeddings,
+    /// Generate deterministic clusters from compatible stored vectors.
+    Clusters,
+}
+
 /// Terminal color selection.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum ColorChoice {
@@ -454,7 +485,7 @@ pub enum LogFormat {
 mod tests {
     use clap::Parser;
 
-    use super::{CliArgs, ColorChoice, Command, LogFormat, SyncIncludeArg};
+    use super::{CliArgs, ColorChoice, Command, LogFormat, RefreshAnalysisArg, SyncIncludeArg};
 
     #[test]
     fn global_options_parse_together() {
@@ -550,6 +581,36 @@ mod tests {
             args.command,
             Command::Sync { with, .. }
                 if with == vec![SyncIncludeArg::ReviewThreads]
+        ));
+    }
+
+    #[test]
+    fn refresh_analysis_stages_are_explicit_and_comma_separated() {
+        let args = CliArgs::try_parse_from([
+            "forgesync",
+            "--archive",
+            "archive.db",
+            "refresh",
+            "owner/repo",
+        ])
+        .expect("sync-only refresh should parse");
+        assert!(matches!(args.command, Command::Refresh { analyze, .. } if analyze.is_empty()));
+
+        let args = CliArgs::try_parse_from([
+            "forgesync",
+            "--archive",
+            "archive.db",
+            "refresh",
+            "owner/repo",
+            "--no-sync",
+            "--analyze",
+            "embeddings,clusters",
+        ])
+        .expect("explicit analysis stages should parse");
+        assert!(matches!(
+            args.command,
+            Command::Refresh { no_sync: true, analyze, .. }
+                if analyze == vec![RefreshAnalysisArg::Embeddings, RefreshAnalysisArg::Clusters]
         ));
     }
 }

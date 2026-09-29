@@ -39,7 +39,7 @@ selected plan's CLI review section. Commands appear only as implementation phase
 | sync-failures, coverage | redesign | archive status and run list/show expose durable failures and per-family coverage | internal/cli/inspect.go; internal/store/archive_coverage.go |
 | fill-pr-details | defer | Files, commits, checks, and workflow runs are outside selected v2 scope | internal/cli/sync.go; internal/syncer/pull_details.go |
 | capture | defer | Separate conversation export is not needed for the selected archive workflow | internal/cli/capture.go; docs/capture.md |
-| refresh | redesign | Compose sync and explicitly selected analysis via --analyze; --plan performs no network work | internal/cli/refresh.go |
+| refresh | redesign | Sync selected repositories by default; opt into embeddings or clusters with --analyze and retain independent stage results | internal/cli/refresh.go; P4.5 |
 | runs | redesign | run list/show inspect durable work; run retry optionally filters unresolved work with --family | internal/store/runs.go |
 | code index | defer | Source indexing is independent of discussion acquisition | internal/codeindex/; docs/code-index.md |
 | threads | redesign | thread list and thread show share one checked reference model | internal/cli/inspect.go |

@@ -11,6 +11,7 @@ mod error;
 mod exact_search;
 mod inspect;
 mod reference;
+mod refresh;
 mod runs;
 mod search;
 mod sync;
@@ -39,6 +40,12 @@ pub use inspect::{
     show_thread,
 };
 pub use reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
+pub use refresh::{
+    EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshClusterRepository,
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshReport, RefreshRequest, RefreshStage,
+    RefreshStageFailure, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
+    embed_repositories, refresh,
+};
 pub use runs::{
     RetryPlan, RetryReport, RetryScope, list_runs, plan_run_retry, run_retry, show_run,
 };

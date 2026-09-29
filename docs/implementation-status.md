@@ -2,7 +2,7 @@
 
 ## Current position
 
-- Next task: **P4.5 — Refresh composition**.
+- Next task: **P5.1 — Read-only browser**.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.
@@ -549,6 +549,38 @@ Validation:
 - `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
   docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
 
+## P4.5 evidence
+
+Added a shared engine refresh operation that composes existing sync, document materialization,
+embedding, and cluster operations. `refresh OWNER/REPO` syncs by default; model-backed stages run
+only when selected with `--analyze embeddings,clusters`. `--no-sync` supports archive-only analysis.
+The standalone `embed` command and refresh embedding stage now share repository paging,
+materialization, and embedding policy.
+
+Refresh reports each selected stage's status, partial or complete data, safe failure details, and
+the stages that may need another run. Analysis continues after a preceding stage failure, so a
+completed sync remains available when an embedding or cluster stage fails. Plain sync does not
+construct an embedding client or read its key; cluster-only refresh uses stored vectors and their
+configured service identity without contacting the model service.
+
+Engine tests verify sync-only refresh without a model client and preservation of a complete sync
+report when the explicitly selected embedding stage is unavailable. CLI tests verify explicit
+comma-separated analysis selection and offline cluster refresh without an API key. Reference
+behavior was checked against `TestRefreshRunsSyncEmbedAndClusterWithLocalServers`,
+`TestClusterAndRefreshStrictVectorsRejectMissingCoverageBeforeMutation`, and
+`TestRefreshEmbedsAndClustersWithoutSync` in `internal/cli/app_test.go`, adapted to explicit
+analysis selection and independent per-stage reports.
+
+Validation:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`: passed.
+- `cargo test --workspace --all-features --locked`: passed, 132 tests.
+- `cargo build -p forgesync-cli --no-default-features --locked`: passed.
+- `cargo doc --workspace --no-deps --all-features --locked`: passed.
+- `markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml docs/configuration.md
+  docs/compatibility.md docs/implementation-status.md`: passed, 0 issues.
+
 ## Task sequence
 
 | Task | Status | Evidence or next gate |
@@ -572,7 +604,7 @@ Validation:
 | P4.2 — Embeddings | Complete | Bounded client, deterministic chunk batches, validated vectors, retry reuses successful batches |
 | P4.3 — Semantic and hybrid search | Complete | Paged exact cosine, RRF provenance, explicit fallback, 10k/100k latency and peak-RSS measurements |
 | P4.4 — Clustering and maintainer decisions | Complete | Bounded deterministic graph, durable stable IDs, local decisions, partial-coverage safety |
-| P4.5 — Refresh composition | Not started | Explicit optional analysis stages and per-stage outcomes |
+| P4.5 — Refresh composition | Complete | Optional shared-engine stages, durable partial reports, explicit model selection |
 | P5.1–P5.2 — TUI | Not started | Responsive shared-engine browser and maintainer actions |
 | P6.1 — V2 scope and packaging | Not started | Release only selected local workflows; deferred scope absent |
 
