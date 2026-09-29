@@ -1189,3 +1189,18 @@ denied. The syntax inventory finds no undocumented handwritten production method
 methods; this establishes presence, not completion of the deeper documentation review. Private
 representations, field contracts, policy constants, and remaining workflow shape remain open review
 targets.
+
+## Continued maintenance: sync accounting contracts
+
+The internal sync scope, shared execution capabilities, accumulated work counters, and per-thread
+family results now explain their attribution, ownership, and partial-work meaning. Field comments
+distinguish received from committed evidence, terminal from successful jobs, and interrupted work
+from satisfied scope. The public progress and report contracts now explain that the job denominator
+can grow when a nonempty repository scope adds pull-request family jobs; it is not a fixed count of
+threads. The lease renewal interval and closed-sweep overlap also have local policy explanations.
+
+The comments were checked against job creation, interruption accounting, review collection
+completion, and outcome selection. All fourteen sync workflow scenarios and strict private/public
+engine Rustdoc pass. Nightly formatting and Markdown checks pass. The remaining sync coordinator and
+representation ownership still need structural review; these contracts establish what a subsequent
+extraction must preserve.

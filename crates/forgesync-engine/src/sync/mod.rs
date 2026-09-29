@@ -38,7 +38,9 @@ use crate::enumeration::{ThreadEnumerationReport, now_utc};
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
+/// Writer fence lifetime; the coordinator renews it every third of this interval.
 const ARCHIVE_LEASE_DURATION: Duration = Duration::from_secs(60);
+/// One day of replay overlap protects closed-thread sweeps from timestamp boundary gaps.
 const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
 mod comment_job;
@@ -103,7 +105,7 @@ pub struct SyncProgress {
     pub run_id: RunId,
     /// Number of repository-family jobs that reached a terminal state.
     pub completed_jobs: u64,
-    /// Number of selected repository-family jobs in this run.
+    /// Current selected job count, growing as pull-request family work is discovered.
     pub total_jobs: u64,
     /// Number of discussion rows returned by committed provider pages.
     pub threads_seen: u64,
@@ -155,7 +157,7 @@ pub struct SyncReport {
     pub repositories_selected: u64,
     /// Number of jobs that reached a terminal state.
     pub completed_jobs: u64,
-    /// Number of repository-family jobs selected by the run.
+    /// Total selected jobs, including pull-request family jobs added for nonempty scopes.
     pub total_jobs: u64,
     /// Number of failed jobs.
     pub failed_jobs: u64,
@@ -177,39 +179,79 @@ pub struct SyncReport {
     pub outcome: OperationOutcome,
 }
 
+/// One durable thread-state enumeration within the caller's selected sync scope.
+///
+/// Default sync expands into separate open and closed units so each has an independent ledger and
+/// checkpoint. Only a complete scan authorized by this unit may advance the closed watermark.
 #[derive(Clone, Copy)]
 struct ScopeUnit {
+    /// Stable ledger scope key, independent of a provider page cursor.
     key: &'static str,
+    /// Provider filter for this enumeration.
     state: ThreadListState,
+    /// Whether complete enumeration establishes a new closed-sweep checkpoint.
     update_closed_watermark: bool,
 }
 
+/// In-memory accounting accumulated after durable job and observation updates.
+///
+/// Terminal jobs include failures and interruptions; they are not synonymous with successful jobs.
+/// Cancellation adds interrupted jobs back into pending work because their scope needs retry. The
+/// final outcome uses these counters while the returned report reloads authoritative ledger rows.
 #[derive(Default)]
 struct WorkSummary {
+    /// Initial repository/scope jobs plus pull-request family jobs added for nonempty scopes.
     total_jobs: u64,
+    /// Jobs recorded as terminal, including failed, deferred, and interrupted jobs.
     completed_jobs: u64,
+    /// Jobs ending with failures other than exhausted rate-limit budgets.
     failed_jobs: u64,
+    /// Jobs deferred after the provider rate-limit retry budget expires.
     deferred_jobs: u64,
+    /// Provider pages whose acquisition was durably recorded.
     pages_completed: u64,
+    /// Parent discussion rows received by recorded scans.
     threads_seen: u64,
+    /// Discussion comments received by recorded scans.
     comments_seen: u64,
+    /// Pull-request metadata records received by recorded acquisitions.
     pull_request_metadata_seen: u64,
+    /// Review records received by recorded acquisitions.
     reviews_seen: u64,
+    /// Review-thread records received by recorded acquisitions.
     review_threads_seen: u64,
+    /// Whether cancellation stopped selected work before the run completed.
     interrupted: bool,
+    /// Terminal interrupted jobs that must also count as remaining work.
     interrupted_jobs: u64,
+    /// Remaining jobs calculated after interruption, including interrupted terminal jobs.
     pending_jobs: u64,
+    /// First encountered failure used when the whole run fails without successful jobs.
     first_failure: Option<Failure>,
 }
 
+/// Immutable run identity and execution policy shared by repository-family job owners.
+///
+/// The coordinator owns the lease and child cancellation token. Jobs borrow those capabilities;
+/// they cannot silently select a different run or start an unrelated writer. Mutable acquisition
+/// progress stays in each job and in `WorkSummary`, rather than in this shared execution scope.
 struct SyncRunContext<'a> {
+    /// Initial repository/scope job count; `WorkSummary` adds pull-request family jobs for
+    /// nonempty scopes.
     total_jobs: u64,
+    /// Whether this run acquires the independent discussion-comment family.
     include_comments: bool,
+    /// Whether this run acquires pull-request reviews.
     include_reviews: bool,
+    /// Whether this run acquires review threads and their nested comments.
     include_review_threads: bool,
+    /// Persisted run receiving job and failure records.
     run_id: RunId,
+    /// Writer fence checked by every durable mutation.
     lease: &'a ArchiveLeaseToken,
+    /// Operation token cancelled by the caller or a failed lease renewal.
     cancellation: &'a CancellationToken,
+    /// Optional bounded snapshot channel; a slow receiver never blocks writes.
     progress: Option<mpsc::Sender<SyncProgress>>,
 }
 
@@ -408,12 +450,23 @@ async fn execute_and_finalize(
     })
 }
 
+/// Acquisition evidence for one thread's metadata or independently paginated child family.
+///
+/// Received and committed counts differ when stale or incomplete evidence cannot replace current
+/// membership. An absent payload is distinct from a complete empty collection. Failure and
+/// interruption retain partial accounting for the job ledger and aggregate report.
 struct ThreadFamilyResult<T> {
+    /// Recorded pages credited to this result; interrupted review acquisition leaves this zero.
     pages_completed: u64,
+    /// Provider records acquired, including records not accepted as current membership.
     items_received: u64,
+    /// Records accepted by the store for this observation.
     items_committed: u64,
+    /// Acquired payload when available; an empty payload can still be complete evidence.
     value: Option<T>,
+    /// Safe provider or archive failure retained with partial counts.
     failure: Option<Failure>,
+    /// Whether explicit cancellation interrupted this family acquisition.
     interrupted: bool,
 }
 
@@ -432,15 +485,26 @@ impl<T> Default for ThreadFamilyResult<T> {
     }
 }
 
+/// Archived pull request selected for metadata, reviews, and review-thread acquisition.
 struct PullRequestTarget {
+    /// Parent identity shared by all independently acquired pull-request families.
     thread: ThreadId,
+    /// Parent source timestamp used to attribute family observations.
     updated_at: UtcTimestamp,
 }
 
+/// Borrowed parent identity and durable scope key for one thread's family job.
+///
+/// Metadata and review collectors share this attribution while retaining separate completeness and
+/// acquisition sequences. The key identifies the ledger scope, not provider pagination state.
 #[derive(Clone, Copy)]
 struct ThreadFamilyScope<'a> {
+    /// Normalized repository containing the parent discussion.
     repository: &'a forgesync_core::content::Repository,
+    /// Parent pull-request identity for the acquired evidence.
     thread: &'a ThreadId,
+    /// Parent source timestamp associated with this selected work.
     updated_at: UtcTimestamp,
+    /// Stable job scope used for durable failure and retry attribution.
     key: &'a str,
 }
