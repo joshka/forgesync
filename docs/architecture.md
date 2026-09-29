@@ -38,13 +38,22 @@ ordered evidence; `observations/thread_rows` owns the payload binding map. `fami
 checks reserved generations and applies complete membership or incomplete coverage inside the
 transaction opened by `families/finish`. These owners borrow the transaction and never commit it.
 
-Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its
-stage methods preserve independent reports. TUI `query/operations` owns task and message lifetimes,
-while `query/action` owns the selected action request and terminal status.
+Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its stage
+methods preserve independent reports. TUI `query/operations` owns task and message lifetimes, while
+`query/action` owns the selected action request and terminal status.
 
 Clustering `candidates` validates stable input, `evidence` selects sparse eligible edges,
 `references` interprets title/body mentions, and `components` applies bounded grouping and
 representative policy. Evidence selection shares one score predicate across both selection phases.
+
+Store thread reads let `ThreadQuery` build bound filters and sorting before page coverage assembly.
+Embedding `read` keeps raw candidate order, hydrates current evidence, and accepts only complete
+valid chunk groups. Raw candidates determine pagination even when every vector is rejected.
+
+GitHub transport `request` owns budgeted attempts and trusted redirect traversal; `client` owns
+construction and endpoint entry points. CLI `command/embedding_service` prepares configured clients
+without making provider requests, preserving configuration versus initialization failures. CLI
+`reports/detail` and TUI `view/detail` build named presentation sections from loaded projections.
 
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.

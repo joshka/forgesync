@@ -14,6 +14,7 @@ use std::path::PathBuf;
 mod archive;
 mod cluster;
 mod embed;
+mod embedding_service;
 mod github;
 mod refresh;
 mod retry;

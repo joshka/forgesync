@@ -2,48 +2,42 @@
 
 ## Current position
 
+- The function/state ownership pass covers all twelve surveyed areas. The maintainability plan now
+  records the implemented owners, focused evidence, and reasons for retaining linear SQL and simple
+  display mappings. Reusable rules cover shared eligibility policy, transaction ownership, and
+  cursor advancement after post-query filtering. Workspace Clippy passed; final gates are running.
 - Semantic pages now separate bound candidate/vector queries, typed candidate rows, evidence
   hydration, and document-level chunk validation. Raw candidate order owns cursor advancement even
   for rejected vectors. Store Clippy and the embedding retry regression passed.
-
-- CLI retry reuses shared provider setup while preserving cancellation JSON and exit status.
-  Embed and refresh execution belongs to their parsed command types; argument overrides and
-  refresh selection validation now have named methods. CLI Clippy passed.
-
+- CLI retry reuses shared provider setup while preserving cancellation JSON and exit status. Embed
+  and refresh execution belongs to their parsed command types; argument overrides and refresh
+  selection validation now have named methods. CLI Clippy passed.
 - CLI and TUI discussion detail now assemble named source, coverage, metadata/body, and timeline
   sections. TUI loading/error resolution precedes its prepared detail view, whose lines still
   determine scroll limits. All 20 TUI state, snapshot, and resize tests passed.
-
 - Repository scans now expose start, parent application, and cursor recording as durable phases
   beside their traversal. Both enumeration regressions pass, including page-two failure and replay.
-
 - Provider requests now own immutable attempt data and separate budgeted attempts, retry waits,
-  redirect traversal, sending, and bounded response decoding. Credential origin checks remain
-  before request construction; transport regressions cover cancellation, retry, and redirects.
-
+  redirect traversal, sending, and bounded response decoding. Credential origin checks remain before
+  request construction; transport regressions cover cancellation, retry, and redirects.
 - Cluster candidates now separate evidence, explicit references, and component policy. One score
   predicate serves neighbor selection and final edges; reference context replaces eight helper
   arguments and a boolean location flag. Cluster workflow and focused unit regressions passed.
-
-- Refresh stages share a validated execution owner and keep acquisition, embeddings, and clusters
-  in separate methods. Engine Clippy passed; the focused refresh regression preserves completed
+- Refresh stages share a validated execution owner and keep acquisition, embeddings, and clusters in
+  separate methods. Engine Clippy passed; the focused refresh regression preserves completed
   acquisition when derived analysis cannot run.
-
-- Thread reads now give `ThreadQuery` ownership of bound SQL and deterministic sorting. Stored
-  row decoding and page coverage assembly have separate named phases; pagination behavior remains
+- Thread reads now give `ThreadQuery` ownership of bound SQL and deterministic sorting. Stored row
+  decoding and page coverage assembly have separate named phases; pagination behavior remains
   covered by the inspect/search regressions.
-
 - TUI action dispatch now delegates to an execution owner with shared cancellation and services.
-  Scheduling and progress forwarding remain separate; local decisions have named methods rather
-  than boolean behavior parameters. All 20 TUI state and rendering cases passed.
-
+  Scheduling and progress forwarding remain separate; local decisions have named methods rather than
+  boolean behavior parameters. All 20 TUI state and rendering cases passed.
 - Canonical storage now separates parent selection from payload/evidence application and child
   reservation checks from complete membership replacement. All seven observation ordering, replay,
   completeness, and rollback regressions passed, together with store Clippy.
-
-- Sync job ownership now distinguishes repository lookup, parent-thread scan jobs, comment jobs,
-  and selected pull-request family jobs. Comments and metadata have reserved acquisition owners;
-  job IDs and progress travel together. The 14 sync workflow regressions and engine Clippy passed.
+- Sync job ownership now distinguishes repository lookup, parent-thread scan jobs, comment jobs, and
+  selected pull-request family jobs. Comments and metadata have reserved acquisition owners; job IDs
+  and progress travel together. The 14 sync workflow regressions and engine Clippy passed.
 - Review and review-thread sync now share a reserved, head-aware collection that owns staging
   progress and consuming terminal writes. Provider collectors keep their page-link and cursor
   behavior. A cross-crate function-shape survey and the next ownership slices are recorded in the

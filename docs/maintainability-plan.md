@@ -54,9 +54,47 @@ remain longer when their steps are linear and share one transaction; do not move
 helpers merely to shorten the caller. For transport and workflow loops, distinguish immutable
 request data from mutable attempt state rather than introducing a general service container.
 
-Continue with durable sync-job ownership, then store canonical application and TUI action dispatch.
-Each slice should preserve its focused regression cases and update the architecture explanation when
-a new concept gains an owner.
+### Implemented ownership decisions
+
+The function and state ownership pass now covers every surveyed area. The starting lengths above are
+historical inspection signals, not current measurements or limits.
+
+| Area                  | Implemented owner or phase                                                                      | Focused evidence                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Sync jobs             | `RepositorySync`, `ThreadJob`, `CommentJob`, selected `PullRequestJobs`, and `FamilyJob`        | Sync workflow failures, cancellation, recovery, and retry           |
+| Comments and metadata | Reserved `CommentCollection` and `MetadataObservation`                                          | Empty/incomplete comments, review freshness, head changes           |
+| Enumeration           | Page traversal with `ScanPersistence` begin/apply/cursor phases                                 | Later-page failure and idempotent replay                            |
+| Refresh               | `RefreshExecution` with independent selected stage methods                                      | Completed sync survives unavailable optional analysis               |
+| Clustering            | `CandidateEvidence`, `ReferenceCollector`, and separate component policy                        | Deterministic fanout, size, reference, and cross-kind safeguards    |
+| Observations          | `IncomingThread`, `CanonicalSelection`, and `FamilyApplication` within the caller's transaction | Ordering, hydration, complete replay, and rollback                  |
+| Query building        | Query-owned SQL, typed embedding candidates, coverage hydration, and `CompatibleChunks`         | Inspect/search pagination and embedding retry                       |
+| Transport             | `ProviderRequest` attempt, wait, redirect, send, and decode phases                              | Credential origin containment, cancellation, retry bounds           |
+| CLI execution         | Command-owned embed/refresh execution and validation; shared provider and embedding setup       | Configuration precedence, cancellation envelopes, offline contracts |
+| CLI presentation      | Detail DTO section methods for source, coverage, metadata, and timeline                         | Offline human/JSON contract tests                                   |
+| TUI operations        | `OperationExecution` action methods, separate task/progress scheduling                          | Generation tracking, cancellation, selection, error visibility      |
+| TUI drawing           | Prepared detail sections used by rendering and scroll limits                                    | Narrow/wide snapshots and resize bounds                             |
+
+### Longer code retained after review
+
+Some functions remain longer than one screen. The parent payload insert/update binding maps and
+single-document embedding SQL stay linear so a reader can compare schema columns with bound values
+without jumping among helpers. The caller still owns the transaction and commit. Embedding page
+reads have separate phases because candidate order, freshness, and vector validity are independent
+concepts; binding length alone would not justify the same split in a simple insert.
+
+Command execution retains the linear open/run/close/render story. Shared credential and embedding
+setup now have one owner; command-specific exit policy stays with the command. The engine's public
+workflow signatures still accept explicit service dependencies and cancellation rather than a
+generic application context. Their execution owners keep only the inputs needed for that one
+workflow.
+
+Cluster detail rows and small timeline event matches remain direct value formatting. They choose
+labels without archive effects or a state transition. Discussion detail was split into sections
+because body, coverage, metadata, and timeline each have a separate reader purpose. Core's checked
+value types remain unchanged by this pass.
+
+Future reviews should use the same inspection signals on new work. Completion of this pass does not
+make a numeric line count a permanent architectural gate.
 
 ## Order of work
 

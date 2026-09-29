@@ -10,7 +10,6 @@ use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
 use forgesync_core::document::DocumentRecipe;
-use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::search::{SearchMode, SearchRequest, retrieve_threads};
 use forgesync_store::archive::Archive;
@@ -18,9 +17,7 @@ use forgesync_store::archive::Archive;
 use super::thread::thread_filters;
 use super::{SearchModeArg, ThreadKindArg, ThreadSortArg, ThreadStateArg};
 use crate::reports::render_search_page;
-use crate::{
-    OutputMode, render_engine_error, render_error, render_error_with_status, render_store_error,
-};
+use crate::{OutputMode, render_engine_error, render_error_with_status, render_store_error};
 
 /// Search archived discussions with local keyword or optional semantic ranking.
 #[derive(Clone, Debug, Args)]
@@ -93,24 +90,24 @@ impl SearchArgs {
             );
         }
         let embedding_client = if matches!(mode, SearchMode::Semantic | SearchMode::Hybrid) {
-            let service = service.clone();
-            let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
-            let client_config = match service.client_config(api_key) {
-                Ok(config) => config,
+            match service.client() {
+                Ok(client) => Some(client),
                 Err(error) => {
+                    let status = match error {
+                        super::embedding_service::EmbeddingSetupError::Configuration(_) => {
+                            ExitCode::from(2)
+                        }
+                        super::embedding_service::EmbeddingSetupError::Client(_) => {
+                            ExitCode::FAILURE
+                        }
+                    };
                     return render_error_with_status(
                         json,
                         "search",
                         error.code(),
                         &error.to_string(),
-                        ExitCode::from(2),
+                        status,
                     );
-                }
-            };
-            match EmbeddingClient::new(client_config) {
-                Ok(client) => Some(client),
-                Err(error) => {
-                    return render_error(json, "search", error.code(), &error.to_string());
                 }
             }
         } else {

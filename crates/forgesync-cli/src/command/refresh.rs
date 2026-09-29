@@ -197,10 +197,7 @@ impl RefreshArgs {
 pub fn optional_embedding_client(
     service: &crate::config::EmbeddingServiceConfig,
 ) -> Option<EmbeddingClient> {
-    service.validate().ok()?;
-    let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
-    let config = service.client_config(api_key).ok()?;
-    EmbeddingClient::new(config).ok()
+    service.client().ok()
 }
 
 /// Derives the stable endpoint and model identity used to select compatible stored vectors.

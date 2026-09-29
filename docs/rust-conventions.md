@@ -52,6 +52,12 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Review the result by following the main path and one failure path. Extraction should reduce the
   facts a caller carries and the places a policy is repeated. Shorter functions alone are not
   evidence of a better design.
+- Give repeated eligibility or ordering policy one owner. Selection and later materialization must
+  use the same predicate when they claim the same invariant; repeated inline predicates can drift.
+- Keep transaction commits with the operation that opened the transaction. Phase helpers may borrow
+  the connection, but must not independently commit partial membership, coverage, or evidence.
+- When filtering a keyset page after its SQL read, advance from the raw selected candidates. Using
+  only accepted rows as the cursor can revisit invalid data or hide later valid results.
 - Name important intermediate values, especially around I/O, parsing, mutation, and errors. Make
   each fallible step and its error context clear. Use explaining variables when they also improve
   line wrapping.

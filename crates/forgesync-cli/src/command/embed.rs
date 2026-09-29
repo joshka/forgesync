@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
-use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::refresh::{RefreshStageFailure, RefreshStageStatus, embed_repositories};
 use forgesync_store::archive::Archive;
@@ -91,29 +90,7 @@ impl EmbedArgs {
         let recipe = config.documents.recipe;
         let repositories = self.repositories;
         let force = self.force;
-        if let Err(error) = service.validate() {
-            return render_error_with_status(
-                json,
-                "embed",
-                error.code(),
-                &error.to_string(),
-                ExitCode::from(2),
-            );
-        }
-        let api_key = std::env::var(&service.api_key_env).unwrap_or_default();
-        let client_config = match service.client_config(api_key) {
-            Ok(config) => config,
-            Err(error) => {
-                return render_error_with_status(
-                    json,
-                    "embed",
-                    error.code(),
-                    &error.to_string(),
-                    ExitCode::from(2),
-                );
-            }
-        };
-        let client = match EmbeddingClient::new(client_config) {
+        let client = match service.client() {
             Ok(client) => client,
             Err(error) => {
                 return render_error_with_status(
