@@ -998,3 +998,14 @@ Follow-up identity review also preserves renames: the selected repository's meta
 when the provider identity matches. An absent selection retains its scope rather than selecting all.
 The fifth picker regression verifies a renamed URL. The terminal state module imports engine and
 store dependencies directly, and the parent no longer supplies a query-action import prelude.
+
+The terminal coordination introduction now explains the picker/writer owners, screen and focus
+semantics, message generations, initial reads, and runtime/archive boundaries. Failure-summary
+fields document their safe presentation role. New state and retry-planning directory roots use
+`mod.rs`; remaining older directory-root layouts are listed for review in the source-shape audit.
+
+Final current-tree validation for this batch passes: nightly formatting, workspace Clippy with
+warnings denied, all workspace tests and doctests (including twenty-nine TUI cases), the CLI build
+without default features, strict public/private Rustdoc, rumdl, and changed-page Markdown linting.
+Generated app, picker, and writer module documentation was read for its roles and lifecycle
+contracts. The broader panel, module-layout, import, and documentation audit remains open.

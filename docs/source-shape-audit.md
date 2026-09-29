@@ -126,7 +126,9 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 
 ### Next concrete review targets
 
-- Continue routing remaining child imports through their actual owners.
+- Continue routing remaining child imports through their actual owners. Align remaining production
+  directory roots with `mod.rs`: CLI cluster, terminal input, engine documents/embedding client, and
+  GitHub review threads. Cargo integration-test entry files remain a separate layout contract.
 - Document remaining private representations, policy constants, and TUI state fields with their
   contracts; inspect short module introductions for missing relationships rather than adding words.
 - Review CLI sync preparation, TUI result application, refresh cluster traversal, embedding batch
