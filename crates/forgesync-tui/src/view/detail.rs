@@ -9,7 +9,7 @@
 //! history. No section fetches data, starts operations, or changes selection; `app` owns those
 //! transitions.
 //!
-//! Terminal snapshots and resize tests protect layout, spacing, and scroll behavior.
+//! Terminal rendering cases exercise compact and wide layouts; resize tests protect scroll bounds.
 
 use super::{
     App, Color, Line, Modifier, SourceState, Style, ThreadDetail, ThreadKind, ThreadTimelineEvent,

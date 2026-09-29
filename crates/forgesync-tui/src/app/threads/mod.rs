@@ -41,7 +41,7 @@ pub struct ThreadReply {
     pub generation: u64,
     /// Requested page offset, applied only if the generation is still current.
     pub offset: u64,
-    /// Loaded page or safe presentation error; boxed to keep query messages bounded in size.
+    /// Loaded page or safe presentation error; boxed to limit the message enum's inline size.
     pub result: Result<Box<ThreadPage>, String>,
 }
 

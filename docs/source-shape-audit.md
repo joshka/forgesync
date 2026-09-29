@@ -63,7 +63,17 @@ Terminal repository state now has a `RepositoryPicker` owner. Highlight and appl
 separate, and the applied repository is retained across reordered or empty refreshes. This fixes an
 index-based targeting risk while keeping stale replies and failed refreshes isolated. A documented
 idle/running writer display replaces independent busy, label, and progress fields; it cannot retain
-active progress after completion. The other terminal panels still need equivalent ownership review.
+active progress after completion. Discussion list/detail, coverage, failed-run, and cluster
+list/detail now have documented owners with direct transition tests. Query task/request ownership
+and remaining rendering imports still need review.
+
+Discussion replies now bind generation, offset, and page together. The detail pane uses explicit
+empty/loading/ready/failed states and invalidates old selections before beginning another read.
+Coverage and failed-run owners document their retained-cache rules. Cluster detail clears another
+cluster's members before a pending read, preventing keyboard decisions from targeting old data;
+same-cluster refresh can retain its cache. Typed query messages document that asynchronous boundary
+in their own module. App state is reduced to panel coordination and shared status rather than each
+panel's internal mutation protocol.
 
 Remaining review surfaces:
 
@@ -126,13 +136,13 @@ Actionlint passes both workflow files. Hosted execution remains separate evidenc
 
 ### Next concrete review targets
 
-- Continue routing remaining child imports through their actual owners. Align remaining production
-  directory roots with `mod.rs`: CLI cluster, terminal input, engine documents/embedding client, and
-  GitHub review threads. Cargo integration-test entry files remain a separate layout contract.
+- Continue routing remaining child imports through their actual owners. Production directory roots
+  now use `mod.rs`; Cargo integration-test entry files remain a separate discovery contract.
 - Document remaining private representations, policy constants, and TUI state fields with their
   contracts; inspect short module introductions for missing relationships rather than adding words.
-- Review CLI sync preparation, TUI result application, refresh cluster traversal, embedding batch
-  scheduling, and sync run coordination against the dispatch and state-owner rules.
+- Review CLI sync preparation, TUI query task/request ownership and rendering imports, refresh
+  cluster traversal, embedding batch scheduling, and sync run coordination against the dispatch and
+  state-owner rules.
 - Write enumeration replay scenarios linearly. Outcome serialization and invalid-reference tests now
   expose named cases without loops. Review catalog-validation loops separately: checking a complete
   fixture catalog is a different contract from selecting multiple behavioral scenarios.

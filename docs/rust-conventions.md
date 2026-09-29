@@ -133,3 +133,9 @@ row separate from the applied domain selection, and retain the selected identity
 refreshes. Reordered or empty results must not silently retarget a write or broaden its scope. When
 multiple fields describe one lifecycle, use a state type that keeps their valid combinations
 explicit, such as idle versus running work with a required label and optional progress.
+
+A coordinator owns relationships between components, not every component's internal protocol. Keep
+generation checks, cache retention, and cursor bounds with the panel or request that owns them.
+Retain explicit coordination when one transition invalidates another view. Cached actionable data
+must still belong to the selected identity: a different selection clears old targets immediately,
+while a refresh of the same identity may preserve its cache. Test both cases directly.

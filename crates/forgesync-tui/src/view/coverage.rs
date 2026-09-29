@@ -1,18 +1,24 @@
-//! # Draw acquired evidence coverage
+//! # Draw archive-wide evidence coverage and health
 //!
-//! `draw_coverage` presents which discussion resource families are complete, partial, or missing
-//! for the selected thread. It uses explicit stored coverage instead of inferring completeness
-//! from visible child counts.
+//! `draw_coverage` presents the loaded `ArchiveStatus`: discussion and repository counts, resource
+//! family completeness, schema history, writer lease, and unresolved durable work. This projection
+//! describes the archive, not only the currently selected discussion or browser page.
 //!
-//! This screen helps a reader decide whether missing content is genuinely absent or simply not yet
-//! acquired. Data loading lives in `query/reads`, and selection lives in `App`.
+//! Completeness comes from stored evidence and freshness rules rather than visible child counts.
+//! The screen helps readers distinguish absent content from acquisition that is missing or partial,
+//! and identify recorded work that needs inspection or retry.
+//!
+//! `app/coverage` owns the last successful projection and refresh generation. A pending initial
+//! read shows loading; a refresh with cached data keeps that projection and marks it as refreshing.
+//! Current errors take precedence over cached content. Query tasks perform read-only inspection;
+//! this renderer starts no work and does not decide whether an archive should sync or migrate.
 
 use super::{
     App, ArchiveStatus, Frame, Line, Modifier, Paragraph, Rect, Style, Text, Wrap, family_name,
     pane_block,
 };
 
-/// Draws family coverage for the currently selected archive scope.
+/// Draws archive-wide coverage and health, marking cached refreshes and current read failures.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = pane_block("Archive coverage and health", true);
     let mut lines = if app.coverage_panel.loading && app.coverage_panel.data.is_none() {

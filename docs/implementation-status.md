@@ -1009,3 +1009,33 @@ warnings denied, all workspace tests and doctests (including twenty-nine TUI cas
 without default features, strict public/private Rustdoc, rumdl, and changed-page Markdown linting.
 Generated app, picker, and writer module documentation was read for its roles and lifecycle
 contracts. The broader panel, module-layout, import, and documentation audit remains open.
+
+## Continued maintenance: terminal read owners and typed replies
+
+All remaining production directory roots now use `mod.rs`; obsolete explicit test paths are removed.
+A workspace compile check confirms the new paths. Cargo integration-test entry files keep their
+separate discovery layout.
+
+Discussion paging now lives in `ThreadList`; `ThreadReply` retains generation, offset, and result as
+one concept. `DetailPane` models empty/loading/ready/failed states, owns scroll reset, and rejects
+late results after selection invalidation. Coverage and failed-run projections own their refresh,
+retained-cache, error, and cursor contracts. Cluster list/detail own scoped rows and member reads.
+Opening a different cluster now clears old members before acquisition; this prevents local member
+keys from targeting a previous cluster while the new selection is loading. Same-cluster refresh
+retains its cache, and stale replies cannot restore the previous selection.
+
+`QueryMessage` moves to a documented result-boundary module, with contracts on every variant and
+field. The app root documents its panel map and shared state. The coordinator retains cross-panel
+transitions and status forwarding; standalone read starts go directly to their panel owners. Static
+repository/cluster fixtures are shared by the related transition suites without hidden behavior or
+provider setup.
+
+Focused evidence: all fifty-one TUI tests pass, including five list cases, five detail cases, four
+cluster-targeting/cache cases, and eight coverage/failed-run refresh cases. Existing keyboard and
+viewport scenarios retain their assertions. Production-function comments remain complete by syntax
+inventory. Broader query task/request, rendering import, and workspace semantic review stay open.
+
+Current-tree workspace validation passes: nightly formatting, Clippy with warnings denied, all
+workspace tests and doctests, the CLI build without default features, and strict public/private
+Rustdoc. Rumdl and changed-page Markdown linting pass. Generated panel, message, coordinator, and
+coverage documentation was read for its ownership, cache, generation, and archive scope contracts.

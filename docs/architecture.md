@@ -98,3 +98,25 @@ contains its required label and optional progress snapshot. Input reads whether 
 needed before quitting; the view reads presentation facts. Query tasks still own execution and
 cancellation. The display accepts current-generation progress only while running, and completion
 clears transient state before returning the status to the app.
+
+## Terminal read panel ownership
+
+| Module         | Owns                                           | Cache and selection rule                                         |
+| -------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
+| `app/threads`  | Discussion page, offset, continuation, cursor  | New read removes old rows; current success selects the first row |
+| `app/detail`   | Selected discussion, generation, scroll, state | Invalidation rejects old replies and removes old content         |
+| `app/coverage` | Archive-wide projection and refresh state      | Pending or failed refresh retains the last successful projection |
+| `app/failures` | Retry choices, read state, highlighted run     | Refresh retains rows; replacement clamps cursor bounds           |
+| `app/clusters` | Cluster choices and selected member projection | Another cluster clears old members; same-cluster refresh retains |
+| `app/messages` | Typed query results and writer updates         | Generations remain attached to the owning result                 |
+
+`ThreadReply` carries offset and generation with its page rather than making the app reconstruct
+request coordinates. Detail has mutually exclusive empty/loading/ready/failed states. App
+coordination starts a list read and invalidates detail together; standalone reads begin on their
+panel owners. Query tasks own archive access, and views read projection and loading/error facts.
+
+Cluster detail keeps members only while refreshing the same cluster. Opening another cluster clears
+old data immediately, so local canonical/exclusion keys cannot target its previous members while the
+new selection is loading. Decisions still come from the archive after a writer ends. Fixed
+repository/cluster test data is shared only where those transition scenarios use the same values;
+rendering-specific data remains with the renderer tests.

@@ -5,8 +5,9 @@
 //! Panels reject older generations before changing their visible data, loading state, or errors.
 //!
 //! Thread pages use [`ThreadReply`] to keep generation and offset attached to their result.
-//! Large archive/detail projections remain boxed so channel messages do not reserve space for the
-//! largest discussion's collections. Result errors are safe presentation strings prepared at the
+//! Large projections remain boxed so the message enum does not hold a detailed discussion's
+//! entire fixed layout inline. Owned collections still use memory proportional to archived
+//! evidence. Result errors are safe presentation strings prepared at the
 //! query boundary; provider payloads and credentials do not belong in these messages.
 //!
 //! Writer progress and completion use a separate operation generation. Progress is advisory and
