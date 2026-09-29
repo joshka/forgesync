@@ -61,3 +61,16 @@ The crates expose named concept modules rather than blanket root exports. The ma
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose
 modules. Use the module path as the first navigation clue, then read the adjacent tests.
+
+## Child-family transaction phases
+
+Reservation, staging, and finalization share one ordering contract but own different effects.
+`ReservedGeneration` compares a proposed source clock and sequence, then writes a reservation and
+recoverable generation. `PageWrite` validates that generation, recognizes identical replay, and
+stores provisional pages with received counts. `FamilyApplication` promotes complete membership or
+records partial coverage. Each archive operation opens and commits its own transaction; these owners
+only borrow its connection.
+
+Reuse is a separate read. `MembershipExpectation` names the independent evidence available from the
+parent, and `FamilyFreshness` verifies source clock, review head when required, complete coverage,
+and canonical membership count. None of these reads promote staged pages or change coverage.

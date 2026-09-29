@@ -888,3 +888,19 @@ tests and doctests, the CLI build without default features, strict public/privat
 and changed-page markdownlint. Hosted platform validation remains pending. The remaining source
 shape and documentation review is explicitly listed in `docs/source-shape-audit.md`; this evidence
 does not claim repository-wide maintainability completion.
+
+## Continued maintenance: child evidence and terminal input
+
+Reservation and staging now hold exact SQL generation identity in transaction-local owners. Family
+freshness distinguishes reported member counts from pull-request head evidence with an enum, and
+evaluates source, head, completeness, and canonical counts in named phases. The archive caller
+retains transaction commit; no provider I/O moves into the store.
+
+Terminal global/search/triage input now dispatches to named operations. Empty-list navigation guards
+remain deliberate. Parent imports that existed only to supply child input modules are removed. The
+two missing production function comments found by the syntax inventory are added.
+
+Focused evidence: all seven store observation transaction tests and all fourteen engine sync
+scenarios pass; the twenty TUI tests passed before the final guard-preserving adjustment. Workspace
+validation for this continuation follows. The full completion checklist and remaining inventory are
+in `docs/source-shape-audit.md`; the maintainability goal remains open.
