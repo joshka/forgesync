@@ -1,6 +1,14 @@
 //! Comments sync work.
 
-use super::*;
+use super::support::{count_failure, progress_status, send_progress, store_state_filter};
+use super::{
+    Archive, ChildFamilyFailureScope, ChildFamilyObservation, CollectionCompleteness, Comment,
+    CommentThreadResult, EngineError, EvidenceFamily, FailureKind, GitHubClient, GitHubError,
+    IncompleteReason, NonZeroU32, ObservationDisposition, RepositorySelector, RunFailureInput,
+    RunFailureScope, ScopeUnit, SourceClock, StagedItem, StoreError, SyncJobCompletion,
+    SyncJobStatus, SyncProgressStatus, SyncRunContext, ThreadQuery, ThreadSort, WorkSummary,
+    fetch_issue_comment_page, github_failure, now_utc,
+};
 
 pub(super) async fn run_comment_job(
     archive: &Archive,

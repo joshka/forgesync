@@ -1,6 +1,9 @@
 //! Observation sequence operations.
 
-use super::*;
+use super::{
+    Archive, ArchiveLeaseToken, ObservationSequence, StoreError, UtcTimestamp, checked_sequence,
+    require_active_archive_lease,
+};
 
 impl Archive {
     /// Reserves and durably increments the archive-wide acquisition sequence.

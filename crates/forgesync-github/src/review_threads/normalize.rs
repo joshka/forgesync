@@ -1,6 +1,9 @@
 //! Convert complete GraphQL review-thread pages into domain content.
 
-use super::*;
+use super::{
+    Comment, CommentId, CommitSha, GitHubError, GraphqlComment, GraphqlReviewThread, ProviderData,
+    ProviderId, ReviewId, ReviewThread, ReviewThreadId, ThreadId, UtcTimestamp, Value,
+};
 
 pub(super) fn normalize_review_thread(
     thread: &ThreadId,

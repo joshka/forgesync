@@ -1,7 +1,13 @@
 //! Command execution and request construction.
 
-use super::reports::*;
-use super::*;
+use std::process::ExitCode;
+
+use forgesync_core::content::ThreadKind;
+use forgesync_engine::inspect::{ThreadFilters, ThreadSort, ThreadStateFilter};
+
+use crate::args::{CliArgs, Command, ThreadKindArg, ThreadSortArg, ThreadStateArg};
+use crate::config::ForgesyncConfig;
+use crate::{OutputMode, usage_error};
 
 mod archive;
 mod cluster;
@@ -19,9 +25,7 @@ mod tui;
 use archive::archive_command;
 use cluster::cluster_from_cli;
 use embed::embed_from_cli;
-use github::{github_api_base_url, github_clients_for_selectors, render_github_client_setup_error};
 use refresh::refresh_from_cli;
-use retry::retry_command;
 use run::run_command;
 use search::search_command;
 use sync::sync_from_cli;

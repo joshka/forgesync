@@ -1,4 +1,9 @@
-use super::*;
+use super::{
+    Archive, CollectionCompleteness, Comment, CommentId, CoverageState, EvidenceFamily,
+    ProviderData, ProviderId, SourceClock, SourceState, StagedItem, ThreadKind, ThreadNumber,
+    ThreadReference, ThreadTimelineEvent, apply_thread, discussion, remove_archive, repository,
+    temporary_archive_path, thread_id, timestamp,
+};
 
 #[tokio::test]
 async fn thread_detail_returns_typed_current_evidence_and_coverage() {

@@ -1,6 +1,12 @@
 //! Support sync work.
 
-use super::*;
+use super::{
+    Archive, CLOSED_SWEEP_OVERLAP_MICROSECONDS, DeferredReason, EngineError, EvidenceFamily,
+    Failure, FailureKind, OperationOutcome, RepositorySelector, RepositoryThreadScanStatus,
+    RunFailureInput, RunId, SyncJobStatus, SyncProgress, SyncProgressStatus, SyncRequest,
+    SyncRunContext, ThreadEnumerationReport, ThreadId, ThreadListState, ThreadStateFilter,
+    UtcTimestamp, WorkSummary, mpsc, now_utc,
+};
 
 pub(super) async fn record_thread_family_failure(
     archive: &Archive,

@@ -1,6 +1,15 @@
 //! Threads command presentation.
 
-use super::*;
+use std::process::ExitCode;
+
+use forgesync_core::content::{ReviewState, SourceState, ThreadKind as DiscussionKind};
+use forgesync_core::coverage::CoverageState;
+use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_engine::search::SearchResultPage;
+use forgesync_store::reads::{ThreadDetail, ThreadPage, ThreadTimelineEvent};
+
+use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
+use crate::{OutputMode, render_success};
 
 pub(crate) fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
     let output = ThreadPageOutput::from(page);

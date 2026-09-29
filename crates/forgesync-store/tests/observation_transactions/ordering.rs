@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    ObservationSequence, Ordering, SourceClock, compare_observation_order,
+    compare_revision_observation_order, observation_sequence_order_value,
+};
 
 #[test]
 fn observation_ordering_covers_source_precedence_legacy_fallback_and_min_sequence() {

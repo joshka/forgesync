@@ -1,6 +1,12 @@
 //! Query archive reads.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, GitHubHost, QueryBuilder, Repository, RepositoryId, Sqlite, StoreError,
+    StoredThreadSummary, ThreadKind, ThreadPage, ThreadQuery, ThreadSort, ThreadStateFilter,
+    ThreadSummary, coverage_for_kind, load_thread_coverage,
+};
 
 impl Archive {
     /// Returns registered repositories in stable host, owner, and name order.

@@ -1,6 +1,6 @@
 //! Interpret keys as navigation and maintainer actions.
 
-use super::*;
+use super::{App, Focus, KeyCode, KeyEvent, KeyModifiers, QueryAction, RepositorySelector, Screen};
 
 mod browser;
 mod triage;

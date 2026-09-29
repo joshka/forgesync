@@ -1,6 +1,15 @@
 //! Refresh coordinator behavior.
 
-use super::*;
+use super::clusters::build_repository_clusters;
+use super::embeddings::{collect_embedding_repositories, embedding_status};
+use super::status::{refresh_outcome, remaining_stages, stage_failure};
+use super::{
+    Archive, CancellationToken, DocumentRecipe, EmbeddingClient, EngineError, GitHubClient,
+    GitHubHost, HashSet, OperationOutcome, RefreshAnalysisStage, RefreshEmbeddingReport,
+    RefreshReport, RefreshRequest, RefreshStage, RefreshStageFailure, RefreshStageKind,
+    RefreshStageStatus, RepositorySelector, SyncProgress, SyncReport, SyncRequest, mpsc,
+    sync_repositories,
+};
 
 pub async fn refresh(
     archive: &Archive,

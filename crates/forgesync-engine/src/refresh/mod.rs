@@ -211,7 +211,5 @@ mod coordinator;
 mod embeddings;
 mod status;
 
-use clusters::*;
 pub use coordinator::{embed_repositories, refresh};
-use embeddings::*;
-use status::*;
+use status::status_for_failure;

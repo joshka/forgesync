@@ -1,6 +1,15 @@
 //! Long-running local and provider operations.
 
-use super::*;
+use tokio::sync::mpsc;
+
+use super::{
+    ActiveOperation, App, Arc, Archive, CancellationToken, ClusterOptions, DocumentRecipe,
+    GitHubClient, GitHubHost, Handle, OperationOutcome, QueryAction, QueryMessage, QueryTasks,
+    RefreshRequest, RefreshSyncOptions, RepositorySelector, RetryReport, Sender, SyncProgress,
+    SyncRequest, SyncThreadScope, archive_status, dismiss_cluster, exclude_cluster_member,
+    include_cluster_member, plan_run_retry, refresh, restore_cluster, run_retry,
+    set_canonical_cluster_member, sync_repositories,
+};
 
 pub(super) fn start_operation(
     action: QueryAction,

@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    Archive, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, forgesync,
+    remove_archive, temporary_archive_path,
+};
 
 #[test]
 fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {

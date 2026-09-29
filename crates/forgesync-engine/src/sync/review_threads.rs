@@ -1,6 +1,14 @@
 //! Review threads sync work.
 
-use super::*;
+use super::comments::incomplete_reason;
+use super::support::record_thread_family_failure;
+use super::{
+    Archive, ChildFamilyFailureScope, ChildFamilyObservation, CollectionCompleteness, EngineError,
+    EvidenceFamily, Failure, FailureKind, GitHubClient, GitHubError, GraphqlCursor, HashSet,
+    IncompleteReason, ObservationDisposition, PullRequestMetadata, ReviewThread, SourceClock,
+    StagedItem, StoreError, SyncRunContext, ThreadFamilyResult, ThreadFamilyScope,
+    fetch_review_thread_page, github_failure, now_utc,
+};
 
 pub(super) async fn sync_thread_review_threads(
     archive: &Archive,

@@ -1,6 +1,17 @@
 //! Embed command handling.
 
-use super::*;
+use std::collections::HashSet;
+use std::process::ExitCode;
+
+use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::refresh::{RefreshStageFailure, RefreshStageStatus, embed_repositories};
+use forgesync_store::archive::Archive;
+
+use crate::args::EmbedArgs;
+use crate::config::ForgesyncConfig;
+use crate::reports::{EmbeddingOutput, embedding_summary};
+use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
 
 pub(super) async fn embed_from_cli(
     args: EmbedArgs,

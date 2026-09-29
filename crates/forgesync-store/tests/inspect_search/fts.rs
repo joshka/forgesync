@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    Archive, SourceState, ThreadKind, apply_thread, discussion, query, remove_archive, repository,
+    temporary_archive_path, thread_id,
+};
 
 #[tokio::test]
 async fn fts_index_tracks_updates_and_removed_text_transactionally() {

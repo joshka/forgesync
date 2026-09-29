@@ -1,6 +1,6 @@
 //! Pagination transport behavior.
 
-use super::*;
+use super::{GitHubError, LINK, TrustedOrigin, Url};
 
 pub(super) fn next_page_from_headers(
     current_url: &Url,

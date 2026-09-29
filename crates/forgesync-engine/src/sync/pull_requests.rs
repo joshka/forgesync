@@ -1,6 +1,15 @@
 //! Pull requests sync work.
 
-use super::*;
+use super::metadata::sync_thread_pull_request_metadata;
+use super::review_threads::sync_thread_review_threads;
+use super::reviews::sync_thread_reviews;
+use super::support::{count_failure, progress_status, send_progress, store_state_filter};
+use super::{
+    Archive, EngineError, EvidenceFamily, FailureKind, FamilyJobAccumulator, GitHubClient,
+    NonZeroU32, PullRequestTarget, RepositorySelector, ScopeUnit, StoreError, SyncJobCompletion,
+    SyncJobStatus, SyncProgressStatus, SyncRunContext, ThreadFamilyResult, ThreadFamilyScope,
+    ThreadKind, ThreadQuery, ThreadSort, WorkSummary, now_utc,
+};
 
 pub(super) async fn run_pull_request_jobs(
     archive: &Archive,

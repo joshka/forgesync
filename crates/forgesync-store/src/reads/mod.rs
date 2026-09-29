@@ -13,7 +13,7 @@ use forgesync_core::identity::{
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use sqlx::{QueryBuilder, Row, Sqlite};
+use sqlx::{QueryBuilder, Sqlite};
 
 use crate::archive::{Archive, ArchiveInfo};
 use crate::diagnostics::ArchiveDiagnostics;

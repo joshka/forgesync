@@ -1,4 +1,4 @@
-use super::*;
+use super::{Archive, forgesync, remove_archive, temporary_archive_path};
 
 #[test]
 fn version_flag_prints_package_version() {

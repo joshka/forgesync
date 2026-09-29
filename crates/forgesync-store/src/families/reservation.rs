@@ -1,6 +1,13 @@
 //! Child-family reservation operations.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, ArchiveLeaseToken, EvidenceFamily, FamilyReservation, SourceClock, StoreError,
+    ThreadId, UtcTimestamp, checked_sequence, compare_observation_order, evidence_family_name,
+    is_child_family, normalize_source_clock, require_active_archive_lease, source_clock_columns,
+    source_clock_from_columns, thread_row_id, to_sql_sequence,
+};
 
 impl Archive {
     /// Allocates a sequence and tries to reserve an independently ordered child family.

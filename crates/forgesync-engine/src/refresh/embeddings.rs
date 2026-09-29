@@ -1,6 +1,12 @@
 //! Refresh embeddings behavior.
 
-use super::*;
+use super::status::{keep_first_failure, stage_failure};
+use super::{
+    Archive, CancellationToken, DocumentRecipe, EmbeddingClient, EmbeddingReport,
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStageFailure, RefreshStageStatus,
+    RepositorySelector, ThreadFilters, ThreadListRequest, ThreadSelector, ThreadSort,
+    ThreadStateFilter, embed_documents, list_threads, materialize_thread_document,
+};
 
 pub(super) async fn collect_embedding_repositories(
     archive: &Archive,

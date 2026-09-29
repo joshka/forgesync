@@ -29,7 +29,7 @@ use reads::{
     start_repositories, start_threads,
 };
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 

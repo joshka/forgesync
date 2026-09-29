@@ -1,6 +1,13 @@
 //! Interactive terminal startup.
 
-use super::*;
+use std::io::IsTerminal;
+use std::process::ExitCode;
+
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_store::archive::Archive;
+
+use super::github::{github_clients_for_selectors, render_github_client_setup_error};
+use crate::{OutputMode, render_error, render_store_error, usage_error};
 
 pub(super) async fn tui_command(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
     if json.is_json() {

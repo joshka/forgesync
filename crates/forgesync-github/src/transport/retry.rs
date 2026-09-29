@@ -1,6 +1,8 @@
 //! Retry transport behavior.
 
-use super::*;
+use super::{
+    ApiFailureKind, Duration, RETRY_AFTER, RetryPolicy, StatusCode, SystemTime, UNIX_EPOCH,
+};
 
 pub(super) fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {
     if rate_limited {

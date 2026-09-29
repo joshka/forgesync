@@ -1,6 +1,15 @@
 //! Sync command handling.
 
-use super::*;
+use std::process::ExitCode;
+
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::sync::{SyncProgress, SyncRequest, SyncThreadScope, sync_repositories};
+use forgesync_store::archive::Archive;
+
+use super::github::{github_clients_for_selectors, render_github_client_setup_error};
+use crate::args::{SyncArgs, SyncIncludeArg, SyncThreadStateArg};
+use crate::reports::{outcome_exit_code, sync_summary};
+use crate::{OutputMode, render_engine_error, render_result, render_store_error};
 
 pub(super) async fn sync_command(
     archive_path: &std::path::Path,

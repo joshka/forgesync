@@ -1,6 +1,9 @@
 //! Refresh status behavior.
 
-use super::*;
+use super::{
+    EngineError, OperationOutcome, RefreshReport, RefreshStageFailure, RefreshStageKind,
+    RefreshStageStatus,
+};
 
 pub(super) fn stage_failure(error: &EngineError) -> RefreshStageFailure {
     RefreshStageFailure {

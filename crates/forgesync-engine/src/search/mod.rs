@@ -314,13 +314,14 @@ mod keyword;
 mod ranking;
 mod semantic;
 
-use keyword::*;
-use ranking::*;
-use semantic::*;
+use keyword::{keyword_candidates, keyword_expression, keyword_fallback_page, keyword_result_page};
+use ranking::{fallback_allowed, fuse_hybrid, result_page};
+use semantic::{semantic_candidates, semantic_result_page};
 
 #[cfg(test)]
 mod tests {
-    use super::{keyword_expression, reciprocal_rank_score};
+    use super::keyword::keyword_expression;
+    use super::ranking::reciprocal_rank_score;
 
     #[test]
     fn ordinary_text_becomes_quoted_terms_instead_of_fts_syntax() {

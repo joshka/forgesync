@@ -1,6 +1,15 @@
 //! Jobs sync work.
 
-use super::*;
+use super::comments::run_comment_job;
+use super::pull_requests::run_pull_request_jobs;
+use super::support::{count_failure, job_result, overlap_start, progress_status, send_progress};
+use super::{
+    Archive, EngineError, EvidenceFamily, GitHubClient, GitHubError, GitHubHost, HashMap,
+    RepositorySelector, RepositoryThreadScanStatus, RunFailureInput, RunFailureScope, ScopeUnit,
+    StoreError, SyncJobCompletion, SyncProgressStatus, SyncRunContext, ThreadListState,
+    ThreadScanContext, WorkSummary, enumerate_repository_thread_pages, fetch_repository,
+    github_failure, now_utc,
+};
 
 pub(super) async fn run_jobs(
     archive: &Archive,

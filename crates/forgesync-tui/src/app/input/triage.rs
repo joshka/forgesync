@@ -1,6 +1,7 @@
 //! Failure and cluster screen actions.
 
-use super::*;
+use super::{App, KeyCode, QueryAction, RepositorySelector};
+use crate::app::{RunId, ThreadSelector, move_index};
 
 impl App {
     pub(super) fn handle_failures_key(&mut self, code: KeyCode) -> Vec<QueryAction> {

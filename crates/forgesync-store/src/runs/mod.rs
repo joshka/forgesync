@@ -7,7 +7,6 @@ use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::Row;
 
 use crate::archive::Archive;
 use crate::error::StoreError;

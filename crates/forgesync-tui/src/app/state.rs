@@ -1,6 +1,6 @@
 //! Apply query and operation results to terminal state.
 
-use super::*;
+use super::{App, QueryAction, QueryMessage};
 
 impl App {
     pub(crate) fn initial_actions(&self) -> [QueryAction; 2] {

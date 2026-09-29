@@ -1,6 +1,14 @@
 //! Resource endpoints and pagination URLs.
 
-use super::*;
+use super::normalize::{
+    normalize_comment, normalize_issue, normalize_pull_request, normalize_repository,
+    normalize_review,
+};
+use super::{
+    CancellationToken, GitHubClient, GitHubError, GitHubHost, GitHubResponse, PullRequestMetadata,
+    Repository, RestComment, RestCommentPage, RestIssue, RestPullRequest, RestRepository,
+    RestReview, RestReviewPage, RestThreadPage, ThreadId, ThreadListState, Url, UtcTimestamp,
+};
 
 /// Fetches current repository metadata from GitHub's REST API.
 pub async fn fetch_repository(

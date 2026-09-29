@@ -1,6 +1,13 @@
 //! Github command handling.
 
-use super::*;
+use std::collections::HashMap;
+use std::process::ExitCode;
+
+use forgesync_core::identity::GitHubHost;
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
+
+use crate::{OutputMode, render_error_with_status};
 
 pub(super) async fn github_clients_for_selectors(
     selectors: &[RepositorySelector],

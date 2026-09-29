@@ -1,6 +1,9 @@
 //! Clusters command presentation.
 
-use super::*;
+use forgesync_engine::clustering::ClusterBuildReport;
+use forgesync_store::clusters::{ClusterDetail, ClusterPage};
+
+use crate::reports::ClusterDecisionOutput;
 
 pub(crate) fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     let coverage = if report.generation.complete_coverage {

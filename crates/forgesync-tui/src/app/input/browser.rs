@@ -1,6 +1,7 @@
 //! Browser navigation and selection.
 
-use super::*;
+use super::{App, Focus, KeyCode, QueryAction, RepositorySelector};
+use crate::app::{PAGE_SIZE, ThreadSelector, move_index};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Edge {

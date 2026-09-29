@@ -1,6 +1,12 @@
 //! Detail archive reads.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, Comment, DeserializeOwned, Discussion, Review, ReviewThread, StagedItem, StoreError,
+    ThreadDetail, ThreadReference, ThreadSummary, ThreadTimelineEntry, ThreadTimelineEvent,
+    UtcTimestamp, coverage_for_kind, load_thread_coverage,
+};
 
 impl Archive {
     /// Returns current thread details and typed selected evidence for a resolved reference.

@@ -1,6 +1,13 @@
 //! Comments workflow contracts.
 
-use super::*;
+use super::{
+    Archive, CancellationToken, CoverageState, EngineError, FailureKind, Mock, MockServer,
+    OperationOutcome, RepositorySelector, ResponseTemplate, SqliteConnectOptions,
+    SqlitePoolOptions, SyncRequest, SyncThreadScope, clients_for, comment, comment_bodies,
+    comment_coverage, issue_with_comment_count, json, method, mount_comments, mount_open_issues,
+    mount_repository, path, query_param, remove_archive, sync_once_with_comments,
+    sync_repositories, temporary_archive_path, thread_summary,
+};
 
 #[tokio::test]
 async fn comments_keep_sibling_success_and_retry_only_stale_threads() {

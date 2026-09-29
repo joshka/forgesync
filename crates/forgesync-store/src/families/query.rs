@@ -1,6 +1,12 @@
 //! Child-family query operations.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, CommitSha, CoverageState, DeserializeOwned, EvidenceFamily, SourceClock, StagedItem,
+    StoreError, ThreadId, evidence_family_name, is_child_family, normalize_source_clock,
+    source_clock_columns, thread_row_id,
+};
 
 impl Archive {
     /// Returns the canonical complete membership for one thread family.

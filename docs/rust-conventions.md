@@ -10,6 +10,11 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 
 - Let a module own one recognizable concept. Split by the reason code changes, not a target line
   count. A file near 200–350 lines is easy to scan; review files past 500 lines for mixed ownership.
+- Prefer a broad, shallow module tree: usually one level below the crate root, sometimes two when a
+  concept or its tests need it, and rarely three. Add depth only when it improves navigation.
+- Import names where they are used. Avoid glob imports, especially `use super::*`, because they hide
+  the owning module and let child files depend on unrelated parent imports. Name sibling imports
+  explicitly and remove parent imports that only served as a child module's implicit prelude.
 - Put the central type or operation first, followed by its methods and local helpers in
   caller-before-callee order where possible. Put tests close to the behavior they prove.
 - Keep command `match` arms short. Delegate substantial work to named operations; keep a visible

@@ -1,6 +1,15 @@
 //! Observation apply operations.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, ArchiveLeaseToken, CollectionCompleteness, CoverageState, Discussion, EvidenceFamily,
+    Observation, ObservationDisposition, ObservationSequence, Ordering, SourceClock, SourceState,
+    SqliteConnection, StoreError, StoredThreadObservation, ThreadKind, ThreadObservationResult,
+    ThreadPayloadUpdate, UtcTimestamp, checked_sequence, compare_observation_order,
+    normalize_source_clock, repository_row_id, require_active_archive_lease, source_clock_columns,
+    source_clock_from_columns, sqlite_integer, to_sql_sequence, write_coverage,
+};
 
 impl Archive {
     /// Applies one issue or pull-request snapshot using source clock and acquisition ordering.

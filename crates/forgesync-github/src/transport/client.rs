@@ -1,6 +1,19 @@
 //! Client transport behavior.
 
-use super::*;
+use tracing::Instrument;
+
+use super::pagination::next_page_from_headers;
+use super::response::{
+    acquire_request_slot, classify_api_response, classify_transport_error, read_body,
+    redirect_target,
+};
+use super::retry::retry_backoff;
+use super::{
+    ACCEPT, AUTHORIZATION, BodyReadError, CONTENT_TYPE, CancellationToken, DeserializeOwned,
+    GitHubClient, GitHubClientConfig, GitHubError, GitHubResponse, GitHubToken, Instant,
+    MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES, Method, OwnedSemaphorePermit, RequestFailure,
+    ResponseBody, Semaphore, TrustedOrigin, USER_AGENT, Url,
+};
 
 impl GitHubClient {
     /// Builds a reusable client that only sends requests to its configured API origin.

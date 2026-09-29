@@ -1,6 +1,11 @@
 //! Keyword search behavior.
 
-use super::*;
+use super::ranking::result_page;
+use super::{
+    Archive, EngineError, KeywordCandidates, ResultPageRequest, SearchHit, SearchMode,
+    SearchProvenance, SearchRanking, SearchRequest, SearchResultPage, ThreadFilters, ThreadPage,
+    ThreadSort, search_threads,
+};
 
 pub(super) async fn keyword_candidates(
     archive: &Archive,

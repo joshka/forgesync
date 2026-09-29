@@ -65,7 +65,6 @@ pub use fetch::{
     fetch_repository, fetch_thread_page, fetch_thread_page_in_scope, issue_comment_list_url,
     thread_list_url, thread_list_url_in_scope,
 };
-use normalize::*;
 
 #[derive(Deserialize)]
 struct RestRepository {

@@ -52,13 +52,8 @@ mod review_threads;
 mod reviews;
 mod support;
 
-use comments::*;
-use jobs::*;
-use metadata::*;
-use pull_requests::*;
-use review_threads::*;
-use reviews::*;
-use support::*;
+use jobs::run_jobs;
+use support::{operation_outcome, resolve_selectors};
 
 /// Thread scope requested for one sync run.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]

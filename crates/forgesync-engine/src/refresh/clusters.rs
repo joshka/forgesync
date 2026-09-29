@@ -1,6 +1,11 @@
 //! Refresh clusters behavior.
 
-use super::*;
+use super::status::{keep_first_failure, stage_failure};
+use super::{
+    Archive, CancellationToken, ClusterBuildRequest, ClusterOptions, DocumentRecipe,
+    EmbeddingServiceIdentity, RefreshClusterRepository, RefreshStage, RefreshStageFailure,
+    RefreshStageStatus, RepositorySelector, build_clusters,
+};
 
 pub(super) async fn build_repository_clusters(
     archive: &Archive,

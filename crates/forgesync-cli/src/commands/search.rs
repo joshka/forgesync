@@ -1,6 +1,18 @@
 //! Search command setup and execution.
 
-use super::*;
+use std::process::ExitCode;
+
+use forgesync_core::document::DocumentRecipe;
+use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::search::{SearchMode, SearchRequest, retrieve_threads};
+use forgesync_store::archive::Archive;
+
+use crate::args::{SearchArgs, SearchModeArg};
+use crate::commands::thread_filters;
+use crate::reports::render_search_page;
+use crate::{
+    OutputMode, render_engine_error, render_error, render_error_with_status, render_store_error,
+};
 
 pub(super) async fn search_command(
     args: SearchArgs,

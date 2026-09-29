@@ -1,6 +1,10 @@
 //! Sync command presentation.
 
-use super::*;
+use std::process::ExitCode;
+
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::refresh::{RefreshReport, RefreshStageKind, RefreshStageStatus};
+use forgesync_engine::sync::SyncReport;
 
 pub(crate) fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
     match outcome {

@@ -1,6 +1,6 @@
 //! Lease cluster behavior.
 
-use super::*;
+use super::{Archive, ArchiveLeaseToken, EngineError, now_utc};
 
 pub(super) async fn finish_cluster_lease<T>(
     archive: &Archive,

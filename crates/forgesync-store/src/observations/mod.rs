@@ -8,7 +8,7 @@ use forgesync_core::identity::{ObservationSequence, ProviderId, ThreadId};
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqliteConnection};
+use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
 use crate::error::StoreError;

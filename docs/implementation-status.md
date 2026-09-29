@@ -10,13 +10,17 @@
   the owning command module. Cluster build, read, and local decisions have separate files with
   explicit dependencies. The workspace format, Clippy, test, optional CLI build, and documentation
   gates passed after these changes.
+- All Rust `use super::*` imports were replaced with explicit dependencies. CLI command and report
+  modules now import their types and functions at the point of use, leaving the crate root focused
+  on startup and output. Other module glob imports were replaced with named imports. Workspace
+  formatting and Clippy passed after the import cleanup.
 - The dependency resolution audit found no compatible package updates with Rust 1.98.1; a newer
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
 - Next action: **Run the hosted platform matrix before preparing a release**.
-- Next maintainability pass: replace broad parent imports in the remaining CLI command modules with
-  explicit imports, starting where doing so exposes misplaced responsibilities.
+- Next maintainability pass: review the remaining long parent import lists for misplaced
+  responsibilities; split only where a concept gains a clearer owner.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.

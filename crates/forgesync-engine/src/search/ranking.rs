@@ -1,6 +1,9 @@
 //! Ranking search behavior.
 
-use super::*;
+use super::{
+    EngineError, HashMap, RRF_CONSTANT, ResultPageRequest, ScoredThread, SearchHit,
+    SearchProvenance, SearchResultPage, ThreadId, ThreadSort, ThreadSummary, stable_thread_id_cmp,
+};
 
 pub(super) fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
     let ResultPageRequest {

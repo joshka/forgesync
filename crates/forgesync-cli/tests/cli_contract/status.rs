@@ -1,4 +1,4 @@
-use super::*;
+use super::{forgesync, temporary_archive_path};
 
 #[test]
 fn status_reports_missing_archive_as_json_without_creating_it() {

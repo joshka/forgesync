@@ -1,6 +1,9 @@
 //! Coverage screen rendering.
 
-use super::*;
+use super::{
+    App, ArchiveStatus, Frame, Line, Modifier, Paragraph, Rect, Style, Text, Wrap, family_name,
+    pane_block,
+};
 
 pub(super) fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = pane_block("Archive coverage and health", true);

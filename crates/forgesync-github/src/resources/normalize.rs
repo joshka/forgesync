@@ -1,6 +1,12 @@
 //! Provider DTO conversion to normalized domain values.
 
-use super::*;
+use super::{
+    BTreeMap, BranchRef, Comment, CommentId, CommitSha, Discussion, GitHubError, GitHubHost,
+    ProviderData, ProviderId, PullRequestMetadata, Repository, RepositoryId, RestBranchRef,
+    RestComment, RestIssue, RestPullRequest, RestRepository, RestReview, Review, ReviewId,
+    ReviewState, ReviewerIdentity, SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
+    Value,
+};
 
 pub(super) fn normalize_repository(
     host: &GitHubHost,

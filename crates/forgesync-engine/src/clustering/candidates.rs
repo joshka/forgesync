@@ -1,6 +1,11 @@
 //! Candidates cluster behavior.
 
-use super::*;
+use super::{
+    BinaryHeap, CancellationToken, CandidateEdge, ClusterCandidate, ClusterMemberCandidate,
+    ClusterOptions, EARLY_BODY_REFERENCE_BYTES, EmbeddingSearchDocument, EngineError,
+    HIGH_CONFIDENCE_SCORE, HashMap, HashSet, MIN_TITLE_OVERLAP, Neighbor, Ordering,
+    REFERENCE_SCORE, THREAD_REFERENCE, TITLE_TOKEN, cosine_similarity, stable_thread_id_cmp,
+};
 
 /// Builds sparse candidate components from current discussion vectors and references.
 pub(crate) fn build_cluster_candidates(

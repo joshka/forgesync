@@ -1,6 +1,8 @@
 //! Observation repository operations.
 
-use super::*;
+use super::{
+    Archive, ArchiveLeaseToken, Repository, StoreError, UtcTimestamp, require_active_archive_lease,
+};
 
 impl Archive {
     /// Inserts or refreshes a repository identity used by discussion observations.

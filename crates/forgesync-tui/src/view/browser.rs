@@ -1,6 +1,10 @@
 //! Browser screen rendering.
 
-use super::*;
+use super::{
+    App, COMPACT_WIDTH, Color, Constraint, Direction, Focus, Frame, Layout, Line, List, ListItem,
+    ListState, Modifier, Paragraph, Rect, SourceState, Style, Text, ThreadDetail, ThreadKind,
+    ThreadTimelineEvent, Wrap, family_name, pane_block, selected_style,
+};
 
 pub(super) fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     if area.width >= COMPACT_WIDTH {

@@ -1,6 +1,14 @@
 //! Semantic search behavior.
 
-use super::*;
+use super::ranking::result_page;
+use super::{
+    Arc, Archive, CancellationToken, DocumentRecipe, EMBEDDING_READ_PAGE, EXACT_SEARCH_SLOTS,
+    EXACT_WORKER_LIMIT, EmbeddingClient, EmbeddingDocumentQuery, EmbeddingVector, EngineError,
+    FamilyCoverageSummary, NonZeroU32, OwnedSemaphorePermit, ResultPageRequest, ScoredThread,
+    SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
+    Semaphore, ThreadSort, merge_scored_pages, resolve_repositories, score_embedding_page,
+    store_sort, store_state_filter,
+};
 
 pub(super) async fn semantic_candidates(
     archive: &Archive,

@@ -1,6 +1,14 @@
 //! Embeddings workflow contracts.
 
-use super::*;
+use super::{
+    Arc, Archive, AtomicUsize, CancellationToken, Document, DocumentRecipe, Duration,
+    EmbeddingClient, EmbeddingClientConfig, Mock, MockServer, OperationOutcome, Ordering,
+    RepositorySelector, Request, Respond, ResponseTemplate, SearchMode, SearchRanking,
+    SearchRequest, SyncThreadScope, ThreadFilters, ThreadSort, ThreadStateFilter,
+    current_timestamp, embed_documents, issue_with_comment_count, json, method, mount_open_issues,
+    mount_repository, path, remove_archive, retrieve_threads, sync_once, temporary_archive_path,
+    thread_summary,
+};
 
 #[tokio::test]
 async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chunks() {

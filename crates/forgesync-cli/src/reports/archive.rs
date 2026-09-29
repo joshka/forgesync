@@ -1,6 +1,10 @@
 //! Archive command presentation.
 
-use super::*;
+use forgesync_store::archive::ArchiveInfo;
+use forgesync_store::health::DoctorReport;
+
+use crate::output::ArchiveStatusOutput;
+use crate::reports::{MigrationOutput, family_name};
 
 pub(crate) fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
     let mut lines = vec![

@@ -1,6 +1,13 @@
 //! Metadata sync work.
 
-use super::*;
+use super::comments::incomplete_reason;
+use super::support::record_thread_family_failure;
+use super::{
+    Archive, ChildFamilyFailureScope, ChildFamilyObservation, CollectionCompleteness, EngineError,
+    EvidenceFamily, GitHubClient, GitHubError, ObservationDisposition, PullRequestMetadata,
+    SourceClock, StagedItem, StoreError, SyncRunContext, ThreadFamilyResult, ThreadFamilyScope,
+    fetch_pull_request_metadata, github_failure, now_utc,
+};
 
 pub(super) async fn sync_thread_pull_request_metadata(
     archive: &Archive,

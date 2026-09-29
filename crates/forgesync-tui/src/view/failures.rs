@@ -1,6 +1,9 @@
 //! Failures screen rendering.
 
-use super::*;
+use super::{
+    App, COMPACT_WIDTH, Color, Constraint, Direction, Frame, Layout, Line, List, ListItem,
+    ListState, Modifier, Paragraph, Rect, Style, Text, Wrap, pane_block, selected_style,
+};
 
 pub(super) fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
     if area.width >= COMPACT_WIDTH {

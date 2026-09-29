@@ -1,6 +1,11 @@
 //! Response transport behavior.
 
-use super::*;
+use super::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
+use super::{
+    BodyReadError, CancellationToken, GitHubError, LOCATION, MAX_ERROR_BODY_BYTES,
+    OwnedSemaphorePermit, RequestFailure, Response, ResponseBody, Semaphore, StatusCode,
+    TrustedOrigin, Url,
+};
 
 pub(super) async fn acquire_request_slot(
     slots: &std::sync::Arc<Semaphore>,

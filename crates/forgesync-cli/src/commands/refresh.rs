@@ -1,6 +1,21 @@
 //! Refresh command handling.
 
-use super::*;
+use std::collections::HashMap;
+use std::process::ExitCode;
+
+use forgesync_engine::clustering::ClusterOptions;
+use forgesync_engine::embedding_client::EmbeddingClient;
+use forgesync_engine::refresh::{
+    EmbeddingServiceIdentity, RefreshAnalysisStage, RefreshRequest, RefreshSyncOptions, refresh,
+};
+use forgesync_engine::sync::SyncThreadScope;
+use forgesync_store::archive::Archive;
+
+use super::github::{github_clients_for_selectors, render_github_client_setup_error};
+use crate::args::{RefreshAnalysisArg, RefreshArgs, SyncIncludeArg, SyncThreadStateArg};
+use crate::config::ForgesyncConfig;
+use crate::reports::{outcome_exit_code, refresh_summary};
+use crate::{OutputMode, render_engine_error, render_result, render_store_error, usage_error};
 
 pub(super) async fn refresh_from_cli(
     args: RefreshArgs,

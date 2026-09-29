@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    Archive, SourceState, SqliteConnectOptions, SqlitePoolOptions, StoreError, ThreadKind,
+    apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,
+};
 
 #[tokio::test]
 async fn explicit_migration_builds_search_index_for_existing_threads() {

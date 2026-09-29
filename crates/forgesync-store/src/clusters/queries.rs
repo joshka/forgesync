@@ -1,6 +1,13 @@
 //! Queries for durable clusters.
 
-use super::*;
+use sqlx::Row;
+
+use super::{
+    Archive, ClusterDetail, ClusterLifecycle, ClusterListQuery, ClusterMember, ClusterMemberRole,
+    ClusterMemberState, ClusterPage, ClusterSummary, QueryBuilder, Repository, RepositoryId,
+    Sqlite, StoreError, ThreadNumber, ThreadReference, ThreadSummary, UtcTimestamp,
+    checked_cluster_id, coverage_for_kind, load_thread_coverage,
+};
 
 impl Archive {
     /// Lists durable generated clusters without contacting GitHub or mutating the archive.

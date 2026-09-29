@@ -10,7 +10,6 @@ use reqwest::{Method, Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
-use tracing::Instrument;
 
 use crate::error::{ApiFailureKind, GitHubError};
 use crate::token::GitHubToken;
@@ -92,10 +91,6 @@ mod client;
 mod pagination;
 mod response;
 mod retry;
-
-use pagination::*;
-use response::*;
-use retry::*;
 
 struct RequestFailure {
     error: GitHubError,

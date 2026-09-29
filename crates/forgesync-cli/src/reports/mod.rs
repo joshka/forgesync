@@ -1,6 +1,11 @@
 //! Human-readable command reports and JSON output shapes.
 
-use super::*;
+use forgesync_core::document::DocumentRecipe;
+use forgesync_engine::embeddings::EmbeddingReport;
+use forgesync_engine::refresh::{RefreshDocumentFailure, RefreshStageFailure, RefreshStageStatus};
+use forgesync_store::archive::ArchiveInfo;
+use forgesync_store::migration::MigrationReport;
+use serde::Serialize;
 
 mod archive;
 mod clusters;
@@ -9,12 +14,18 @@ mod runs;
 mod sync;
 mod threads;
 
-pub(super) use archive::*;
-pub(super) use clusters::*;
-pub(super) use embedding::*;
-pub(super) use runs::*;
-pub(super) use sync::*;
-pub(super) use threads::*;
+pub(super) use archive::{
+    archive_status_summary, archive_summary, doctor_summary, migration_summary,
+};
+pub(super) use clusters::{
+    cluster_build_summary, cluster_decision_summary, cluster_detail_summary, cluster_page_summary,
+};
+pub(super) use embedding::embedding_summary;
+pub(super) use runs::{retry_summary, run_detail_summary, run_list_summary};
+pub(super) use sync::{outcome_exit_code, refresh_status_name, refresh_summary, sync_summary};
+pub(super) use threads::{
+    family_name, render_search_page, render_thread_detail, render_thread_page,
+};
 
 #[derive(Serialize)]
 pub(super) struct SyncFailure {

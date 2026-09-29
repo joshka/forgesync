@@ -1,6 +1,9 @@
 //! Observation coverage operations.
 
-use super::*;
+use super::{
+    Archive, Coverage, CoverageState, EvidenceFamily, StoreError, ThreadId, evidence_family_name,
+    thread_row_id,
+};
 
 impl Archive {
     /// Reads the latest per-family completeness state; an absent row is `Missing`.

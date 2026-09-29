@@ -1,6 +1,14 @@
 //! Reviews sync work.
 
-use super::*;
+use super::comments::incomplete_reason;
+use super::support::record_thread_family_failure;
+use super::{
+    Archive, ChildFamilyFailureScope, ChildFamilyObservation, CollectionCompleteness, EngineError,
+    EvidenceFamily, Failure, FailureKind, GitHubClient, GitHubError, IncompleteReason,
+    ObservationDisposition, PullRequestMetadata, Review, SourceClock, StagedItem, StoreError,
+    SyncRunContext, ThreadFamilyResult, ThreadFamilyScope, fetch_pull_request_review_page,
+    github_failure, now_utc,
+};
 
 pub(super) async fn sync_thread_reviews(
     archive: &Archive,
