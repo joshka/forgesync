@@ -386,9 +386,7 @@ pub async fn dismiss_cluster(archive: &Archive, id: u64, reason: &str) -> Result
     let lease = archive
         .acquire_archive_lease(at, CLUSTER_LEASE_DURATION)
         .await?;
-    let result = archive
-        .set_cluster_dismissed_fenced(&lease, id, true, reason, at)
-        .await;
+    let result = archive.dismiss_cluster_fenced(&lease, id, reason, at).await;
     finish_cluster_lease(archive, &lease, result).await
 }
 
@@ -398,9 +396,7 @@ pub async fn restore_cluster(archive: &Archive, id: u64) -> Result<(), EngineErr
     let lease = archive
         .acquire_archive_lease(at, CLUSTER_LEASE_DURATION)
         .await?;
-    let result = archive
-        .set_cluster_dismissed_fenced(&lease, id, false, "", at)
-        .await;
+    let result = archive.restore_cluster_fenced(&lease, id, at).await;
     finish_cluster_lease(archive, &lease, result).await
 }
 
@@ -411,7 +407,7 @@ pub async fn exclude_cluster_member(
     reference: &ThreadSelector,
     reason: &str,
 ) -> Result<(), EngineError> {
-    set_cluster_member_excluded(archive, id, reference, true, reason).await
+    update_cluster_member(archive, id, reference, ClusterMemberAction::Exclude(reason)).await
 }
 
 /// Includes one previously excluded current cluster member.
@@ -420,7 +416,7 @@ pub async fn include_cluster_member(
     id: u64,
     reference: &ThreadSelector,
 ) -> Result<(), EngineError> {
-    set_cluster_member_excluded(archive, id, reference, false, "").await
+    update_cluster_member(archive, id, reference, ClusterMemberAction::Include).await
 }
 
 /// Selects a current cluster member as the local canonical discussion.
@@ -444,12 +440,16 @@ pub async fn set_canonical_cluster_member(
     finish_cluster_decision_lease(archive, &lease, result).await
 }
 
-async fn set_cluster_member_excluded(
+enum ClusterMemberAction<'a> {
+    Exclude(&'a str),
+    Include,
+}
+
+async fn update_cluster_member(
     archive: &Archive,
     id: u64,
     reference: &ThreadSelector,
-    excluded: bool,
-    reason: &str,
+    action: ClusterMemberAction<'_>,
 ) -> Result<(), EngineError> {
     let thread = crate::inspect::show_thread(archive, reference)
         .await?
@@ -460,9 +460,18 @@ async fn set_cluster_member_excluded(
     let lease = archive
         .acquire_archive_lease(at, CLUSTER_LEASE_DURATION)
         .await?;
-    let result = archive
-        .set_cluster_member_excluded_fenced(&lease, id, &thread, excluded, reason, at)
-        .await;
+    let result = match action {
+        ClusterMemberAction::Exclude(reason) => {
+            archive
+                .exclude_cluster_member_fenced(&lease, id, &thread, reason, at)
+                .await
+        }
+        ClusterMemberAction::Include => {
+            archive
+                .include_cluster_member_fenced(&lease, id, &thread, at)
+                .await
+        }
+    };
     finish_cluster_decision_lease(archive, &lease, result).await
 }
 

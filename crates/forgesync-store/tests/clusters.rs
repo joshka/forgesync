@@ -78,18 +78,11 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
         .id;
 
     archive
-        .set_cluster_dismissed_fenced(&lease, first_cluster, true, "known duplicate", at)
+        .dismiss_cluster_fenced(&lease, first_cluster, "known duplicate", at)
         .await
         .expect("dismiss cluster");
     archive
-        .set_cluster_member_excluded_fenced(
-            &lease,
-            first_cluster,
-            &second,
-            true,
-            "different root cause",
-            at,
-        )
+        .exclude_cluster_member_fenced(&lease, first_cluster, &second, "different root cause", at)
         .await
         .expect("exclude member");
     archive

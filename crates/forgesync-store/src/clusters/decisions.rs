@@ -2,13 +2,47 @@
 
 use super::*;
 
+#[derive(Clone, Copy)]
+enum ClusterDecision {
+    Dismiss,
+    Restore,
+}
+
+#[derive(Clone, Copy)]
+enum MemberDecision {
+    Exclude,
+    Include,
+}
+
 impl Archive {
-    /// Dismisses or restores a generated cluster as a local maintainer decision.
-    pub async fn set_cluster_dismissed_fenced(
+    /// Dismisses a generated cluster as a local maintainer decision.
+    pub async fn dismiss_cluster_fenced(
         &self,
         token: &ArchiveLeaseToken,
         id: u64,
-        dismissed: bool,
+        reason: &str,
+        at: UtcTimestamp,
+    ) -> Result<(), StoreError> {
+        self.set_cluster_decision(token, id, ClusterDecision::Dismiss, reason, at)
+            .await
+    }
+
+    /// Restores a locally dismissed generated cluster.
+    pub async fn restore_cluster_fenced(
+        &self,
+        token: &ArchiveLeaseToken,
+        id: u64,
+        at: UtcTimestamp,
+    ) -> Result<(), StoreError> {
+        self.set_cluster_decision(token, id, ClusterDecision::Restore, "", at)
+            .await
+    }
+
+    async fn set_cluster_decision(
+        &self,
+        token: &ArchiveLeaseToken,
+        id: u64,
+        decision: ClusterDecision,
         reason: &str,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
@@ -19,8 +53,11 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let event = if dismissed { "dismissed" } else { "restored" };
-        let result = if dismissed {
+        let event = match decision {
+            ClusterDecision::Dismiss => "dismissed",
+            ClusterDecision::Restore => "restored",
+        };
+        let result = if matches!(decision, ClusterDecision::Dismiss) {
             sqlx::query("UPDATE clusters SET dismissed_at_us = ?, dismissal_reason = ?, updated_at_us = ? WHERE id = ?")
                 .bind(at.unix_microseconds())
                 .bind(reason.trim())
@@ -52,13 +89,37 @@ impl Archive {
         Ok(())
     }
 
-    /// Excludes or includes one current generated member as a local decision.
-    pub async fn set_cluster_member_excluded_fenced(
+    /// Excludes one current generated member as a local decision.
+    pub async fn exclude_cluster_member_fenced(
         &self,
         token: &ArchiveLeaseToken,
         id: u64,
         thread: &ThreadId,
-        excluded: bool,
+        reason: &str,
+        at: UtcTimestamp,
+    ) -> Result<(), StoreError> {
+        self.set_member_decision(token, id, thread, MemberDecision::Exclude, reason, at)
+            .await
+    }
+
+    /// Includes one previously excluded generated member.
+    pub async fn include_cluster_member_fenced(
+        &self,
+        token: &ArchiveLeaseToken,
+        id: u64,
+        thread: &ThreadId,
+        at: UtcTimestamp,
+    ) -> Result<(), StoreError> {
+        self.set_member_decision(token, id, thread, MemberDecision::Include, "", at)
+            .await
+    }
+
+    async fn set_member_decision(
+        &self,
+        token: &ArchiveLeaseToken,
+        id: u64,
+        thread: &ThreadId,
+        decision: MemberDecision,
         reason: &str,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
@@ -70,17 +131,20 @@ impl Archive {
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let member_id = current_cluster_member_id(&mut transaction, cluster_id, thread).await?;
+        let (excluded, state, event) = match decision {
+            MemberDecision::Exclude => (1_i64, "excluded", "member_excluded"),
+            MemberDecision::Include => (0_i64, "active", "member_included"),
+        };
         sqlx::query(
             "INSERT INTO cluster_member_decisions (cluster_id, thread_id, excluded, reason, updated_at_us) VALUES (?, ?, ?, ?, ?) ON CONFLICT (cluster_id, thread_id) DO UPDATE SET excluded = excluded.excluded, reason = excluded.reason, updated_at_us = excluded.updated_at_us",
         )
         .bind(cluster_id)
         .bind(member_id)
-        .bind(if excluded { 1_i64 } else { 0_i64 })
+        .bind(excluded)
         .bind(reason.trim())
         .bind(at.unix_microseconds())
         .execute(&mut *transaction)
         .await?;
-        let state = if excluded { "excluded" } else { "active" };
         sqlx::query("UPDATE cluster_memberships SET state = ?, updated_at_us = ? WHERE cluster_id = ? AND thread_id = ?")
             .bind(state)
             .bind(at.unix_microseconds())
@@ -88,7 +152,7 @@ impl Archive {
             .bind(member_id)
             .execute(&mut *transaction)
             .await?;
-        if excluded {
+        if matches!(decision, MemberDecision::Exclude) {
             sqlx::query("UPDATE clusters SET canonical_thread_id = NULL, updated_at_us = ? WHERE id = ? AND canonical_thread_id = ?")
                 .bind(at.unix_microseconds())
                 .bind(cluster_id)
@@ -96,11 +160,6 @@ impl Archive {
                 .execute(&mut *transaction)
                 .await?;
         }
-        let event = if excluded {
-            "member_excluded"
-        } else {
-            "member_included"
-        };
         insert_cluster_event(
             &mut transaction,
             cluster_id,
