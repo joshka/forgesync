@@ -6,10 +6,13 @@ workflows into memory. File length is a signal to inspect ownership, not a pass/
 
 The crate-root, CLI command, engine sync/search/clustering/refresh, GitHub resource/transport, store
 operation, TUI view/state, and TUI read/operation splits are complete. Core identities and embedding
-client concerns now have smaller owning modules. Remaining review targets include GitHub
-review-thread acquisition and mixed-purpose files near 400–500 lines. Store and CLI integration
-suites are grouped by scenario, CLI arguments and dispatch by command, and TUI keys by screen. Each
-further split should follow a coherent behavior and preserve the nearby test path.
+client concerns now have smaller owning modules. Review-thread acquisition and normalization have
+separate owners. Store and CLI integration suites are grouped by scenario, CLI arguments and
+dispatch by command, and TUI keys by screen. Each further split should follow a coherent behavior
+and preserve the nearby test path.
+
+The remaining long production files have a coherent workflow or algorithm owner. Revisit them when a
+concrete change exposes mixed reasons to change; do not split them to meet a numeric limit.
 
 ## Order of work
 

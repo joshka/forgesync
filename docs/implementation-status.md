@@ -51,6 +51,10 @@ The CLI dispatcher now constructs command requests and delegates execution to th
 search, sync, refresh, embedding, cluster, or TUI module. Provider setup, cancellation, and archive
 opening remain with the command that needs them.
 
+CLI rendering now carries a named output mode after parsing `--json`. Terminal edge navigation uses
+a named direction. Repeated host, parser, embedding-response, and TUI rendering cases use named
+`rstest` cases so a failure identifies its scenario without a loop in the test body.
+
 Validation of the combined migration on this checkout:
 
 - `rumdl check .` and Markdownlint CLI with the global config: passed.
@@ -60,9 +64,10 @@ Validation of the combined migration on this checkout:
 - `cargo build -p forgesync-cli --no-default-features --locked`: passed.
 - `cargo doc --workspace --no-deps --all-features --locked`: passed.
 
-Next: review remaining 350–500 line files for mixed ownership and audit behavioral booleans. Review
-GraphQL page acquisition for a further split only if it improves local understanding beyond the new
-normalization boundary.
+The remaining 350–500 line production files were reviewed for ownership: cluster generation,
+candidate graph construction, embedding batching, and sync coordination each follow one workflow or
+algorithm. File length alone does not justify another module boundary. Revisit a file when a
+specific behavior becomes hard to locate or change.
 
 ## P0.1 evidence
 
