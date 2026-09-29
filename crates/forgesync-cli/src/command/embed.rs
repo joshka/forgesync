@@ -2,7 +2,10 @@
 //!
 //! `EmbedArgs` carries repository scope and service settings for a derived-data operation. Its run
 //! method resolves the configured client, asks the engine to embed eligible documents, and renders
-//! completed and failed batches.
+//! completed and failed batches. `PreparedEmbedding` keeps the selected scope, service identity,
+//! recipe, and typed replacement policy together through acquisition and output projection.
+//! Configuration fails before an archive is opened; the command closes a successful open before
+//! rendering either a report or a missing-report diagnostic.
 //!
 //! Embedding service calls are distinct from GitHub acquisition. A local search reads stored
 //! vectors; this command is where a user chooses to produce new ones.
@@ -11,11 +14,16 @@ use std::collections::HashSet;
 use std::process::ExitCode;
 
 use clap::{ArgAction, Args};
+use forgesync_core::document::DocumentRecipe;
+use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::embeddings::EmbeddingPolicy;
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::refresh::{RefreshStageFailure, embed_repositories};
+use forgesync_engine::refresh::{
+    RefreshEmbeddingReport, RefreshStage, RefreshStageFailure, embed_repositories,
+};
 use forgesync_store::archive::Archive;
 
+use super::embedding_service::EmbeddingSetupError;
 use crate::config::ForgesyncConfig;
 use crate::reports::embedding::{EmbeddingOutput, embedding_summary};
 use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
@@ -79,69 +87,46 @@ impl EmbedArgs {
         config: ForgesyncConfig,
         cancellation: &tokio_util::sync::CancellationToken,
     ) -> ExitCode {
-        let service = self.service(config.embeddings);
-        let recipe = config.documents.recipe;
-        let repositories = self.repositories;
-        let force = self.force;
-        let client = match service.client() {
-            Ok(client) => client,
-            Err(error) => {
-                return render_error_with_status(
-                    json,
-                    "embed",
-                    error.code(),
-                    &error.to_string(),
-                    ExitCode::from(2),
-                );
-            }
+        let prepared = match self.prepare(config) {
+            Ok(prepared) => prepared,
+            Err(error) => return render_configuration_error(json, error),
         };
         let archive = match Archive::open_read_write(path).await {
             Ok(archive) => archive,
             Err(error) => return render_store_error(json, "embed", error),
         };
-        let mut repositories = repositories
-            .into_iter()
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        repositories.sort_by_key(RepositorySelector::as_url);
         if verbose > 0 && !json.is_json() {
             eprintln!(
                 "forgesync: embedding discussions in {} repository(s)",
-                repositories.len()
+                prepared.repositories.len()
             );
         }
-        let stage = embed_repositories(
-            &archive,
-            &repositories,
-            &client,
-            recipe,
-            EmbeddingPolicy::from_force(force),
-            cancellation,
-        )
-        .await;
+        let result = prepared.run(&archive, cancellation).await;
         archive.close().await;
-        let Some(stage_report) = stage.report else {
-            return render_stage_failure(json, stage.failure);
-        };
+        match result {
+            Ok(output) => render_report(json, output),
+            Err(failure) => render_stage_failure(json, failure),
+        }
+    }
 
-        let output = EmbeddingOutput {
-            repositories: repositories
-                .iter()
-                .map(RepositorySelector::as_url)
-                .collect(),
-            recipe,
-            endpoint: client.endpoint_identity().to_owned(),
-            model: client.model().to_owned(),
-            dimensions: service.dimensions,
-            status: stage.status,
-            report: stage_report.embeddings,
-            documents_materialized: stage_report.documents_materialized,
-            document_failures: stage_report.document_failures,
-            failure: stage.failure,
+    /// Resolves overrides and credentials before opening an archive, then fixes execution scope.
+    /// Repository deduplication and ordering are pure; model requests occur only in `run`.
+    fn prepare(self, config: ForgesyncConfig) -> Result<PreparedEmbedding, EmbeddingSetupError> {
+        let service = self.service(config.embeddings);
+        let client = service.client()?;
+        let repositories = repository_scope(self.repositories);
+        let policy = if self.force {
+            EmbeddingPolicy::Replace
+        } else {
+            EmbeddingPolicy::Missing
         };
-        let exit_status = output.exit_status();
-        render_result(json, "embed", &output, embedding_summary, exit_status)
+        Ok(PreparedEmbedding {
+            repositories,
+            client,
+            recipe: config.documents.recipe,
+            policy,
+            dimensions: service.dimensions,
+        })
     }
 
     /// Applies command-line service overrides after file and environment config resolution.
@@ -177,12 +162,102 @@ impl EmbedArgs {
     }
 }
 
+/// Deduplicates selectors and orders their canonical URLs for repeatable execution and JSON scope.
+/// This pure preparation does not resolve repositories in the archive or contact their hosts.
+fn repository_scope(repositories: Vec<RepositorySelector>) -> Vec<RepositorySelector> {
+    let mut repositories = repositories
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    repositories.sort_by_key(RepositorySelector::as_url);
+    repositories
+}
+
+/// Prepared repository selection and service capability used for acquisition and its output
+/// identity.
+struct PreparedEmbedding {
+    /// Unique host-qualified selectors ordered by URL for repeatable execution and presentation.
+    repositories: Vec<RepositorySelector>,
+    /// Validated service client; its normalized identity also labels the resulting report.
+    client: EmbeddingClient,
+    /// Document materialization recipe shared with vector compatibility selection.
+    recipe: DocumentRecipe,
+    /// Typed cache/replacement policy converted once from the parsed command flag.
+    policy: EmbeddingPolicy,
+    /// Configured output dimensions attached to the same client/request identity.
+    dimensions: Option<u32>,
+}
+
+impl PreparedEmbedding {
+    /// Acquires documents/vectors and projects the result without rendering or closing the archive.
+    async fn run(
+        self,
+        archive: &Archive,
+        cancellation: &tokio_util::sync::CancellationToken,
+    ) -> Result<EmbeddingOutput, RefreshStageFailure> {
+        let stage = embed_repositories(
+            archive,
+            &self.repositories,
+            &self.client,
+            self.recipe,
+            self.policy,
+            cancellation,
+        )
+        .await;
+        self.output(stage)
+    }
+
+    /// Attaches the exact execution identity to a present report, retaining safe partial failures.
+    /// An absent report becomes a concrete diagnostic rather than an optional error value.
+    fn output(
+        self,
+        stage: RefreshStage<RefreshEmbeddingReport>,
+    ) -> Result<EmbeddingOutput, RefreshStageFailure> {
+        let Some(report) = stage.report else {
+            return Err(stage.failure.unwrap_or(RefreshStageFailure {
+                code: "embedding_stage_failed",
+                message: "embedding stage did not produce a report".to_owned(),
+            }));
+        };
+        Ok(EmbeddingOutput {
+            repositories: self
+                .repositories
+                .iter()
+                .map(RepositorySelector::as_url)
+                .collect(),
+            recipe: self.recipe,
+            endpoint: self.client.endpoint_identity().to_owned(),
+            model: self.client.model().to_owned(),
+            dimensions: self.dimensions,
+            status: stage.status,
+            report: report.embeddings,
+            documents_materialized: report.documents_materialized,
+            document_failures: report.document_failures,
+            failure: stage.failure,
+        })
+    }
+}
+
+/// Presents invalid service configuration before archive creation or acquisition can begin.
+fn render_configuration_error(output: OutputMode, error: EmbeddingSetupError) -> ExitCode {
+    render_error_with_status(
+        output,
+        "embed",
+        error.code(),
+        &error.to_string(),
+        ExitCode::from(2),
+    )
+}
+
+/// Renders a report-bearing outcome after the command closes its writable archive.
+fn render_report(output: OutputMode, report: EmbeddingOutput) -> ExitCode {
+    let status = report.exit_status();
+    render_result(output, "embed", &report, embedding_summary, status)
+}
+
 /// Presents a stage that produced no report after archive cleanup, preserving cancellation status.
-fn render_stage_failure(output: OutputMode, failure: Option<RefreshStageFailure>) -> ExitCode {
-    let failure = failure.unwrap_or(RefreshStageFailure {
-        code: "embedding_stage_failed",
-        message: "embedding stage did not produce a report".to_owned(),
-    });
+fn render_stage_failure(output: OutputMode, failure: RefreshStageFailure) -> ExitCode {
     let status = failure_exit_status(&failure);
     render_error_with_status(output, "embed", failure.code, &failure.message, status)
 }

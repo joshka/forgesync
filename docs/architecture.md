@@ -155,3 +155,8 @@ Embedding process presentation separates an absent engine stage report from a pr
 partial, deferred, or interrupted work. The command owns missing-report diagnostics;
 `reports/embedding::EmbeddingOutput` owns exit selection from the same state exposed in JSON. Both
 paths present results after the writable archive is closed.
+
+CLI embedding preparation retains repository scope, client identity, recipe, replacement policy, and
+dimensions in `PreparedEmbedding`. It executes against an opened archive and projects the same
+identity into its result; the outer command owns archive closure and presentation. Configuration
+setup happens before opening, while actual model requests remain in the engine stage.

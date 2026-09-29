@@ -1332,3 +1332,25 @@ Final local gates pass: both diagnostic cases, all five report-state cases, all 
 tests, workspace Clippy with warnings denied, all workspace tests/doctests, the CLI build without
 default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
 Markdown linting. Embedding request preparation remains the next concrete command surface.
+
+## Continued maintenance: prepared embedding execution
+
+`PreparedEmbedding` keeps canonical repository scope, validated service client, document recipe,
+typed cache/replacement policy, and configured dimensions together through acquisition and output
+projection. Parsed arguments resolve overrides and client setup before archive opening. The command
+then opens, runs, closes, and presents one concrete report or safe stage diagnostic. Request
+identity is attached by the same owner that executed it; missing reports no longer propagate
+optional errors.
+
+Three additional nearby cases establish unique URL ordering, the concrete missing-report fallback,
+and preservation of partial output identity/counts/failure. Static client setup supplies its test
+key explicitly and performs no provider requests or process credential mutation. The command
+converts its parsed force flag directly into a typed policy instead of passing a behavioral boolean
+onward. The engine's remaining embedding scheduling and related workflow candidates remain open.
+
+Current-tree gates pass: five embedding command cases, all fifty-five CLI unit tests, workspace
+Clippy with warnings denied, all workspace tests/doctests, the CLI build without default features,
+strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting.
+Generated embedding module and prepared-execution docs were checked for identity ownership and
+cleanup responsibilities. The full audit remains open, including engine batch coordination and other
+private representations.
