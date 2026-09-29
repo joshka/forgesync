@@ -11,6 +11,7 @@ import tempfile
 import zipfile
 
 
+# Asset names are target-qualified, while archive members use the native executable name.
 TARGETS = {
     "x86_64-unknown-linux-gnu": "forgesync",
     "x86_64-apple-darwin": "forgesync",
@@ -21,6 +22,7 @@ VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?\Z")
 
 
 def verify_archive(archive_path: Path, suffix: str, executable_name: str) -> None:
+    """Reject a package containing anything other than the selected executable."""
     if suffix == "zip":
         with zipfile.ZipFile(archive_path) as archive:
             names = archive.namelist()
@@ -32,6 +34,7 @@ def verify_archive(archive_path: Path, suffix: str, executable_name: str) -> Non
 
 
 def binary_version(binary: Path) -> str:
+    """Read the executable's own version so package names cannot drift from the build."""
     result = subprocess.run(
         [str(binary), "--version"],
         check=True,
@@ -45,6 +48,7 @@ def binary_version(binary: Path) -> str:
 
 
 def main() -> int:
+    """Package one native binary under the caller-selected target label."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--target", choices=TARGETS, required=True)

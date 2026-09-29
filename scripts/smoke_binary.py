@@ -10,6 +10,7 @@ import tempfile
 
 
 def main() -> int:
+    """Exercise a native binary's local archive path in an isolated temporary directory."""
     if len(sys.argv) != 2:
         raise SystemExit("usage: smoke_binary.py BINARY")
 
@@ -28,6 +29,7 @@ def main() -> int:
         environment.pop(name, None)
 
     def run(*arguments: str) -> subprocess.CompletedProcess[str]:
+        """Run one expected-success CLI command with provider credentials removed."""
         result = subprocess.run(
             [str(binary), *arguments],
             check=False,
