@@ -1081,3 +1081,13 @@ cover selection order, the twenty-detail bound, unreadable-detail identity, and 
 
 All sixty-one TUI tests and its doctest pass. Focused Clippy with warnings denied, strict
 public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+## Continued maintenance: discussion page request ownership
+
+`ThreadRead` now owns browser/keyword page preparation in `query/thread_page`. Its fields document
+submitted query, applied scope, and reply offset; methods name the two retrieval paths and common
+filters. The async starter owns only generation, task spawning, and typed reply delivery. Named
+filter cases verify that both ranking policies retain repository scope and page bounds.
+
+All sixty-three TUI tests and its doctest pass. Focused Clippy with warnings denied and strict
+public/private Rustdoc pass; nightly formatting is applied.

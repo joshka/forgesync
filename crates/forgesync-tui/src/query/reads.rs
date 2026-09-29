@@ -1,8 +1,8 @@
 //! # Load browser and triage projections
 //!
 //! Read starters fetch repositories, thread pages, detail, coverage, failures, clusters, and
-//! cluster detail through engine/store APIs. `ThreadRead` keeps a thread selection attached to its
-//! result.
+//! cluster detail through engine/store APIs. [`ThreadRead`] prepares the discussion scope and
+//! query; [`ThreadReply`] keeps its generation and offset attached to the resulting page.
 //!
 //! These calls are local archive reads. They return messages for `App` to apply rather than
 //! drawing or mutating navigation directly, which keeps query completion order visible to the
@@ -11,12 +11,8 @@
 use std::sync::Arc;
 
 use forgesync_engine::clustering::{ClusterListRequest, list_clusters, show_cluster};
-use forgesync_engine::inspect::{
-    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status,
-    list_repositories, list_threads, show_thread,
-};
+use forgesync_engine::inspect::{archive_status, list_repositories, show_thread};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
-use forgesync_engine::search::{SearchMode, SearchRequest, search_threads};
 use forgesync_store::archive::Archive;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
@@ -26,6 +22,7 @@ use crate::app::messages::QueryMessage;
 use crate::app::threads::ThreadReply;
 use crate::query::failures::recent_failures;
 use crate::query::tasks::QueryTasks;
+use crate::query::thread_page::ThreadRead;
 
 /// Starts an archive-only repository read and tags its result with the current generation.
 pub fn start_repositories(
@@ -48,12 +45,6 @@ pub fn start_repositories(
     }));
 }
 
-pub struct ThreadRead {
-    pub query: Option<String>,
-    pub repositories: Vec<RepositorySelector>,
-    pub offset: u64,
-}
-
 /// Starts a local discussion query for the selected repository and search scope.
 pub fn start_threads(
     request: ThreadRead,
@@ -63,44 +54,16 @@ pub fn start_threads(
     sender: &Sender<QueryMessage>,
     tasks: &mut QueryTasks,
 ) {
-    let ThreadRead {
-        query,
-        repositories,
-        offset,
-    } = request;
+    let offset = request.offset;
     let generation = app.begin_threads();
     let archive = Arc::clone(archive);
     let sender = sender.clone();
     tasks.push(runtime.spawn(async move {
-        let filters = ThreadFilters {
-            repositories,
-            kind: None,
-            state: ThreadStateFilter::All,
-            sort: Some(if query.is_some() {
-                ThreadSort::Relevance
-            } else {
-                ThreadSort::Updated
-            }),
-            limit: 100,
-            offset,
-        };
-        let result = match query {
-            Some(query) => {
-                search_threads(
-                    &archive,
-                    &SearchRequest {
-                        query,
-                        mode: SearchMode::Keyword,
-                        filters,
-                        allow_keyword_fallback: false,
-                    },
-                )
-                .await
-            }
-            None => list_threads(&archive, &ThreadListRequest { filters }).await,
-        }
-        .map(Box::new)
-        .map_err(|error| error.to_string());
+        let result = request
+            .page(&archive)
+            .await
+            .map(Box::new)
+            .map_err(|error| error.to_string());
         let _ = sender
             .send(QueryMessage::Threads(ThreadReply {
                 generation,

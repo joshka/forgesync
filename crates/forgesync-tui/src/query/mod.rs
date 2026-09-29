@@ -24,13 +24,14 @@ mod operations;
 mod reads;
 pub mod requests;
 pub mod tasks;
+mod thread_page;
 
 use forgesync_core::identity::GitHubHost;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use operations::start_operation;
 use reads::{
-    ThreadRead, start_cluster_detail, start_clusters, start_coverage, start_detail, start_failures,
+    start_cluster_detail, start_clusters, start_coverage, start_detail, start_failures,
     start_repositories, start_threads,
 };
 use tokio::runtime::Handle;
@@ -40,6 +41,7 @@ use crate::app::App;
 use crate::app::messages::QueryMessage;
 use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
+use crate::query::thread_page::ThreadRead;
 
 /// Routes a UI action to a background read or operation. Each completion returns through the
 /// message channel so rendering and key handling stay responsive.
