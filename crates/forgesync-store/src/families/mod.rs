@@ -11,25 +11,18 @@
 //! without replacing complete canonical membership. That boundary is why child-family writes are
 //! not folded into the parent observation transaction.
 
-use std::collections::BTreeMap;
-
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{CommitSha, ObservationSequence, ThreadId};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_core::timestamp::UtcTimestamp;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
-use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{
-    FamilyReservation, StagedItem, checked_sequence, evidence_family_name, is_child_family,
-    normalize_source_clock, source_clock_columns, source_clock_from_columns, thread_row_id,
-    to_sql_sequence,
+    StagedItem, evidence_family_name, is_child_family, normalize_source_clock,
+    source_clock_columns, thread_row_id,
 };
-use crate::ordering::compare_observation_order;
 
 struct StagedPage {
     index: i64,

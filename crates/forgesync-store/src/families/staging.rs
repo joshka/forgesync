@@ -7,13 +7,24 @@
 //! A page is provisional until the whole collection is complete. Repeated or interrupted provider
 //! work must not expose staged rows as canonical child membership. The engine can record progress
 //! while preserving the last complete view.
+//!
+//! `PageWrite` holds the exact SQL generation key through validation, replay comparison, and
+//! insertion. The archive method owns commit. The page-set helpers below support finalization: a
+//! received-item count includes duplicate IDs, while merging determines unique canonical members.
 
-use sqlx::Row;
+use std::collections::BTreeMap;
 
-use super::{
-    Archive, ArchiveLeaseToken, BTreeMap, EvidenceFamily, ObservationSequence, Serialize,
-    SqliteConnection, StagedItem, StagedPage, StoreError, ThreadId, evidence_family_name,
-    is_child_family, require_active_archive_lease, thread_row_id, to_sql_sequence,
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::{ObservationSequence, ThreadId};
+use serde::Serialize;
+use sqlx::{Row, SqliteConnection};
+
+use super::StagedPage;
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::observations::{
+    StagedItem, evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
 };
 
 impl Archive {
@@ -100,78 +111,112 @@ impl Archive {
             require_active_archive_lease(&mut transaction, token).await?;
         }
         let thread_row_id = thread_row_id(&mut transaction, thread).await?;
+        let page = PageWrite {
+            thread: thread_row_id,
+            family: family_name,
+            sequence: to_sql_sequence(sequence)?,
+            index: page_index,
+            payload: payload_json,
+        };
+        page.validate_generation(&mut transaction).await?;
+        if !page.is_replay(&mut transaction).await? {
+            page.persist(&mut transaction).await?;
+        }
+        transaction.commit().await?;
+        Ok(())
+    }
+}
+
+/// A serialized page belonging to one exact reserved SQL generation.
+///
+/// This owner keeps the generation key identical across validation, replay comparison, insertion,
+/// and count accounting. Its methods borrow the archive operation's transaction and cannot commit
+/// separately. The payload remains provisional until complete collection finalization.
+struct PageWrite {
+    thread: i64,
+    family: &'static str,
+    sequence: i64,
+    index: i64,
+    payload: String,
+}
+
+impl PageWrite {
+    /// Rejects superseded, missing, or completed generations before inspecting any page payload.
+    async fn validate_generation(
+        &self,
+        connection: &mut SqliteConnection,
+    ) -> Result<(), StoreError> {
         let current_sequence: Option<i64> = sqlx::query_scalar(
             "SELECT sequence FROM thread_family_reservations WHERE thread_id = ? AND family = ?",
         )
-        .bind(thread_row_id)
-        .bind(family_name)
-        .fetch_optional(&mut *transaction)
+        .bind(self.thread)
+        .bind(self.family)
+        .fetch_optional(&mut *connection)
         .await?;
-        if current_sequence != Some(to_sql_sequence(sequence)?) {
+        if current_sequence != Some(self.sequence) {
             return Err(StoreError::StaleObservationGeneration);
         }
-
         let generation_status: Option<String> = sqlx::query_scalar(
             "SELECT status FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence = ?",
         )
-        .bind(thread_row_id)
-        .bind(family_name)
-        .bind(to_sql_sequence(sequence)?)
-        .fetch_optional(&mut *transaction)
+        .bind(self.thread)
+        .bind(self.family)
+        .bind(self.sequence)
+        .fetch_optional(&mut *connection)
         .await?;
         match generation_status.as_deref() {
-            None => return Err(StoreError::ObservationGenerationMissing),
-            Some("complete") => return Err(StoreError::StaleObservationGeneration),
-            Some("reserved" | "incomplete") => {}
-            Some(_) => return Err(StoreError::ObservationGenerationMissing),
+            None => Err(StoreError::ObservationGenerationMissing),
+            Some("complete") => Err(StoreError::StaleObservationGeneration),
+            Some("reserved" | "incomplete") => Ok(()),
+            Some(_) => Err(StoreError::ObservationGenerationMissing),
         }
+    }
 
+    /// Recognizes identical replay and rejects a different payload at the same page index.
+    async fn is_replay(&self, connection: &mut SqliteConnection) -> Result<bool, StoreError> {
         let existing_page: Option<String> = sqlx::query_scalar(
             "SELECT payload_json FROM observation_staging_pages WHERE thread_id = ? AND family = ? AND sequence = ? AND page_index = ?",
         )
-        .bind(thread_row_id)
-        .bind(family_name)
-        .bind(to_sql_sequence(sequence)?)
-        .bind(page_index)
-        .fetch_optional(&mut *transaction)
+        .bind(self.thread)
+        .bind(self.family)
+        .bind(self.sequence)
+        .bind(self.index)
+        .fetch_optional(&mut *connection)
         .await?;
         if let Some(existing_page) = existing_page {
-            if existing_page != payload_json {
+            if existing_page != self.payload {
                 return Err(StoreError::StagedPageConflict);
             }
-            transaction.commit().await?;
-            return Ok(());
+            return Ok(true);
         }
 
+        Ok(false)
+    }
+
+    /// Inserts the provisional page and updates its generation count in the same transaction.
+    async fn persist(&self, connection: &mut SqliteConnection) -> Result<(), StoreError> {
         sqlx::query(
             "INSERT INTO observation_staging_pages (thread_id, family, sequence, page_index, payload_json) VALUES (?, ?, ?, ?, ?)",
         )
-        .bind(thread_row_id)
-        .bind(family_name)
-        .bind(to_sql_sequence(sequence)?)
-        .bind(page_index)
-        .bind(payload_json)
-        .execute(&mut *transaction)
+        .bind(self.thread)
+        .bind(self.family)
+        .bind(self.sequence)
+        .bind(self.index)
+        .bind(&self.payload)
+        .execute(&mut *connection)
         .await?;
-        let staged_pages = load_staged_pages(
-            &mut transaction,
-            thread_row_id,
-            family_name,
-            to_sql_sequence(sequence)?,
-        )
-        .await?;
+        let staged_pages =
+            load_staged_pages(connection, self.thread, self.family, self.sequence).await?;
         let staged_count = count_staged_items(&staged_pages)?;
         sqlx::query(
             "UPDATE observation_generations SET status = 'reserved', received_items = ? WHERE thread_id = ? AND family = ? AND sequence = ?",
         )
         .bind(i64::try_from(staged_count).map_err(|_| StoreError::IntegerOutOfRange)?)
-        .bind(thread_row_id)
-        .bind(family_name)
-        .bind(to_sql_sequence(sequence)?)
-        .execute(&mut *transaction)
+        .bind(self.thread)
+        .bind(self.family)
+        .bind(self.sequence)
+        .execute(&mut *connection)
         .await?;
-
-        transaction.commit().await?;
         Ok(())
     }
 }
@@ -203,7 +248,7 @@ pub async fn load_staged_pages(
         .collect()
 }
 
-/// Counts distinct staged provider items before finalization.
+/// Counts received staged items, including repeated IDs across pages, before finalization.
 pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
     pages.iter().try_fold(0_u64, |count, page| {
         let item_count =
