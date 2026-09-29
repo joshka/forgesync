@@ -54,10 +54,10 @@ fn sync_families_are_selected_with_with(
     #[case] expected: Vec<SyncIncludeArg>,
 ) {
     let args = CliArgs::try_parse_from(arguments).expect("sync arguments should parse");
-    let Command::Sync { with, .. } = args.command else {
+    let Command::Sync(sync) = args.command else {
         panic!("expected sync command");
     };
-    assert_eq!(with, expected);
+    assert_eq!(sync.with, expected);
 }
 
 #[rstest::rstest]

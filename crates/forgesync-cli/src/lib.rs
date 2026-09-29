@@ -19,8 +19,8 @@ use std::process::ExitCode;
 
 use args::{
     ArchiveCommand, CliArgs, ClusterCommand, Command, LogFormat, RefreshAnalysisArg, RunCommand,
-    RunFamilyArg, SearchArgs, SearchModeArg, SyncIncludeArg, SyncThreadStateArg, ThreadCommand,
-    ThreadKindArg, ThreadSortArg, ThreadStateArg,
+    RunFamilyArg, SearchArgs, SearchModeArg, SyncArgs, SyncIncludeArg, SyncThreadStateArg,
+    ThreadCommand, ThreadKindArg, ThreadSortArg, ThreadStateArg,
 };
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};

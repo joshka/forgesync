@@ -4,6 +4,7 @@ mod archive;
 mod cluster;
 mod run;
 mod search;
+mod sync;
 mod thread;
 mod values;
 
@@ -11,6 +12,7 @@ pub use archive::ArchiveCommand;
 pub use cluster::ClusterCommand;
 pub use run::RunCommand;
 pub use search::SearchArgs;
+pub use sync::SyncArgs;
 pub use thread::ThreadCommand;
 pub use values::{
     ColorChoice, LogFormat, RefreshAnalysisArg, RunFamilyArg, SearchModeArg, SyncIncludeArg,
@@ -74,24 +76,7 @@ pub enum Command {
     /// Search archived discussions with local keyword or optional semantic ranking.
     Search(SearchArgs),
     /// Acquire GitHub discussions into the local archive.
-    Sync {
-        /// Repositories to sync; required unless `--all` is supplied.
-        #[arg(
-            value_name = "OWNER/REPO",
-            required_unless_present = "all",
-            conflicts_with = "all"
-        )]
-        repositories: Vec<RepositorySelector>,
-        /// Sync every repository already registered in the archive.
-        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "repositories")]
-        all: bool,
-        /// Select open threads, closed threads, or a complete all-state enumeration.
-        #[arg(long, value_enum)]
-        state: Option<SyncThreadStateArg>,
-        /// Add selected evidence families to the thread sync.
-        #[arg(long = "with", value_enum, value_delimiter = ',')]
-        with: Vec<SyncIncludeArg>,
-    },
+    Sync(SyncArgs),
     /// Sync a repository and run explicitly selected local analysis stages.
     Refresh {
         /// Repository scope shared by sync, embedding, and clustering stages.

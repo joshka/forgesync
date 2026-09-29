@@ -79,24 +79,18 @@ pub(super) async fn sync_command(
     }
 }
 
-pub(super) struct SyncCliRequest<'a> {
-    pub(super) path: &'a std::path::Path,
-    pub(super) json: OutputMode,
-    pub(super) verbose: u8,
-    pub(super) repositories: Vec<RepositorySelector>,
-    pub(super) all: bool,
-    pub(super) state: Option<SyncThreadStateArg>,
-    pub(super) with: Vec<SyncIncludeArg>,
-}
-
-pub(super) async fn sync_from_cli(request: SyncCliRequest<'_>) -> ExitCode {
-    let SyncCliRequest {
+pub(super) async fn sync_from_cli(
+    args: SyncArgs,
+    path: &std::path::Path,
+    json: OutputMode,
+    verbose: u8,
+) -> ExitCode {
+    let SyncArgs {
         repositories,
         all,
         state,
         with,
-        ..
-    } = request;
+    } = args;
     let cancellation = tokio_util::sync::CancellationToken::new();
     let interrupt_cancellation = cancellation.clone();
     let interrupt_task = tokio::spawn(async move {
@@ -118,14 +112,7 @@ pub(super) async fn sync_from_cli(request: SyncCliRequest<'_>) -> ExitCode {
         include_review_threads: with.contains(&SyncIncludeArg::ReviewThreads),
         parent_run: None,
     };
-    let result = sync_command(
-        request.path,
-        sync_request,
-        request.json,
-        request.verbose,
-        &cancellation,
-    )
-    .await;
+    let result = sync_command(path, sync_request, json, verbose, &cancellation).await;
     interrupt_task.abort();
     result
 }

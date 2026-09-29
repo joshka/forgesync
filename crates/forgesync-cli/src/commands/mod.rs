@@ -24,7 +24,7 @@ use refresh::{RefreshCliRequest, refresh_from_cli};
 use retry::retry_command;
 use run::run_command;
 use search::search_command;
-use sync::{SyncCliRequest, sync_from_cli};
+use sync::sync_from_cli;
 use thread::thread_command;
 #[cfg(feature = "tui")]
 use tui::{TuiCommandRequest, tui_command};
@@ -47,23 +47,7 @@ pub(super) async fn dispatch(args: CliArgs, config: ForgesyncConfig) -> ExitCode
             )
             .await
         }
-        Command::Sync {
-            repositories,
-            all,
-            state,
-            with,
-        } => {
-            sync_from_cli(SyncCliRequest {
-                path: &path,
-                json: output,
-                verbose: args.verbose,
-                repositories,
-                all,
-                state,
-                with,
-            })
-            .await
-        }
+        Command::Sync(sync_args) => sync_from_cli(sync_args, &path, output, args.verbose).await,
         Command::Refresh {
             repositories,
             no_sync,
