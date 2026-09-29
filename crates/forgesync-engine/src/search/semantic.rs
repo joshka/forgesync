@@ -4,9 +4,9 @@
 //! score a bounded page with exact similarity. They return scored threads to the shared ranking
 //! path.
 //!
-//! This is an offline read of previously generated embeddings. It never calls the embedding
-//! service. Compatibility checks are essential because model or recipe changes can leave older
-//! vectors in the archive.
+//! Document vectors are read from the archive, but the query text is sent to the configured
+//! embedding service once compatible archived candidates are found. Keyword search is the offline
+//! alternative. Compatibility checks reject vectors left behind by model or recipe changes.
 
 use super::ranking::result_page;
 use super::{

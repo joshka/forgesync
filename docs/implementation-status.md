@@ -872,3 +872,11 @@ workflow phases.
 Validation for this pass: nightly formatting check, workspace Clippy with all targets and features,
 strict Rustdoc, and the CLI build without default features passed. Tests were not run for this
 source-shape and documentation pass.
+
+## Remaining maintainability audit follow-up
+
+The earlier completion statement described the selected ownership slices too broadly. The source
+shape audit now distinguishes implemented slices from remaining review surfaces. Browser navigation,
+embedding policy and refresh traversal, linear test scenarios, and diagnostic query phases have
+received additional cleanup. Reservation and semantic-search contracts are corrected and expanded.
+Workspace validation for this follow-up is in progress; hosted platform validation remains pending.

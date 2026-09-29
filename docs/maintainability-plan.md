@@ -56,8 +56,10 @@ request data from mutable attempt state rather than introducing a general servic
 
 ### Implemented ownership decisions
 
-The function and state ownership pass now covers every surveyed area. The starting lengths above are
-historical inspection signals, not current measurements or limits.
+The first function and state ownership pass changed each area listed below. This records selected
+slices, not an exhaustive completion claim. Remaining review work is tracked in
+[source shape audit](source-shape-audit.md). The starting lengths above are historical inspection
+signals, not current measurements or limits.
 
 | Area                  | Implemented owner or phase                                                                      | Focused evidence                                                    |
 | --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |

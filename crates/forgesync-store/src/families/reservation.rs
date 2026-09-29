@@ -17,7 +17,23 @@ use super::{
 };
 
 impl Archive {
-    /// Allocates a sequence and tries to reserve an independently ordered child family.
+    /// Allocates acquisition order before fetching one discussion's child evidence.
+    ///
+    /// Call this before provider I/O, then stage pages and finalize with the returned sequence.
+    /// `family` must identify comments, metadata, reviews, or review threads; parent thread scans
+    /// use their own observation path. `request_scope` must contain a nonempty description of the
+    /// selected provider request, while `source_clock` describes source freshness rather than the
+    /// local start time.
+    ///
+    /// A result with `reserved == false` still consumes a sequence but leaves the newer reservation
+    /// intact. Do not fetch or stage that rejected generation. A successful reservation does not
+    /// replace canonical membership or declare complete coverage.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a read-only archive, unknown thread, unsupported family, invalid scope
+    /// or clock, or failed database transaction. Writes commit together before returning; no
+    /// transaction is held while the caller performs network I/O.
     pub async fn reserve_child_family_observation(
         &self,
         thread: &ThreadId,
@@ -37,7 +53,17 @@ impl Archive {
         .await
     }
 
-    /// Reserves a child family only while the supplied archive lease remains current.
+    /// Reserves child evidence under an archive writer fence.
+    ///
+    /// This has the ordering and staging contract of [`Self::reserve_child_family_observation`].
+    /// Use it for coordinated engine work: the token is checked in the reservation transaction so
+    /// an expired or replaced writer cannot allocate durable work. The caller must continue using
+    /// that fence when staging and finalizing the selected generation.
+    ///
+    /// # Errors
+    ///
+    /// Adds stale or expired lease errors to the unfenced operation's validation and storage
+    /// errors. A failed fence leaves the reservation unchanged.
     pub async fn reserve_child_family_observation_fenced(
         &self,
         thread: &ThreadId,

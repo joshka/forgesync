@@ -14,15 +14,32 @@ reusable rules.
 | GitHub | Transport behavior is on `GitHubClient`. Resource fetch and normalization functions are grouped by provider family; pagination and retry matches are mostly local policy.                          | Keep resource families visible instead of flattening them into one client implementation. Documented scope, pagination, and failure helper contracts.                      |
 | Core   | Checked identities and values already own their validation methods. Remaining matches are small value or domain-state mappings.                                                                    | Keep current ownership and document private identity and coverage helpers.                                                                                                 |
 
-## Next passes
+## Follow-up audit
 
-1. Review `command/search.rs`, `command/retry.rs`, and `command/cluster.rs` for phase boundaries and
-   repeated cancellation setup. Extract only a shared lifecycle operation that actually reduces
-   parameter traffic and navigation.
-1. Review TUI browser input branches for multi-effect actions. Preserve key-to-action dispatch as a
-   visible map; move state changes into nearby `App` methods when an arm becomes a workflow.
-1. Review engine sync and store observation application as separate correctness-sensitive changes.
-   Keep provider I/O outside store transactions and preserve partial collection rules.
-1. Review the new private-function comments alongside their implementations when changing a
-   workflow. Rustdoc's `missing_docs` lint covers the public surface only; comments that merely
-   repeat a name should be improved as the surrounding code becomes clearer.
+The initial ownership pass addressed selected workflows in every crate; it did not establish that
+all functions, APIs, and test bodies had received the same review. Completion claims must name the
+reviewed surface and its evidence, rather than extrapolating from a crate or area label.
+
+Implemented follow-ups:
+
+- Browser keys dispatch to named actions. `Movement` owns bounded position calculations; each pane
+  owns selection, invalidation, and scrolling effects.
+- Embedding reuse and replacement use `EmbeddingPolicy`. Refresh materialization has a stage owner
+  with repository traversal, document outcomes, and vector batch accounting.
+- Search input and cluster setup tests spell out their small scenarios without loops.
+- Archive diagnostics separate schema validation, lease observation, and durable work queries.
+- Reservation APIs describe ordering, rejected generations, fencing, errors, and canonical effects.
+- Semantic-search docs distinguish archived document vectors from the network-generated query
+  vector.
+
+Remaining review surfaces:
+
+- Semantic candidate traversal and ranking state.
+- Store reservation and staging transaction phases and meaningful request concepts.
+- Restricted visibility and imports routed through parent module aliases.
+- Public API examples and deeper documentation contracts across all crates, including rendered docs.
+- Dependency major versions and tool currency, separate from compatible lockfile refreshes.
+- Hosted Linux, Intel macOS, and Windows validation; local checks cannot establish those results.
+
+Retain simple domain mappings and linear SQL binding maps when splitting them increases navigation.
+Review exceptions on their actual contracts rather than using line counts as proof of completion.
