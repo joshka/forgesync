@@ -15,16 +15,16 @@ use super::{
 /// Draws family coverage for the currently selected archive scope.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = pane_block("Archive coverage and health", true);
-    let mut lines = if app.coverage_loading && app.coverage.is_none() {
+    let mut lines = if app.coverage_panel.loading && app.coverage_panel.data.is_none() {
         vec![Line::from("Loading archive coverage…")]
-    } else if let Some(error) = &app.coverage_error {
+    } else if let Some(error) = &app.coverage_panel.error {
         vec![Line::from(error.clone())]
-    } else if let Some(status) = &app.coverage {
+    } else if let Some(status) = &app.coverage_panel.data {
         coverage_lines(status)
     } else {
         vec![Line::from("Press c to load coverage.")]
     };
-    if app.coverage_loading && app.coverage.is_some() {
+    if app.coverage_panel.loading && app.coverage_panel.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(

@@ -16,14 +16,13 @@
 //!
 //! Construct the app with [`Default::default`], request its initial repository/thread reads, and
 //! feed current-generation replies through `apply`. The app does not own a terminal, archive pool,
-//! or runtime. [`RunFailureSummary`] is a safe presentation projection for selecting a run retry;
-//! the engine and store retain the complete ledger and decide what work is retryable.
+//! or runtime. [`failures::RunFailureSummary`] is a safe presentation projection for selecting a
+//! run retry; the engine and store retain the complete ledger and decide what work is retryable.
 
 use forgesync_core::content::Repository;
 use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage, ClusterSummary};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
-use forgesync_store::runs::RunStatus;
 
 /// Bounded thread-page size used by browser paging; independent of the CLI default.
 const PAGE_SIZE: u32 = 100;
@@ -72,15 +71,10 @@ pub struct App {
     pub thread_list: threads::ThreadList,
     /// Selected discussion projection, read lifecycle, and requested scroll position.
     pub detail_pane: detail::DetailPane,
-    pub coverage: Option<ArchiveStatus>,
-    pub coverage_generation: u64,
-    pub coverage_loading: bool,
-    pub coverage_error: Option<String>,
-    pub failures: Vec<RunFailureSummary>,
-    pub failures_generation: u64,
-    pub failures_loading: bool,
-    pub failures_error: Option<String>,
-    pub selected_failure: usize,
+    /// Archive-wide coverage projection and its independent refresh state.
+    pub coverage_panel: coverage::CoveragePanel,
+    /// Failed-run choices, retry selection, and pending ledger refresh.
+    pub failure_list: failures::FailureList,
     pub clusters: Vec<ClusterSummary>,
     pub selected_cluster: usize,
     pub clusters_generation: u64,
@@ -100,17 +94,6 @@ pub struct App {
     pub quit: bool,
 }
 
-/// Safe run-list projection that keeps retry selection separate from the complete failure ledger.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RunFailureSummary {
-    /// Archive-local run identity used when requesting a selected retry.
-    pub id: u64,
-    /// Durable run state displayed beside its failure summaries.
-    pub status: RunStatus,
-    /// Safe human-readable job and failure summaries; never raw provider payloads.
-    pub entries: Vec<String>,
-}
-
 pub enum QueryMessage {
     Repositories {
         generation: u64,
@@ -127,7 +110,7 @@ pub enum QueryMessage {
     },
     Failures {
         generation: u64,
-        result: Result<Vec<RunFailureSummary>, String>,
+        result: Result<Vec<failures::RunFailureSummary>, String>,
     },
     Clusters {
         generation: u64,
@@ -147,7 +130,9 @@ pub enum QueryMessage {
     },
 }
 
+pub mod coverage;
 pub mod detail;
+pub mod failures;
 mod input;
 pub mod operation;
 pub mod repositories;

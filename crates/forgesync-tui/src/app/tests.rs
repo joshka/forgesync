@@ -205,11 +205,14 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
     let mut app = App {
         screen: Screen::Clusters,
         clusters: vec![detail.cluster],
-        failures: vec![super::RunFailureSummary {
-            id: 23,
-            status: super::RunStatus::Failed,
-            entries: vec!["owner/repo: threads failed".to_owned()],
-        }],
+        failure_list: crate::app::failures::FailureList {
+            items: vec![crate::app::failures::RunFailureSummary {
+                id: 23,
+                status: forgesync_store::runs::RunStatus::Failed,
+                entries: vec!["owner/repo: threads failed".to_owned()],
+            }],
+            ..Default::default()
+        },
         ..App::default()
     };
     let dismiss = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));

@@ -30,7 +30,8 @@ use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::app::{App, QueryMessage, RunFailureSummary};
+use crate::app::failures::RunFailureSummary;
+use crate::app::{App, QueryMessage};
 
 const RUNS_TO_SCAN: u32 = 50;
 const RUNS_TO_DETAIL: usize = 20;

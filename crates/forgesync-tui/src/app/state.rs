@@ -12,7 +12,8 @@ use forgesync_engine::sync::SyncProgress;
 use forgesync_store::clusters::{ClusterDetail, ClusterPage};
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 
-use super::{App, QueryMessage, RunFailureSummary};
+use super::failures::RunFailureSummary;
+use super::{App, QueryMessage};
 use crate::query::QueryAction;
 
 impl App {
@@ -102,40 +103,15 @@ impl App {
 
     /// Replaces the coverage view for its latest request generation.
     fn apply_coverage(&mut self, generation: u64, result: Result<Box<ArchiveStatus>, String>) {
-        if generation != self.coverage_generation {
-            return;
-        }
-        self.coverage_loading = false;
-        match result {
-            Ok(coverage) => {
-                self.coverage_error = None;
-                self.coverage = Some(*coverage);
-            }
-            Err(error) => {
-                self.coverage_error = Some(error.clone());
-                self.status = Some(error);
-            }
+        if let Some(error) = self.coverage_panel.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
     /// Keeps the failure cursor within the latest result set.
     fn apply_failures(&mut self, generation: u64, result: Result<Vec<RunFailureSummary>, String>) {
-        if generation != self.failures_generation {
-            return;
-        }
-        self.failures_loading = false;
-        match result {
-            Ok(failures) => {
-                self.failures_error = None;
-                self.failures = failures;
-                self.selected_failure = self
-                    .selected_failure
-                    .min(self.failures.len().saturating_sub(1));
-            }
-            Err(error) => {
-                self.failures_error = Some(error.clone());
-                self.status = Some(error);
-            }
+        if let Some(error) = self.failure_list.apply(generation, result) {
+            self.status = Some(error);
         }
     }
 
@@ -214,18 +190,12 @@ impl App {
 
     /// Starts a new coverage generation and clears the previous loading error.
     pub fn begin_coverage(&mut self) -> u64 {
-        self.coverage_generation += 1;
-        self.coverage_loading = true;
-        self.coverage_error = None;
-        self.coverage_generation
+        self.coverage_panel.begin()
     }
 
     /// Starts a new failure-list generation for the current archive.
     pub fn begin_failures(&mut self) -> u64 {
-        self.failures_generation += 1;
-        self.failures_loading = true;
-        self.failures_error = None;
-        self.failures_generation
+        self.failure_list.begin()
     }
 
     /// Starts a new cluster-list generation for the current scope.

@@ -27,8 +27,9 @@ impl App {
 
     /// Requests retry only when the selected ledger row contains a valid durable run identity.
     fn retry_selected_run(&self) -> Vec<QueryAction> {
-        self.failures
-            .get(self.selected_failure)
+        self.failure_list
+            .items
+            .get(self.failure_list.selected)
             .and_then(|run| RunId::new(run.id).ok())
             .map(|run_id| vec![QueryAction::Retry(run_id)])
             .unwrap_or_default()
@@ -36,11 +37,11 @@ impl App {
 
     /// Keeps failure selection within the loaded ledger; empty lists remain unselected at zero.
     fn move_failure_selection(&mut self, direction: i8) -> Vec<QueryAction> {
-        if direction > 0 && self.failures.is_empty() {
+        if direction > 0 && self.failure_list.items.is_empty() {
             return Vec::new();
         }
-        let last = self.failures.len().saturating_sub(1);
-        self.selected_failure = move_index(self.selected_failure, last, direction);
+        let last = self.failure_list.items.len().saturating_sub(1);
+        self.failure_list.selected = move_index(self.failure_list.selected, last, direction);
         Vec::new()
     }
 
