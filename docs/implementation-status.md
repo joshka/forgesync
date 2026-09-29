@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Provider requests now own immutable attempt data and separate budgeted attempts, retry waits,
+  redirect traversal, sending, and bounded response decoding. Credential origin checks remain
+  before request construction; transport regressions cover cancellation, retry, and redirects.
+
 - Cluster candidates now separate evidence, explicit references, and component policy. One score
   predicate serves neighbor selection and final edges; reference context replaces eight helper
   arguments and a boolean location flag. Cluster workflow and focused unit regressions passed.

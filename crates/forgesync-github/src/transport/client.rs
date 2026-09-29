@@ -12,19 +12,10 @@
 //! Keep authorization attached to the configured origin. A redirect or pagination link to another
 //! origin must fail before it can receive the token, even if the link came from GitHub's response.
 
-use tracing::Instrument;
-
-use super::pagination::next_page_from_headers;
-use super::response::{
-    acquire_request_slot, classify_api_response, classify_transport_error, read_body,
-    redirect_target,
-};
-use super::retry::retry_backoff;
+use super::request::ProviderRequest;
 use super::{
-    ACCEPT, AUTHORIZATION, BodyReadError, CONTENT_TYPE, CancellationToken, DeserializeOwned,
-    GitHubClient, GitHubClientConfig, GitHubError, GitHubResponse, GitHubToken, Instant,
-    MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES, Method, OwnedSemaphorePermit, RequestFailure,
-    ResponseBody, Semaphore, TrustedOrigin, USER_AGENT, Url,
+    CancellationToken, DeserializeOwned, GitHubClient, GitHubClientConfig, GitHubError,
+    GitHubResponse, GitHubToken, Method, Semaphore, TrustedOrigin, Url,
 };
 
 impl GitHubClient {
@@ -168,152 +159,13 @@ impl GitHubClient {
         T: DeserializeOwned,
     {
         self.origin.validate(url)?;
-        let start = Instant::now();
-
-        for attempt in 1..=self.retry.max_attempts.get() {
-            if cancellation.is_cancelled() {
-                return Err(GitHubError::Cancelled);
-            }
-            let remaining = self.retry.total_budget.saturating_sub(start.elapsed());
-            if remaining.is_zero() {
-                return Err(GitHubError::Deferred { retry_after: None });
-            }
-
-            let permit = tokio::select! {
-                _ = cancellation.cancelled() => return Err(GitHubError::Cancelled),
-                result = tokio::time::timeout(
-                    remaining,
-                    acquire_request_slot(&self.request_slots, cancellation),
-                ) => match result {
-                    Ok(permit) => permit?,
-                    Err(_) => return Err(GitHubError::Deferred { retry_after: None }),
-                },
-            };
-            let span = tracing::debug_span!(
-                "github_http_request",
-                origin = %self.origin.display,
-                method = %method,
-                attempt,
-            );
-            let request = self.perform_once(url, &method, body, permit, cancellation);
-            let outcome = tokio::select! {
-                _ = cancellation.cancelled() => return Err(GitHubError::Cancelled),
-                result = tokio::time::timeout(remaining, request).instrument(span) => {
-                    match result {
-                        Ok(outcome) => outcome,
-                        Err(_) => return Err(GitHubError::Deferred { retry_after: None }),
-                    }
-                }
-            };
-
-            match outcome {
-                Ok(response) => {
-                    let value = serde_json::from_slice(&response.body)
-                        .map_err(|_| GitHubError::InvalidJson)?;
-                    return Ok(GitHubResponse {
-                        value,
-                        next_page: response.next_page,
-                    });
-                }
-                Err(failure) if failure.retryable => {
-                    let delay = failure
-                        .retry_after
-                        .unwrap_or_else(|| retry_backoff(&self.retry, attempt.saturating_sub(1)));
-                    let remaining = self.retry.total_budget.saturating_sub(start.elapsed());
-                    if delay >= remaining {
-                        return Err(GitHubError::Deferred {
-                            retry_after: failure.retry_after,
-                        });
-                    }
-                    if attempt == self.retry.max_attempts.get() {
-                        if failure.retry_after.is_some_and(|wait| !wait.is_zero()) {
-                            return Err(GitHubError::Deferred {
-                                retry_after: failure.retry_after,
-                            });
-                        }
-                        return Err(failure.error);
-                    }
-                    tokio::select! {
-                        _ = cancellation.cancelled() => return Err(GitHubError::Cancelled),
-                        _ = tokio::time::sleep(delay) => {}
-                    }
-                }
-                Err(failure) => return Err(failure.error),
-            }
-        }
-
-        Err(GitHubError::Deferred { retry_after: None })
-    }
-
-    /// Executes one transport attempt before retry policy decides the next step.
-    async fn perform_once(
-        &self,
-        url: &Url,
-        method: &Method,
-        body: Option<&[u8]>,
-        _permit: OwnedSemaphorePermit,
-        cancellation: &CancellationToken,
-    ) -> Result<ResponseBody, RequestFailure> {
-        let mut current_url = url.clone();
-        let mut visited = std::collections::HashSet::new();
-        for redirect_count in 0..=MAX_REDIRECTS {
-            if !visited.insert(current_url.as_str().to_owned()) {
-                return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
-            }
-            self.origin
-                .validate(&current_url)
-                .map_err(RequestFailure::terminal)?;
-            let mut request = self
-                .http
-                .request(method.clone(), current_url.clone())
-                .header(ACCEPT, "application/vnd.github+json")
-                .header(USER_AGENT, "forgesync");
-            if let Some(body) = body {
-                request = request
-                    .header(CONTENT_TYPE, "application/json")
-                    .body(body.to_vec());
-            }
-            if let Some(token) = &self.token {
-                request = request.header(AUTHORIZATION, format!("Bearer {}", token.expose()));
-            }
-
-            let response = tokio::select! {
-                _ = cancellation.cancelled() => return Err(RequestFailure::terminal(GitHubError::Cancelled)),
-                response = request.send() => response.map_err(classify_transport_error)?,
-            };
-            let status = response.status();
-            tracing::debug!(
-                status = status.as_u16(),
-                redirect_count,
-                "GitHub response received"
-            );
-
-            if status.is_redirection() {
-                if redirect_count == MAX_REDIRECTS {
-                    return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
-                }
-                current_url =
-                    redirect_target(&response, &self.origin).map_err(RequestFailure::terminal)?;
-                continue;
-            }
-            if !status.is_success() {
-                return classify_api_response(response, status).await;
-            }
-
-            let next_page =
-                next_page_from_headers(response.url(), response.headers(), &self.origin)
-                    .map_err(RequestFailure::terminal)?;
-            let body = read_body(response, MAX_SUCCESS_BODY_BYTES)
-                .await
-                .map_err(|error| match error {
-                    BodyReadError::TooLarge => {
-                        RequestFailure::terminal(GitHubError::ResponseTooLarge)
-                    }
-                    BodyReadError::Transport(error) => classify_transport_error(error),
-                })?;
-            return Ok(ResponseBody { body, next_page });
-        }
-
-        Err(RequestFailure::terminal(GitHubError::RedirectRejected))
+        let request = ProviderRequest {
+            client: self,
+            url,
+            method,
+            body,
+            cancellation,
+        };
+        request.run().await
     }
 }

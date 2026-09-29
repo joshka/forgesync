@@ -103,6 +103,7 @@ pub struct GitHubResponse<T> {
 
 mod client;
 mod pagination;
+mod request;
 mod response;
 mod retry;
 
