@@ -1,50 +1,61 @@
 //! # Embedding request batch limits
 //!
-//! The batch case checks both input-count and UTF-8 byte limits using static document tasks.
-//! The source document fixture supplies normalized identity and text without provider or archive
-//! I/O. Request batching groups already selected chunks; it does not choose cache compatibility or
-//! regenerate their content hashes.
+//! Named cases check input-count and UTF-8 byte limits independently and together using static
+//! tasks. The source document fixture supplies normalized identity and text without provider or
+//! archive I/O. Request batching groups already selected chunks; it does not choose cache
+//! compatibility or regenerate their content hashes.
 //!
-//! The expected batch sizes expose the count/byte boundary. Document chunking has its own nearby
-//! cases under `chunks`, while integration scenarios establish retained successful batches and
-//! retry. Scheduling cancellation and writer-fence behavior remain workflow contracts.
+//! Each expected batch size exposes one count/byte boundary without nested assertion logic.
+//! Document chunking has its own nearby cases under `chunks`, while integration scenarios establish
+//! retained successful batches and retry. Scheduling cancellation and writer-fence behavior remain
+//! workflow contracts.
 
 use std::sync::Arc;
 
+use rstest::rstest;
+
+use crate::embeddings::batches::make_batches;
 use crate::embeddings::chunks::DocumentChunk;
-use crate::embeddings::make_batches;
 use crate::embeddings::selection::EmbeddingTask;
 
-#[test]
-fn request_batches_obey_count_and_combined_byte_limits() {
-    let tasks = (0..5)
-        .map(|index| EmbeddingTask {
-            document: Arc::new(test_document()),
-            chunk: DocumentChunk {
-                index,
-                count: 5,
-                hash: format!("{index:064x}"),
-                text: "four".to_owned(),
-            },
-        })
-        .collect();
-    let batches = make_batches(tasks, 2, 8);
+#[rstest]
+#[case::input_count(2, 40, &[2, 2, 1])]
+#[case::combined_bytes(5, 8, &[2, 2, 1])]
+#[case::both_limits(2, 8, &[2, 2, 1])]
+fn request_batches_obey_count_and_combined_byte_limits(
+    #[case] max_inputs: usize,
+    #[case] max_bytes: usize,
+    #[case] expected_counts: &[usize],
+) {
+    let document = Arc::new(test_document());
+    let tasks = vec![
+        test_task(Arc::clone(&document), 0),
+        test_task(Arc::clone(&document), 1),
+        test_task(Arc::clone(&document), 2),
+        test_task(Arc::clone(&document), 3),
+        test_task(document, 4),
+    ];
 
-    assert_eq!(
-        batches
-            .iter()
-            .map(|batch| batch.tasks.len())
-            .collect::<Vec<_>>(),
-        [2, 2, 1]
-    );
-    assert!(batches.iter().all(|batch| {
-        batch
-            .tasks
-            .iter()
-            .map(|task| task.chunk.text.len())
-            .sum::<usize>()
-            <= 8
-    }));
+    let batches = make_batches(tasks, max_inputs, max_bytes);
+    let counts = batches
+        .iter()
+        .map(|batch| batch.tasks.len())
+        .collect::<Vec<_>>();
+
+    assert_eq!(counts, expected_counts);
+}
+
+/// Constructs one four-byte input with an explicit position in the five-chunk fixture.
+fn test_task(document: Arc<forgesync_core::document::Document>, index: u32) -> EmbeddingTask {
+    EmbeddingTask {
+        document,
+        chunk: DocumentChunk {
+            index,
+            count: 5,
+            hash: format!("{index:064x}"),
+            text: "four".to_owned(),
+        },
+    }
 }
 
 /// Constructs a static normalized source document without service or archive setup.

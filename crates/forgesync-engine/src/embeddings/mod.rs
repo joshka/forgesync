@@ -8,26 +8,25 @@
 //! not make an old vector current. Search checks compatibility before using stored vectors, while
 //! this workflow produces the compatible material when requested. `selection` owns duplicate
 //! detection, cache lookup, and selected/skipped accounting. `chunks` owns deterministic text
-//! splitting and per-chunk reuse checks; scheduling and fenced persistence remain here.
-
-use std::collections::VecDeque;
-use std::time::Duration;
+//! splitting and per-chunk reuse checks. `batches` bounds service requests; `scheduling` owns
+//! worker cancellation and draining. `execution` owns writer fencing, persistence, and lease
+//! release.
 
 use forgesync_core::document::Document;
-use forgesync_core::embedding::EmbeddingVector;
 use forgesync_store::archive::Archive;
-use forgesync_store::embeddings::EmbeddingChunkInput;
 use serde::Serialize;
-use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
+mod batches;
 mod chunks;
+mod execution;
+mod scheduling;
 mod selection;
 
-use selection::{EmbeddingSelection, EmbeddingTask};
+use execution::EmbeddingWriter;
+use selection::EmbeddingSelection;
 
-use crate::documents::now_utc;
-use crate::embedding_client::{EmbeddingClient, EmbeddingClientError};
+use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
 
 /// Decides whether compatible persisted vectors can satisfy this embedding request.
@@ -79,12 +78,6 @@ pub struct EmbeddingBatchFailure {
     pub message: String,
 }
 
-/// Ordered pending inputs constrained by both service count and aggregate byte budgets.
-struct EmbeddingBatch {
-    /// Input order must match returned vector order; persistence rejects count mismatches.
-    tasks: Vec<EmbeddingTask>,
-}
-
 /// Embeds current documents, persisting each completed response batch under one writer fence.
 ///
 /// Successful batches remain available if a later batch fails. Re-running the operation skips
@@ -103,165 +96,7 @@ pub async fn embed_documents(
         return Ok(report);
     }
 
-    let now = now_utc()?;
-    let lease_duration = client
-        .request_budget()
-        .saturating_add(Duration::from_secs(60));
-    let lease = archive.acquire_archive_lease(now, lease_duration).await?;
-    let operation = process_batches(
-        archive,
-        client,
-        tasks,
-        &lease,
-        lease_duration,
-        cancellation,
-        &mut report,
-    )
-    .await;
-    let release_result = match now_utc() {
-        Ok(released_at) => archive
-            .release_archive_lease(&lease, released_at)
-            .await
-            .map(|_| ())
-            .map_err(EngineError::from),
-        Err(error) => Err(error),
-    };
-    match (operation, release_result) {
-        (Err(error), _) => Err(error),
-        (Ok(()), Err(error)) => Err(error),
-        (Ok(()), Ok(())) => Ok(report),
-    }
+    let writer = EmbeddingWriter::acquire(archive, client).await?;
+    writer.execute(tasks, cancellation, &mut report).await?;
+    Ok(report)
 }
-
-/// Runs bounded embedding batches while keeping successes when a later batch fails.
-async fn process_batches(
-    archive: &Archive,
-    client: &EmbeddingClient,
-    tasks: Vec<EmbeddingTask>,
-    lease: &forgesync_store::leases::ArchiveLeaseToken,
-    lease_duration: Duration,
-    cancellation: &CancellationToken,
-    report: &mut EmbeddingReport,
-) -> Result<(), EngineError> {
-    let mut pending = VecDeque::from(make_batches(
-        tasks,
-        client.batch_size(),
-        client.max_batch_input_bytes(),
-    ));
-    let mut workers = JoinSet::new();
-    loop {
-        while workers.len() < client.concurrency() {
-            let Some(batch) = pending.pop_front() else {
-                break;
-            };
-            let client = client.clone();
-            let cancellation = cancellation.clone();
-            workers.spawn(async move {
-                let input = batch
-                    .tasks
-                    .iter()
-                    .map(|task| task.chunk.text.clone())
-                    .collect::<Vec<_>>();
-                let result = client.embed(&input, &cancellation).await;
-                (batch, result)
-            });
-        }
-        if workers.is_empty() {
-            break;
-        }
-        let joined = tokio::select! {
-            _ = cancellation.cancelled() => {
-                report.cancelled = true;
-                workers.abort_all();
-                break;
-            }
-            result = workers.join_next() => result,
-        };
-        let Some(joined) = joined else {
-            continue;
-        };
-        let (batch, result) = joined.map_err(|_| EngineError::EmbeddingWorkerFailed)?;
-        match result {
-            Ok(vectors) => {
-                let persisted_chunks = vectors.len();
-                persist_batch(archive, client, batch, vectors, lease, lease_duration).await?;
-                report.chunks_embedded = report.chunks_embedded.saturating_add(persisted_chunks);
-            }
-            Err(EmbeddingClientError::Cancelled) if cancellation.is_cancelled() => {
-                report.cancelled = true;
-                workers.abort_all();
-                break;
-            }
-            Err(error) => report.failed_batches.push(EmbeddingBatchFailure {
-                chunks: batch.tasks.len(),
-                code: error.code(),
-                message: error.to_string(),
-            }),
-        }
-    }
-    while workers.join_next().await.is_some() {}
-    Ok(())
-}
-
-/// Stores only validated vectors for a completed service batch.
-async fn persist_batch(
-    archive: &Archive,
-    client: &EmbeddingClient,
-    batch: EmbeddingBatch,
-    vectors: Vec<EmbeddingVector>,
-    lease: &forgesync_store::leases::ArchiveLeaseToken,
-    lease_duration: Duration,
-) -> Result<(), EngineError> {
-    if batch.tasks.len() != vectors.len() {
-        return Err(EngineError::InvalidEmbeddingInput);
-    }
-    for (task, vector) in batch.tasks.into_iter().zip(vectors) {
-        let stored_at = now_utc()?;
-        archive
-            .heartbeat_archive_lease(lease, stored_at, lease_duration)
-            .await?;
-        let chunk = EmbeddingChunkInput {
-            endpoint: client.endpoint_identity(),
-            model: client.model(),
-            index: task.chunk.index,
-            count: task.chunk.count,
-            chunk_hash: &task.chunk.hash,
-            vector: &vector,
-        };
-        archive
-            .upsert_embedding_chunk_fenced(lease, &task.document, &chunk, stored_at)
-            .await?;
-    }
-    Ok(())
-}
-
-/// Groups pending inputs under both count and byte budgets.
-fn make_batches(
-    tasks: Vec<EmbeddingTask>,
-    max_inputs: usize,
-    max_bytes: usize,
-) -> Vec<EmbeddingBatch> {
-    let mut batches = Vec::new();
-    let mut current = Vec::new();
-    let mut current_bytes = 0usize;
-    for task in tasks {
-        let task_bytes = task.chunk.text.len();
-        let would_exceed = !current.is_empty()
-            && (current.len() >= max_inputs
-                || current_bytes.saturating_add(task_bytes) > max_bytes);
-        if would_exceed {
-            batches.push(EmbeddingBatch { tasks: current });
-            current = Vec::new();
-            current_bytes = 0;
-        }
-        current_bytes = current_bytes.saturating_add(task_bytes);
-        current.push(task);
-    }
-    if !current.is_empty() {
-        batches.push(EmbeddingBatch { tasks: current });
-    }
-    batches
-}
-
-#[cfg(test)]
-mod tests;

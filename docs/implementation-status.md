@@ -1380,3 +1380,28 @@ embedding execution batch.
 
 Current-tree workspace Clippy, all workspace tests/doctests, the CLI build without default features,
 strict public/private Rustdoc, nightly formatting, and changed-page rumdl/Markdown linting pass.
+
+## Continued maintenance: embedding worker and writer lifetimes
+
+The coordinator now selects documents, returns immediately when no requests are needed, and
+delegates the active writer lifetime to `EmbeddingWriter`. Its service identity and fence travel
+together through persistence. `BatchScheduler` owns pending batches, active workers, outcome
+dispatch, and cleanup; `EmbeddingBatch` owns request input/response order. The production files are
+coherent leaves under the same embedding directory rather than one combined workflow body.
+
+Fatal worker and persistence exits now explicitly abort and drain remaining workers before releasing
+the writer fence. Previously those exits relied on dropping the worker set, which requests abort
+without waiting for request resources to drop. Two direct lifetime cases establish resource release
+on fatal completion and cancellation, preserving the original error and completed chunk count. Named
+batch cases distinguish count limits, byte limits, and their combination without generated scenario
+loops or nested assertions. Existing integration retry retains successful chunks.
+
+The focused run passes seven embedding unit cases and the partial-success/retry integration case.
+The embedding execution batch has its named phase owners and cleanup evidence; the cross-workspace
+documentation, signature, and test acceptance passes remain separate requirements.
+
+Final current-tree gates pass: workspace Clippy with warnings denied, all workspace tests/doctests,
+the CLI build without default features, strict public/private Rustdoc, nightly formatting, workspace
+rumdl, and all four changed Markdown pages. The module map and source audit record embedding
+execution as implemented. Cluster construction is the next bounded batch; seven implementation
+batches and the final acceptance pass remain.

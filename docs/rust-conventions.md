@@ -134,6 +134,12 @@ join handle together, state who closes delivery, drain before terminal rendering
 unexpected owner drop. Advisory progress must not change acquisition results or block archive
 writes. A task extracted only to shorten a function is insufficient if its lifetime remains hidden.
 
+When workers share an operation's writer capability, abort and drain them on every normal exit
+before releasing that capability, including fatal worker and persistence errors. Dropping a
+`JoinSet` requests abort but does not wait for cleanup. Test the lifetime boundary directly when
+cleanup order is part of correctness; a success-path result test does not cover outstanding worker
+resources.
+
 Selection indices are presentation positions, not durable operation targets. Keep the highlighted
 row separate from the applied domain selection, and retain the selected identity or value across
 refreshes. Reordered or empty results must not silently retarget a write or broaden its scope. When

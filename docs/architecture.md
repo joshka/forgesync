@@ -172,3 +172,10 @@ archive reads, and selected/reusable chunk accounting before writer lease acquis
 `EmbeddingTask` values retain a shared full document with each chunk for later fenced persistence.
 The public coordinator consumes the selected report and tasks, then owns lease execution and
 release.
+
+Embedding execution now has three private owners beside selection and chunk identity. `batches`
+groups requests and retains input order through provider responses. `scheduling::BatchScheduler`
+owns pending work, concurrency, outcome dispatch, and worker draining. `execution::EmbeddingWriter`
+keeps the archive fence with its service identity, renews before each chunk write, and releases only
+after scheduling finishes cleanup. Provider failures remain report entries; worker/persistence
+errors abort and drain outstanding requests before returning the original error.

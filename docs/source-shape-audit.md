@@ -150,13 +150,14 @@ open-ended follow-up targets; the requirements in the completion checklist remai
 criteria. Completed CLI embedding/refresh preparation, deterministic chunk construction, and
 embedding document selection are evidence for this inventory, not new future tasks.
 
-### 1. Embedding execution
+### 1. Embedding execution — implemented
 
-Review `embeddings/mod.rs` batch scheduling, cancellation, lease release, and fenced persistence.
-Selection and chunk identity have owners now. Finish when the request queue, worker outcomes, and
-writer capability have clear local contracts, substantial dispatch arms name their operations, and
-retry/cancellation cases preserve partial successes. Do not redesign the embedding provider
-protocol.
+Selection and deterministic chunks have local owners. `batches` owns request grouping and response
+order, `scheduling::BatchScheduler` owns bounded workers and outcome dispatch, and
+`execution::EmbeddingWriter` owns service identity, fenced persistence, and lease release. Fatal
+exits now abort and drain outstanding requests before fence release, with direct cleanup cases and
+existing partial-success/retry integration evidence. Broad signature and documentation acceptance
+still belong to batch 7; this phase does not claim to complete the workspace cleanup.
 
 ### 2. Cluster construction
 
