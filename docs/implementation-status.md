@@ -2,6 +2,10 @@
 
 ## Current position
 
+- Cluster candidates now separate evidence, explicit references, and component policy. One score
+  predicate serves neighbor selection and final edges; reference context replaces eight helper
+  arguments and a boolean location flag. Cluster workflow and focused unit regressions passed.
+
 - Refresh stages share a validated execution owner and keep acquisition, embeddings, and clusters
   in separate methods. Engine Clippy passed; the focused refresh regression preserves completed
   acquisition when derived analysis cannot run.

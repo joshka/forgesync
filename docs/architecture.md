@@ -42,6 +42,10 @@ Refresh `coordinator` binds services and validated repository scope to `RefreshE
 stage methods preserve independent reports. TUI `query/operations` owns task and message lifetimes,
 while `query/action` owns the selected action request and terminal status.
 
+Clustering `candidates` validates stable input, `evidence` selects sparse eligible edges,
+`references` interprets title/body mentions, and `components` applies bounded grouping and
+representative policy. Evidence selection shares one score predicate across both selection phases.
+
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose

@@ -195,8 +195,11 @@ struct CandidateEdge {
 
 mod build;
 mod candidates;
+mod components;
 mod decisions;
+mod evidence;
 mod lease;
+mod references;
 
 pub use build::{build_clusters, list_clusters};
 use candidates::build_cluster_candidates;
