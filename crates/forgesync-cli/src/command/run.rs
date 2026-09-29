@@ -17,7 +17,7 @@ use forgesync_engine::runs::{list_runs, show_run};
 use forgesync_store::archive::Archive;
 
 use super::RunFamilyArg;
-use super::retry::execute_retry;
+use super::retry::RetryRequest;
 use crate::reports::{run_detail_summary, run_list_summary};
 use crate::{OutputMode, render_engine_error, render_store_error, render_success, usage_error};
 
@@ -106,6 +106,10 @@ impl RunCommand {
         let interruption = super::interruption::CommandInterruption::new();
         let cancellation = interruption.cancellation();
         let families = family.into_iter().map(EvidenceFamily::from).collect();
-        execute_retry(path, id, families, output, verbose, cancellation).await
+        let request = RetryRequest {
+            run_id: id,
+            families,
+        };
+        request.run(path, output, verbose, cancellation).await
     }
 }
