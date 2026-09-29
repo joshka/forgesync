@@ -59,6 +59,8 @@ impl ProgressReporter {
 }
 
 impl Drop for ProgressReporter {
+    /// Aborts a retained stderr renderer on early owner exit so delivery cannot outlive its
+    /// command.
     fn drop(&mut self) {
         if let Some(task) = &self.task {
             task.abort();

@@ -38,6 +38,9 @@ pub struct DocumentsConfig {
 }
 
 impl Default for DocumentsConfig {
+    /// Selects enriched discussion documents as the default derived-text recipe.
+    /// This choice does not request provider acquisition; workflows select acquisition
+    /// independently.
     fn default() -> Self {
         Self {
             recipe: DocumentRecipe::DiscussionEnriched,
@@ -74,6 +77,9 @@ pub struct EmbeddingServiceConfig {
 }
 
 impl Default for EmbeddingServiceConfig {
+    /// Selects the default OpenAI-compatible endpoint and model with bounded request settings.
+    /// The key remains an environment-variable reference; constructing defaults reads no
+    /// credential.
     fn default() -> Self {
         Self {
             endpoint: "https://api.openai.com/v1".to_owned(),

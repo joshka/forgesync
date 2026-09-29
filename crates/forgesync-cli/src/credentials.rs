@@ -31,6 +31,9 @@ pub struct GitHubCredentialSettings {
 }
 
 impl Default for GitHubCredentialSettings {
+    /// Configures standard environment discovery followed by a five-second host-aware `gh`
+    /// fallback. Constructing these settings performs no lookup and selects no custom token
+    /// variable.
     fn default() -> Self {
         Self {
             configured_token_environment_variable: None,

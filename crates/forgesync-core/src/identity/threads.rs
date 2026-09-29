@@ -38,6 +38,8 @@ impl ThreadNumber {
 }
 
 impl Serialize for ThreadNumber {
+    /// Encodes the repository-local discussion number, separately from its opaque provider
+    /// identity.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -47,6 +49,7 @@ impl Serialize for ThreadNumber {
 }
 
 impl<'de> Deserialize<'de> for ThreadNumber {
+    /// Rejects zero when decoding a discussion number, before repository lookup or provider use.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

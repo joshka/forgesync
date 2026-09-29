@@ -46,6 +46,9 @@ pub struct RetryPolicy {
 }
 
 impl Default for RetryPolicy {
+    /// Allows five attempts within a two-minute total budget, starting backoff at 250 milliseconds.
+    /// The ten-second cap applies to automatic backoff; provider-directed waits use the remaining
+    /// budget.
     fn default() -> Self {
         Self {
             max_attempts: NonZeroU32::new(5).expect("five is non-zero"),

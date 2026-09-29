@@ -76,6 +76,9 @@ impl RepositorySelector {
 impl FromStr for RepositorySelector {
     type Err = ReferenceParseError;
 
+    /// Parses a default-host repository pair or explicit HTTPS repository URL before resolution.
+    /// Malformed scope remains a typed parsing error; parsing performs no archive or provider
+    /// lookup.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let default_host =
             GitHubHost::parse("github.com").map_err(|_| ReferenceParseError::InvalidRepository)?;
@@ -124,6 +127,8 @@ impl ThreadSelector {
 impl FromStr for ThreadSelector {
     type Err = ReferenceParseError;
 
+    /// Parses a repository-qualified discussion number or issue/pull-request URL before lookup.
+    /// The checked positive number and repository selector remain separate from provider identity.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if value.contains("://") {
             return parse_thread_url(value);

@@ -418,6 +418,8 @@ struct ThreadFamilyResult<T> {
 }
 
 impl<T> Default for ThreadFamilyResult<T> {
+    /// Starts family accounting with zero counts and no acquired payload, failure, or interruption.
+    /// A completed empty payload is recorded explicitly when acquisition finishes.
     fn default() -> Self {
         Self {
             pages_completed: 0,

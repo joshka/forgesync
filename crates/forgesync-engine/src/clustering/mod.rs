@@ -72,6 +72,8 @@ pub struct ClusterOptions {
 }
 
 impl Default for ClusterOptions {
+    /// Selects bounded neighbor/group sizes and distinct same-kind and cross-kind thresholds.
+    /// Singleton groups are allowed; candidate and component policy enforce these limits later.
     fn default() -> Self {
         Self {
             threshold: DEFAULT_CLUSTER_THRESHOLD,
@@ -164,6 +166,8 @@ struct Neighbor {
 }
 
 impl PartialEq for Neighbor {
+    /// Compares node identity and total-order score, keeping equality consistent with heap
+    /// ordering.
     fn eq(&self, other: &Self) -> bool {
         self.node_index == other.node_index && self.score.total_cmp(&other.score) == Ordering::Equal
     }
@@ -172,12 +176,15 @@ impl PartialEq for Neighbor {
 impl Eq for Neighbor {}
 
 impl PartialOrd for Neighbor {
+    /// Uses the total heap order even for floating-point scores, avoiding unordered comparisons.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for Neighbor {
+    /// Places the worst retained neighbor at the max-heap head by reversing score order.
+    /// Node-index ties are deterministic, allowing pruning to retain the lower-index neighbor.
     fn cmp(&self, other: &Self) -> Ordering {
         other
             .score

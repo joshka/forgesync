@@ -72,6 +72,8 @@ pub struct ArchiveStatusOutput<'a> {
 }
 
 impl<'a> From<&'a ArchiveStatus> for ArchiveStatusOutput<'a> {
+    /// Borrows archive metadata, coverage, and diagnostics while copying counts into command JSON.
+    /// Conversion performs no archive lifecycle or health operation.
     fn from(status: &'a ArchiveStatus) -> Self {
         Self {
             archive: &status.archive,
@@ -97,6 +99,8 @@ pub struct ThreadSummaryOutput<'a> {
 }
 
 impl<'a> From<&'a ThreadSummary> for ThreadSummaryOutput<'a> {
+    /// Borrows repository, discussion, and coverage under the command schema's `thread` field.
+    /// The store projection remains separate from this public JSON shape.
     fn from(summary: &'a ThreadSummary) -> Self {
         Self {
             repository: &summary.repository,
@@ -118,6 +122,8 @@ pub struct ThreadPageOutput<'a> {
 }
 
 impl<'a> From<&'a ThreadPage> for ThreadPageOutput<'a> {
+    /// Adapts page rows while preserving their continuation and aggregate coverage.
+    /// Coverage remains the query projection rather than being inferred from these visible items.
     fn from(page: &'a ThreadPage) -> Self {
         Self {
             items: page.items.iter().map(ThreadSummaryOutput::from).collect(),
@@ -167,6 +173,8 @@ pub struct SearchHitOutput<'a> {
 }
 
 impl<'a> From<&'a SearchResultPage> for SearchPageOutput<'a> {
+    /// Borrows ranked rows and provenance while preserving requested/effective modes and fallback.
+    /// Conversion performs no search or embedding-service request.
     fn from(page: &'a SearchResultPage) -> Self {
         Self {
             query: &page.query,
@@ -210,6 +218,9 @@ pub struct ThreadDetailOutput<'a> {
 }
 
 impl<'a> From<&'a ThreadDetail> for ThreadDetailOutput<'a> {
+    /// Keeps parent summary and independently acquired child families together in command JSON.
+    /// Content and timeline are borrowed from the archived detail rather than reacquired or
+    /// flattened.
     fn from(detail: &'a ThreadDetail) -> Self {
         Self {
             summary: ThreadSummaryOutput::from(&detail.summary),

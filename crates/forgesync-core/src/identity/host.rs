@@ -72,12 +72,15 @@ impl GitHubHost {
 }
 
 impl fmt::Display for GitHubHost {
+    /// Displays the normalized host identity; HTTPS origins are constructed by the URL helper.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
 }
 
 impl Serialize for GitHubHost {
+    /// Encodes the normalized host as text so persisted identity does not retain alternate
+    /// spellings.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -87,6 +90,8 @@ impl Serialize for GitHubHost {
 }
 
 impl<'de> Deserialize<'de> for GitHubHost {
+    /// Validates and normalizes persisted host text through the same parser used for provider
+    /// input.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

@@ -233,6 +233,8 @@ enum ScanOutcome {
     Failed(Failure),
 }
 impl From<GitHubError> for ScanOutcome {
+    /// Treats provider cancellation as interruption; other errors become safe durable scan
+    /// failures.
     fn from(error: GitHubError) -> Self {
         match error {
             GitHubError::Cancelled => Self::Interrupted,

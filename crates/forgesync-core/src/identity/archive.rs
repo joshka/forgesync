@@ -36,6 +36,7 @@ impl RunId {
 }
 
 impl Serialize for RunId {
+    /// Encodes the positive archive-local run identity as an unsigned number.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -45,6 +46,7 @@ impl Serialize for RunId {
 }
 
 impl<'de> Deserialize<'de> for RunId {
+    /// Rechecks positivity when decoding a run ID; SQL range validation remains a store concern.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -73,6 +75,7 @@ impl ObservationSequence {
 }
 
 impl Serialize for ObservationSequence {
+    /// Encodes local acquisition order as an unsigned number, separately from source timestamps.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -82,6 +85,7 @@ impl Serialize for ObservationSequence {
 }
 
 impl<'de> Deserialize<'de> for ObservationSequence {
+    /// Rejects zero while decoding an acquisition sequence, preserving the constructor invariant.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

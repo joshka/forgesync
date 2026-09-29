@@ -42,12 +42,15 @@ impl ProviderId {
 }
 
 impl fmt::Display for ProviderId {
+    /// Displays the original opaque provider identifier without interpreting numeric-looking
+    /// values.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
 }
 
 impl Serialize for ProviderId {
+    /// Encodes opaque provider identity as text, preserving IDs that are not numeric.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -57,6 +60,8 @@ impl Serialize for ProviderId {
 }
 
 impl<'de> Deserialize<'de> for ProviderId {
+    /// Rechecks provider identity constraints when reading persisted text; invalid IDs cannot
+    /// bypass construction.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -87,12 +92,16 @@ impl CommitSha {
 }
 
 impl fmt::Display for CommitSha {
+    /// Displays the canonical lower-case full commit revision used to relate head and review
+    /// evidence.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
 }
 
 impl Serialize for CommitSha {
+    /// Encodes the canonical full commit revision as text rather than an abbreviated display
+    /// revision.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -102,6 +111,8 @@ impl Serialize for CommitSha {
 }
 
 impl<'de> Deserialize<'de> for CommitSha {
+    /// Validates a full supported commit revision and normalizes hexadecimal case during
+    /// deserialization.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

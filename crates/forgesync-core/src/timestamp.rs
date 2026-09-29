@@ -78,6 +78,8 @@ impl UtcTimestamp {
 }
 
 impl Serialize for UtcTimestamp {
+    /// Encodes the checked instant as normalized RFC 3339 UTC text, not archive microseconds.
+    /// Formatting failures become serializer errors rather than a replacement timestamp.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -88,6 +90,8 @@ impl Serialize for UtcTimestamp {
 }
 
 impl<'de> Deserialize<'de> for UtcTimestamp {
+    /// Parses RFC 3339 through the checked timestamp boundary, retaining UTC microsecond precision.
+    /// Malformed or unsupported instants become deserializer errors.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

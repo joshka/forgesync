@@ -101,6 +101,7 @@ impl EmbeddingClientError {
 }
 
 impl From<EmbeddingVectorError> for EmbeddingClientError {
+    /// Maps domain vector-validation failures to the service's stable invalid-vector category.
     fn from(_: EmbeddingVectorError) -> Self {
         Self::InvalidVector
     }

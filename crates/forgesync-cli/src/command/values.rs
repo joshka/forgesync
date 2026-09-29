@@ -27,6 +27,8 @@ pub enum RunFamilyArg {
 }
 
 impl From<RunFamilyArg> for EvidenceFamily {
+    /// Maps parsed retry-family selection to domain evidence, retaining metadata and review
+    /// families as distinct ledger scopes.
     fn from(value: RunFamilyArg) -> Self {
         match value {
             RunFamilyArg::Threads => Self::Threads,

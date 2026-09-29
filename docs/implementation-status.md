@@ -1175,3 +1175,17 @@ remaining-work suffix.
 All four refresh presentation cases and thirty-nine CLI unit tests pass, including partial payload
 counts before a stage failure. Full workspace Clippy, tests/doctests, the build without default
 features, strict public/private Rustdoc, rumdl, and changed-page Markdown linting pass.
+
+## Continued maintenance: local trait contracts
+
+All forty-one previously undocumented handwritten trait methods now explain their local contracts.
+The pass covers identity and timestamp serialization/validation, configuration defaults, JSON
+projection, parsing, deterministic heap ordering, safe error conversion, credential redaction, and
+background-task cleanup. These comments describe choices the standard trait contract cannot convey.
+The documentation guide now records this distinction for future changes.
+
+Strict public/private workspace Rustdoc passes with warnings and missing public documentation
+denied. The syntax inventory finds no undocumented handwritten production methods, including trait
+methods; this establishes presence, not completion of the deeper documentation review. Private
+representations, field contracts, policy constants, and remaining workflow shape remain open review
+targets.

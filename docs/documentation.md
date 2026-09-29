@@ -49,8 +49,11 @@ boundaries.
 Document application functions and methods in private modules too. A brief name does not tell a
 reader who calls an operation, which state it changes, or why it is separate from neighboring
 operations. Put the useful contract at the function rather than relying on a distant module guide.
-For trait implementations whose contract is already defined by the trait and for descriptive tests,
-avoid comments that only repeat the signature or test name.
+Document handwritten trait methods when the implementation adds a local contract: serialized
+representation, validation, default policy, ordering, redaction, or cleanup effects. The trait name
+explains the mechanism, but rarely explains these application choices. Avoid comments that only
+repeat the signature; descriptive tests likewise need context only when their scenario leaves an
+important expectation implicit.
 
 Keep provider DTOs, domain values, database rows, and CLI JSON shapes distinct in prose as well as
 code. Document the difference between a complete collection and an incomplete observation where the

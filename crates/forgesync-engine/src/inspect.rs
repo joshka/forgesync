@@ -65,6 +65,8 @@ pub struct ThreadFilters {
 }
 
 impl Default for ThreadFilters {
+    /// Selects all repositories, kinds, and states at offset zero with a twenty-row bound.
+    /// Sort selection remains with the inspection or search workflow using these filters.
     fn default() -> Self {
         Self {
             repositories: Vec::new(),

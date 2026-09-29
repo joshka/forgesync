@@ -53,6 +53,7 @@ impl GitHubToken {
 }
 
 impl fmt::Debug for GitHubToken {
+    /// Writes a fixed redaction marker so formatting a token cannot reveal its credential contents.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("GitHubToken([REDACTED])")
     }

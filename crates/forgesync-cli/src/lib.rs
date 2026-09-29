@@ -165,6 +165,8 @@ enum OutputMode {
 }
 
 impl From<bool> for OutputMode {
+    /// Converts the parsed JSON flag once at the process boundary into the typed rendering policy.
+    /// Downstream command and report methods receive this policy instead of a behavioral boolean.
     fn from(json: bool) -> Self {
         if json { Self::Json } else { Self::Text }
     }

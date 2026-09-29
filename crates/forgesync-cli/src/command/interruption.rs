@@ -41,6 +41,8 @@ impl CommandInterruption {
     }
 }
 impl Drop for CommandInterruption {
+    /// Aborts the Ctrl-C listener at command-scope end, bounding signal handling to this
+    /// invocation.
     fn drop(&mut self) {
         self.listener.abort();
     }
