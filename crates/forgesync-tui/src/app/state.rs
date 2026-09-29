@@ -200,6 +200,8 @@ impl App {
         self.repository_generation
     }
 
+    /// Starts a new thread-list generation and invalidates the selected detail; replies from an
+    /// older list must not restore a stale selection after the scope changes.
     pub fn begin_threads(&mut self) -> u64 {
         self.thread_generation += 1;
         self.threads_loading = true;
@@ -249,6 +251,8 @@ impl App {
         Some((self.cluster_detail_generation, cluster_id))
     }
 
+    /// Reserves the single active writer slot. `None` leaves existing progress untouched when an
+    /// operation is already running; the generation tags later completion messages.
     pub fn begin_operation(&mut self, label: &str) -> Option<u64> {
         if self.operation_busy {
             return None;

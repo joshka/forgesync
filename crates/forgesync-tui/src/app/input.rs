@@ -101,6 +101,8 @@ impl App {
         Vec::new()
     }
 
+    /// Builds a thread query from the applied repository filter. A highlighted but unapplied
+    /// repository does not change the query scope.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self
             .applied_repository
@@ -115,6 +117,7 @@ impl App {
         }
     }
 
+    /// Returns the applied repository filter for actions that need the same scope as browsing.
     pub fn repository_scope(&self) -> Vec<RepositorySelector> {
         self.applied_repository
             .and_then(|index| self.repositories.get(index))
@@ -133,6 +136,8 @@ impl App {
         }
     }
 
+    /// Advances the detail generation as well as clearing it, so an earlier read cannot restore
+    /// content for a thread that is no longer selected.
     pub fn invalidate_detail(&mut self) {
         self.detail_generation += 1;
         self.detail = None;

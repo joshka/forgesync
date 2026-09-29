@@ -103,6 +103,8 @@ pub async fn resolve_github_token(
     GitHubToken::new(token).map_err(|_| CredentialError::InvalidToken)
 }
 
+/// Uses the configured token before `GITHUB_TOKEN`, ignoring empty values but rejecting a
+/// non-Unicode or malformed nonempty value instead of silently trying a lower-priority source.
 fn choose_environment_token(
     configured: Option<OsString>,
     github_token: Option<OsString>,
@@ -129,6 +131,8 @@ pub(crate) fn valid_environment_variable_name(name: &str) -> bool {
         && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
 }
 
+/// Runs the credential helper without stdin or visible stderr. Cancellation and timeout both
+/// drop the child with kill-on-drop enabled, so credential lookup cannot block shutdown.
 async fn run_credential_process(
     program: &Path,
     arguments: &[OsString],

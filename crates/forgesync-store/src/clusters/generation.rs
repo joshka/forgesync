@@ -113,6 +113,8 @@ impl Archive {
     }
 }
 
+/// Rejects a generation that cannot safely replace current membership, including duplicate
+/// threads, representatives outside their cluster, and a false claim of complete vector coverage.
 fn validate_generation(input: &ClusterGenerationInput) -> Result<(), StoreError> {
     if input.endpoint.trim().is_empty()
         || input.model.trim().is_empty()
@@ -229,6 +231,8 @@ async fn load_existing_clusters(
     Ok(clusters)
 }
 
+/// Reuses durable cluster IDs by assigning the strongest membership overlaps first. The ordered
+/// tie breaks keep equal evidence from producing different IDs on repeated builds.
 fn match_cluster_identities(
     existing: &[ExistingCluster],
     generated: &[PreparedCluster],

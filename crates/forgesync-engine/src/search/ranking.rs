@@ -5,6 +5,8 @@ use super::{
     SearchProvenance, SearchResultPage, ThreadId, ThreadSort, ThreadSummary, stable_thread_id_cmp,
 };
 
+/// Applies pagination after ranking so `next_offset` describes the ordered candidate set, not
+/// the size of an intermediate keyword or vector batch.
 pub fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
     let ResultPageRequest {
         query,
@@ -44,6 +46,8 @@ pub fn result_page(request: ResultPageRequest<'_>) -> SearchResultPage {
     }
 }
 
+/// Combines keyword and semantic ranks by stable thread identity. Keeping each source rank in
+/// provenance lets a caller explain a fused hit without rerunning either search.
 pub fn fuse_hybrid(
     keyword: Vec<SearchHit>,
     semantic: Vec<ScoredThread>,

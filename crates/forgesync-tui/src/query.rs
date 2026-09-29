@@ -95,6 +95,8 @@ impl QueryTasks {
         self.handles.push(handle);
     }
 
+    /// Aborts outstanding reads and requests cancellation of the active writer before shutdown.
+    /// The writer is awaited so it can release its archive lease.
     pub async fn stop(&mut self) {
         for task in self.handles.drain(..) {
             task.abort();
@@ -118,6 +120,8 @@ impl Drop for QueryTasks {
     }
 }
 
+/// Routes a UI action to a background read or operation. Each completion returns through the
+/// message channel so rendering and key handling stay responsive.
 pub fn start_query(
     action: QueryAction,
     app: &mut App,

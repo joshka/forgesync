@@ -49,6 +49,8 @@ pub fn observation_sequence_order_value(sequence: i64) -> i64 {
     sequence.checked_abs().unwrap_or(i64::MAX)
 }
 
+/// Orders valid source clocks ahead of unusable ones. Distinct unusable spellings are ambiguous,
+/// because choosing either one would make canonical content depend on arrival order.
 fn compare_source_clocks(
     incoming: &SourceClock,
     current: &SourceClock,
@@ -83,6 +85,7 @@ fn normalized_unusable_clock(clock: &SourceClock) -> String {
     }
 }
 
+/// Preserves both unusable clock values in the error so acquisition can report the conflict.
 fn ambiguous_clocks(incoming: &SourceClock, current: &SourceClock) -> StoreError {
     StoreError::AmbiguousObservationClocks {
         incoming: normalized_unusable_clock(incoming),

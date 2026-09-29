@@ -197,6 +197,8 @@ fn config_path_from_environment() -> Option<PathBuf> {
     std::env::var_os("FORGESYNC_CONFIG").map(PathBuf::from)
 }
 
+/// Accepts a local model endpoint by host identity, including bracketed IPv6, for the relaxed
+/// local HTTP configuration path.
 fn is_loopback_host(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost")
         || host

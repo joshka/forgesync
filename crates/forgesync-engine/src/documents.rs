@@ -72,6 +72,8 @@ pub fn build_document(detail: &ThreadDetail, recipe: DocumentRecipe) -> Document
     )
 }
 
+/// Includes child evidence in a document only when the archive says its collection is complete
+/// and still describes the current parent discussion.
 fn has_current_complete_evidence(detail: &ThreadDetail, family: EvidenceFamily) -> bool {
     detail
         .summary

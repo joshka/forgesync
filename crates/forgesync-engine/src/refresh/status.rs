@@ -12,6 +12,8 @@ pub fn stage_failure(error: &EngineError) -> RefreshStageFailure {
     }
 }
 
+/// Retains the first stage failure as the report's primary diagnostic while later stages may
+/// continue and record their own outcomes.
 pub fn keep_first_failure(first: &mut Option<RefreshStageFailure>, candidate: RefreshStageFailure) {
     if first.is_none() {
         *first = Some(candidate);
@@ -26,6 +28,8 @@ pub fn status_for_failure(failure: &RefreshStageFailure) -> RefreshStageStatus {
     }
 }
 
+/// Lists selected stages that did not complete; an unselected stage is absent rather than
+/// pending work for a later retry.
 pub fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> {
     let mut remaining = Vec::new();
     if report
@@ -52,6 +56,8 @@ pub fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> {
     remaining
 }
 
+/// Reduces stage results to the process outcome, giving interruption precedence over other
+/// partial results when unfinished work was cancelled.
 pub fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
     if report.remaining.is_empty() {
         return OperationOutcome::Complete;

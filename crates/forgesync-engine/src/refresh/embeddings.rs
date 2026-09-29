@@ -122,6 +122,8 @@ pub fn embedding_status(
     }
 }
 
+/// Accumulates work across repository pages while preserving every failed batch and any
+/// cancellation; counts alone would hide a partially successful embedding stage.
 pub fn add_embedding_report(total: &mut EmbeddingReport, page: EmbeddingReport) {
     total.documents = total.documents.saturating_add(page.documents);
     total.chunks_selected = total.chunks_selected.saturating_add(page.chunks_selected);

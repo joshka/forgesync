@@ -83,6 +83,7 @@ impl<'de> Deserialize<'de> for GitHubHost {
     }
 }
 
+/// Canonicalizes a bracketed IPv6 authority and omits the default HTTPS port.
 fn canonicalize_ipv6_authority(authority: &str) -> Result<String, IdentityError> {
     let closing_bracket = authority
         .find(']')
@@ -99,6 +100,8 @@ fn canonicalize_ipv6_authority(authority: &str) -> Result<String, IdentityError>
     })
 }
 
+/// Normalizes a DNS authority before it becomes part of persistent repository identity.
+/// A trailing dot and the default HTTPS port must not create distinct hosts.
 fn canonicalize_dns_authority(authority: &str) -> Result<String, IdentityError> {
     let (host, port) = match authority.rsplit_once(':') {
         Some((host, port)) if !host.contains(':') => {

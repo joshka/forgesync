@@ -92,6 +92,8 @@ impl Archive {
     }
 }
 
+/// Loads coverage with both the recorded review head and current PR head so callers can mark
+/// review evidence stale without rewriting the stored collection.
 pub async fn load_thread_coverage(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
@@ -156,6 +158,8 @@ pub async fn load_thread_coverage(
     Ok(coverage)
 }
 
+/// Projects stored family coverage onto the families relevant to this discussion kind. Missing
+/// rows remain visible as missing evidence instead of disappearing from inspection output.
 pub fn coverage_for_kind(
     discussion: &Discussion,
     stored: Option<&HashMap<EvidenceFamily, StoredCoverage>>,
@@ -175,6 +179,8 @@ pub fn coverage_for_kind(
         .collect()
 }
 
+/// Marks child evidence stale when its parent update clock changes, or when comments no longer
+/// match the provider count or review evidence belongs to an earlier pull-request head.
 fn is_stale(
     discussion: &Discussion,
     family: EvidenceFamily,

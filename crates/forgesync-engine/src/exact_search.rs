@@ -46,6 +46,8 @@ pub fn cosine_similarity(left: &EmbeddingVector, right: &EmbeddingVector) -> Opt
     Some(score.clamp(-1.0, 1.0))
 }
 
+/// Scores one bounded page using each document's best chunk, skipping documents with any
+/// dimension mismatch. Cancellation is checked between documents so a large scan can stop.
 pub(crate) fn score_embedding_page(
     query: &EmbeddingVector,
     documents: Vec<EmbeddingSearchDocument>,
@@ -83,6 +85,8 @@ pub(crate) fn score_embedding_page(
     Ok(scored)
 }
 
+/// Keeps only the best candidates after each page, bounding memory while preserving the final
+/// sort order across the entire document scan.
 pub(crate) fn merge_scored_pages(
     current: &mut Vec<ScoredThread>,
     page: Vec<ScoredThread>,

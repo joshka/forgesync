@@ -17,6 +17,9 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
   explicitly and remove parent imports that only served as a child module's implicit prelude.
 - Put the central type or operation first, followed by its methods and local helpers in
   caller-before-callee order where possible. Put tests close to the behavior they prove.
+- Write doc comments for helpers when a name and signature leave their purpose, context, or caller
+  expectations unclear, even if the implementation is short. Preserve the reason for an ordering,
+  omission, side effect, or failure rule; do not narrate ordinary statements.
 - Keep command `match` arms short. Delegate substantial work to named operations; keep a visible
   branch when the branch itself expresses the domain rule.
 - Break long functions into named phases only when the name lets a reader forget earlier details.

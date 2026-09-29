@@ -143,6 +143,8 @@ where
     render_result(json, command, data, human, ExitCode::SUCCESS)
 }
 
+/// Writes the command result to stdout in the selected format. A closed output pipe is treated
+/// as successful consumption rather than turning a completed operation into a process failure.
 fn render_result<T>(
     json: OutputMode,
     command: &str,
@@ -172,6 +174,8 @@ fn render_store_error(json: OutputMode, command: &str, error: StoreError) -> Exi
     render_error(json, command, error.code(), &error.to_string())
 }
 
+/// Preserves cancellation as exit status 130 while keeping the engine's stable error code in the
+/// JSON envelope or human diagnostic.
 fn render_engine_error(json: OutputMode, command: &str, error: EngineError) -> ExitCode {
     let code = error.code();
     let message = error.to_string();

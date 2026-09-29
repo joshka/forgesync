@@ -87,6 +87,8 @@ impl Document {
     }
 }
 
+/// Hashes the source identity, recipe, and rendered text; acquisition time is deliberately absent
+/// so a repeated fetch of unchanged content keeps the same document identity.
 fn content_hash(
     source_identity: &ThreadId,
     recipe: DocumentRecipe,
@@ -126,6 +128,7 @@ fn content_hash(
     output
 }
 
+/// Prefixes each field with its length so adjacent fields cannot produce the same byte stream.
 fn add_field(hasher: &mut Sha256, value: &[u8]) {
     hasher.update(u64::try_from(value.len()).unwrap_or(u64::MAX).to_be_bytes());
     hasher.update(value);

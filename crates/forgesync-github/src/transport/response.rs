@@ -19,6 +19,8 @@ pub async fn acquire_request_slot(
     }
 }
 
+/// Classifies a failed HTTP response after reading only a bounded error prefix. GitHub can use
+/// HTTP 403 for both permission failures and rate limits, which have different retry behavior.
 pub async fn classify_api_response(
     response: Response,
     status: StatusCode,
@@ -56,6 +58,7 @@ pub async fn read_error_prefix(response: Response) -> Result<Vec<u8>, reqwest::E
     read_body_prefix(response, MAX_ERROR_BODY_BYTES).await
 }
 
+/// Bounds successful response bodies even when `Content-Length` is absent or untrustworthy.
 pub async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, BodyReadError> {
     let mut response = response;
     if response
@@ -90,6 +93,8 @@ pub async fn read_body_prefix(
     Ok(bytes)
 }
 
+/// Resolves a redirect against the current URL and revalidates its trusted origin before the
+/// client can forward credentials to the destination.
 pub fn redirect_target(response: &Response, origin: &TrustedOrigin) -> Result<Url, GitHubError> {
     let location = response
         .headers()

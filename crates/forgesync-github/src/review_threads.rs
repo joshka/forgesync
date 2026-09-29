@@ -134,6 +134,8 @@ fn validate_scope(repository: &Repository, thread: &ThreadId) -> Result<(), GitH
     Ok(())
 }
 
+/// Finishes the nested comment connection before normalization. A partially paged review thread
+/// must not be presented downstream as a complete collection.
 async fn complete_review_thread(
     client: &GitHubClient,
     thread: &ThreadId,
@@ -184,6 +186,8 @@ async fn complete_review_thread(
     normalize_review_thread(thread, head_sha, provider_id, node, comment_nodes)
 }
 
+/// Requires a nonempty cursor when GraphQL says another page exists; otherwise pagination could
+/// silently stop with missing review threads.
 fn cursor_from_page_info(page_info: GraphqlPageInfo) -> Result<Option<GraphqlCursor>, GitHubError> {
     let has_next_page = has_next_page(&page_info)?;
     match (has_next_page, page_info.end_cursor) {

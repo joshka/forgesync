@@ -323,6 +323,8 @@ impl Archive {
     }
 }
 
+/// Accepts a stored document's vectors only when every indexed chunk is present once and all
+/// chunks agree on count and dimensions; a partial embedding must not enter semantic search.
 fn complete_chunk_set(chunks: &[StoredEmbeddingChunk]) -> bool {
     let Some(first) = chunks.first() else {
         return false;

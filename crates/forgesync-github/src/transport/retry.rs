@@ -29,6 +29,8 @@ pub fn body_identifies_rate_limit(body: &[u8]) -> bool {
     .any(|marker| body.contains(marker))
 }
 
+/// Prefers `Retry-After`; when GitHub reports zero remaining requests, falls back to its reset
+/// timestamp. Past reset times yield an immediate retry hint.
 pub fn retry_after_hint(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     if let Some(value) = headers
         .get(RETRY_AFTER)
@@ -65,6 +67,8 @@ pub fn retry_after_hint(headers: &reqwest::header::HeaderMap) -> Option<Duration
     )
 }
 
+/// Caps exponential local backoff at the configured maximum; provider wait hints are handled
+/// separately by the request loop.
 pub fn retry_backoff(policy: &RetryPolicy, retry_index: u32) -> Duration {
     let multiplier = 1_u32.checked_shl(retry_index.min(31)).unwrap_or(u32::MAX);
     policy
