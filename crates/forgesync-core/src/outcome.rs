@@ -52,44 +52,37 @@ mod tests {
     use super::OperationOutcome;
     use crate::coverage::{DeferredReason, Failure, FailureKind};
 
-    #[test]
-    fn terminal_outcomes_have_distinct_machine_readable_states() {
-        let cases = [
-            (OperationOutcome::Complete, json!({ "status": "complete" })),
-            (
-                OperationOutcome::Partial {
-                    failed_items: 1,
-                    deferred_items: 2,
-                },
-                json!({ "status": "partial", "failed_items": 1, "deferred_items": 2 }),
-            ),
-            (
-                OperationOutcome::Deferred {
-                    reason: DeferredReason::Offline,
-                },
-                json!({ "status": "deferred", "reason": "offline" }),
-            ),
-            (
-                OperationOutcome::Failed {
-                    failure: Failure {
-                        kind: FailureKind::Archive,
-                        message: "archive could not be committed".to_owned(),
-                    },
-                },
-                json!({ "status": "failed", "failure": { "kind": "archive", "message": "archive could not be committed" } }),
-            ),
-            (
-                OperationOutcome::Interrupted { pending_items: 3 },
-                json!({ "status": "interrupted", "pending_items": 3 }),
-            ),
-        ];
-
-        for (outcome, expected) in cases {
-            let encoded = serde_json::to_value(&outcome).expect("serialize outcome");
-            assert_eq!(encoded, expected);
-            let decoded: OperationOutcome =
-                serde_json::from_value(encoded).expect("deserialize outcome");
-            assert_eq!(decoded, outcome);
-        }
+    #[rstest::rstest]
+    #[case::complete(OperationOutcome::Complete, json!({ "status": "complete" }))]
+    #[case::partial(
+        OperationOutcome::Partial { failed_items: 1, deferred_items: 2 },
+        json!({ "status": "partial", "failed_items": 1, "deferred_items": 2 })
+    )]
+    #[case::deferred(
+        OperationOutcome::Deferred { reason: DeferredReason::Offline },
+        json!({ "status": "deferred", "reason": "offline" })
+    )]
+    #[case::failed(
+        OperationOutcome::Failed { failure: Failure {
+            kind: FailureKind::Archive,
+            message: "archive could not be committed".to_owned(),
+        } },
+        json!({ "status": "failed", "failure": {
+            "kind": "archive", "message": "archive could not be committed"
+        } })
+    )]
+    #[case::interrupted(
+        OperationOutcome::Interrupted { pending_items: 3 },
+        json!({ "status": "interrupted", "pending_items": 3 })
+    )]
+    fn terminal_outcomes_have_distinct_machine_readable_states(
+        #[case] outcome: OperationOutcome,
+        #[case] expected: serde_json::Value,
+    ) {
+        let encoded = serde_json::to_value(&outcome).expect("serialize outcome");
+        assert_eq!(encoded, expected);
+        let decoded: OperationOutcome =
+            serde_json::from_value(encoded).expect("deserialize outcome");
+        assert_eq!(decoded, outcome);
     }
 }

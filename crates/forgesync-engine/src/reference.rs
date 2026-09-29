@@ -244,19 +244,17 @@ mod tests {
         assert_eq!(pull.repository().host().as_str(), "ghe.example.test");
     }
 
+    #[rstest::rstest]
+    #[case::missing_owner("repo")]
+    #[case::zero_number("org/repo#0")]
+    #[case::ambiguous_number("org/repo#1/2")]
+    #[case::insecure_url("http://github.com/a/b")]
+    fn rejects_ambiguous_or_unsafe_thread_references(#[case] value: &str) {
+        assert!(ThreadSelector::from_str(value).is_err());
+    }
+
     #[test]
-    fn rejects_ambiguous_or_unsafe_references() {
-        for value in [
-            "repo",
-            "org/repo#0",
-            "org/repo#1/2",
-            "http://github.com/a/b",
-        ] {
-            assert!(
-                ThreadSelector::from_str(value).is_err(),
-                "accepted malformed thread selector {value}"
-            );
-        }
+    fn rejects_repository_references_with_extra_path_segments() {
         assert_eq!(
             RepositorySelector::from_str("org/repo/extra"),
             Err(ReferenceParseError::InvalidRepository)
