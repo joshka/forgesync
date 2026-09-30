@@ -21,11 +21,10 @@ use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocumen
 use forgesync_store::leases::ArchiveLeaseToken;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
 use super::candidates::build_cluster_candidates;
-use super::lease::{CLUSTER_LEASE_DURATION, finish_cluster_lease_result};
+use super::lease::ClusterBuildLease;
 use super::proposals::ClusterCandidate;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
 use crate::documents::now_utc;
@@ -62,48 +61,9 @@ pub async fn build_clusters(
         return Err(EngineError::ClusteringCancelled);
     }
 
-    let started_at = now_utc()?;
-    let lease = archive
-        .acquire_archive_lease(started_at, CLUSTER_LEASE_DURATION)
-        .await?;
-    let operation_cancellation = cancellation.child_token();
-    let mut operation = Box::pin(execute_cluster_build(
-        archive,
-        request,
-        &lease,
-        &operation_cancellation,
-    ));
-    let heartbeat_period = CLUSTER_LEASE_DURATION / 3;
-    let mut heartbeat = interval_at(Instant::now() + heartbeat_period, heartbeat_period);
-    let operation_result = loop {
-        tokio::select! {
-            result = &mut operation => break result,
-            _ = cancellation.cancelled() => {
-                operation_cancellation.cancel();
-                let _ = operation.await;
-                break Err(EngineError::ClusteringCancelled);
-            }
-            _ = heartbeat.tick() => {
-                let now = match now_utc() {
-                    Ok(now) => now,
-                    Err(error) => {
-                        operation_cancellation.cancel();
-                        let _ = operation.await;
-                        break Err(error);
-                    }
-                };
-                if let Err(error) = archive
-                    .heartbeat_archive_lease(&lease, now, CLUSTER_LEASE_DURATION)
-                    .await
-                {
-                    operation_cancellation.cancel();
-                    let _ = operation.await;
-                    break Err(error.into());
-                }
-            }
-        }
-    };
-    finish_cluster_lease_result(archive, &lease, operation_result).await
+    let lease = ClusterBuildLease::acquire(archive, cancellation).await?;
+    let operation = execute_cluster_build(archive, request, &lease.token, &lease.cancellation);
+    lease.complete(operation, cancellation).await
 }
 
 /// Reads one page of persisted clusters without contacting GitHub or mutating the archive.

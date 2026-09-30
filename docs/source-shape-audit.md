@@ -159,7 +159,12 @@ exits now abort and drain outstanding requests before fence release, with direct
 existing partial-success/retry integration evidence. Broad signature and documentation acceptance
 still belong to batch 7; this phase does not claim to complete the workspace cleanup.
 
-### 2. Cluster construction
+### 2. Cluster construction — in progress
+
+Implemented: `ClusterBuildLease` owns renewal, cooperative interruption, and release ordering. Three
+nearby lease cases and generation integration establish error preservation, release, child cleanup,
+and caller-token isolation. CLI preparation, vector traversal, and generation persistence remain in
+this batch.
 
 Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clusters`, and store
 `clusters/generation`. Finish when preparation, analysis, and generation persistence have coherent

@@ -179,3 +179,9 @@ owns pending work, concurrency, outcome dispatch, and worker draining. `executio
 keeps the archive fence with its service identity, renews before each chunk write, and releases only
 after scheduling finishes cleanup. Provider failures remain report entries; worker/persistence
 errors abort and drain outstanding requests before returning the original error.
+
+Cluster generation holds `clustering/lease::ClusterBuildLease` across vector loading, blocking
+analysis, and generation persistence. The owner renews the fence and keeps a child cancellation
+scope. Caller interruption or renewal failure cancels that child and awaits analysis cleanup before
+release; the original triggering failure is retained. Short local decision writes continue to use
+the release helpers without taking on the long-build renewal lifecycle.

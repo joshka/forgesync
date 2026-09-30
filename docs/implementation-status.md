@@ -1405,3 +1405,22 @@ the CLI build without default features, strict public/private Rustdoc, nightly f
 rumdl, and all four changed Markdown pages. The module map and source audit record embedding
 execution as implemented. Cluster construction is the next bounded batch; seven implementation
 batches and the final acceptance pass remain.
+
+## Continued maintenance: cluster build lease coordination
+
+`ClusterBuildLease` now owns the generation fence, heartbeat policy, child cancellation scope, and
+completion protocol. The public build operation validates its request, acquires the owner,
+constructs the analysis future, and asks the owner to complete it. Renewal and interruption helpers
+remain nearby so their cleanup ordering can be read without following the generation projection.
+
+Two named failure cases prove release by reclaiming the fence at an epoch timestamp, which cannot
+mask a leaked current lease through expiry. A separate interruption case proves cooperative cleanup,
+preservation of the triggering error, and isolation from the caller token. The generation workflow
+integration case still passes for current open vectors and complete-coverage retirement. This is a
+part of the cluster construction batch; request preparation, vector traversal, and generation
+persistence still require their bounded review.
+
+Validation passes for the three new lease cases, existing generation integration, final-tree
+workspace Clippy and all workspace tests/doctests, the CLI build without default features, strict
+public/private Rustdoc, nightly formatting, workspace rumdl, and both changed Markdown pages. The
+next cluster surface is CLI build request preparation and result presentation.
