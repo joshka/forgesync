@@ -313,6 +313,15 @@ setup is clear, appropriate nearby/separate suites, and focused rendering snapsh
 establish observable behavior. Retain genuine complete-catalog/property checks with their purpose
 explained. Do not rewrite every assertion simply to introduce rstest or insta.
 
+The cross-crate loop inventory now leaves fixed SQLite sidecar cleanup in store, engine, and CLI
+integration fixtures, plus the core fixture-catalog traversal. Sidecar loops are resource cleanup,
+not scenario selection; inspected store/engine helpers document that exception. Catalog loops verify
+all dynamically discovered payloads and declared references, so fixed parameterized cases would
+weaken coverage. The catalog test still combines payload hygiene, catalog reference integrity, and
+scenario invariant coverage in one long body; those responsibilities need separate named tests. TUI
+scope/action/cutoff assertions and task cleanup have received targeted review, and the complete TUI
+and GitHub suites pass. This evidence does not close the remaining suite-quality pass.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

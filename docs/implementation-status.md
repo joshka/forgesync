@@ -2984,3 +2984,12 @@ without moving assertion behavior into helpers.
 
 All seven observation-transaction integration scenarios, nightly formatting, rumdl, and changed-page
 Markdown linting pass.
+
+### Accumulated workspace test validation
+
+The complete locked, all-feature workspace test command passes on the accumulated cleanup tree,
+including unit, integration, and documentation scenarios in all six crates. Evidence is recorded in
+`/tmp/forgesync-current-workspace-tests.log`. The earlier workspace Clippy pass is recorded in
+`/tmp/forgesync-current-workspace-clippy.log`; later fixture edits still need the final lint pass.
+This establishes regression evidence, not completion of the outstanding catalog responsibility and
+workspace documentation/API review.
