@@ -3400,3 +3400,11 @@ before waiting. The local configuration fixture now documents its defaults and l
 
 All 19 embedding adapter cases, all-target/all-feature engine Clippy, nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Store multiline match disposition review
+
+Every remaining store arm in the refreshed source-shape inventory has a concrete retained or fixed
+decision in the audit. Fixed value/SQL projections, family freshness comparisons, ordering, stable
+timeline identity, and optional repository lookup remain local. Archive lifecycle keeps validated
+pool construction and owned-pool failure cleanup visible at its operation. These decisions close the
+inspected match findings without claiming broad-signature, documentation, or test completion.

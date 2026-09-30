@@ -373,6 +373,35 @@ contracts. A one-shot failure/success protocol case and direct boundary cases co
 These dispositions cover the inspected engine matches, not the remaining signature and
 item-documentation review.
 
+### Remaining store match-arm dispositions
+
+Every remaining store arm in the refreshed multiline inventory has a local disposition:
+
+- Coverage freshness keeps family-specific comparison policy visible: complete comment count versus
+  advertised count, or acquired versus current review head. Each branch is one comparison.
+- Lease diagnostics decodes three named columns from one optional row or uses the empty-row
+  defaults. Keep the column contract at the query rather than adding a helper that merely forwards
+  the row.
+- Source clocks map into the three SQL columns together. Retain the explicit missing/valid/invalid
+  encodings and the rejected empty spelling beside each other.
+- Archive creation/opening success arms construct one archive from validated pools and metadata.
+  Failure arms explicitly close the pool they own before returning the error. Keep ownership and
+  failure cleanup visible at the lifecycle operation; a constructor wrapper would hide no policy.
+- Cluster member decisions map include/exclude to three persisted values. Retain this fixed mapping
+  so SQL state and audit event names can be checked together.
+- Timeline tie-breaks produce one kind rank and stable identity string. The review-thread-comment
+  identity includes both parent review-thread and child provider ID; retain that uniqueness policy.
+- Observation ordering calls the named comparison operation, with absent evidence treated as the
+  first observation. Retain the single comparison and visible absence rule.
+- Observation coverage maps declared completeness into the domain state using one set of observation
+  coordinates. Retain the direct value projection. Child-family incomplete application previously
+  mixed state assembly and writing; its named operation now owns that assembly instead.
+- Run failures optionally call the named repository-row lookup before inserting the scoped failure.
+  Keep the optional identity lookup at the transaction owner; no additional effect is hidden there.
+
+This closes the inspected store match-arm findings. Broad signatures, item contract depth, and test
+scenario adequacy remain separate acceptance items.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
