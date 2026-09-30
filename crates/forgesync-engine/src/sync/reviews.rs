@@ -13,9 +13,9 @@ use forgesync_core::content::{PullRequestMetadata, Review};
 use forgesync_github::resources::fetch_pull_request_review_page;
 use forgesync_store::observations::StagedItem;
 
-use super::ThreadFamilyResult;
 use super::review_collection::{ReviewCollection, ReviewPreparation, ReviewSync};
 use crate::error::EngineError;
+use crate::sync::scope::ThreadFamilyResult;
 
 impl ReviewSync<'_> {
     /// Acquires reviews only after preparation establishes a reserved, head-aware attempt.

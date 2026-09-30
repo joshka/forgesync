@@ -27,7 +27,11 @@ staging counts and consuming completion/failure operations. `reviews` follows RE
 `review_threads` owns GraphQL cursor traversal and cycle detection. Provider traversal and archive
 finalization can therefore be read independently without repeating their shared policy.
 
-The sync request owns repository preparation and durable scope serialization. `sync/lease` owns
+The sync root defines the public request, progress, and report vocabulary. `sync/coordinator` owns
+request preparation, durable scope serialization, job execution, and terminal run projection.
+`sync/scope` defines shared run capabilities, independent enumeration units, and thread-family
+attribution/results. Collectors import those definitions directly; failure recording belongs to the
+thread scope and progress publication to the run context. `sync/lease` owns
 writer-fence acquisition, renewal, cancellation draining, and release. Run-wide sync counters and
 outcome policy live in `sync/accounting`, beside direct complete, partial, deferred, failed, and
 interrupted scenarios. Repository sync uses `jobs` for lookup and scope traversal, `thread_job` for

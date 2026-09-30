@@ -19,9 +19,9 @@ use forgesync_github::review_threads::{
 };
 use forgesync_store::observations::StagedItem;
 
-use super::ThreadFamilyResult;
 use super::review_collection::{ReviewCollection, ReviewPreparation, ReviewSync};
 use crate::error::EngineError;
+use crate::sync::scope::ThreadFamilyResult;
 
 impl ReviewSync<'_> {
     /// Acquires review threads after preparation resolves freshness and head availability.

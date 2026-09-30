@@ -22,16 +22,17 @@ use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::runs::RunFailureInput;
 
+use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
 use super::support::{overlap_start, progress_status};
 use super::thread_job::ThreadJob;
-use super::{ScopeUnit, SyncProgressStatus, SyncRunContext};
 use crate::clock::now_utc;
 use crate::enumeration::ThreadScanContext;
 use crate::error::EngineError;
 use crate::provider_failure::github_failure;
 use crate::reference::RepositorySelector;
+use crate::sync::scope::{ScopeUnit, SyncRunContext};
 
 /// Visits repositories in request order, preserving committed work when cancellation stops a run.
 pub async fn run_jobs(

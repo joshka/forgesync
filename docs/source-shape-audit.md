@@ -740,11 +740,20 @@ context and current job totals from `WorkSummary`; callers no longer repeat the 
 summary or pass run/channel coordinates independently. Repository presentation and current status
 remain per-event choices. Bounded channel failure remains observational and cannot block writes.
 
-The remaining sync root still mixes public request/report definitions, private acquisition scope,
-and coordinator execution in one 470-line module. Separating those existing responsibilities is the
-next source change; this review does not yet close sync layout or signature acceptance. Focused sync
-workflow validation passes all seventeen cases, and engine all-target Clippy passes for attribution
-changes.
+Attribution changes pass all seventeen focused sync workflow cases and engine all-target Clippy.
+
+The former 470-line sync root now contains only public request/progress/report definitions and its
+primary entry point. Private `coordinator` owns request preparation and terminal run projection;
+private `scope` defines run capabilities, enumeration units, and family attribution/results. Their
+introductions explain usage and relationships. Sibling modules import private definitions from
+`scope`, using ordinary public items inside that private module rather than root forwarding or
+restricted-visibility seams. Scope dispatch selects named open/closed/all declarations, whose
+checkpoint authority is documented together with their provider filter.
+
+The root is 162 lines, coordinator 194, and scope approximately 150, without deeper folders or
+additional workflow state. This closes the identified sync root layout finding. The split passes
+engine all-target Clippy and all seventeen focused workflow cases after the final scope-declaration
+change. Final workspace/private Rustdoc acceptance remains open.
 
 ### Offline CLI scenario locality
 

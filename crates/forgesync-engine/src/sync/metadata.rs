@@ -23,10 +23,10 @@ use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 
 use super::comments::incomplete_reason;
-use super::{SyncRunContext, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::provider_failure::github_failure;
+use crate::sync::scope::{SyncRunContext, ThreadFamilyResult, ThreadFamilyScope};
 
 impl ThreadFamilyScope<'_> {
     /// Acquires metadata independently and returns a head only after canonical application.

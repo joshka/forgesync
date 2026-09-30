@@ -21,11 +21,11 @@ use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::{ChildFamilyFailureScope, RunFailureInput};
 use url::Url;
 
-use super::ThreadFamilyResult;
 use super::repository_work::RepositoryWork;
 use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::provider_failure::github_failure;
+use crate::sync::scope::ThreadFamilyResult;
 
 impl RepositoryWork<'_> {
     /// Skips current comment evidence or runs a newly reserved collection for the discussion.

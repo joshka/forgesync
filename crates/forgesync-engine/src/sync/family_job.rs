@@ -15,11 +15,12 @@ use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::runs::{SyncJobCompletion, SyncJobStatus};
 
+use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::support::progress_status;
-use super::{SyncProgressStatus, SyncRunContext, ThreadFamilyResult};
 use crate::clock::now_utc;
 use crate::error::EngineError;
+use crate::sync::scope::{SyncRunContext, ThreadFamilyResult};
 
 /// A started durable job together with the thread outcomes it has accumulated.
 pub struct FamilyJob {

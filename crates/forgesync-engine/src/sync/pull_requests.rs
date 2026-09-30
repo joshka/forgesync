@@ -18,15 +18,16 @@ use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort};
 use forgesync_store::runs::SyncJobStart;
 
+use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
 use super::repository_work::RepositoryWork;
 use super::review_collection::{ReviewFamily, ReviewSync};
 use super::support::store_state_filter;
-use super::{PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
+use crate::sync::scope::{PullRequestTarget, ThreadFamilyResult, ThreadFamilyScope};
 
 impl<'a> RepositoryWork<'a> {
     /// Runs the selected pull-request families with metadata preceding head-bound review evidence.

@@ -18,14 +18,15 @@ use forgesync_store::reads::ThreadStateFilter;
 use forgesync_store::runs::{RunFailureInput, SyncJobStatus};
 
 use super::accounting::WorkSummary;
-use super::{
-    CLOSED_SWEEP_OVERLAP_MICROSECONDS, SyncProgress, SyncProgressStatus, SyncRequest,
-    SyncRunContext, ThreadFamilyScope,
-};
+use super::{SyncProgress, SyncProgressStatus, SyncRequest};
 use crate::clock::now_utc;
 use crate::enumeration::ThreadEnumerationReport;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
+use crate::sync::scope::{SyncRunContext, ThreadFamilyScope};
+
+/// Replay overlap protecting closed-thread sweeps from timestamp boundary gaps.
+const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
 impl ThreadFamilyScope<'_> {
     /// Persists a failure with this scope's repository, thread, and ledger key.

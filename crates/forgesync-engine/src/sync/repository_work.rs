@@ -13,7 +13,7 @@ use forgesync_core::content::Repository;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 
-use super::{ScopeUnit, SyncRunContext};
+use crate::sync::scope::{ScopeUnit, SyncRunContext};
 
 /// Immutable repository-family scope and the services authorized to acquire it.
 #[derive(Clone, Copy)]

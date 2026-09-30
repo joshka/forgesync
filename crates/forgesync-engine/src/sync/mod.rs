@@ -5,42 +5,27 @@
 //! opened archive and explicit cancellation. It uses the GitHub adapter for transport and
 //! normalization, then the store for ordered observations.
 //!
-//! `lease` maintains the writer fence through cooperative cancellation and cleanup.
-//! `accounting` owns run-wide counters and outcome selection; `jobs` coordinates thread work.
-//! `comments`, `reviews`, and `review_threads` own independently paginated child families;
-//! `pull_requests` and `metadata` handle pull-request-specific evidence. `review_collection` owns
-//! the reserved lifecycle shared by review families, while their provider collectors own page
-//! traversal. `support` resolves selectors and records scoped failures. An incomplete child
-//! collection must not replace prior complete membership. Per-job failure isolation lets one
-//! discussion fail while other work still commits.
+//! `coordinator` validates selection and owns run finalization; `scope` defines shared acquisition
+//! identities and family results. `lease` maintains the writer fence through cooperative
+//! cancellation and cleanup. `accounting` owns run-wide counters and outcome selection; `jobs`
+//! coordinates thread work. `comments`, `reviews`, and `review_threads` own independently paginated
+//! child families; `pull_requests` and `metadata` handle pull-request-specific evidence.
+//! `review_collection` owns the reserved lifecycle shared by review families, while their provider
+//! collectors own page traversal. `support` resolves selectors and records scoped failures. An
+//! incomplete child collection must not replace prior complete membership. Per-job failure
+//! isolation lets one discussion fail while other work still commits.
 
-use std::collections::{HashMap, HashSet};
-
-use forgesync_core::coverage::{Failure, FailureKind};
-use forgesync_core::identity::{GitHubHost, RunId, ThreadId};
+use forgesync_core::identity::RunId;
 use forgesync_core::outcome::OperationOutcome;
-use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_github::resources::ThreadListState;
-use forgesync_github::transport::GitHubClient;
-use forgesync_store::archive::Archive;
-use forgesync_store::error::StoreError;
-use forgesync_store::leases::ArchiveLeaseToken;
 use forgesync_store::runs::{RunRecord, SyncJobRecord};
 use serde::Serialize;
-use serde_json::json;
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
 
-use crate::clock::now_utc;
-use crate::error::EngineError;
 use crate::reference::RepositorySelector;
-
-/// One day of replay overlap protects closed-thread sweeps from timestamp boundary gaps.
-const CLOSED_SWEEP_OVERLAP_MICROSECONDS: i64 = 86_400_000_000;
 
 mod accounting;
 mod comment_job;
 mod comments;
+mod coordinator;
 mod family_job;
 mod jobs;
 mod lease;
@@ -50,12 +35,11 @@ mod repository_work;
 mod review_collection;
 mod review_threads;
 mod reviews;
+mod scope;
 mod support;
 mod thread_job;
 
-use jobs::run_jobs;
-use lease::SyncLease;
-use support::resolve_selectors;
+pub use coordinator::sync_repositories;
 
 /// Thread scope requested for one sync run.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
@@ -175,296 +159,4 @@ pub struct SyncReport {
     pub review_threads_seen: u64,
     /// Terminal outcome persisted on the run.
     pub outcome: OperationOutcome,
-}
-
-/// One durable thread-state enumeration within the caller's selected sync scope.
-///
-/// Default sync expands into separate open and closed units so each has an independent ledger and
-/// checkpoint. Only a complete scan authorized by this unit may advance the closed watermark.
-#[derive(Clone, Copy)]
-struct ScopeUnit {
-    /// Stable ledger scope key, independent of a provider page cursor.
-    key: &'static str,
-    /// Provider filter for this enumeration.
-    state: ThreadListState,
-    /// Whether complete enumeration establishes a new closed-sweep checkpoint.
-    update_closed_watermark: bool,
-}
-
-/// Immutable run identity and execution policy shared by repository-family job owners.
-///
-/// The coordinator owns the lease and child cancellation token. Jobs borrow those capabilities;
-/// they cannot silently select a different run or start an unrelated writer. Mutable acquisition
-/// progress stays in each job and in `WorkSummary`, rather than in this shared execution scope.
-struct SyncRunContext<'a> {
-    /// Initial repository/scope job count; `WorkSummary` adds pull-request family jobs for
-    /// nonempty scopes.
-    total_jobs: u64,
-    /// Whether this run acquires the independent discussion-comment family.
-    include_comments: bool,
-    /// Whether this run acquires pull-request reviews.
-    include_reviews: bool,
-    /// Whether this run acquires review threads and their nested comments.
-    include_review_threads: bool,
-    /// Persisted run receiving job and failure records.
-    run_id: RunId,
-    /// Writer fence checked by every durable mutation.
-    lease: &'a ArchiveLeaseToken,
-    /// Operation token cancelled by the caller or a failed lease renewal.
-    cancellation: &'a CancellationToken,
-    /// Optional bounded snapshot channel; a slow receiver never blocks writes.
-    progress: Option<mpsc::Sender<SyncProgress>>,
-}
-
-impl SyncThreadScope {
-    /// Expands a thread scope into the provider enumerations it requires.
-    fn units(self) -> Vec<ScopeUnit> {
-        match self {
-            Self::Default => vec![
-                ScopeUnit {
-                    key: "open",
-                    state: ThreadListState::Open,
-                    update_closed_watermark: false,
-                },
-                ScopeUnit {
-                    key: "closed",
-                    state: ThreadListState::Closed,
-                    update_closed_watermark: true,
-                },
-            ],
-            Self::Open => vec![ScopeUnit {
-                key: "open",
-                state: ThreadListState::Open,
-                update_closed_watermark: false,
-            }],
-            Self::Closed => vec![ScopeUnit {
-                key: "closed",
-                state: ThreadListState::Closed,
-                update_closed_watermark: true,
-            }],
-            Self::All => vec![ScopeUnit {
-                key: "all",
-                state: ThreadListState::All,
-                update_closed_watermark: true,
-            }],
-        }
-    }
-}
-
-/// Runs a fenced, resumable sync and returns a durable partial or complete report.
-///
-/// Progress updates are snapshots sent with `try_send`; a full or disconnected channel never
-/// blocks archive writes or changes the final report.
-pub async fn sync_repositories(
-    archive: &Archive,
-    clients: &HashMap<GitHubHost, GitHubClient>,
-    request: &SyncRequest,
-    cancellation: &CancellationToken,
-    progress: Option<mpsc::Sender<SyncProgress>>,
-) -> Result<SyncReport, EngineError> {
-    let unique_selectors = request.repositories(archive, clients).await?;
-
-    let units = request.scope.units();
-    let total_jobs = request.initial_jobs(unique_selectors.len(), units.len())?;
-    let lease = SyncLease::acquire(archive, cancellation).await?;
-    let run_scope = request.run_scope(&unique_selectors);
-    let run_id = lease.start_run(request.parent_run, &run_scope).await?;
-
-    let operation = execute_and_finalize(
-        archive,
-        clients,
-        &unique_selectors,
-        &units,
-        SyncRunContext {
-            total_jobs,
-            include_comments: request.include_comments,
-            include_reviews: request.include_reviews,
-            include_review_threads: request.include_review_threads,
-            run_id,
-            lease: &lease.token,
-            cancellation: &lease.cancellation,
-            progress,
-        },
-    );
-    lease.complete(operation).await
-}
-
-impl SyncRequest {
-    /// Resolves unique repositories in request order and verifies a client exists for every host.
-    /// Invalid selection fails before acquiring the archive writer fence or creating a run.
-    async fn repositories(
-        &self,
-        archive: &Archive,
-        clients: &HashMap<GitHubHost, GitHubClient>,
-    ) -> Result<Vec<RepositorySelector>, EngineError> {
-        if (self.all && !self.repositories.is_empty())
-            || (!self.all && self.repositories.is_empty())
-        {
-            return Err(EngineError::InvalidSyncScope);
-        }
-
-        let selectors = resolve_selectors(archive, self).await?;
-        let mut unique_selectors = Vec::with_capacity(selectors.len());
-        let mut seen = HashSet::new();
-        for selector in selectors {
-            if seen.insert(selector.clone()) {
-                if !clients.contains_key(selector.host()) {
-                    return Err(EngineError::GitHubClientMissing {
-                        host: selector.host().as_str().to_owned(),
-                    });
-                }
-                unique_selectors.push(selector);
-            }
-        }
-
-        Ok(unique_selectors)
-    }
-
-    /// Counts initial parent/comment jobs before a lease is acquired; pull-request jobs are added
-    /// later only for scopes containing eligible pull requests.
-    fn initial_jobs(&self, repositories: usize, scopes: usize) -> Result<u64, EngineError> {
-        let jobs = repositories
-            .checked_mul(scopes)
-            .and_then(|count| count.checked_mul(1 + usize::from(self.include_comments)))
-            .and_then(|count| u64::try_from(count).ok())
-            .ok_or(StoreError::IntegerOutOfRange)?;
-        Ok(jobs)
-    }
-
-    /// Records normalized selected repositories and original policy for durable inspection/retry.
-    fn run_scope(&self, repositories: &[RepositorySelector]) -> serde_json::Value {
-        let repositories = repositories
-            .iter()
-            .map(RepositorySelector::as_url)
-            .collect::<Vec<_>>();
-        json!({
-            "repositories": repositories,
-            "all": self.all,
-            "thread_scope": self.scope,
-            "include_comments": self.include_comments,
-            "include_reviews": self.include_reviews,
-            "include_review_threads": self.include_review_threads,
-        })
-    }
-}
-
-/// Runs selected jobs and persists the terminal run outcome.
-async fn execute_and_finalize(
-    archive: &Archive,
-    clients: &HashMap<GitHubHost, GitHubClient>,
-    selectors: &[RepositorySelector],
-    units: &[ScopeUnit],
-    context: SyncRunContext<'_>,
-) -> Result<SyncReport, EngineError> {
-    let work = match run_jobs(archive, clients, selectors, units, &context).await {
-        Ok(work) => work,
-        Err(error) => return context.fail_run(archive, error).await,
-    };
-    let outcome = work.outcome();
-    archive
-        .finish_run(context.lease, context.run_id, now_utc()?, &outcome)
-        .await?;
-    let detail = archive
-        .run_detail(context.run_id)
-        .await?
-        .ok_or(StoreError::RunMissing)?;
-    Ok(SyncReport {
-        run: detail.run,
-        jobs: detail.jobs,
-        failures: detail.failures,
-        repositories_selected: u64::try_from(selectors.len())
-            .map_err(|_| StoreError::IntegerOutOfRange)?,
-        completed_jobs: work.completed_jobs,
-        total_jobs: work.total_jobs,
-        failed_jobs: work.failed_jobs,
-        deferred_jobs: work.deferred_jobs,
-        pages_completed: work.pages_completed,
-        threads_seen: work.threads_seen,
-        comments_seen: work.comments_seen,
-        pull_request_metadata_seen: work.pull_request_metadata_seen,
-        reviews_seen: work.reviews_seen,
-        review_threads_seen: work.review_threads_seen,
-        outcome,
-    })
-}
-
-impl SyncRunContext<'_> {
-    /// Attempts a terminal failure record after acquisition loses its work summary, preserving the
-    /// original error even if the clock or failure write also fails.
-    async fn fail_run(
-        &self,
-        archive: &Archive,
-        original_error: EngineError,
-    ) -> Result<SyncReport, EngineError> {
-        let failure = Failure {
-            kind: FailureKind::Archive,
-            message: "sync stopped before its work summary could be persisted".to_owned(),
-        };
-        let outcome = OperationOutcome::Failed { failure };
-        if let Ok(finished_at) = now_utc() {
-            let _ = archive
-                .finish_run(self.lease, self.run_id, finished_at, &outcome)
-                .await;
-        }
-        Err(original_error)
-    }
-}
-
-/// Acquisition evidence for one thread's metadata or independently paginated child family.
-///
-/// Received and committed counts differ when stale or incomplete evidence cannot replace current
-/// membership. An absent payload is distinct from a complete empty collection. Failure and
-/// interruption retain partial accounting for the job ledger and aggregate report.
-struct ThreadFamilyResult<T> {
-    /// Recorded pages credited to this result; interrupted review acquisition leaves this zero.
-    pages_completed: u64,
-    /// Provider records acquired, including records not accepted as current membership.
-    items_received: u64,
-    /// Records accepted by the store for this observation.
-    items_committed: u64,
-    /// Acquired payload when available; an empty payload can still be complete evidence.
-    value: Option<T>,
-    /// Safe provider or archive failure retained with partial counts.
-    failure: Option<Failure>,
-    /// Whether explicit cancellation interrupted this family acquisition.
-    interrupted: bool,
-}
-
-impl<T> Default for ThreadFamilyResult<T> {
-    /// Starts family accounting with zero counts and no acquired payload, failure, or interruption.
-    /// A completed empty payload is recorded explicitly when acquisition finishes.
-    fn default() -> Self {
-        Self {
-            pages_completed: 0,
-            items_received: 0,
-            items_committed: 0,
-            value: None,
-            failure: None,
-            interrupted: false,
-        }
-    }
-}
-
-/// Archived pull request selected for metadata, reviews, and review-thread acquisition.
-struct PullRequestTarget {
-    /// Parent identity shared by all independently acquired pull-request families.
-    thread: ThreadId,
-    /// Parent source timestamp used to attribute family observations.
-    updated_at: UtcTimestamp,
-}
-
-/// Borrowed parent identity and durable scope key for one thread's family job.
-///
-/// Metadata and review collectors share this attribution while retaining separate completeness and
-/// acquisition sequences. The key identifies the ledger scope, not provider pagination state.
-#[derive(Clone, Copy)]
-struct ThreadFamilyScope<'a> {
-    /// Normalized repository containing the parent discussion.
-    repository: &'a forgesync_core::content::Repository,
-    /// Parent pull-request identity for the acquired evidence.
-    thread: &'a ThreadId,
-    /// Parent source timestamp associated with this selected work.
-    updated_at: UtcTimestamp,
-    /// Stable job scope used for durable failure and retry attribution.
-    key: &'a str,
 }

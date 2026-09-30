@@ -16,8 +16,10 @@ current instructions.
 
 Sync failure recording now belongs to the selected thread scope. Progress publication belongs to
 the run context and derives current job totals from the work summary. All seventeen focused workflow
-cases and engine all-target Clippy pass. The remaining sync root combines API definitions, private scope, and
-coordination; separating those existing responsibilities is the next source task.
+cases and engine all-target Clippy pass. Sync API definitions, private acquisition state, and run
+coordination now have three shallow sibling owners, with direct defining-module imports and named
+scope declarations. The root is 162 lines; the split passes Clippy and all seventeen focused workflow
+cases after its final declaration change.
 
 Clustering contract review now documents deterministic grouping preconditions, retained edges,
 worker permit lifetime, and cancellation separately from the writer lease. The audit records the
