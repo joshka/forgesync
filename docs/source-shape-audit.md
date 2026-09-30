@@ -269,10 +269,10 @@ counts remain inspection signals: test/example exclusions and documentation pres
 contract depth. Core identity/value, GitHub wire/acquisition, store checkpoint/health/lease, and
 keyword/ranking contracts have received targeted review; the complete pass remains open.
 
-Core review has begun with coverage and provider extensions: stale marking becomes a named
+The first core review covered coverage and provider extensions: stale marking became a named
 operation, and extension-object validation, rejected-value retention, replacement/null semantics,
-and sorted field access gain concrete contracts. The rest of core and all other crate reviews remain
-open.
+and sorted field access gained concrete contracts. Subsequent dispositions below record additional
+reviewed surfaces; the complete item-depth review remains open.
 
 The targeted conventions pass has since reviewed the previously short module introductions across
 CLI inspection/cluster commands, presentation views, engine inspection/refresh/clustering/error, and
@@ -287,7 +287,8 @@ coordinates and a caller-owned fence with sync; exposing that bridge would requi
 reproduce coordinator invariants. Retry classification is internal adapter policy on an error type
 publicly re-exported for reporting. Source comments document both exceptions. Shared query, scoring,
 clock, and provider-failure policy have private module owners with ordinary public helpers. This
-disposition closes the engine visibility candidates, not the store/provider/CLI review.
+disposition closes the engine visibility candidates. Subsequent paragraphs record the other crates'
+visibility dispositions.
 
 Core and TUI contain no restricted-visibility declarations. CLI retains one environment-name
 predicate shared with configuration: its spelling-only contract is documented and a separate
@@ -295,7 +296,7 @@ single-function module would add navigation without reducing context. GitHub ret
 the public client for internal typed GraphQL adapters: bounded POST and enterprise endpoint
 derivation. Publishing them would expose arbitrary request/protocol setup as acquisition API. Their
 source contracts document the exception and shared transport safeguards. This disposes of non-store
-visibility candidates; store SQL and archive lifecycle seams remain under review.
+visibility candidates; the following paragraph records the completed store visibility review.
 
 Store visibility candidates are now disposed of. Observation SQL, coverage projection, and shared
 query predicates have private owners and direct imports. Remaining restrictions preserve archive
@@ -319,8 +320,10 @@ not scenario selection; inspected store/engine helpers document that exception. 
 all dynamically discovered payloads and declared references, so fixed parameterized cases would
 weaken coverage. Catalog payload hygiene, reference integrity, and scenario invariant coverage now
 have separate named tests; all four catalog checks pass. TUI scope/action/cutoff assertions and task
-cleanup have received targeted review, and the complete TUI and GitHub suites pass. This evidence
-does not close the remaining suite-quality pass.
+cleanup have received targeted review, and the complete TUI and GitHub suites pass. Store
+observation and search suites also use direct owner imports, documented setup effects, and stronger
+identity/version assertions. Ordering contracts have separate named scenarios. This evidence does
+not close the remaining suite-quality pass.
 
 ### Acceptance pass and stopping rules
 

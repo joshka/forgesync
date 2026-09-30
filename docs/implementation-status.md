@@ -3073,3 +3073,11 @@ explicit in the test, with no scenario-dependent helper logic.
 
 All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Current strict workspace documentation gate
+
+Strict all-feature workspace Rustdoc passes with private items included and warnings, missing public
+documentation, and broken intra-doc links denied. Evidence is in
+`/tmp/forgesync-current-workspace-doc.log`. This verifies compilable documentation and links, not
+semantic depth for every contract. The cumulative audit now distinguishes earlier open findings from
+later completed visibility dispositions and records the recent test review surfaces.
