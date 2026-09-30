@@ -29,19 +29,11 @@ use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
 use crate::clusters::canonical::CanonicalSelection;
+use crate::clusters::cluster_decision::{ClusterDecision, ClusterDecisionWrite};
 use crate::clusters::generation_input::thread_row_id;
 use crate::clusters::member_decision::{MemberDecision, MemberDecisionWrite};
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-
-/// Explicit local dismissal choice, independent of active/retired generation lifecycle.
-#[derive(Clone, Copy)]
-enum ClusterDecision {
-    /// Record a maintainer dismissal and its reason without removing generated membership.
-    Dismiss,
-    /// Clear dismissal and its stored reason without regenerating the cluster.
-    Restore,
-}
 
 impl Archive {
     /// Dismisses a generated cluster as a local maintainer decision.
@@ -91,38 +83,13 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let event = match decision {
-            ClusterDecision::Dismiss => "dismissed",
-            ClusterDecision::Restore => "restored",
-        };
-        let result = if matches!(decision, ClusterDecision::Dismiss) {
-            sqlx::query("UPDATE clusters SET dismissed_at_us = ?, dismissal_reason = ?, updated_at_us = ? WHERE id = ?")
-                .bind(at.unix_microseconds())
-                .bind(reason.trim())
-                .bind(at.unix_microseconds())
-                .bind(cluster_id)
-                .execute(&mut *transaction)
-                .await?
-        } else {
-            sqlx::query("UPDATE clusters SET dismissed_at_us = NULL, dismissal_reason = '', updated_at_us = ? WHERE id = ?")
-                .bind(at.unix_microseconds())
-                .bind(cluster_id)
-                .execute(&mut *transaction)
-                .await?
-        };
-        if result.rows_affected() != 1 {
-            return Err(StoreError::ClusterMissing);
-        }
-        insert_cluster_event(
-            &mut transaction,
+        let decision = ClusterDecisionWrite {
             cluster_id,
-            None,
-            event,
-            None,
-            reason.trim(),
+            decision,
+            reason,
             at,
-        )
-        .await?;
+        };
+        decision.apply(&mut transaction).await?;
         transaction.commit().await?;
         Ok(())
     }

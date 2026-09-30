@@ -196,6 +196,7 @@ pub struct ClusterPage {
 }
 
 mod canonical;
+mod cluster_decision;
 mod decisions;
 mod generation;
 mod generation_apply;

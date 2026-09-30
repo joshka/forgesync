@@ -1825,3 +1825,24 @@ canonical event label, generated-representative preservation, and commit timing 
 behavior. Existing cluster integration scenarios cover successful local selection, durable
 decisions, and nonmember rejection. Workspace Clippy passes; focused scenarios and final gates are
 running. Remaining cluster-level dismissal coordination stays in the bounded store-operation batch.
+
+Canonical selection's final gates pass: all workspace tests/doctests, the CLI build without default
+features, strict public/private Rustdoc, workspace Clippy, formatting, rumdl, and changed-page
+Markdown linting.
+
+## Continued maintenance: cluster dismissal phases
+
+`ClusterDecisionWrite` holds checked cluster identity, typed choice, validated reason, and action
+time through named dismissal/restoration mutations and audit insertion. The archive coordinator
+retains validation-before-writer precedence, transaction/fence, and one final commit. Dispatch
+points directly to named mutations, and exactly-one-row validation precedes the event write.
+
+SQL statements, bind order, reason trimming, event labels, missing-cluster behavior, lifecycle
+preservation, and commit order are unchanged. The store batch's selected surfaces now expose
+coherent read projections or transaction phases with effect/error contracts and recorded linear
+SQL/policy exceptions. Final dismissal and store acceptance validation is in progress.
+
+Dismissal's workspace Clippy and both existing cluster integration cases pass. Formatting, rumdl,
+and changed-page Markdown linting pass. Store acceptance workspace gates are running. Existing store
+integration cases exercise dismissal but not restoration; the bounded test-review batch must close
+that specific coverage gap rather than treat SQL preservation as complete behavior coverage.
