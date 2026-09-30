@@ -3376,3 +3376,14 @@ unchanged complete head context, and caller-owned transaction commit.
 
 The complete store unit, integration, and doctest suites and all-target store Clippy pass. Nightly
 formatting, rumdl, and changed-page Markdown linting pass.
+
+### Cluster fence release and error precedence
+
+Cluster completion delegates exact-fence release to a directly following named operation. Release
+reads the process clock, calls the archive, and rejects lost ownership using explicit statements.
+The result combiner retains operation-error precedence without hiding release policy in a match arm
+or chained closure. Two named cases cover an already released fence: cleanup failure rejects a
+successful operation, while an earlier operation failure remains the reported error.
+
+All five cluster lease cases, all-target/all-feature engine Clippy, nightly formatting, rumdl, and
+changed-page Markdown linting pass.

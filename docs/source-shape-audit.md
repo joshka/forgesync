@@ -342,6 +342,35 @@ owner without reducing policy. Its function contract now explains individual par
 which failures can leave durable work. These dispositions cover the two length candidates, not all
 match-arm, broad-signature, or documentation-depth candidates.
 
+### Remaining engine match-arm dispositions
+
+The refreshed match inventory was inspected at each owning operation. These decisions distinguish
+multi-step behavior from wrapped single calls or explicit domain values:
+
+- Scoring and hybrid fusion timestamp arms each perform one comparison; retain direct field access
+  and the visible sort/tie-break policy.
+- Enumeration persistence and reservation arms each select one fenced or unfenced archive operation.
+  Retain explicit capability selection; forwarding methods would repeat those same inputs.
+- Cluster member decisions each call one named archive transition before shared release. Retain
+  exclude/include policy at dispatch.
+- Ranked retrieval's hybrid arm calls its named operation, with a local assertion that keyword
+  candidates were loaded by the preceding mode preparation. Retain this internal prerequisite.
+- Keyword fallback exclusion names cancellation/configuration/concurrency errors in one predicate.
+  Retain the exhaustive local exclusion policy rather than hiding individual variants behind
+  helpers.
+- Review preparation constructs one ready-state value from the acquired head and reserved sequence.
+  Retain the construction beside the missing-head transition; it performs no additional effects.
+- Sync scope arms construct explicit policy values. Retain visible scope order and closed-watermark
+  facts rather than adding forwarding constructors for three-field literals.
+- Refresh embedding dispatch calls the named repository embedding operation or constructs one failed
+  stage. Retain the configured-service decision and its failure value together.
+- Cluster release previously combined clock acquisition, archive release, and lost-fence translation
+  in a match/closure chain. A named release operation now owns that behavior; result precedence
+  stays with completion and has direct already-released regression cases.
+
+Embedding-client backoff remains a multi-step match-arm candidate. These dispositions cover the
+inspected engine matches, not the remaining signature and item-documentation review.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

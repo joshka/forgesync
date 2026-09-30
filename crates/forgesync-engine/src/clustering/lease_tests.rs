@@ -10,6 +10,9 @@
 //!
 //! Generation integration cases establish membership and retirement behavior separately. These
 //! tests make the lease owner safe to change without rebuilding those larger scenarios mentally.
+//! Already-released cases establish that cleanup failure rejects success while preserving an
+//! earlier operation failure. Each case invokes the same real completion operation with explicit
+//! input.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -20,7 +23,7 @@ use forgesync_store::archive::Archive;
 use rstest::rstest;
 use tokio_util::sync::CancellationToken;
 
-use crate::clustering::lease::ClusterBuildLease;
+use crate::clustering::lease::{ClusterBuildLease, finish_cluster_lease_result};
 use crate::error::EngineError;
 
 /// Distinguishes fixture directories within this process without provider or clock dependence.
@@ -91,6 +94,36 @@ async fn interruption_waits_for_child_cleanup_without_cancelling_the_caller() {
         )
         .await
         .expect("release fixture lease");
+    archive.close().await;
+    std::fs::remove_dir_all(directory).expect("remove fixture directory");
+}
+
+#[rstest]
+#[case::success_requires_release(Ok(()), "archive_lease_lost")]
+#[case::operation_error_wins(Err(EngineError::InvalidClusterInput), "cluster_input_invalid")]
+#[tokio::test]
+async fn already_released_fence_preserves_completion_error_precedence(
+    #[case] operation: Result<(), EngineError>,
+    #[case] expected_code: &str,
+) {
+    let directory = archive_directory();
+    let archive = Archive::create(directory.join("archive.sqlite"))
+        .await
+        .expect("create archive");
+    let cancellation = CancellationToken::new();
+    let lease = ClusterBuildLease::acquire(&archive, &cancellation)
+        .await
+        .expect("acquire lease");
+    let epoch = UtcTimestamp::parse("1970-01-01T00:00:00Z").expect("epoch timestamp");
+    let released = archive
+        .release_archive_lease(&lease.token, epoch)
+        .await
+        .expect("release fixture fence before completion");
+    assert!(released);
+
+    let result = finish_cluster_lease_result(&archive, &lease.token, operation).await;
+
+    assert_eq!(result.expect_err("completion fails").code(), expected_code);
     archive.close().await;
     std::fs::remove_dir_all(directory).expect("remove fixture directory");
 }

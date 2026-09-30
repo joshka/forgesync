@@ -143,25 +143,29 @@ pub async fn finish_cluster_lease_result<T>(
     lease: &ArchiveLeaseToken,
     operation: Result<T, EngineError>,
 ) -> Result<T, EngineError> {
-    let release = match now_utc() {
-        Ok(at) => archive
-            .release_archive_lease(lease, at)
-            .await
-            .map_err(EngineError::from)
-            .and_then(|released| {
-                if released {
-                    Ok(())
-                } else {
-                    Err(forgesync_store::error::StoreError::ArchiveLeaseLost.into())
-                }
-            }),
-        Err(error) => Err(error),
-    };
+    let release = release_cluster_lease(archive, lease).await;
     match (operation, release) {
         (Err(error), _) => Err(error),
         (Ok(_), Err(error)) => Err(error),
         (Ok(value), Ok(())) => Ok(value),
     }
+}
+
+/// Releases the exact fence using the process clock and rejects an already-lost lease.
+///
+/// Clock and store failures remain typed release errors. A false store result means this token
+/// no longer owns the archive, so completion must not silently treat it as successful cleanup.
+/// The result combiner above preserves a prior operation failure if release also fails.
+async fn release_cluster_lease(
+    archive: &Archive,
+    lease: &ArchiveLeaseToken,
+) -> Result<(), EngineError> {
+    let at = now_utc()?;
+    let released = archive.release_archive_lease(lease, at).await?;
+    if !released {
+        return Err(forgesync_store::error::StoreError::ArchiveLeaseLost.into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
