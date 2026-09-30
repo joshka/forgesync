@@ -323,6 +323,9 @@ setup under `tests/sync_scenarios` has three sibling owners: `fixture_issues` fo
 responses and local clients, `fixture_reviews` for pull-request head/review responses, and
 `fixture_archive` for local projections and archive lifetime. These modules construct or inspect
 fixture state; they do not run engine workflows. Document-only response setup stays in `documents`.
+Review regressions have sibling owners for failure isolation, head freshness, membership
+replacement, and partial-collection isolation, keeping each complete scenario local without deeper
+module nesting.
 
 ### Closed-sweep publication
 

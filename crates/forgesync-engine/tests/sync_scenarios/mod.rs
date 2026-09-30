@@ -2,7 +2,8 @@
 //!
 //! These scenarios follow provider acquisition through engine coordination into durable archive
 //! state. Each evidence family and follow-on stage has its own scenario module: enumeration,
-//! comments, reviews, documents, embeddings, refresh, and retry.
+//! comments, review failure/head freshness, review-thread membership/partial isolation, documents,
+//! embeddings, refresh, and retry.
 //!
 //! Shared setup has explicit owners: `fixture_issues` constructs REST discussion responses and
 //! local clients, `fixture_reviews` supplies pull-request head/review responses, and
@@ -22,4 +23,7 @@ mod fixture_issues;
 mod fixture_reviews;
 mod refresh;
 mod retry;
-mod reviews;
+mod review_threads_membership;
+mod review_threads_partial;
+mod reviews_failure;
+mod reviews_head_change;

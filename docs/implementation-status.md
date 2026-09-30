@@ -3506,3 +3506,18 @@ changed.
 
 All 15 sync scenarios, all-target/all-feature store and engine Clippy, strict private-item store
 Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Review regression navigation
+
+The 491-line review integration module split by its four distinct regression responsibilities:
+failure isolation, head freshness, complete review-thread membership replacement, and partial
+review-thread isolation. These are shallow sibling modules, not another nested test directory. Each
+keeps the full linear scenario and direct defining-owner imports; shared fixtures retain their
+existing owners. Introductions explain why each regression exists and the sequence it demonstrates.
+
+The resulting scenario files contain 131, 159, 159, and 132 lines including imports and orientation.
+Requests, provider responses, and assertions are unchanged; the split changes navigation rather than
+coverage or workflow behavior.
+
+All 15 sync scenarios, focused warning-denying Clippy, nightly formatting, rumdl, and linting of
+both changed Markdown pages pass.
