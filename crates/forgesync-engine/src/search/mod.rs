@@ -248,11 +248,6 @@ async fn retrieve_keyword_fallback(
     ))
 }
 
-struct KeywordCandidates {
-    items: Vec<SearchHit>,
-    coverage: Vec<FamilyCoverageSummary>,
-}
-
 struct ResultPageRequest<'a> {
     query: &'a str,
     requested_mode: SearchMode,
@@ -273,7 +268,7 @@ mod ranking;
 mod semantic;
 mod window;
 
-use keyword::{keyword_expression, keyword_fallback_page, keyword_result_page};
+use keyword::{KeywordCandidates, keyword_expression, keyword_fallback_page, keyword_result_page};
 use ranked::retrieve_ranked;
 
 #[cfg(test)]

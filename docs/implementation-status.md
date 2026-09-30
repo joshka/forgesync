@@ -2217,3 +2217,18 @@ that fallback eligibility still requires the caller's preference. The remaining 
 collector and broad projection signatures remain review targets; documentation does not close them.
 All 12 focused search tests, workspace Clippy, strict engine documentation, nightly formatting, and
 Markdown checks pass.
+
+## Continued maintenance: keyword candidate accumulation owner
+
+`search::keyword::KeywordCandidates` now owns its accumulated prefix and coverage where its behavior
+is implemented. The coordinator reads as request construction, local acquisition, page application,
+and continuation. Page application retains successful members before rejecting empty or nonadvancing
+continuation; first nonempty coverage and result order are unchanged. The request helper preserves
+filters while replacing keyword mode and prefix coordinates.
+
+One shared rank projection now serves both candidate collection and visible keyword pages, keeping
+identical saturation and provenance rules local. The ranked coordinator imports the owner directly
+from its module. No new parameter bag, public crate-root facade, or retrieval framework is added.
+All 12 focused search tests, workspace Clippy, strict engine documentation, and nightly formatting
+pass. All 89 engine tests and three doctests pass; broad keyword page projection signatures remain
+under review.

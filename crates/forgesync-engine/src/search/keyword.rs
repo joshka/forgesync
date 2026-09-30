@@ -23,14 +23,14 @@
 //! the search coordinator. Coverage travels with the candidates and proves no new acquisition.
 
 use forgesync_store::archive::Archive;
-use forgesync_store::reads::ThreadPage;
+use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadSummary};
 
 use crate::error::EngineError;
 use crate::inspect::{ThreadFilters, ThreadSort};
 use crate::search::ranking::result_page;
 use crate::search::{
-    KeywordCandidates, ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking,
-    SearchRequest, SearchResultPage, search_threads,
+    ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest,
+    SearchResultPage, search_threads,
 };
 
 /// Collects up to `count` keyword hits from the beginning of the local result order.
@@ -49,53 +49,71 @@ pub async fn keyword_candidates(
     request: &SearchRequest,
     count: usize,
 ) -> Result<KeywordCandidates, EngineError> {
-    let mut candidates = Vec::with_capacity(count);
-    let mut coverage = Vec::new();
+    let mut candidates = KeywordCandidates::new(count);
     let mut offset = 0_u64;
-    while candidates.len() < count {
-        let remaining = count - candidates.len();
-        let page_limit = u32::try_from(remaining.min(1000)).unwrap_or(1000);
-        let page_request = SearchRequest {
-            mode: SearchMode::Keyword,
-            allow_keyword_fallback: false,
-            filters: ThreadFilters {
-                limit: page_limit,
-                offset,
-                ..request.filters.clone()
-            },
-            ..request.clone()
-        };
+    while candidates.items.len() < count {
+        let remaining = count - candidates.items.len();
+        let page_request = candidate_page_request(request, remaining, offset);
         let page = search_threads(archive, &page_request).await?;
-        if coverage.is_empty() {
-            coverage = page.coverage.clone();
-        }
-        let received = page.items.len();
-        let start_rank = usize::try_from(offset).unwrap_or(usize::MAX);
-        candidates.extend(
-            page.items
-                .into_iter()
-                .enumerate()
-                .map(|(index, summary)| SearchHit {
-                    summary,
-                    score: None,
-                    provenance: vec![SearchProvenance::Keyword {
-                        rank: u32::try_from(start_rank.saturating_add(index).saturating_add(1))
-                            .unwrap_or(u32::MAX),
-                    }],
-                }),
-        );
-        let Some(next_offset) = page.next_offset else {
+        let Some(next_offset) = candidates.append_page(page, offset) else {
             break;
         };
-        if received == 0 || next_offset <= offset {
-            break;
-        }
         offset = next_offset;
     }
-    Ok(KeywordCandidates {
-        items: candidates,
-        coverage,
-    })
+    Ok(candidates)
+}
+
+/// Builds a keyword-only page for the remaining prefix, retaining the original scope filters.
+fn candidate_page_request(request: &SearchRequest, remaining: usize, offset: u64) -> SearchRequest {
+    let page_limit = u32::try_from(remaining.min(1000)).unwrap_or(1000);
+    SearchRequest {
+        mode: SearchMode::Keyword,
+        allow_keyword_fallback: false,
+        filters: ThreadFilters {
+            limit: page_limit,
+            offset,
+            ..request.filters.clone()
+        },
+        ..request.clone()
+    }
+}
+
+/// Keyword prefix and its reported coverage, retained for fusion or permitted fallback.
+///
+/// This private module's value owns accumulated hits rather than retrieval policy. It preserves
+/// page order and accepts coverage from the first page that supplies any coverage entries.
+pub struct KeywordCandidates {
+    /// Ordered prefix with one-based keyword provenance and no numeric score.
+    pub items: Vec<SearchHit>,
+    /// First nonempty page coverage, which need not share a snapshot with later hits.
+    pub coverage: Vec<FamilyCoverageSummary>,
+}
+
+impl KeywordCandidates {
+    /// Reserves the requested prefix capacity without reading the archive.
+    fn new(count: usize) -> Self {
+        Self {
+            items: Vec::with_capacity(count),
+            coverage: Vec::new(),
+        }
+    }
+
+    /// Appends one page and returns only a nonempty, forward-moving continuation.
+    ///
+    /// Members are retained even when continuation metadata cannot advance. This terminates
+    /// retrieval defensively without discarding the successful page or retrying its offset.
+    fn append_page(&mut self, page: ThreadPage, offset: u64) -> Option<u64> {
+        if self.coverage.is_empty() {
+            self.coverage = page.coverage;
+        }
+        let received = page.items.len();
+        self.items.extend(keyword_hits(page.items, offset));
+        let next_offset = page.next_offset?;
+        if received == 0 || next_offset <= offset {
+            return None;
+        }
+        Some(next_offset)
+    }
 }
 
 /// Annotates an already paged keyword result without changing its order or continuation.
@@ -112,20 +130,7 @@ pub fn keyword_result_page(
     offset: u64,
     fallback_reason: Option<String>,
 ) -> SearchResultPage {
-    let start_rank = usize::try_from(offset).unwrap_or(usize::MAX);
-    let items = page
-        .items
-        .into_iter()
-        .enumerate()
-        .map(|(index, summary)| SearchHit {
-            summary,
-            score: None,
-            provenance: vec![SearchProvenance::Keyword {
-                rank: u32::try_from(start_rank.saturating_add(index).saturating_add(1))
-                    .unwrap_or(u32::MAX),
-            }],
-        })
-        .collect();
+    let items = keyword_hits(page.items, offset);
     SearchResultPage {
         query: query.to_owned(),
         requested_mode,
@@ -137,6 +142,23 @@ pub fn keyword_result_page(
         next_offset: page.next_offset,
         coverage: page.coverage,
     }
+}
+
+/// Projects local summaries into hits with one-based, saturating keyword ranks.
+fn keyword_hits(summaries: Vec<ThreadSummary>, offset: u64) -> Vec<SearchHit> {
+    let start_rank = usize::try_from(offset).unwrap_or(usize::MAX);
+    summaries
+        .into_iter()
+        .enumerate()
+        .map(|(index, summary)| SearchHit {
+            summary,
+            score: None,
+            provenance: vec![SearchProvenance::Keyword {
+                rank: u32::try_from(start_rank.saturating_add(index).saturating_add(1))
+                    .unwrap_or(u32::MAX),
+            }],
+        })
+        .collect()
 }
 
 /// Pages a keyword prefix while retaining the permitted semantic failure explanation.

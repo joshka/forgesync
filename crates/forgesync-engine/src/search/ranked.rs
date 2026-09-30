@@ -21,13 +21,13 @@ use crate::error::EngineError;
 use crate::exact_search::ScoredThread;
 use crate::inspect::{ThreadSort, resolve_repositories};
 use crate::search::fusion::fuse_hybrid;
-use crate::search::keyword::keyword_candidates;
+use crate::search::keyword::{KeywordCandidates, keyword_candidates};
 use crate::search::ranking::{fallback_allowed, result_page};
 use crate::search::semantic::{semantic_candidates, semantic_result_page};
 use crate::search::window::SearchWindow;
 use crate::search::{
-    KeywordCandidates, ResultPageRequest, SearchMode, SearchRanking, SearchRequest,
-    SearchResultPage, retrieve_keyword_fallback,
+    ResultPageRequest, SearchMode, SearchRanking, SearchRequest, SearchResultPage,
+    retrieve_keyword_fallback,
 };
 
 /// Runs vector retrieval, optional keyword fusion, and explicit fallback policy.
