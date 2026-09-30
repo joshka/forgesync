@@ -42,8 +42,8 @@ async fn build_uses_current_open_vectors_and_only_retires_with_complete_coverage
     let second = thread_id(&repository.id, "thread-2", 2);
     let first_updated = timestamp("2026-09-20T10:00:00Z");
     let second_updated = timestamp("2026-09-20T10:00:01Z");
-    apply_thread(&archive, &first, 1, first_updated).await;
-    apply_thread(&archive, &second, 2, second_updated).await;
+    apply_thread(&archive, &first, first_updated).await;
+    apply_thread(&archive, &second, second_updated).await;
     let endpoint = "https://embeddings.example/v1";
     let model = "test-model";
     let lease_at = timestamp("2035-01-01T00:00:00Z");
@@ -51,8 +51,8 @@ async fn build_uses_current_open_vectors_and_only_retires_with_complete_coverage
         .acquire_archive_lease(lease_at, Duration::from_secs(3600))
         .await
         .expect("acquire archive fence");
-    let first_document = document(&first, 1, first_updated);
-    let second_document = document(&second, 2, second_updated);
+    let first_document = document(&first, first_updated);
+    let second_document = document(&second, second_updated);
     save_document_vector(
         &archive,
         &lease,
@@ -107,7 +107,7 @@ async fn build_uses_current_open_vectors_and_only_retires_with_complete_coverage
     assert_eq!(listed.items.len(), 1);
     let cluster_id = listed.items[0].id;
 
-    apply_thread(&archive, &second, 2, timestamp("2026-09-20T10:00:02Z")).await;
+    apply_thread(&archive, &second, timestamp("2026-09-20T10:00:02Z")).await;
     let partial = build_clusters(&archive, &request, &cancellation)
         .await
         .expect("build partial clusters from remaining current vectors");
@@ -143,8 +143,9 @@ async fn build_uses_current_open_vectors_and_only_retires_with_complete_coverage
     remove_archive(&path);
 }
 
-fn document(thread: &ThreadId, number: u64, updated_at: UtcTimestamp) -> Document {
-    let title = format!("Shared cache failure {number}");
+/// Builds the original-body recipe matching the synthetic issue, without persisting it.
+fn document(thread: &ThreadId, updated_at: UtcTimestamp) -> Document {
+    let title = format!("Shared cache failure {}", thread.number().get());
     let text = format!("{title}\n\nThe cache fails after restart.");
     Document::new(
         thread.clone(),
@@ -156,6 +157,11 @@ fn document(thread: &ThreadId, number: u64, updated_at: UtcTimestamp) -> Documen
     )
 }
 
+/// Stores the current document and one explicit vector chunk under the caller-owned fence.
+///
+/// The scenario controls endpoint, model, and values independently; no embedding service is called.
+/// Writes use a fixed acquisition time inside the fixture lease, with the document hash as chunk
+/// hash.
 async fn save_document_vector(
     archive: &Archive,
     lease: &forgesync_store::leases::ArchiveLeaseToken,
@@ -188,12 +194,16 @@ async fn save_document_vector(
         .expect("store current embedding");
 }
 
-async fn apply_thread(archive: &Archive, thread: &ThreadId, number: u64, updated_at: UtcTimestamp) {
+/// Reserves evidence and commits an open issue with a complete thread observation.
+///
+/// Title numbering comes from the thread identity, so setup cannot accidentally pair a thread
+/// with another issue number. The provider update time also supplies this fixture acquisition time.
+async fn apply_thread(archive: &Archive, thread: &ThreadId, updated_at: UtcTimestamp) {
     let sequence = archive
         .reserve_observation_sequence(updated_at)
         .await
         .expect("reserve observation sequence");
-    let title = format!("Shared cache failure {number}");
+    let title = format!("Shared cache failure {}", thread.number().get());
     let discussion = Discussion {
         id: thread.clone(),
         kind: ThreadKind::Issue,
@@ -222,6 +232,7 @@ async fn apply_thread(archive: &Archive, thread: &ThreadId, number: u64, updated
         .expect("apply thread observation");
 }
 
+/// Constructs the synthetic clustering repository without registering it in an archive.
 fn repository() -> Repository {
     Repository {
         id: RepositoryId::new(
@@ -237,6 +248,7 @@ fn repository() -> Repository {
     }
 }
 
+/// Constructs a repository-scoped issue identity with the scenario-selected provider ID and number.
 fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> ThreadId {
     ThreadId::new(
         repository.clone(),
@@ -245,6 +257,7 @@ fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> Threa
     )
 }
 
+/// Parses a fixture clock value and reports invalid setup before workflow execution.
 fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
 }

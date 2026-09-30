@@ -3002,3 +3002,14 @@ because the input set grows with the repository; fixed cases would miss newly ad
 contracts and the module introduction explain traversal and setup without hiding assertions.
 
 All four fixture-catalog checks, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Clustering fixture identity coherence
+
+Engine clustering setup derives title numbering from the thread identity instead of accepting a
+second independently supplied issue number. Document and observation helpers now cannot disagree
+about that identity fact. Their contracts expose sequence reservation, complete observation writes,
+fenced document/vector writes, fixed acquisition time, and the absence of service calls. Endpoint,
+model, and vector values remain explicit scenario inputs rather than a hidden generic fixture bag.
+
+The clustering-workflow integration scenario, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
