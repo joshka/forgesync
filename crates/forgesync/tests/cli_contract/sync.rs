@@ -37,6 +37,7 @@ async fn sync_all_with_no_registered_repositories_returns_zero_work_report() {
         String::from_utf8_lossy(&sync.stderr)
     );
     let report: serde_json::Value = serde_json::from_slice(&sync.stdout).expect("sync JSON");
+    assert!(sync.stderr.is_empty(), "JSON must suppress progress");
     assert_eq!(report["command"], "sync");
     assert_eq!(report["data"]["outcome"]["status"], "complete");
     assert_eq!(report["data"]["repositories_selected"], 0);
@@ -133,6 +134,65 @@ async fn sync_runs_credential_helper_on_the_process_runtime_without_provider_cal
     assert_eq!(error["error"]["code"], "github_credential_invalid");
     assert!(!String::from_utf8_lossy(&output.stderr).contains("panicked"));
 
+    std::fs::remove_dir_all(helper_directory).expect("remove helper fixture");
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn default_sync_reports_startup_on_stderr_and_keeps_summary_on_stdout() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create empty archive");
+    archive.close().await;
+
+    let output = forgesync()
+        .args(["sync", "--all", "--archive"])
+        .arg(&path)
+        .output()
+        .expect("run default sync");
+
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("sync: preparing acquisition (Ctrl-C to cancel)"));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("preparing acquisition"));
+    remove_archive(&path);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn default_sync_reports_elapsed_wait_during_credential_discovery() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    archive.close().await;
+    let helper_directory = path.with_extension("helper");
+    std::fs::create_dir(&helper_directory).expect("create isolated helper directory");
+    let helper = helper_directory.join("gh");
+    std::fs::write(&helper, "#!/bin/sh\n/bin/sleep 3\nprintf 'invalid token'\n")
+        .expect("write delayed credential helper");
+    std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o700))
+        .expect("make helper executable");
+
+    let output = forgesync()
+        .env_remove("GITHUB_TOKEN")
+        .env("PATH", &helper_directory)
+        .args(["sync", "ratatui/ratatui", "--archive"])
+        .arg(&path)
+        .timeout(Duration::from_secs(30))
+        .output()
+        .expect("run sync with delayed credential helper");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("sync: preparing acquisition"), "{stderr}");
+    assert!(
+        stderr.contains("sync: still running (2s elapsed"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("invalid token"),
+        "credentials must stay private"
+    );
     std::fs::remove_dir_all(helper_directory).expect("remove helper fixture");
     remove_archive(&path);
 }
