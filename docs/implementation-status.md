@@ -18,6 +18,12 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Parent observation tests compare the full retained discussion after replay, conflict, and malformed
+clock rejection through explicit public archive reads. High-water assertions compare the complete
+coverage record, including acquisition time and count. The title-only read helper is removed. All 16
+observation integration cases pass. Cross-crate API/docs reconciliation and final workspace
+validation remain open.
+
 Child observation assertions now compare complete coverage and retained membership values.
 Review-thread rollback uses distinct old and replacement heads to detect leaked head context;
 snapshot checks include a different-head negative control and explicit pull request parents. All 16

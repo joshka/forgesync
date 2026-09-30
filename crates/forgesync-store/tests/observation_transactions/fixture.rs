@@ -5,7 +5,7 @@
 //! Value helpers construct discussion payloads, independent clocks, completeness, and staging rows.
 //! Scenarios reserve every durable acquisition sequence before applying their evidence.
 //!
-//! Raw read-only inspection checks committed titles independently of public projection helpers.
+//! Scenarios read retained discussion values through the public archive detail operation.
 //! Writable pools arrange trigger failures or corruption without creating or migrating databases.
 //! Helpers contain no scenario assertions or expected ordering calculations.
 //! Filename allocation separates concurrent cases; cleanup visits a fixed SQLite sidecar list.
@@ -116,29 +116,6 @@ pub fn item(id: &str, payload: serde_json::Value) -> StagedItem<serde_json::Valu
 /// Parses a fixture timestamp, failing immediately if the scenario contains invalid setup.
 pub fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
-}
-
-/// Reads the single canonical thread title through a separate read-only SQL connection.
-///
-/// This observes committed state directly, independently of archive projection helpers.
-pub async fn read_current_thread_title(path: &PathBuf) -> String {
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(
-            SqliteConnectOptions::new()
-                .filename(path)
-                .create_if_missing(false)
-                .read_only(true)
-                .foreign_keys(true),
-        )
-        .await
-        .expect("open inspection pool");
-    let title = sqlx::query_scalar("SELECT title FROM threads")
-        .fetch_one(&pool)
-        .await
-        .expect("read canonical title");
-    pool.close().await;
-    title
 }
 
 /// Opens an existing database for scenario-specific trigger installation or corruption setup.

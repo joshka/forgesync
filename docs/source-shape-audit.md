@@ -784,11 +784,13 @@ documentation-depth acceptance remain independent.
 
 Observation integration has shallow high-water, integrity, ordering, comment rollback, and
 review-thread rollback owners. Replay and tied-conflict rejection are independent scenarios with
-retained-title assertions. Malformed-clock rejection also checks that the original title survives.
-Fixed revision-sequence comparisons live in ordering tests without unrelated database setup.
-High-water transitions remain one linear contract because earlier acquisitions constrain later
-selection. Rollback assertions require the database error and injected trigger diagnostic before
-checking retained membership, coverage, and staged retry where exercised.
+full retained-discussion assertions through visible public archive reads. Malformed-clock rejection
+also checks that the original discussion survives. Error-producing writes are separate from their
+assertions, and the high-water case compares the entire final coverage record. Fixed
+revision-sequence comparisons live in ordering tests without unrelated database setup. High-water
+transitions remain one linear contract because earlier acquisitions constrain later selection.
+Rollback assertions require the database error and injected trigger diagnostic before checking
+retained membership, coverage, and staged retry where exercised.
 
 Child publication has independent replay, partial, incomplete-empty, head-snapshot, and supersession
 suites. Review and review-thread snapshots use named rstest inputs with identical visible public

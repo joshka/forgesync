@@ -131,10 +131,14 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
         .family_coverage(&thread_id, EvidenceFamily::Threads)
         .await
         .expect("read thread coverage");
-    assert!(matches!(
+    assert_eq!(
         coverage.state(),
-        CoverageState::Complete { sequence, .. } if *sequence == second_sequence
-    ));
+        &CoverageState::Complete {
+            observed_at: timestamp("2026-09-20T10:00:03Z"),
+            sequence: second_sequence,
+            item_count: 1,
+        }
+    );
     archive.close().await;
     remove_archive(&path);
 }
