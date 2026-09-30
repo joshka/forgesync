@@ -97,6 +97,12 @@ archive status around its own command rather than only around the aggregate sequ
 process cases and all-target CLI Clippy pass; module docs and Markdown checks describe the split.
 This closes that mixed scenario finding while the remaining suite inventory stays open.
 
+CLI configuration loading and search fallback policies now have separate named scenarios. Invalid
+recipe configuration is rejected before archive creation; semantic unavailability, hybrid fallback,
+and invalid keyword fallback no longer share one sequence. The search policy cases have a shallow
+sibling owner with their own setup and expectations. All 18 CLI contract cases and all-target CLI
+Clippy pass; nightly formatting and Markdown checks pass. Other suite-quality findings remain open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

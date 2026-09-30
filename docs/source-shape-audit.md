@@ -524,6 +524,16 @@ advanced FTS, thread selection, validation, and human presentation; the shared f
 constructs the known repository/observation and releases resources. This preserves existing output
 expectations while making failures and nonmutation evidence local to each selected command.
 
+### Configuration and search policy scenarios
+
+Explicit valid configuration and invalid recipe rejection now have separate process cases. The
+invalid case asserts that archive creation never occurs, rather than reusing an archive initialized
+by the preceding success path. Semantic unavailability, permitted hybrid fallback, and invalid
+keyword fallback each have their own archive, command, and diagnostic/mode assertions in the
+`search_policy` sibling. Construction remains explicit and contains no scenario-selection branches.
+The configuration and search policy modules are 157 and 146 lines respectively; suite-level fixture
+and boundary documentation explains what process evidence proves.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

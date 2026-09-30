@@ -1,9 +1,16 @@
 //! # CLI process contract
 //!
 //! This suite groups process-level command behavior by area. Its child modules cover archive
-//! lifecycle, configuration, status, sync, run history, and shell exit behavior. The tests invoke
+//! lifecycle, configuration, search policy, status, sync, run history, and shell exit behavior.
+//! The tests invoke
 //! the compiled CLI and inspect output, so they establish the user-visible contract rather than
 //! implementation details of argument parsing.
+//!
+//! Construction helpers here create process commands and reserve independent archive paths.
+//! Scenarios own their data writes, arguments, and assertions; no shared helper executes a
+//! workflow. Cleanup removes closed database files and their fixed SQLite sidecars. Query mechanics
+//! and durable ordering are covered by engine/store suites rather than inferred from process
+//! output.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -26,6 +33,8 @@ mod config;
 mod process;
 #[path = "cli_contract/runs.rs"]
 mod runs;
+#[path = "cli_contract/search_policy.rs"]
+mod search_policy;
 #[path = "cli_contract/status.rs"]
 mod status;
 #[path = "cli_contract/sync.rs"]

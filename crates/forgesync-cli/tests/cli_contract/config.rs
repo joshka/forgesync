@@ -3,6 +3,11 @@
 //! These cases show how CLI options, local settings, and environment inputs select a workflow.
 //! They inspect process behavior at the boundary where library requests are constructed. Keep
 //! expectations here when a setting changes user-visible precedence or diagnostics.
+//!
+//! Valid and invalid document recipes have separate scenarios, including rejection before archive
+//! creation. Empty-repository embedding and cluster-only refresh exercise selected capabilities
+//! without making provider requests. Search-specific fallback policies live in `search_policy`.
+//! Archives are independent per case and their writable handles close before process execution.
 
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
@@ -12,13 +17,13 @@ use forgesync_store::archive::Archive;
 use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]
-fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {
+fn explicit_valid_config_is_loaded_before_archive_creation() {
     let archive_path = temporary_archive_path();
     let config_path = archive_path.with_extension("toml");
     std::fs::write(&config_path, "[documents]\nrecipe = 'original_body'\n")
         .expect("write valid config");
 
-    let valid = forgesync()
+    let result = forgesync()
         .args(["archive", "init", "--archive"])
         .arg(&archive_path)
         .arg("--config")
@@ -26,23 +31,35 @@ fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {
         .arg("--json")
         .output()
         .expect("run with explicit config");
-    assert!(valid.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&result.stdout).expect("init JSON");
+    assert!(result.status.success());
+    assert_eq!(envelope["command"], "archive init");
+    assert!(archive_path.exists());
 
+    remove_archive(&archive_path);
+    let _ = std::fs::remove_file(config_path);
+}
+
+#[test]
+fn invalid_config_returns_json_error_before_archive_creation() {
+    let archive_path = temporary_archive_path();
+    let config_path = archive_path.with_extension("toml");
     std::fs::write(&config_path, "[documents]\nrecipe = 'unknown'\n")
         .expect("write invalid config");
-    let invalid = forgesync()
-        .args(["archive", "status", "--archive"])
+
+    let result = forgesync()
+        .args(["archive", "init", "--archive"])
         .arg(&archive_path)
         .arg("--config")
         .arg(&config_path)
         .arg("--json")
         .output()
         .expect("run with invalid config");
-    assert_eq!(invalid.status.code(), Some(2));
-    let error: serde_json::Value = serde_json::from_slice(&invalid.stdout).expect("error JSON");
-    assert_eq!(error["error"]["code"], "config_invalid");
+    let envelope: serde_json::Value = serde_json::from_slice(&result.stdout).expect("error JSON");
+    assert_eq!(result.status.code(), Some(2));
+    assert_eq!(envelope["error"]["code"], "config_invalid");
+    assert!(!archive_path.exists());
 
-    remove_archive(&archive_path);
     let _ = std::fs::remove_file(config_path);
 }
 
@@ -135,85 +152,6 @@ async fn refresh_can_cluster_local_archive_without_reading_a_model_key() {
     assert_eq!(result["data"]["clusters"]["status"], "complete");
     assert!(result["data"]["embeddings"].is_null());
     assert_eq!(result["data"]["remaining"], serde_json::json!([]));
-
-    remove_archive(&path);
-}
-
-#[tokio::test]
-async fn semantic_search_requires_current_vectors_and_fallback_is_explicit() {
-    let path = temporary_archive_path();
-    let archive = Archive::create(&path).await.expect("create archive");
-    let repository_id = RepositoryId::new(
-        GitHubHost::parse("github.com").expect("host"),
-        ProviderId::new("41").expect("repository ID"),
-    );
-    archive
-        .upsert_repository(&Repository {
-            id: repository_id,
-            owner: "owner".to_owned(),
-            name: "repo".to_owned(),
-            full_name: "owner/repo".to_owned(),
-            default_branch: Some("main".to_owned()),
-            updated_at: None,
-            provider_data: ProviderData::new(),
-        })
-        .await
-        .expect("register repository");
-    archive.close().await;
-
-    let unavailable = forgesync()
-        .args(["search", "local query", "--mode", "semantic", "--archive"])
-        .arg(&path)
-        .arg("--json")
-        .env_remove("OPENAI_API_KEY")
-        .output()
-        .expect("run semantic search without vectors");
-    assert_eq!(unavailable.status.code(), Some(1));
-    let unavailable_json: serde_json::Value =
-        serde_json::from_slice(&unavailable.stdout).expect("semantic error JSON");
-    assert_eq!(
-        unavailable_json["error"]["code"],
-        "semantic_vectors_unavailable"
-    );
-
-    let fallback = forgesync()
-        .args([
-            "search",
-            "local query",
-            "--mode",
-            "hybrid",
-            "--keyword-fallback",
-            "--archive",
-        ])
-        .arg(&path)
-        .arg("--json")
-        .env_remove("OPENAI_API_KEY")
-        .output()
-        .expect("run hybrid search with explicit keyword fallback");
-    assert!(fallback.status.success());
-    let fallback_json: serde_json::Value =
-        serde_json::from_slice(&fallback.stdout).expect("fallback JSON");
-    assert_eq!(fallback_json["data"]["requested_mode"], "hybrid");
-    assert_eq!(fallback_json["data"]["mode"], "keyword");
-    assert_eq!(
-        fallback_json["data"]["fallback_reason"],
-        "semantic_vectors_unavailable"
-    );
-    assert!(fallback_json["data"]["coverage"].is_array());
-
-    let invalid_fallback = forgesync()
-        .args(["search", "local query", "--keyword-fallback", "--archive"])
-        .arg(&path)
-        .arg("--json")
-        .output()
-        .expect("reject fallback on keyword mode");
-    assert_eq!(invalid_fallback.status.code(), Some(2));
-    let invalid_fallback_json: serde_json::Value =
-        serde_json::from_slice(&invalid_fallback.stdout).expect("invalid fallback JSON");
-    assert_eq!(
-        invalid_fallback_json["error"]["code"],
-        "search_fallback_mode_invalid"
-    );
 
     remove_archive(&path);
 }
