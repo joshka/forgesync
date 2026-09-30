@@ -195,18 +195,8 @@ async fn retrieve_keyword(
     archive: &Archive,
     request: &SearchRequest,
 ) -> Result<SearchResultPage, EngineError> {
-    let query = request.query.trim();
-    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
     let page = search_threads(archive, request).await?;
-    Ok(keyword_result_page(
-        query,
-        request.mode,
-        request.mode,
-        sort,
-        page,
-        request.filters.offset,
-        None,
-    ))
+    Ok(keyword_result_page(request, page, None))
 }
 
 /// Reuses hybrid keyword candidates or performs a local keyword search after semantic failure.
@@ -216,20 +206,10 @@ async fn retrieve_keyword_fallback(
     keyword_candidates: Option<KeywordCandidates>,
     error: &EngineError,
 ) -> Result<SearchResultPage, EngineError> {
-    let query = request.query.trim();
-    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
-    let (limit, offset) = checked_page(request.filters.limit, request.filters.offset)?;
+    checked_page(request.filters.limit, request.filters.offset)?;
     let reason = error.code().to_owned();
     if let Some(keyword) = keyword_candidates {
-        return Ok(keyword_fallback_page(
-            query,
-            request.mode,
-            sort,
-            keyword,
-            offset,
-            limit.get(),
-            reason,
-        ));
+        return Ok(keyword_fallback_page(request, keyword, reason));
     }
     let fallback_request = SearchRequest {
         mode: SearchMode::Keyword,
@@ -237,15 +217,7 @@ async fn retrieve_keyword_fallback(
         ..request.clone()
     };
     let page = search_threads(archive, &fallback_request).await?;
-    Ok(keyword_result_page(
-        query,
-        request.mode,
-        SearchMode::Keyword,
-        sort,
-        page,
-        offset,
-        Some(reason),
-    ))
+    Ok(keyword_result_page(request, page, Some(reason)))
 }
 
 struct ResultPageRequest<'a> {

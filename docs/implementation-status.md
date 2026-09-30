@@ -2232,3 +2232,16 @@ from its module. No new parameter bag, public crate-root facade, or retrieval fr
 All 12 focused search tests, workspace Clippy, strict engine documentation, and nightly formatting
 pass. All 89 engine tests and three doctests pass; broad keyword page projection signatures remain
 under review.
+
+## Continued maintenance: keyword projections use the owning request
+
+Both keyword page projections now take the existing `SearchRequest` instead of seven separately
+extracted query, mode, sort, and page facts. Request interpretation stays local: trimmed query,
+default sort, provenance offset, and requested mode all come from that owner. A retained failure
+reason selects effective keyword mode; ordinary keyword/advanced-FTS pages retain their mode.
+
+The fallback coordinator still validates page coordinates before either branch, preserving error
+precedence. Reused candidates and freshly fetched fallback pages preserve their existing ordering,
+coverage, continuation, and safe failure reason. No new parameter-bag type is introduced. Full
+engine tests (89 cases and three doctests), workspace Clippy, strict engine documentation, nightly
+formatting, and Markdown checks pass.

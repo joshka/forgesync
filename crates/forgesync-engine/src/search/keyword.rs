@@ -118,25 +118,27 @@ impl KeywordCandidates {
 
 /// Annotates an already paged keyword result without changing its order or continuation.
 ///
-/// `offset` is the page's starting rank coordinate, so provenance remains one-based across pages.
-/// Oversized ranks saturate at `u32::MAX`. Requested and effective modes remain separate to expose
-/// fallback; this projection trusts their supplied values and does not authorize fallback itself.
+/// The request offset is the page's starting rank coordinate, so provenance is one-based across
+/// pages. Oversized ranks saturate at `u32::MAX`. Requested and effective modes remain separate to
+/// expose fallback: a supplied reason selects effective keyword mode. This does not authorize
+/// fallback.
 pub fn keyword_result_page(
-    query: &str,
-    requested_mode: SearchMode,
-    mode: SearchMode,
-    sort: ThreadSort,
+    request: &SearchRequest,
     page: ThreadPage,
-    offset: u64,
     fallback_reason: Option<String>,
 ) -> SearchResultPage {
-    let items = keyword_hits(page.items, offset);
+    let items = keyword_hits(page.items, request.filters.offset);
+    let mode = if fallback_reason.is_some() {
+        SearchMode::Keyword
+    } else {
+        request.mode
+    };
     SearchResultPage {
-        query: query.to_owned(),
-        requested_mode,
+        query: request.query.trim().to_owned(),
+        requested_mode: request.mode,
         mode,
         ranking: SearchRanking::Keyword,
-        sort,
+        sort: request.filters.sort.unwrap_or(ThreadSort::Relevance),
         fallback_reason,
         items,
         next_offset: page.next_offset,
@@ -164,27 +166,24 @@ fn keyword_hits(summaries: Vec<ThreadSummary>, offset: u64) -> Vec<SearchHit> {
 /// Pages a keyword prefix while retaining the permitted semantic failure explanation.
 ///
 /// The caller has already checked fallback policy. Candidate order, rank provenance, and coverage
-/// are preserved; `offset` and `limit` select the visible slice through `ranking::result_page`.
-/// The effective mode is keyword even when the requested mode was semantic or hybrid.
+/// are preserved; the validated request coordinates select the slice through
+/// `ranking::result_page`. The effective mode is keyword even when the requested mode was semantic
+/// or hybrid.
 pub fn keyword_fallback_page(
-    query: &str,
-    requested_mode: SearchMode,
-    sort: ThreadSort,
+    request: &SearchRequest,
     candidates: KeywordCandidates,
-    offset: u64,
-    limit: u32,
     fallback_reason: String,
 ) -> SearchResultPage {
     result_page(ResultPageRequest {
-        query,
-        requested_mode,
+        query: request.query.trim(),
+        requested_mode: request.mode,
         mode: SearchMode::Keyword,
         ranking: SearchRanking::Keyword,
-        sort,
+        sort: request.filters.sort.unwrap_or(ThreadSort::Relevance),
         fallback_reason: Some(fallback_reason),
         candidates: candidates.items,
-        offset,
-        limit,
+        offset: request.filters.offset,
+        limit: request.filters.limit,
         coverage: candidates.coverage,
     })
 }
