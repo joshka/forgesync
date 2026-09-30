@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Cluster persistence now separates canonical nonmember rejection from false complete-vector coverage.
+The count mismatch uses an explicit generation value, compares `InvalidClusterGeneration`, and reads
+all lifecycles to prove that no cluster was stored. Canonical selection remains its own named case.
+The larger preservation/retirement scenario and wide generation/setup helpers remain open findings;
+this targeted rejection fix does not dispose of that suite's structure.
+
 Scan-completion integration now compares entire checkpoints before and after premature or superseded
 completion rejection. Separate result and optional-row expectations identify lookup failure versus
 missing state. Terminal-page acceptance stays with its preceding rejection as one linear state

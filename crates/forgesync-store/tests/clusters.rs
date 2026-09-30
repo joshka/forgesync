@@ -202,7 +202,7 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
 }
 
 #[tokio::test]
-async fn invalid_member_decisions_and_incomplete_counts_are_rejected() {
+async fn canonical_selection_rejects_a_thread_outside_the_cluster() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let repository = repository();
@@ -219,20 +219,6 @@ async fn invalid_member_decisions_and_incomplete_counts_are_rejected() {
         .acquire_archive_lease(at, Duration::from_secs(3600))
         .await
         .expect("acquire writer fence");
-
-    let invalid = generation(
-        &repository.id,
-        true,
-        1,
-        0,
-        vec![cluster("invalid", &first, &[(&first, 1.0)])],
-    );
-    assert!(
-        archive
-            .save_clusters_fenced(&lease, &invalid, at)
-            .await
-            .is_err()
-    );
 
     archive
         .save_clusters_fenced(
@@ -263,6 +249,56 @@ async fn invalid_member_decisions_and_incomplete_counts_are_rejected() {
         forgesync_store::error::StoreError::ClusterMemberMissing
     ));
 
+    archive
+        .release_archive_lease(&lease, at)
+        .await
+        .expect("release writer fence");
+    archive.close().await;
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn complete_generation_rejects_missing_vector_coverage_without_storing_clusters() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("store repository");
+    let first = thread_id(&repository.id, "thread-1", 1);
+    apply_thread(&archive, &first, 1).await;
+    let at = timestamp("2035-01-01T00:00:00Z");
+    let lease = archive
+        .acquire_archive_lease(at, Duration::from_secs(3600))
+        .await
+        .expect("acquire writer fence");
+    let invalid = ClusterGenerationInput {
+        repository: repository.id.clone(),
+        endpoint: "https://embeddings.example/v1".to_owned(),
+        model: "model-v1".to_owned(),
+        recipe: DocumentRecipe::OriginalBody,
+        complete_coverage: true,
+        eligible_threads: 1,
+        vector_threads: 0,
+        candidate_edges: 0,
+        clusters: vec![cluster("invalid", &first, &[(&first, 1.0)])],
+    };
+
+    let error = archive
+        .save_clusters_fenced(&lease, &invalid, at)
+        .await
+        .expect_err("complete coverage requires vectors for all eligible threads");
+
+    assert!(matches!(
+        error,
+        forgesync_store::error::StoreError::InvalidClusterGeneration
+    ));
+    let page = archive
+        .list_clusters(&all_clusters(&repository.id))
+        .await
+        .expect("list rejected generation");
+    assert!(page.items.is_empty());
     archive
         .release_archive_lease(&lease, at)
         .await
