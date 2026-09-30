@@ -8,18 +8,19 @@ use forgesync_core::content::ReviewState;
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::sync::SyncThreadScope;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 use serde_json::json;
+use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::{
-    comment, comment_bodies, comment_coverage, mount_comments, mount_graphql_review_threads,
-    mount_open_issues, mount_pull_request_metadata, mount_pull_reviews, mount_repository,
-    pull_request_issue, pull_review, remove_archive, review_coverage, review_members,
-    review_thread, review_thread_coverage, review_thread_members, review_thread_page,
-    sync_once_with_families, temporary_archive_path, thread_summary,
+    clients_for, comment, comment_bodies, comment_coverage, mount_comments,
+    mount_graphql_review_threads, mount_open_issues, mount_pull_request_metadata,
+    mount_pull_reviews, mount_repository, pull_request_issue, pull_review, remove_archive,
+    review_coverage, review_members, review_thread, review_thread_coverage, review_thread_members,
+    review_thread_page, temporary_archive_path, thread_summary,
 };
 
 #[tokio::test]
@@ -46,16 +47,25 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: true,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        true,
-        true,
-        false,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     assert_eq!(initial.comments_seen, 1);
     assert_eq!(initial.reviews_seen, 1);
@@ -69,16 +79,25 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
     mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
     mount_pull_request_metadata(&server, "cccccccccccccccccccccccccccccccccccccccc", false).await;
     mount_pull_reviews(&server, 500, Vec::new()).await;
-    let failed_refresh = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: true,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let failed_refresh = sync_repositories(
         &archive,
-        &server,
-        selector,
-        SyncThreadScope::Open,
-        false,
-        true,
-        false,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert!(matches!(
         failed_refresh.outcome,
         OperationOutcome::Partial {
@@ -137,16 +156,25 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: true,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        false,
-        true,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     assert_eq!(
         review_members(&archive, 18).await[0]
@@ -168,16 +196,25 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         .expect(0)
         .mount(&server)
         .await;
-    let metadata_only = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let metadata_only = sync_repositories(
         &archive,
-        &server,
-        selector,
-        SyncThreadScope::Open,
-        false,
-        false,
-        false,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(metadata_only.outcome, OperationOutcome::Complete);
     assert_eq!(metadata_only.reviews_seen, 0);
 
@@ -252,16 +289,25 @@ async fn complete_review_thread_snapshots_remove_and_restore_current_membership(
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        false,
-        false,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     assert_eq!(initial.review_threads_seen, 2);
     assert_eq!(review_thread_members(&archive, 18).await.len(), 2);
@@ -271,16 +317,25 @@ async fn complete_review_thread_snapshots_remove_and_restore_current_membership(
     mount_open_issues(&server, vec![pull_request_issue("2026-09-21T09:30:00Z")]).await;
     mount_pull_request_metadata(&server, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false).await;
     mount_graphql_review_threads(&server, review_thread_page(Vec::new(), false, None)).await;
-    let removed = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let removed = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        false,
-        false,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(removed.outcome, OperationOutcome::Complete);
     assert!(review_thread_members(&archive, 18).await.is_empty());
     assert!(matches!(
@@ -297,16 +352,25 @@ async fn complete_review_thread_snapshots_remove_and_restore_current_membership(
         review_thread_page(vec![review_thread("PRRT_restored", true)], false, None),
     )
     .await;
-    let restored = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let restored = sync_repositories(
         &archive,
-        &server,
-        selector,
-        SyncThreadScope::Open,
-        false,
-        false,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(restored.outcome, OperationOutcome::Complete);
     let members = review_thread_members(&archive, 18).await;
     assert_eq!(members.len(), 1);
@@ -339,16 +403,25 @@ async fn partial_graphql_review_thread_snapshot_keeps_last_complete_membership()
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        false,
-        false,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     let original_members = review_thread_members(&archive, 18).await;
 
@@ -375,16 +448,25 @@ async fn partial_graphql_review_thread_snapshot_keeps_last_complete_membership()
         .expect(1)
         .mount(&server)
         .await;
-    let failed = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: true,
+        parent_run: None,
+    };
+    let failed = sync_repositories(
         &archive,
-        &server,
-        selector,
-        SyncThreadScope::Open,
-        false,
-        false,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert!(matches!(
         failed.outcome,
         OperationOutcome::Partial {

@@ -18,8 +18,8 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::{
     clients_for, comment, comment_bodies, comment_coverage, issue_with_comment_count,
-    mount_comments, mount_open_issues, mount_repository, remove_archive, sync_once_with_comments,
-    temporary_archive_path, thread_summary,
+    mount_comments, mount_open_issues, mount_repository, remove_archive, temporary_archive_path,
+    thread_summary,
 };
 
 #[tokio::test]
@@ -44,14 +44,25 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_comments(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     assert_eq!(initial.comments_seen, 2);
     assert_eq!(initial.jobs.len(), 2);
@@ -66,14 +77,25 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
         ],
     )
     .await;
-    let parent_refresh = sync_once_with_comments(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let parent_refresh = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        false,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(parent_refresh.outcome, OperationOutcome::Complete);
     let stale_summary = thread_summary(&archive, 12).await;
     let stale_coverage = comment_coverage(&stale_summary);
@@ -112,14 +134,25 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
         .expect(1)
         .mount(&server)
         .await;
-    let partial = sync_once_with_comments(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let partial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
     assert_eq!(partial.failures.len(), 1);
     assert_eq!(partial.failures[0].thread_number, Some(12));
@@ -170,8 +203,25 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
         .expect(1)
         .mount(&server)
         .await;
-    let retried =
-        sync_once_with_comments(&archive, &server, selector, SyncThreadScope::Open, true).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let retried = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(retried.outcome, OperationOutcome::Complete);
     assert_eq!(comment_bodies(&archive, 12).await.len(), 2);
     let resolved_failure = archive
@@ -211,14 +261,25 @@ async fn complete_empty_comments_replace_membership_but_incomplete_empty_does_no
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once_with_comments(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
 
     server.reset().await;
@@ -243,8 +304,25 @@ async fn complete_empty_comments_replace_membership_but_incomplete_empty_does_no
         .expect(1)
         .mount(&server)
         .await;
-    let partial =
-        sync_once_with_comments(&archive, &server, selector, SyncThreadScope::Open, true).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let partial = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
     assert!(comment_bodies(&archive, 11).await.is_empty());
     assert_eq!(comment_bodies(&archive, 12).await, ["preserved"]);

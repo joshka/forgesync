@@ -16,12 +16,10 @@ use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::ThreadQuery;
 use serde_json::json;
-use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -35,63 +33,10 @@ mod refresh;
 mod retry;
 mod reviews;
 
-async fn sync_once(
-    archive: &Archive,
-    server: &MockServer,
-    selector: RepositorySelector,
-    scope: SyncThreadScope,
-) -> forgesync_engine::sync::SyncReport {
-    sync_once_with_comments(archive, server, selector, scope, false).await
-}
-
-async fn sync_once_with_comments(
-    archive: &Archive,
-    server: &MockServer,
-    selector: RepositorySelector,
-    scope: SyncThreadScope,
-    include_comments: bool,
-) -> forgesync_engine::sync::SyncReport {
-    sync_once_with_families(
-        archive,
-        server,
-        selector,
-        scope,
-        include_comments,
-        false,
-        false,
-    )
-    .await
-}
-
-async fn sync_once_with_families(
-    archive: &Archive,
-    server: &MockServer,
-    selector: RepositorySelector,
-    scope: SyncThreadScope,
-    include_comments: bool,
-    include_reviews: bool,
-    include_review_threads: bool,
-) -> forgesync_engine::sync::SyncReport {
-    let clients = clients_for(server, &selector);
-    sync_repositories(
-        archive,
-        &clients,
-        &SyncRequest {
-            repositories: vec![selector],
-            all: false,
-            scope,
-            include_comments,
-            include_reviews,
-            include_review_threads,
-            parent_run: None,
-        },
-        &CancellationToken::new(),
-        None,
-    )
-    .await
-    .expect("durable sync report")
-}
-
+/// Constructs credential-free clients routed to the fixture server for the selected host.
+///
+/// It neither mounts responses nor acquires data; scenarios call the real sync operation
+/// explicitly.
 fn clients_for(
     server: &MockServer,
     selector: &RepositorySelector,

@@ -75,6 +75,10 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
   line wrapping.
 - Avoid behavioral boolean parameters. Use distinct operations, a meaningful enum, or named options.
   A boolean recording a domain fact can remain a boolean.
+- In workflow tests, construct the real request next to the real operation and assertions. Shared
+  fixtures can build clients or payloads, but should not run acquisition behind convenience names or
+  positional flags. Named request fields make selected families, cancellation, and durable effects
+  visible without tracing a helper chain.
 - Use newtypes when they distinguish identities or preserve a repeated invariant. Put behavior on
   the concept that owns it. Avoid one-use wrappers, parameter bags, generic frameworks, and traits
   without a real variation point.

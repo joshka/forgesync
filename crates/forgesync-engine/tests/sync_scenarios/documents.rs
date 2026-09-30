@@ -7,13 +7,12 @@
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::documents::{build_thread_document, materialize_thread_document};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
-use forgesync_engine::sync::SyncThreadScope;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 use wiremock::MockServer;
 
-use super::{
-    mount_document_source, remove_archive, sync_once_with_comments, temporary_archive_path,
-};
+use super::{clients_for, mount_document_source, remove_archive, temporary_archive_path};
 
 #[tokio::test]
 async fn document_materialization_tracks_content_but_ignores_source_timestamps() {
@@ -36,14 +35,25 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
         "Stable discussion reply",
     )
     .await;
-    let initial_sync = sync_once_with_comments(
+    let clients = clients_for(&server, &repository);
+    let request = SyncRequest {
+        repositories: vec![repository.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let initial_sync = sync_repositories(
         &archive,
-        &server,
-        repository.clone(),
-        SyncThreadScope::Open,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(initial_sync.outcome, OperationOutcome::Complete);
 
     let built = build_thread_document(
@@ -88,14 +98,25 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
         "Stable discussion reply",
     )
     .await;
-    let timestamp_sync = sync_once_with_comments(
+    let clients = clients_for(&server, &repository);
+    let request = SyncRequest {
+        repositories: vec![repository.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let timestamp_sync = sync_repositories(
         &archive,
-        &server,
-        repository.clone(),
-        SyncThreadScope::Open,
-        true,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(timestamp_sync.outcome, OperationOutcome::Complete);
     let timestamp_only = materialize_thread_document(
         &archive,
@@ -122,8 +143,25 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
         "Edited discussion reply",
     )
     .await;
-    let edited_sync =
-        sync_once_with_comments(&archive, &server, repository, SyncThreadScope::Open, true).await;
+    let clients = clients_for(&server, &repository);
+    let request = SyncRequest {
+        repositories: vec![repository],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let edited_sync = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(edited_sync.outcome, OperationOutcome::Complete);
     let edited = materialize_thread_document(
         &archive,

@@ -15,7 +15,7 @@ use forgesync_engine::embeddings::embed_documents;
 use forgesync_engine::inspect::{ThreadFilters, ThreadSort, ThreadStateFilter};
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::search::{SearchMode, SearchRanking, SearchRequest, retrieve_threads};
-use forgesync_engine::sync::SyncThreadScope;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
@@ -23,8 +23,8 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
 use super::{
-    current_timestamp, issue_with_comment_count, mount_open_issues, mount_repository,
-    remove_archive, sync_once, temporary_archive_path, thread_summary,
+    clients_for, current_timestamp, issue_with_comment_count, mount_open_issues, mount_repository,
+    remove_archive, temporary_archive_path, thread_summary,
 };
 
 #[tokio::test]
@@ -59,7 +59,25 @@ async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chun
     let repository = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("repository selector");
-    let sync = sync_once(&archive, &server, repository, SyncThreadScope::Open).await;
+    let clients = clients_for(&server, &repository);
+    let request = SyncRequest {
+        repositories: vec![repository],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let sync = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(sync.outcome, OperationOutcome::Complete);
     let thread = thread_summary(&archive, 11).await;
     let now = current_timestamp();

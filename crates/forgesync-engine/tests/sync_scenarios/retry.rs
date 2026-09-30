@@ -8,7 +8,7 @@ use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::runs::{plan_run_retry, run_retry};
-use forgesync_engine::sync::SyncThreadScope;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path};
@@ -17,7 +17,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use super::{
     clients_for, comment, mount_comments, mount_open_issues, mount_pull_request_metadata,
     mount_pull_reviews, mount_repository, pull_request_issue, remove_archive,
-    sync_once_with_families, temporary_archive_path,
+    temporary_archive_path,
 };
 
 #[tokio::test]
@@ -40,16 +40,25 @@ async fn retry_selects_one_family_and_leaves_other_failures_unresolved() {
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let original = sync_once_with_families(
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: true,
+        include_reviews: true,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let original = sync_repositories(
         &archive,
-        &server,
-        selector.clone(),
-        SyncThreadScope::Open,
-        true,
-        true,
-        false,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
     )
-    .await;
+    .await
+    .expect("durable sync report");
     assert_eq!(original.failures.len(), 3, "{:?}", original.failures);
     assert!(
         original

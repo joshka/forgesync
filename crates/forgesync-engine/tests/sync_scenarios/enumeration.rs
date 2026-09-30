@@ -23,7 +23,7 @@ use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::{
-    issue, mount_repository, remove_archive, sync_once, temporary_archive_path, thread_count,
+    clients_for, issue, mount_repository, remove_archive, temporary_archive_path, thread_count,
 };
 
 #[tokio::test]
@@ -125,7 +125,25 @@ async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {
         .mount(&server)
         .await;
 
-    let resumed = sync_once(&archive, &server, selector, SyncThreadScope::Open).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Open,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let resumed = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(resumed.outcome, OperationOutcome::Complete);
     assert_eq!(resumed.pages_completed, 2);
     assert_eq!(resumed.threads_seen, 2);
@@ -153,7 +171,25 @@ async fn closed_sweep_keeps_its_watermark_on_failure_and_retries_from_overlap() 
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    let initial = sync_once(&archive, &server, selector.clone(), SyncThreadScope::Closed).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Closed,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let initial = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     let repository = archive
         .find_repository(&GitHubHost::parse("github.com").unwrap(), "owner", "repo")
@@ -196,7 +232,25 @@ async fn closed_sweep_keeps_its_watermark_on_failure_and_retries_from_overlap() 
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
-    let failed = sync_once(&archive, &server, selector.clone(), SyncThreadScope::Closed).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector.clone()],
+        all: false,
+        scope: SyncThreadScope::Closed,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let failed = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert!(matches!(failed.outcome, OperationOutcome::Failed { .. }));
     assert_eq!(
         archive
@@ -215,7 +269,25 @@ async fn closed_sweep_keeps_its_watermark_on_failure_and_retries_from_overlap() 
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
         .mount(&server)
         .await;
-    let retried = sync_once(&archive, &server, selector, SyncThreadScope::Closed).await;
+    let clients = clients_for(&server, &selector);
+    let request = SyncRequest {
+        repositories: vec![selector],
+        all: false,
+        scope: SyncThreadScope::Closed,
+        include_comments: false,
+        include_reviews: false,
+        include_review_threads: false,
+        parent_run: None,
+    };
+    let retried = sync_repositories(
+        &archive,
+        &clients,
+        &request,
+        &CancellationToken::new(),
+        None,
+    )
+    .await
+    .expect("durable sync report");
     assert_eq!(retried.outcome, OperationOutcome::Complete);
     let advanced_watermark = archive
         .closed_sweep_watermark(&repository.id)

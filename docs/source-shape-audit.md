@@ -328,7 +328,10 @@ have separate named tests; all four catalog checks pass. TUI scope/action/cutoff
 cleanup have received targeted review, and the complete TUI and GitHub suites pass. Store
 observation and search suites also use direct owner imports, documented setup effects, and stronger
 identity/version assertions. Ordering contracts have separate named scenarios. This evidence does
-not close the remaining suite-quality pass.
+not close the remaining suite-quality pass. CLI process fixtures and sync scenario imports have
+since received direct-owner cleanup. The sync suites also show real acquisition requests and
+operations directly at all 24 former helper call sites, eliminating positional family-selection
+flags and hidden workflow execution.
 
 The refreshed production function inventory has two bodies above fifty lines: store error-code
 mapping and repository page traversal. The error mapping is exhaustive constant classification,

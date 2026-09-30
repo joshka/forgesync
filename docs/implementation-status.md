@@ -3314,3 +3314,14 @@ candidates for the test-quality pass; this import cleanup does not close their b
 
 Focused all-warning Clippy and all 15 sync workflow scenarios pass. Nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Explicit acquisition in sync scenarios
+
+The 24 calls previously routed through three acquisition helpers now construct `SyncRequest` beside
+the real `sync_repositories` call. Family selection, scope, parent-run policy, cancellation, and
+report failure expectations are visible in each scenario. The fixture parent only builds client
+routing; it no longer executes acquisition through positional family flags. This resolves the
+previous entry's acquisition-helper candidate and records the general rule in Rust conventions.
+
+All 15 sync workflow scenarios and focused warning-denying Clippy pass. Nightly formatting, rumdl,
+and linting of all three changed guidance/status pages pass.
