@@ -684,9 +684,17 @@ replacement together: preservation requires evidence that the group previously e
 creation additionally checks the listed active lifecycle and member count. Namespace rejection uses
 persisted vectors without an unrelated prior build.
 
-Engine workflow integration remains open for enumeration and sync suites. Sync read projections need
-inspection for hidden retrieval boundaries and assertions that establish only counts. Remaining
-observation assertion acceptance and broad documentation/API acceptance are separate review work.
+Enumeration integration now has shallow partial, replay, and construction owners. Page failure
+compares the complete persisted scan with its report and the exact continuation URL, verifies the
+retained canonical repository and issue, and distinguishes complete parent coverage from missing
+comments. Replay proves both initial identities/titles, compares their entire discussion payloads
+after reacquisition, and checks terminal continuation/failure absence plus persisted scan equality.
+Client and repository-response fixtures perform no enumeration or archive mutation. The dependent
+before/after replay remains one linear contract.
+
+Engine workflow integration remains open for sync suites. Sync read projections need inspection for
+hidden retrieval boundaries and assertions that establish only counts. Remaining observation
+assertion acceptance and broad documentation/API acceptance are separate review work.
 
 ### Store lifecycle and cluster-suite dispositions
 

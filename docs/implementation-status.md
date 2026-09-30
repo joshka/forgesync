@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Enumeration engine integration has shallow partial-failure, replay, and fixture owners. Assertions
+compare exact continuation and persisted scans, retained discussion identity/content, complete
+parent coverage, and missing unselected comments. Replay compares both original discussion payloads
+after reacquisition. Both integration cases pass; engine all-target Clippy passes with warnings
+denied. Sync scenario review, store observation assertion acceptance, broad API/docs acceptance, and
+final gates remain open.
+
 Cluster engine integration now has shallow complete-creation, partial-preservation, namespace-error,
 and construction owners. Observation reservation/application and fenced document/vector writes stay
 visible in each scenario; behavior helpers are removed. Partial preservation retains its dependent

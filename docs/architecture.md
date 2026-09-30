@@ -333,6 +333,11 @@ allocation and cleanup. Scenarios explicitly reserve observations, apply source 
 fenced document/vector chunks, release the preparation lease, and invoke engine operations. The
 partial case retains its complete baseline because subsequent preservation depends on it.
 
+Enumeration integration under `tests/thread_enumeration` separates page-failure and replay contracts
+from client/payload setup. Scenarios invoke enumeration and archive reads directly, comparing
+durable scan records with reported state. Replay keeps its initial read as the explicit content
+baseline; page failure distinguishes completed parent observations from missing child coverage.
+
 ### Closed-sweep publication
 
 The store's public `checkpoints` module owns `ClosedSweepCheckpoint`, the typed input for publishing
