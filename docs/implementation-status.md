@@ -2004,3 +2004,18 @@ The focused empty-run case and all final workspace gates pass: Clippy, tests/doc
 without default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
 Markdown linting. The sixth implementation batch is complete. Broader documentation-depth and
 test-suite review remain separate bounded batches.
+
+## Continued maintenance: core coverage and extension contracts
+
+The conventions pass starts with a fresh 204-module production inventory. Function comment presence
+is complete, but documentation content and public/private boundaries remain unproven. Forty-eight
+introductions under ten lines and retained restricted visibility/preludes are explicit review
+targets, not a mechanical length or visibility conversion task.
+
+`Coverage::mark_stale` replaces the boolean setter with a named operation. Store projection
+preserves fresh construction unless its existing freshness query requires stale marking. Existing
+complete/stale coverage and document scenarios use the named operation. No serialized coverage field
+changes. `ProviderData` explains object-only construction, unchanged rejected values, replacement
+versus absent or null fields, and deterministic top-level access. A compiled example shows
+successful object parsing and array rejection. Focused core tests/doctests and workspace Clippy are
+running; broad review and full acceptance remain.

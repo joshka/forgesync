@@ -64,8 +64,8 @@ fn discussion_recipe_orders_selected_evidence_and_skips_bot_comments() {
 fn discussion_recipe_excludes_stale_family_evidence() {
     let mut detail = sample_detail();
     detail.summary.coverage = vec![
-        complete_coverage(EvidenceFamily::Comments, 3).with_stale(true),
-        complete_coverage(EvidenceFamily::Reviews, 1).with_stale(true),
+        complete_coverage(EvidenceFamily::Comments, 3).mark_stale(),
+        complete_coverage(EvidenceFamily::Reviews, 1).mark_stale(),
         complete_coverage(EvidenceFamily::ReviewThreads, 1),
     ];
 

@@ -98,7 +98,12 @@ pub fn coverage_for_kind(
             let state = item
                 .map(|item| item.state.clone())
                 .unwrap_or(CoverageState::Missing);
-            Coverage::new(family, state).with_stale(is_stale(discussion, family, item))
+            let coverage = Coverage::new(family, state);
+            if is_stale(discussion, family, item) {
+                coverage.mark_stale()
+            } else {
+                coverage
+            }
         })
         .collect()
 }

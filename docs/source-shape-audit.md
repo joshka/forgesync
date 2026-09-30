@@ -255,6 +255,18 @@ explicit justified exception, usable module introductions, item contracts at the
 an accurate module map. Record recurring rules in the linked guides. Documentation presence alone
 does not satisfy this pass.
 
+The fresh initial inventory covers 204 production module files across six crates (core 15, store 49,
+CLI 35, TUI 32, engine 59, GitHub 14). It finds no missing handwritten production function comments,
+but 48 introductions are under ten lines and still need content review. These are review signals,
+not proof of documentation quality. Restricted visibility and crate-internal coverage/query preludes
+remain explicit review targets; do not expose SQL resources or implementation types just to replace
+`pub(crate)` mechanically.
+
+Core review has begun with coverage and provider extensions: stale marking becomes a named
+operation, and extension-object validation, rejected-value retention, replacement/null semantics,
+and sorted field access gain concrete contracts. The rest of core and all other crate reviews remain
+open.
+
 ### 8. Tests
 
 Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the

@@ -150,14 +150,32 @@ pub enum CoverageState {
 /// Per-family coverage state for a repository or discussion.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Coverage {
+    /// Independently acquired resource whose completeness this value describes.
     family: EvidenceFamily,
+    /// Acquisition result retained separately from freshness against the current parent context.
     state: CoverageState,
+    /// Whether retained evidence belongs to an earlier parent or interpretation context.
+    /// Missing serialized markers default to fresh; fresh projections omit the marker entirely.
     #[serde(default, skip_serializing_if = "is_not_stale")]
     stale: bool,
 }
 
 impl Coverage {
-    /// Creates coverage for a single independently acquired evidence family.
+    /// Creates coverage for one evidence family with no stale-context marker.
+    ///
+    /// Construction preserves the supplied state without claiming that any rows were acquired or
+    /// committed. The store supplies the appropriate state and marks retained evidence stale when
+    /// parent context no longer agrees.
+    ///
+    /// ```
+    /// use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+    ///
+    /// let coverage = Coverage::new(EvidenceFamily::Comments, CoverageState::Missing);
+    /// assert!(!coverage.is_stale());
+    /// let stale = coverage.mark_stale();
+    /// assert!(stale.is_stale());
+    /// assert_eq!(stale.state(), &CoverageState::Missing);
+    /// ```
     pub fn new(family: EvidenceFamily, state: CoverageState) -> Self {
         Self {
             family,
@@ -166,9 +184,13 @@ impl Coverage {
         }
     }
 
-    /// Marks complete or incomplete evidence as belonging to an older parent observation.
-    pub fn with_stale(mut self, stale: bool) -> Self {
-        self.stale = stale;
+    /// Marks this evidence as belonging to an older parent or interpretation context.
+    ///
+    /// Staleness is independent of completeness: retained complete membership can still be stale.
+    /// This operation preserves the family and state. Constructing a new coverage projection starts
+    /// with fresh context; callers do not clear stale evidence merely because it was displayed.
+    pub fn mark_stale(mut self) -> Self {
+        self.stale = true;
         self
     }
 
@@ -189,7 +211,7 @@ impl Coverage {
     }
 }
 
-/// Retains the default false stale marker when serializing coverage.
+/// Omits the false stale marker from serialized coverage, retaining the legacy fresh projection.
 fn is_not_stale(stale: &bool) -> bool {
     !stale
 }
@@ -236,7 +258,7 @@ mod tests {
                 item_count: 2,
             },
         )
-        .with_stale(true);
+        .mark_stale();
 
         let stale_json = serde_json::to_value(stale).expect("serialize stale coverage");
         assert_eq!(stale_json["state"]["status"], json!("complete"));
