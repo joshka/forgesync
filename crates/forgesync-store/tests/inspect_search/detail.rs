@@ -4,11 +4,18 @@
 //! rows. They protect the meaning of an offline detail view. Zero child rows and incomplete
 //! coverage must remain distinguishable in the projection.
 
+use forgesync_core::content::{Comment, SourceState, ThreadKind};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadReference};
+use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_store::archive::Archive;
+use forgesync_store::observations::StagedItem;
+use forgesync_store::reads::ThreadTimelineEvent;
+
 use super::{
-    Archive, CollectionCompleteness, Comment, CommentId, CoverageState, EvidenceFamily,
-    ProviderData, ProviderId, SourceClock, SourceState, StagedItem, ThreadKind, ThreadNumber,
-    ThreadReference, ThreadTimelineEvent, apply_thread, discussion, remove_archive, repository,
-    temporary_archive_path, thread_id, timestamp,
+    apply_thread, discussion, remove_archive, repository, temporary_archive_path, thread_id,
+    timestamp,
 };
 
 #[tokio::test]

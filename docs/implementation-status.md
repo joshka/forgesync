@@ -3044,3 +3044,12 @@ broad ordering scenario.
 
 All nine observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Direct store read-test ownership imports
+
+Detail, FTS, list/search, and migration integration suites import their domain, query, archive, and
+SQL types directly. The parent module now owns shared fixture construction rather than acting as an
+API prelude. Explicit parent imports identify only the setup helpers implemented there.
+
+All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

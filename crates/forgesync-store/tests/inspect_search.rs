@@ -8,19 +8,14 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use forgesync_core::content::{Comment, Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::{CoverageState, EvidenceFamily};
-use forgesync_core::identity::{
-    CommentId, GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber, ThreadReference,
-};
+use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
-use forgesync_store::error::StoreError;
-use forgesync_store::observations::StagedItem;
-use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter, ThreadTimelineEvent};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 

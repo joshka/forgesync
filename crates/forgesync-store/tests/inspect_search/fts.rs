@@ -4,9 +4,11 @@
 //! documents are derived from discussion evidence, and index state must follow committed document
 //! changes. Ranking policy belongs in the engine; this suite protects store retrieval.
 
+use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_store::archive::Archive;
+
 use super::{
-    Archive, SourceState, ThreadKind, apply_thread, discussion, query, remove_archive, repository,
-    temporary_archive_path, thread_id,
+    apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,
 };
 
 #[tokio::test]

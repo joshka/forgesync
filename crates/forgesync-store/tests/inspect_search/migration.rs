@@ -4,8 +4,12 @@
 //! They protect the distinction between inspection and mutation. A schema change should preserve
 //! meaningful existing data and make pending migration visible.
 
+use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_store::archive::Archive;
+use forgesync_store::error::StoreError;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
 use super::{
-    Archive, SourceState, SqliteConnectOptions, SqlitePoolOptions, StoreError, ThreadKind,
     apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,
 };
 
