@@ -37,6 +37,7 @@ use thiserror::Error;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingVector {
+    /// Finite model-order components with validated nonempty dimension and nonzero squared norm.
     values: Vec<f32>,
 }
 
@@ -76,7 +77,17 @@ impl EmbeddingVector {
         Ok(Self { values })
     }
 
-    /// Decodes and validates little-endian f32 vector storage.
+    /// Decodes exactly `dimensions` little-endian IEEE 754 `f32` components and validates them.
+    ///
+    /// The byte count must equal four times a nonzero dimension. Decoding preserves component order
+    /// and magnitude; it does not normalize vectors or check service/model compatibility metadata.
+    /// That metadata belongs to the store/engine record carrying this value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EmbeddingVectorError::InvalidEncoding`] for zero dimensions, an unrepresentable
+    /// byte count, or a length mismatch. Decoded non-finite or zero-norm values produce the same
+    /// validation errors as [`Self::new`].
     pub fn from_little_endian(bytes: &[u8], dimensions: u32) -> Result<Self, EmbeddingVectorError> {
         let expected_bytes = usize::try_from(dimensions)
             .ok()
@@ -104,7 +115,11 @@ impl EmbeddingVector {
         &self.values
     }
 
-    /// Encodes components in the portable little-endian f32 format used by the archive.
+    /// Encodes model-order components as consecutive little-endian IEEE 754 `f32` bytes.
+    ///
+    /// The returned buffer contains exactly four bytes per component, without a header or dimension
+    /// prefix. Store the dimension and compatibility metadata alongside it; decoding requires the
+    /// explicit dimension and revalidates numeric content.
     pub fn to_little_endian(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(self.values.len() * 4);
         for value in &self.values {

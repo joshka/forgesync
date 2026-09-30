@@ -66,7 +66,16 @@ pub struct Document {
 }
 
 impl Document {
-    /// Creates a versioned document and computes its stable SHA-256 identity.
+    /// Packages already rendered retrieval text with the current recipe version and content hash.
+    ///
+    /// The engine owns recipe rendering. This constructor preserves `title`, `text`, and
+    /// `dedupe_text` as supplied; it does not normalize whitespace, lowercase deduplication text,
+    /// fetch source evidence, or verify that rendered sections agree with the chosen recipe.
+    ///
+    /// The hash covers source identity, recipe/version, title, and text. Deduplication text and the
+    /// source timestamp are deliberately excluded: a source-clock-only change leaves retrieval
+    /// identity stable. Because fields are public, a value received or modified after construction
+    /// still needs store-boundary validation before persistence.
     pub fn new(
         source_identity: ThreadId,
         recipe: DocumentRecipe,
@@ -89,7 +98,12 @@ impl Document {
         }
     }
 
-    /// Recomputes the stored content hash to validate a document crossing a trust boundary.
+    /// Recomputes the expected hash from the document's current identity, recipe, title, and text.
+    ///
+    /// Compare this result with [`Self::content_hash`] when validating an external or modified
+    /// document. Calling this query changes no field and does not validate recipe support,
+    /// deduplication normalization, or source-clock consistency. The store applies its broader
+    /// validation rules separately.
     pub fn expected_content_hash(&self) -> String {
         content_hash(
             &self.source_identity,

@@ -15,6 +15,13 @@
 //! to say when the content was seen, and [`crate::coverage`] to say whether a related collection
 //! is complete. Changes to a child type need the corresponding provider normalization and store
 //! row conversion reviewed together.
+//!
+//! These records expose normalized facts, with checked identity values but public source fields.
+//! Construction and deserialization do not prove that display names agree with IDs, that a child
+//! belongs to its supplied parent, or that optional evidence was acquired completely. Provider
+//! normalization and archive application enforce those relationships at their own boundaries.
+//! Keep null-versus-empty source data where the field contract distinguishes it; do not replace
+//! missing evidence with synthesized values merely to simplify a display or document recipe.
 
 use serde::{Deserialize, Serialize};
 

@@ -2019,3 +2019,27 @@ changes. `ProviderData` explains object-only construction, unchanged rejected va
 versus absent or null fields, and deterministic top-level access. A compiled example shows
 successful object parsing and array rejection. Focused core tests/doctests and workspace Clippy are
 running; broad review and full acceptance remain.
+
+## Continued maintenance: acquisition and value-boundary documentation
+
+Core observation fields explain family/payload, provider revision, local time, reserved sequence,
+and completeness independently. Constructor documentation states that generic payload contents and
+received counts are not validated and that archive allocation/application happen elsewhere.
+`SourceClock::from_raw` documents trimming, missing versus invalid values, and preserved invalid
+spelling, with a compiled example. Duplicate parse-error arms collapse to one unchanged
+invalid-clock projection.
+
+Timestamp docs explain signed microseconds, pre-epoch values, normalized UTC, precision loss, and
+reconstruction/formatting errors. Vector docs explain exact dimension/byte correspondence, portable
+encoding without a header, numeric revalidation, and separately owned model compatibility. Private
+representation fields gain their own contracts. Focused core tests/doctests and workspace Clippy
+pass. These targeted reviews do not complete the remaining core modules or workspace item audit.
+
+Retained signature: `Observation::new` takes six explicit facts that directly construct its domain
+envelope. A second parameter bag would add a concept without eliminating a validation or lifecycle
+obligation; the constructor's newly documented limits keep those independent facts visible.
+
+Document constructor/hash-query docs distinguish supplied rendering from derived validation and
+spell out excluded deduplication/source-clock fields. Content's module guidance explains which
+record relationships public construction/deserialization does not establish. These common limits
+live at the module or constructor level rather than being repeated on every source field.

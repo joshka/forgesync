@@ -34,7 +34,10 @@ pub enum TimestampError {
 
 /// An absolute timestamp normalized to UTC at archive microsecond precision.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct UtcTimestamp(i64);
+pub struct UtcTimestamp(
+    /// Signed Unix microseconds; construction checks the supported time representation.
+    i64,
+);
 
 impl UtcTimestamp {
     /// Parses RFC 3339 and stores the instant in UTC microseconds.
@@ -49,7 +52,16 @@ impl UtcTimestamp {
         Ok(Self(microseconds))
     }
 
-    /// Converts archive UTC microseconds since the Unix epoch into a timestamp.
+    /// Checks signed Unix microseconds for storage and normalized RFC 3339 display.
+    ///
+    /// Negative values represent instants before the epoch. This boundary rejects values outside
+    /// the time library's supported range and values that cannot be formatted as RFC 3339.
+    /// It does not reinterpret the integer as milliseconds or local time.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TimestampError::OutOfRange`] for unsupported instants and
+    /// [`TimestampError::FormatFailure`] when RFC 3339 cannot represent the checked instant.
     pub fn from_unix_microseconds(value: i64) -> Result<Self, TimestampError> {
         let nanos = i128::from(value)
             .checked_mul(1_000)
@@ -60,12 +72,23 @@ impl UtcTimestamp {
         Ok(timestamp)
     }
 
-    /// Returns the Unix timestamp at archive microsecond precision.
+    /// Returns signed microseconds since the Unix epoch, preserving pre-epoch negative values.
+    ///
+    /// Use this integer for archive columns, not as a provider update clock or acquisition
+    /// sequence. No timezone conversion or precision adjustment occurs in this accessor.
     pub fn unix_microseconds(self) -> i64 {
         self.0
     }
 
-    /// Formats this timestamp as a normalized RFC 3339 UTC string.
+    /// Formats the stored instant as RFC 3339 UTC text at its retained microsecond precision.
+    ///
+    /// Offset spelling from an original provider input is not retained; equal instants share a
+    /// normalized representation. Formatting does not restore discarded sub-microsecond precision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TimestampError::OutOfRange`] if reconstruction is unsupported, or
+    /// [`TimestampError::FormatFailure`] when the instant cannot be expressed as RFC 3339.
     pub fn format_rfc3339(self) -> Result<String, TimestampError> {
         let nanos = i128::from(self.0)
             .checked_mul(1_000)

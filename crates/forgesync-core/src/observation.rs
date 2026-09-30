@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::coverage::EvidenceFamily;
 use crate::identity::ObservationSequence;
-use crate::timestamp::{TimestampError, UtcTimestamp};
+use crate::timestamp::UtcTimestamp;
 
 /// Provider source-clock value retained separately from local acquisition time.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -34,7 +34,22 @@ pub enum SourceClock {
 }
 
 impl SourceClock {
-    /// Captures an optional raw provider value while keeping invalid clocks explicit.
+    /// Captures optional provider text without conflating missing and malformed clocks.
+    ///
+    /// Trims surrounding whitespace. Absent, empty, and whitespace-only values become
+    /// [`Self::Missing`]. Valid RFC 3339 text becomes a UTC microsecond instant; malformed or
+    /// unsupported timestamps become [`Self::Invalid`] with the trimmed spelling retained.
+    /// This conversion never substitutes local acquisition time for a missing provider clock.
+    ///
+    /// ```
+    /// use forgesync_core::observation::SourceClock;
+    ///
+    /// assert_eq!(SourceClock::from_raw(Some("  ")), SourceClock::Missing);
+    /// assert_eq!(
+    ///     SourceClock::from_raw(Some(" invalid ")),
+    ///     SourceClock::Invalid("invalid".into())
+    /// );
+    /// ```
     pub fn from_raw(value: Option<&str>) -> Self {
         let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
             return Self::Missing;
@@ -42,7 +57,6 @@ impl SourceClock {
 
         match UtcTimestamp::parse(value) {
             Ok(timestamp) => Self::Valid(timestamp),
-            Err(TimestampError::InvalidRfc3339) => Self::Invalid(value.to_owned()),
             Err(_) => Self::Invalid(value.to_owned()),
         }
     }
@@ -82,16 +96,30 @@ pub enum IncompleteReason {
 /// One normalized observation of one family, independent of archive storage.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Observation<T> {
+    /// Independently acquired resource family to which the payload and completeness apply.
     family: EvidenceFamily,
+    /// Normalized evidence; its concrete type determines whether it is one item or a collection.
     payload: T,
+    /// Provider revision clock, retained independently of the local acquisition timestamp.
     source_clock: SourceClock,
+    /// Local acquisition instant, used for diagnostics rather than replacing a provider revision.
     observed_at: UtcTimestamp,
+    /// Archive-reserved acquisition ordering token, allocated before provider I/O.
     sequence: ObservationSequence,
+    /// Explicit claim about completing the requested scope; empty payload alone proves nothing.
     completeness: CollectionCompleteness,
 }
 
 impl<T> Observation<T> {
-    /// Creates an observation while retaining its source and acquisition facts separately.
+    /// Packages normalized evidence with its explicit acquisition and source context.
+    ///
+    /// The constructor preserves all six independent domain facts. It performs no archive write,
+    /// allocates no sequence, and does not inspect generic payload contents. In particular, callers
+    /// must supply a truthful completeness claim and received-item count; this type cannot infer
+    /// either from `T`. Reserve the sequence from the archive before acquisition.
+    ///
+    /// A complete empty collection can replace complete membership when store ordering permits it.
+    /// An incomplete empty collection cannot assert that previously known members were deleted.
     pub fn new(
         family: EvidenceFamily,
         payload: T,
@@ -135,7 +163,10 @@ impl<T> Observation<T> {
         self.sequence
     }
 
-    /// Returns whether the collection completed in the requested scope.
+    /// Borrows the completeness claim, including why and how far an incomplete acquisition got.
+    ///
+    /// This describes the requested source scope, not whether a later store transaction accepted
+    /// the observation or whether currently retained evidence is stale.
     pub fn completeness(&self) -> &CollectionCompleteness {
         &self.completeness
     }
