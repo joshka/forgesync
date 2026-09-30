@@ -7,8 +7,10 @@
 //! `execute` waits for the scheduler to drain its workers before releasing the lease on success
 //! or failure. A workflow error takes precedence over a subsequent release error. Successful
 //! writes are retained for retries; the operation does not wrap provider I/O in a transaction.
-//! Lease duration includes one complete request budget plus a persistence margin. Each chunk
-//! write renews the fence before its upsert, using the same duration.
+//! Lease duration includes one active request budget plus a persistence margin. Each chunk
+//! write renews the fence before its upsert, using the same duration. Waiting for a client slot
+//! does not consume the request budget and does not renew the fence; a long wait can therefore
+//! expire the lease. Subsequent persistence still checks the fence and cannot bypass that expiry.
 //!
 //! Batch count validation precedes writes. Chunk writes can still fail after earlier chunks have
 //! persisted, and the operation then returns the store error rather than a completed report.
@@ -37,7 +39,7 @@ pub struct EmbeddingWriter<'a> {
     client: &'a EmbeddingClient,
     /// Writer fence checked by every persisted chunk.
     lease: ArchiveLeaseToken,
-    /// Full request budget plus margin, renewed before each write.
+    /// Active request budget plus margin, renewed before writes rather than during slot waiting.
     lease_duration: Duration,
 }
 

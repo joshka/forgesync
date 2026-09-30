@@ -8,6 +8,11 @@
 //! `error` classifies service and validation failures for reports. Workflow batching and
 //! persistence live in `embeddings`, so callers can reason separately about transport and document
 //! selection.
+//!
+//! Clones share connection pooling and concurrency slots. A batch holds its slot through retries;
+//! cancellation can interrupt both the queue and active work. The retry clock starts after slot
+//! acquisition, so the configured budget does not bound time spent waiting behind another batch.
+//! Archive leases belong to the embedding workflow, not this adapter.
 
 mod error;
 mod response;
@@ -54,7 +59,8 @@ pub struct EmbeddingClientConfig {
     pub concurrency: usize,
     /// Timeout for one provider request.
     pub request_timeout: Duration,
-    /// End-to-end budget covering attempts and retry delays.
+    /// Budget covering attempts and retry delays after acquiring a concurrency slot.
+    /// Waiting for a slot is cancellable but excluded from this budget.
     pub total_budget: Duration,
     /// Maximum attempts for transient network, rate-limit, and server failures.
     pub max_attempts: u32,
@@ -63,18 +69,31 @@ pub struct EmbeddingClientConfig {
 /// OpenAI-compatible embeddings client with bounded requests and strict response validation.
 #[derive(Clone)]
 pub struct EmbeddingClient {
+    /// Shared connection pool with per-request timeout and redirects disabled.
     http: reqwest::Client,
+    /// Final POST URL, including the embeddings path appended to the configured base.
     endpoint: Url,
+    /// Credential-free base URL recorded in vector recipes, distinct from the POST URL.
     endpoint_identity: String,
+    /// Trimmed model identifier sent to the service and recorded with stored vectors.
     model: String,
+    /// Shared secret used only to construct a sensitive authorization header.
     api_key: Arc<str>,
+    /// Requested output width; response validation enforces it when configured.
     dimensions: Option<u32>,
+    /// Individual input byte ceiling used by chunk selection and request validation.
     max_input_bytes: usize,
+    /// Aggregate input byte ceiling used by batching and request validation.
     max_batch_input_bytes: usize,
+    /// Configured input-count ceiling, additionally bounded by the adapter's hard limit.
     batch_size: usize,
+    /// Configured parallelism advertised to the scheduler, not currently available permits.
     concurrency: usize,
+    /// Attempt and backoff budget measured only after acquiring a shared slot.
     total_budget: Duration,
+    /// Total allowed attempts, including the first request before any retry.
     max_attempts: u32,
+    /// Slots shared across clones; each active batch retains one through retry waits.
     request_slots: Arc<Semaphore>,
 }
 
@@ -149,12 +168,20 @@ impl EmbeddingClient {
         self.dimensions
     }
 
-    /// Maximum time one batch can hold the writer lease while provider retries run.
+    /// Budget for one batch's attempts and retry delays after acquiring its concurrency slot.
+    ///
+    /// Queue waiting is excluded. The embedding workflow uses this duration when sizing its writer
+    /// lease, but this value does not bound the entire workflow or its lease-holding time.
     pub const fn request_budget(&self) -> Duration {
         self.total_budget
     }
 
     /// Requests one vector per input and validates every returned index and component.
+    ///
+    /// Empty input returns immediately. Other batches validate input limits before waiting for a
+    /// shared concurrency slot; cancellation interrupts that wait. The retry budget starts once
+    /// the slot is acquired and covers request execution, decoding, and backoff. The slot remains
+    /// held until success, terminal failure, budget exhaustion, or cancellation.
     pub async fn embed(
         &self,
         inputs: &[String],

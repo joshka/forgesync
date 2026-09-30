@@ -16,6 +16,19 @@ Next action: finish the remaining bounded review findings, reconcile every reque
 and run the applicable workspace gates on the final tree. Hosted platform results remain separate
 release evidence and are not the only outstanding work.
 
+### Latest validation and contract review
+
+The full workspace tests with all features and the locked dependency graph passed on September 30,
+along with workspace Clippy, nightly formatting, and the CLI build without default features. These
+gates validate the implemented slices; the two remaining review batches remain open.
+
+The embedding client contract review clarifies that concurrency-slot waiting precedes the retry
+clock. The request budget therefore does not bound queue waiting or the writer's entire lease
+lifetime. Client fields now explain shared capacity, request identity, credentials, and validation
+limits; writer documentation identifies renewal at persistence and fence checks after expiry. This
+pass changes documentation only. Next action: continue the remaining field/signature and test
+reviews, then reconcile the full requested scope.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

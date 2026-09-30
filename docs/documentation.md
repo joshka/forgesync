@@ -52,6 +52,11 @@ authority: lease state, current membership, or a displayed canonical choice must
 later write can skip its own fence and identity validation. Keep these contracts beside the owning
 operation so callers need not reconstruct them from SQL.
 
+For timeouts and budgets, identify when the clock starts, which phases it covers, and which waits
+are excluded. Distinguish per-attempt timeouts, retry budgets, queue waits, and lease lifetimes. One
+duration used to size another is not proof that it bounds the whole operation; explain renewal
+points and the checks that reject work after expiry.
+
 Describe side effects precisely: an operation can preserve durable application data while creating
 connection-local temporary probe objects. Explain cleanup and error reporting at that operation;
 calling it read-only should not conceal temporary writes. Likewise, state which checks an aggregate
