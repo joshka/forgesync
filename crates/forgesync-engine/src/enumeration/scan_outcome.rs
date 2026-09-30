@@ -13,7 +13,7 @@ use forgesync_core::coverage::Failure;
 use forgesync_github::error::GitHubError;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
 
-use crate::enumeration::github_failure;
+use crate::provider_failure::github_failure;
 
 /// Terminal state of a reserved scan, with failure evidence only when acquisition failed.
 pub enum ScanOutcome {

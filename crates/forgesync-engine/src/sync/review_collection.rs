@@ -44,8 +44,8 @@ use super::comments::incomplete_reason;
 use super::support::record_thread_family_failure;
 use super::{SyncRunContext, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
-use crate::enumeration::github_failure;
 use crate::error::EngineError;
+use crate::provider_failure::github_failure;
 
 /// A review family's durable write scope before it has an observation reservation.
 pub struct ReviewSync<'a> {

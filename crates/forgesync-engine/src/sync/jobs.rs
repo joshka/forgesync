@@ -28,8 +28,9 @@ use super::support::{overlap_start, progress_status, send_progress};
 use super::thread_job::ThreadJob;
 use super::{ScopeUnit, SyncProgressStatus, SyncRunContext};
 use crate::clock::now_utc;
-use crate::enumeration::{ThreadScanContext, github_failure};
+use crate::enumeration::ThreadScanContext;
 use crate::error::EngineError;
+use crate::provider_failure::github_failure;
 use crate::reference::RepositorySelector;
 
 /// Visits repositories in request order, preserving committed work when cancellation stops a run.

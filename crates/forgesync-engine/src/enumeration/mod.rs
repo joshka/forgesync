@@ -15,9 +15,7 @@
 //! observation commits; terminal coverage follows the recorded terminal page.
 
 use forgesync_core::content::Repository;
-use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_github::error::{ApiFailureKind, GitHubError};
 use forgesync_github::resources::{ThreadListState, fetch_repository};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
@@ -137,42 +135,4 @@ pub async fn enumerate_repository_threads_in_scope(
         cancellation,
     )
     .await
-}
-
-/// Commits each acquired page before advancing the durable scan cursor.
-/// Converts a typed provider error to structured family failure evidence.
-pub(super) fn github_failure(error: &GitHubError) -> Failure {
-    let kind = match error {
-        GitHubError::Api {
-            kind: ApiFailureKind::AuthenticationRequired,
-            ..
-        } => FailureKind::Authentication,
-        GitHubError::Api {
-            kind: ApiFailureKind::PermissionDenied,
-            ..
-        } => FailureKind::PermissionDenied,
-        GitHubError::Deferred { .. }
-        | GitHubError::Api {
-            kind: ApiFailureKind::RateLimited,
-            ..
-        } => FailureKind::RateLimited,
-        GitHubError::Network | GitHubError::Timeout => FailureKind::Network,
-        GitHubError::InvalidProviderData => FailureKind::InvalidData,
-        GitHubError::Cancelled
-        | GitHubError::Api { .. }
-        | GitHubError::UntrustedOrigin
-        | GitHubError::InvalidPaginationLink
-        | GitHubError::RedirectRejected
-        | GitHubError::ResponseTooLarge
-        | GitHubError::InvalidJson
-        | GitHubError::GraphqlErrors { .. }
-        | GitHubError::ConcurrencyUnavailable
-        | GitHubError::InvalidApiBaseUrl
-        | GitHubError::InvalidConfiguration
-        | GitHubError::ClientInitialization => FailureKind::ProviderResponse,
-    };
-    Failure {
-        kind,
-        message: error.to_string(),
-    }
 }

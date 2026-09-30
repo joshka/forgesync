@@ -24,8 +24,8 @@ use url::Url;
 use super::ThreadFamilyResult;
 use super::repository_work::RepositoryWork;
 use crate::clock::now_utc;
-use crate::enumeration::github_failure;
 use crate::error::EngineError;
+use crate::provider_failure::github_failure;
 
 impl RepositoryWork<'_> {
     /// Skips current comment evidence or runs a newly reserved collection for the discussion.

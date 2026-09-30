@@ -2783,3 +2783,14 @@ helpers are removed. Initial Clippy caught an obsolete document timestamp import
 
 All 88 engine unit scenarios, engine Clippy across all targets/features, strict private-item
 Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Shared provider failure classification
+
+Enumeration's provider-error conversion moves into a private provider-failure module. Parent and
+child acquisition workflows import that owner directly. Ordinary public visibility replaces the
+restricted helper while the private module preserves its internal status. Documentation explains
+specific versus fallback categories, caller-owned cancellation interpretation, and typed diagnostic
+messages without claiming additional redaction. The exhaustive value mapping is preserved.
+
+Engine Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
+and changed-page Markdown linting pass.
