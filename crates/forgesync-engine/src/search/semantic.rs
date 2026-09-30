@@ -9,7 +9,7 @@
 //! alternative. Compatibility checks reject vectors left behind by model or recipe changes.
 
 use std::num::NonZeroU32;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
@@ -22,15 +22,22 @@ use forgesync_store::reads::FamilyCoverageSummary;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
-use super::ranking::result_page;
-use super::{
-    EMBEDDING_READ_PAGE, EXACT_SEARCH_SLOTS, EXACT_WORKER_LIMIT, ResultPageRequest, SearchHit,
-    SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
-};
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
 use crate::exact_search::{ScoredThread, merge_scored_pages, score_embedding_page};
 use crate::inspect::{ThreadSort, resolve_repositories, store_sort, store_state_filter};
+use crate::search::ranking::result_page;
+use crate::search::{
+    ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest,
+    SearchResultPage,
+};
+
+/// Number of archived documents read per exact-scoring batch.
+const EMBEDDING_READ_PAGE: u32 = 128;
+/// Process-wide cap on concurrently executing exact-scoring workers.
+const EXACT_WORKER_LIMIT: usize = 2;
+/// Shared permits bound blocking scoring across concurrent search requests.
+static EXACT_SEARCH_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
 /// Ranks current dimension-compatible chunks with exact cosine similarity.
 pub async fn semantic_candidates(

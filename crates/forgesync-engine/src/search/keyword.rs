@@ -7,11 +7,15 @@
 //! The store owns bound SQL and full-text storage. This module owns search interpretation and the
 //! shape of keyword evidence used by `ranking`.
 
-use super::ranking::result_page;
-use super::{
-    Archive, EngineError, KeywordCandidates, ResultPageRequest, SearchHit, SearchMode,
-    SearchProvenance, SearchRanking, SearchRequest, SearchResultPage, ThreadFilters, ThreadPage,
-    ThreadSort, search_threads,
+use forgesync_store::archive::Archive;
+use forgesync_store::reads::ThreadPage;
+
+use crate::error::EngineError;
+use crate::inspect::{ThreadFilters, ThreadSort};
+use crate::search::ranking::result_page;
+use crate::search::{
+    KeywordCandidates, ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking,
+    SearchRequest, SearchResultPage, search_threads,
 };
 
 /// Collects local full-text candidates for hybrid rank fusion.

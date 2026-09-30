@@ -181,12 +181,14 @@ ordering, decision application, and existing generation fencing.
 
 Implemented: hybrid fusion has named identity-union and per-discussion evidence owners, coupled
 semantic evidence, explicit projection/order operations, and local formula documentation. Ranked
-retrieval orchestration remains the next search surface.
+retrieval now has its own coordinator and a validated window owner. Named semantic and hybrid
+projections keep scoring/fusion separate from acquisition and fallback. Keyword and semantic helpers
+import actual dependency owners; scoring limits live beside their scoring implementation.
 
-Review engine `search/mod.rs` retrieval orchestration and `search/ranking.rs` hybrid fusion. Finish
-when traversal, filtering, fallback, and score policy can be understood independently without
-reconstructing intertwined branches. Keep simple formulas and value projections visible; additional
-wrapper types are not an acceptance requirement.
+The coordinator retains a linear acquisition sequence: validate window, load optional keyword
+candidates, obtain semantic evidence, classify fallback, read coverage, and project. These explicit
+I/O inputs do not require an application-context wrapper. Final current-tree workspace validation is
+running. Broader documentation and test review remain in their respective bounded batches.
 
 ### 4. Acquisition
 

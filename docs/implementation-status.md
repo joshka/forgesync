@@ -1562,12 +1562,13 @@ source provenance order, score formula, stable ordering, and candidate truncatio
 Retrieval orchestration remains open in the search batch.
 
 Hybrid fusion passes workspace Clippy, all workspace tests/doctests, the CLI build without default
-features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting.
+features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown
+linting.
 
 ## Continued maintenance: ranked search window
 
-`search::window::SearchWindow` owns validated presentation coordinates and the candidate prefix needed
-for ranked pagination. It includes skipped results and one continuation probe, preserving the
+`search::window::SearchWindow` owns validated presentation coordinates and the candidate prefix
+needed for ranked pagination. It includes skipped results and one continuation probe, preserving the
 10,000-result ranking budget. Retrieval consumes the same window for candidate acquisition and page
 construction. Keyword-only pagination remains at the store boundary.
 
@@ -1576,6 +1577,21 @@ and the shared invalid-offset classification. The latter exposed an incorrect in
 expectation: shared pagination validation rejects offsets above SQLite's signed range before ranked
 window validation. The implementation preserves that existing error precedence.
 
-Retrieval orchestration and the remaining six-batch work are still open. Current-tree gates pass: workspace Clippy, all workspace tests/doctests, the CLI build without
-default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
-Markdown linting.
+Retrieval orchestration and the remaining six-batch work are still open. Current-tree gates pass:
+workspace Clippy, all workspace tests/doctests, the CLI build without default features, strict
+public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting.
+
+## Continued maintenance: ranked retrieval orchestration
+
+Ranked acquisition and result construction now live in `search::ranked` instead of the public search
+module. `RankedSearch` retains the validated request/window relationship through semantic
+acquisition and projection. Its dispatch delegates to named cosine and hybrid projections, and its
+candidate method makes the unavailable-service boundary explicit before scoring.
+
+Acquisition order remains keyword candidates, semantic evidence, then successful-result coverage.
+Hybrid fallback still reuses keyword candidates; semantic fallback performs a local keyword read.
+Existing cancellation, provider-error classification, source ranking, page offsets, and JSON DTOs
+remain unchanged. Archive, client, recipe, and cancellation stay explicit operation inputs rather
+than being hidden in a generic application context. Workspace Clippy and all engine tests/doctests
+pass; final workspace validation is in progress. Scoring limits now live beside their
+implementation, and keyword/semantic helpers import dependencies from their actual defining modules.

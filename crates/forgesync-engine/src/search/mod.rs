@@ -11,14 +11,11 @@
 //! refresh source discussions or persist new document vectors. Mode and fallback policy remain
 //! explicit so callers can explain availability and network use.
 
-use std::sync::{Arc, OnceLock};
-
 use forgesync_core::document::DocumentRecipe;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadQuery, ThreadSummary};
 use serde::Serialize;
-use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::EmbeddingClient;
@@ -26,11 +23,6 @@ use crate::error::EngineError;
 use crate::inspect::{
     ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
 };
-
-const EMBEDDING_READ_PAGE: u32 = 128;
-const EXACT_WORKER_LIMIT: usize = 2;
-
-static EXACT_SEARCH_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
 /// Search mode selected by an application caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -217,79 +209,6 @@ async fn retrieve_keyword(
     ))
 }
 
-/// Runs vector retrieval, optional keyword fusion, and explicit fallback policy.
-async fn retrieve_ranked(
-    archive: &Archive,
-    request: &SearchRequest,
-    recipe: DocumentRecipe,
-    embedding_client: Option<&EmbeddingClient>,
-    cancellation: &CancellationToken,
-) -> Result<SearchResultPage, EngineError> {
-    let query = request.query.trim();
-    let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
-    let window = window::SearchWindow::new(request.filters.limit, request.filters.offset)?;
-    let keyword_candidates = if request.mode == SearchMode::Hybrid {
-        Some(keyword_candidates(archive, request, window.candidate_limit).await?)
-    } else {
-        None
-    };
-
-    let semantic_result = match embedding_client {
-        Some(client) => {
-            semantic_candidates(
-                archive,
-                request,
-                recipe,
-                client,
-                window.candidate_limit,
-                cancellation,
-            )
-            .await
-        }
-        None => Err(EngineError::EmbeddingServiceUnavailable),
-    };
-
-    let semantic = match semantic_result {
-        Ok(semantic) => semantic,
-        Err(error) if request.allow_keyword_fallback && fallback_allowed(&error) => {
-            return retrieve_keyword_fallback(archive, request, keyword_candidates, &error).await;
-        }
-        Err(error) => return Err(error),
-    };
-
-    let coverage_repositories =
-        resolve_repositories(archive, &request.filters.repositories).await?;
-    let coverage = archive.coverage_summary(&coverage_repositories).await?;
-    match request.mode {
-        SearchMode::Semantic => Ok(semantic_result_page(
-            query,
-            request.mode,
-            sort,
-            semantic,
-            window.offset,
-            window.limit,
-            coverage,
-        )),
-        SearchMode::Hybrid => {
-            let keyword = keyword_candidates.expect("hybrid mode loaded keyword candidates");
-            let fused = fuse_hybrid(keyword.items, semantic, sort, window.candidate_limit);
-            Ok(result_page(ResultPageRequest {
-                query,
-                requested_mode: request.mode,
-                mode: request.mode,
-                ranking: SearchRanking::ReciprocalRankFusion,
-                sort,
-                fallback_reason: None,
-                candidates: fused,
-                offset: window.offset,
-                limit: window.limit,
-                coverage,
-            }))
-        }
-        SearchMode::Keyword | SearchMode::AdvancedFts => unreachable!(),
-    }
-}
-
 /// Reuses hybrid keyword candidates or performs a local keyword search after semantic failure.
 async fn retrieve_keyword_fallback(
     archive: &Archive,
@@ -349,14 +268,13 @@ struct ResultPageRequest<'a> {
 
 mod fusion;
 mod keyword;
+mod ranked;
 mod ranking;
 mod semantic;
 mod window;
 
-use fusion::fuse_hybrid;
-use keyword::{keyword_candidates, keyword_expression, keyword_fallback_page, keyword_result_page};
-use ranking::{fallback_allowed, result_page};
-use semantic::{semantic_candidates, semantic_result_page};
+use keyword::{keyword_expression, keyword_fallback_page, keyword_result_page};
+use ranked::retrieve_ranked;
 
 #[cfg(test)]
 mod tests {

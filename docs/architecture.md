@@ -228,3 +228,9 @@ summary and each source's rank evidence. `SemanticEvidence` binds semantic rank 
 explanation. `FusionEntry` projects reciprocal-rank scores and keyword-then-semantic provenance;
 explicit ordering adds the requested sort and stable identity tie break before truncation.
 Pagination and fallback classification remain in `ranking`, separate from source fusion.
+
+Ranked search coordination lives in `search::ranked`. `RankedSearch` keeps request interpretation
+and the validated `SearchWindow` together during vector acquisition and page construction. The
+window bounds the offset-plus-page prefix and adds a continuation probe. Named semantic and hybrid
+projections apply cosine evidence or fusion before pagination; the public search module selects the
+workflow and retains its public request/result types.
