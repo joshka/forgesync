@@ -76,3 +76,11 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   --all-features --locked, cargo build -p forgesync --no-default-features --features cli --locked,
   and cargo doc --workspace --no-deps --all-features.
 - Lint changed Markdown with markdownlint-cli2 and /Users/joshka/.markdownlint-cli2.yaml.
+
+## Release latency
+
+Routine hosted CI temporarily uses a single Linux compilation check. Native platform checks are
+manual and do not gate crate publication. Before adding automatic release gates, measure complete
+cold and warm workflow durations and explain the coverage gained. See
+[release guidance](docs/releasing.md) for the temporary policy, smoke-test expectations, and
+follow-up issue.

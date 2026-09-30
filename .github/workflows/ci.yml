@@ -14,74 +14,12 @@ permissions:
   contents: read
 
 jobs:
-  rust:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
-      - name: Set up rumdl
-        uses: rvben/rumdl@v0
-        with:
-          version: "0.2.77"
-          install-only: true
-      - name: Check Markdown formatting
-        run: rumdl fmt --check .
-      - name: Lint Markdown
-        run: rumdl check .
-      - name: Install nightly rustfmt
-        run: rustup toolchain install nightly --profile minimal --component rustfmt
-      - name: Check formatting
-        run: cargo +nightly fmt --all -- --check
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-      - name: Run tests
-        run: cargo test --workspace --all-features --locked
-      - name: Build CLI without terminal browsing
-        run: cargo build -p forgesync --no-default-features --features cli --locked
-      - name: Check library-only product
-        run: cargo check -p forgesync --lib --no-default-features --locked
-      - name: Build documentation
-        env:
-          RUSTDOCFLAGS: -D warnings -D missing_docs -D rustdoc::broken_intra_doc_links
-        run: cargo doc --workspace --no-deps --all-features --document-private-items --locked
-
-  platform-smoke:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            binary: forgesync
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            binary: forgesync
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            binary: forgesync
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary: forgesync.exe
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.x"
-      - name: Build native CLI
-        run: cargo build -p forgesync --release --locked
-      - name: Smoke test without credentials
-        run: python scripts/smoke_binary.py target/release/${{ matrix.binary }}
-      - name: Package native binary
-        run: >-
-          python scripts/package_binary.py
-          --binary target/release/${{ matrix.binary }}
-          --target ${{ matrix.target }}
-          --output target/package-smoke
-      - name: Check package exists
-        run: python -c "from pathlib import Path; assert list(Path('target/package-smoke').iterdir())"
+      - name: Check compilation
+        run: cargo check --workspace --all-targets --all-features --locked

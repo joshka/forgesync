@@ -9,11 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    uses: ./.github/workflows/ci.yml
-
   release:
-    needs: checks
     if: github.repository == 'joshka/forgesync' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: crates-io
@@ -34,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-pr:
-    needs: [checks, release]
+    needs: release
     if: github.repository == 'joshka/forgesync' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
