@@ -27,7 +27,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
-use crate::app::{App, Screen};
+use crate::app::{App, Focus, Screen};
 
 mod browser;
 mod clusters;
@@ -128,17 +128,42 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-/// Creates the shared bordered panel style for terminal panes.
-fn pane_block(title: &str, focused: bool) -> Block<'_> {
-    let color = if focused {
-        Color::Cyan
-    } else {
-        Color::DarkGray
-    };
-    Block::default()
-        .borders(Borders::ALL)
-        .title(title)
-        .border_style(Style::default().fg(color))
+/// Border emphasis chosen by a renderer before constructing its pane.
+///
+/// Browser panes derive emphasis from keyboard focus; maintainer screens can emphasize both
+/// related panes. This is a visual cue, not query state, selection, or writer authorization.
+enum PaneEmphasis {
+    /// Cyan border for a focused browser pane or an emphasized maintainer projection.
+    Strong,
+    /// Dark gray border for a browser pane outside the current keyboard focus.
+    Muted,
+}
+
+impl PaneEmphasis {
+    /// Chooses the browser cue without changing current keyboard focus.
+    fn for_focus(current: Focus, pane: Focus) -> Self {
+        if current == pane {
+            Self::Strong
+        } else {
+            Self::Muted
+        }
+    }
+
+    /// Constructs the shared titled border using this explicit presentation choice.
+    fn block(self, title: &str) -> Block<'_> {
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(Style::default().fg(self.border_color()))
+    }
+
+    /// Returns the existing border palette, independent of row selection highlighting.
+    fn border_color(self) -> Color {
+        match self {
+            Self::Strong => Color::Cyan,
+            Self::Muted => Color::DarkGray,
+        }
+    }
 }
 
 /// Returns the highlight style used for the active row.

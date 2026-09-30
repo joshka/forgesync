@@ -39,6 +39,8 @@ impl Respond for RetryThenSuccess {
     }
 }
 
+/// Loopback configuration with three immediate attempts inside a two-second retry budget.
+/// Client construction and requests remain explicit in each scenario; this only prepares settings.
 fn config(server: &MockServer) -> GitHubClientConfig {
     let mut config = ClientConfig::new(Url::parse(&format!("{}/", server.uri())).unwrap());
     config.retry = RetryPolicy {

@@ -5,6 +5,9 @@
 //! construction alone. Sample app data supplies a visible discussion and cluster state for the
 //! renderer. Add a focused size or state case when changing geometry, clipping, or selection cues
 //! so failures name the affected screen.
+//!
+//! Focus-cue cases render a standalone border and inspect its foreground color. They establish
+//! visual emphasis independently of navigation, asynchronous results, or writer authority.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
@@ -14,10 +17,35 @@ use forgesync_store::clusters::{ClusterDetail, ClusterLifecycle, ClusterSummary}
 use forgesync_store::reads::{ThreadDetail, ThreadSummary};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::widgets::Widget;
 
 use super::draw;
-use crate::app::{App, Screen};
+use crate::app::{App, Focus, Screen};
+use crate::view::PaneEmphasis;
+
+#[rstest::rstest]
+#[case::repositories_focused(Focus::Repositories, Focus::Repositories, Color::Cyan)]
+#[case::threads_focused(Focus::Threads, Focus::Threads, Color::Cyan)]
+#[case::detail_focused(Focus::Detail, Focus::Detail, Color::Cyan)]
+#[case::repositories_unfocused(Focus::Threads, Focus::Repositories, Color::DarkGray)]
+#[case::threads_unfocused(Focus::Detail, Focus::Threads, Color::DarkGray)]
+#[case::detail_unfocused(Focus::Repositories, Focus::Detail, Color::DarkGray)]
+fn pane_border_preserves_the_focus_palette(
+    #[case] current: Focus,
+    #[case] pane: Focus,
+    #[case] expected: Color,
+) {
+    let area = Rect::new(0, 0, 8, 3);
+    let mut buffer = Buffer::empty(area);
+    let block = PaneEmphasis::for_focus(current, pane).block("Pane");
+
+    block.render(area, &mut buffer);
+
+    assert_eq!(buffer[(0, 0)].fg, expected);
+}
 
 #[rstest::rstest]
 #[case::narrow(40, 10)]
@@ -101,6 +129,9 @@ fn maintainer_view_renders_at_terminal_size(
         .expect("draw maintainer view");
 }
 
+/// Browser state with one applied repository and selected discussion, without querying an archive.
+/// The picker cursor includes its all-repositories row, so the concrete repository occupies index
+/// one.
 fn sample_app() -> App {
     let summary = sample_summary();
     let mut app = App {
@@ -120,6 +151,7 @@ fn sample_app() -> App {
     app
 }
 
+/// Detail for the fixed discussion with no child evidence or timeline, isolating body scrolling.
 fn sample_detail() -> ThreadDetail {
     ThreadDetail {
         summary: sample_summary(),
@@ -131,6 +163,8 @@ fn sample_detail() -> ThreadDetail {
     }
 }
 
+/// One open issue with fixed identities, source time, and body text for deterministic rendering.
+/// Construction supplies display content only; it establishes no acquisition or coverage state.
 fn sample_summary() -> ThreadSummary {
     let repository = Repository {
         id: RepositoryId::new(

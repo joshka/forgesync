@@ -26,7 +26,7 @@ use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::{App, Focus};
 use crate::view::detail::detail_lines;
-use crate::view::{COMPACT_WIDTH, pane_block, selected_style};
+use crate::view::{COMPACT_WIDTH, PaneEmphasis, selected_style};
 
 /// Arranges repository, discussion, and detail panes for the available width.
 pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -85,7 +85,7 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
                 .min(items.len().saturating_sub(1)),
         ));
     }
-    let block = pane_block(&title, app.focus == Focus::Repositories);
+    let block = PaneEmphasis::for_focus(app.focus, Focus::Repositories).block(&title);
     frame.render_stateful_widget(
         List::new(items)
             .block(block)
@@ -128,7 +128,7 @@ fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     frame.render_stateful_widget(
         List::new(items)
-            .block(pane_block(&title, app.focus == Focus::Threads))
+            .block(PaneEmphasis::for_focus(app.focus, Focus::Threads).block(&title))
             .highlight_style(selected_style()),
         area,
         &mut state,
@@ -138,7 +138,7 @@ fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
 /// Draws selected discussion content or its loading and failure state.
 fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let lines = detail_lines(app);
-    let block = pane_block("Discussion detail", app.focus == Focus::Detail);
+    let block = PaneEmphasis::for_focus(app.focus, Focus::Detail).block("Discussion detail");
     let inner_height = block.inner(area).height;
     let max_scroll = lines.len().saturating_sub(usize::from(inner_height));
     app.detail_pane.scroll = app

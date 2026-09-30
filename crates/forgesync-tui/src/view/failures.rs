@@ -24,7 +24,7 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{COMPACT_WIDTH, pane_block, selected_style};
+use crate::view::{COMPACT_WIDTH, PaneEmphasis, selected_style};
 
 /// Arranges the failed-run list and selected failure detail.
 pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
@@ -66,7 +66,7 @@ fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     frame.render_stateful_widget(
         List::new(items)
-            .block(pane_block("Recent runs", true))
+            .block(PaneEmphasis::Strong.block("Recent runs"))
             .highlight_style(selected_style()),
         area,
         &mut state,
@@ -99,7 +99,7 @@ fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     };
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(pane_block("Unresolved work", true))
+            .block(PaneEmphasis::Strong.block("Unresolved work"))
             .wrap(Wrap { trim: false }),
         area,
     );

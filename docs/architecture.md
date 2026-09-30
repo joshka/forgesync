@@ -76,8 +76,9 @@ orders minimal retry requests without provider I/O; `runs` executes those reques
 
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
-The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose
-modules. Use the module path as the first navigation clue, then read the adjacent tests.
+The [maintainability plan](maintainability-plan.md) records the ownership migration, and the
+[source shape audit](source-shape-audit.md) records fixed and retained review dispositions. Use the
+module path as the first navigation clue, then read the adjacent tests.
 
 ## Local query boundaries
 

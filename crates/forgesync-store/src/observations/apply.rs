@@ -209,7 +209,11 @@ impl<'a> IncomingThread<'a> {
 
 /// Canonical selection either preserves stored state or identifies the row allowed to change.
 enum ThreadSelection {
+    /// An obsolete acquisition returns the existing high-water result without selecting a
+    /// canonical payload or complete-evidence update.
     Skipped(ThreadObservationResult),
+    /// The selected row may receive canonical replacement or independent complete-evidence
+    /// hydration, according to the selection's retained ordering facts.
     Apply(CanonicalSelection),
 }
 

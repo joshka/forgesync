@@ -2,11 +2,10 @@
 
 ## Current position
 
-The selected Forgesync implementation is in place. The maintainability cleanup remains
-**in progress**. All eight implementation/review batches have fixed or retained dispositions except
-one rendering helper that still takes a behavioral focus boolean and two private selection variants
-that need explicit contracts. Workspace acceptance is running on the current source and must be
-refreshed after these final edits.
+The selected Forgesync implementation and maintainability cleanup are **complete**. All eight
+implementation/review batches have fixed or retained dispositions, and all applicable local gates
+pass on the final source. The full workspace run passes 525 tests across 27 suites, with no failures
+or ignored cases. Hosted native execution remains separate release evidence.
 
 This file describes current status. The [source-shape audit](source-shape-audit.md) records review
 findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
@@ -31,39 +30,34 @@ execution, and missing-row checks. All eighty store cases and store Clippy pass.
 provisional page, and terminal declarations retain separate ordering/completeness meanings.
 
 The final import pass removes parent-prelude borrowing in store embedding reads and core identity
-leaves. Embedding docs distinguish one accepted chunk from complete retrieval evidence. Nightly
-formatting, workspace Clippy, the minimal CLI build, and strict public/private Rustdoc pass on this
-source tree; workspace tests are still running. These are acceptance candidates until the remaining
-rendering flag is replaced and applicable gates are refreshed.
+leaves. Embedding docs distinguish one accepted chunk from complete retrieval evidence. The prior
+source passed 519 tests across 27 suites. The final presentation change replaces a behavioral focus
+flag with `PaneEmphasis`, preserving cyan/dark-gray borders with six direct cases. All 81 TUI tests,
+workspace Clippy, and nightly formatting pass on this source. Selection variants and four fixture
+helpers now explain their contracts.
 
-## Bounded remaining work
+## Remaining work
 
-1. Replace `pane_block`'s focus boolean with an explicit presentation choice after the running
-   workspace tests finish. Document the two private `ThreadSelection` outcomes and four existing
-   construction helpers in TUI rendering/provider transport tests. Preserve the current
-   active/inactive border colors and observation selection behavior.
-1. Finish reconciling superseded scoped next-step notes in the audit and update the final checklist.
-1. Refresh all applicable local gates after that last source edit and record their terminal results.
-
-Stop when each existing requirement has evidence or an explained exception and local gates pass. New
-aesthetic opportunities do not expand this cleanup. Preserve source/acquisition ordering, partial
-membership, checkpoints, cancellation, fencing, and error isolation throughout the changes.
+No work remains in this maintainability cleanup. The source-shape audit records explicit retained
+exceptions rather than future cleanup tasks. Before a release, collect the configured hosted native
+matrix results; this local cleanup does not certify Linux, Intel macOS, or Windows execution.
 
 ## Final validation record
 
-Evidence must identify the tree and scope it actually checked. Current focused evidence does not
-replace a complete workspace run after the final source edit.
+Final acceptance was completed on 2026-09-30 after the last Rust edit. Source, manifests, lockfile,
+toolchain, and formatter configuration remained unchanged through acceptance. The 374-file source
+fingerprint is SHA-256 `7c1a22c7a6657e63874f01ac14d665e4d1864d85da3bae67219de9ec89317865`.
 
-| Gate                            | Current state                                               |
-| ------------------------------- | ----------------------------------------------------------- |
-| Nightly formatting              | Pass on final-import source; refresh after rendering change |
-| Workspace Clippy                | Pass on final-import source; refresh after rendering change |
-| Workspace tests                 | Running on final-import source; not yet acceptance evidence |
-| Minimal CLI build               | Pass on final-import source                                 |
-| Strict public/private Rustdoc   | Pass on final-import source; refresh after rendering change |
-| rumdl and changed Markdown lint | Rerun after final record reconciliation                     |
-| Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit         |
-| Hosted native matrix            | Separate release evidence; not run in this cleanup          |
+| Gate                            | Current state                                            |
+| ------------------------------- | -------------------------------------------------------- |
+| Nightly formatting              | Pass on final presentation source                        |
+| Workspace Clippy                | Pass on final presentation source                        |
+| Workspace tests                 | Pass: 525 cases, 27 suites, no failures or ignored cases |
+| Minimal CLI build               | Pass on final presentation source                        |
+| Strict public/private Rustdoc   | Pass on final presentation source                        |
+| rumdl and changed Markdown lint | Pass after final record reconciliation                   |
+| Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit      |
+| Hosted native matrix            | Separate release evidence; not run in this cleanup       |
 
 The final local gates are:
 
@@ -74,6 +68,7 @@ cargo test --workspace --all-features --locked
 cargo build -p forgesync-cli --no-default-features --locked
 RUSTDOCFLAGS='-D warnings -D missing_docs -D rustdoc::broken_intra_doc_links' \
   cargo doc --workspace --no-deps --all-features --document-private-items --locked
+rumdl fmt --check .
 rumdl check .
 markdownlint-cli2 --config /Users/joshka/.markdownlint-cli2.yaml <changed-markdown-files>
 ```

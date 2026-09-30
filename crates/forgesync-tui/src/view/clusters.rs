@@ -23,7 +23,7 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{pane_block, selected_style};
+use crate::view::{PaneEmphasis, selected_style};
 
 /// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
@@ -43,7 +43,7 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     frame.render_stateful_widget(
         List::new(items)
-            .block(pane_block("Generated clusters · neighbors", true))
+            .block(PaneEmphasis::Strong.block("Generated clusters · neighbors"))
             .highlight_style(selected_style()),
         area,
         &mut state,
@@ -72,7 +72,7 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     }
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(pane_block("Cluster members and neighbors", true))
+            .block(PaneEmphasis::Strong.block("Cluster members and neighbors"))
             .wrap(Wrap { trim: false }),
         area,
     );

@@ -4,6 +4,11 @@ This is the migration plan for the existing implementation. Completion means a m
 one behavior, follow its main path top-down, and find direct tests without loading unrelated
 workflows into memory. File length is a signal to inspect ownership, not a pass/fail target.
 
+The implementation and cross-crate review are complete. The
+[source shape audit](source-shape-audit.md) records fixed and retained dispositions, and
+[implementation status](implementation-status.md) records final acceptance: 525 passing cases across
+27 suites and all applicable local formatting, lint, build, and documentation gates.
+
 The crate-root, CLI command, engine sync/search/clustering/refresh, GitHub resource/transport, store
 operation, TUI view/state, and TUI read/operation splits are complete. Core identities and embedding
 client concerns now have smaller owning modules. Review-thread acquisition and normalization have
@@ -30,8 +35,9 @@ staged counts and terminal archive writes. REST links and GraphQL cursor-cycle c
 their provider collectors. Completion and failure consume the collection, exposing terminal state in
 the type's operations rather than relying on callers to coordinate counters and flags.
 
-The survey found these next candidates across the workspace. Approximate lengths describe the
-starting implementation and include signatures; inspect current code before beginning a slice.
+The survey originally identified these candidates across the workspace. Approximate lengths describe
+the starting implementation and include signatures; the implemented decisions and audit below
+describe their current dispositions.
 
 | Area                         | Signal                                                               | Concept to investigate                                                     | Contract to preserve                                                     |
 | ---------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -57,7 +63,7 @@ request data from mutable attempt state rather than introducing a general servic
 ### Implemented ownership decisions
 
 The first function and state ownership pass changed each area listed below. This records selected
-slices, not an exhaustive completion claim. Remaining review work is tracked in
+slices, not an exhaustive completion claim. The cross-crate review evidence is recorded in
 [source shape audit](source-shape-audit.md). The starting lengths above are historical inspection
 signals, not current measurements or limits.
 

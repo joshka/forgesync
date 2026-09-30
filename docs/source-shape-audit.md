@@ -86,27 +86,31 @@ panel's internal mutation protocol.
 
 ## Current acceptance position
 
-The eight implementation/review batches below have concrete fixed or retained dispositions. Terminal
-`pane_block` still accepts a behavioral focus boolean rather than an explicit presentation choice,
-two private `ThreadSelection` variants need outcome contracts, and four existing test construction
-helpers need fixture comments. After those changes, refresh the workspace gates and reconcile this
-record once more. Historical scoped results below identify what they checked; they do not replace
-final-tree acceptance.
+The eight implementation/review batches below have concrete fixed or retained dispositions. All
+applicable final local gates pass: nightly formatting, workspace Clippy, minimal CLI build, strict
+public/private Rustdoc, rumdl formatting/lint, and changed Markdown lint. The full workspace run
+passes 525 cases across 27 suites with zero failures or ignored cases. The final source fingerprint
+and completion date are recorded in [implementation status](implementation-status.md).
+
+The last presentation flag is replaced by `PaneEmphasis`; six direct cases preserve its color
+contract. Private `ThreadSelection` variants and four construction helpers describe their outcomes
+and fixture limits. Historical scoped results below identify what they checked; the final workspace
+run supplies acceptance after the last source edit.
 
 ## Completion checklist
 
-| Requirement                                           | Review disposition                                                                                                                       | Acceptance still needed                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Meaningful small modules; broad shallow navigation    | Workflow/state/transaction owners implemented; sync root split; no module file at 500 lines                                              | Final gates                                                               |
-| Command/state ownership and top-down reading          | Unified CLI command tree; named dispatch and local phase owners; retained linear transaction/scan exceptions                             | Final gates                                                               |
-| Related-input types; no behavioral boolean parameters | Child request/page declarations, typed embedding/member policy, query dispatch and sync attribution; one rendering flag remains          | Replace `pane_block` flag                                                 |
-| Explicit imports and deliberate visibility            | No wildcard imports; direct defining-owner imports; documented capability-boundary exceptions                                            | Final gates                                                               |
-| Useful docs on every application function             | No missing handwritten production comments; targeted constructor, effect, error, cleanup, ordering, and partial-state contracts reviewed | Strict private Rustdoc passes on current source; refresh after final edit |
-| Module/item orientation and examples                  | Module map, six crate introductions, engine examples, private representation/field contracts, and documented Python scripts              | Document two selection variants and four fixture helpers; refresh gates   |
-| Linear nearby tests and clear fixtures                | Cross-crate local/protocol/integration dispositions below; construction/resource helpers distinguished from hidden scenario execution    | Complete final workspace run                                              |
-| Current dependencies and tools                        | Direct/transitive freshness and upstream tool/action evidence checked 2026-09-29                                                         | No further source work identified                                         |
-| Reusable guidance                                     | AGENTS links documentation, Rust conventions, and architecture; recurring findings recorded there                                        | Keep records consistent with final edit                                   |
-| Formatting and local gates                            | Nightly format, workspace Clippy, minimal CLI build, and strict private Rustdoc pass on current source                                   | Workspace tests running; rerun affected gates after rendering change      |
+| Requirement                                           | Review disposition                                                                                                                       | Final acceptance             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Meaningful small modules; broad shallow navigation    | Workflow/state/transaction owners implemented; sync root split; no module file at 500 lines                                              | Pass: final local gates      |
+| Command/state ownership and top-down reading          | Unified CLI command tree; named dispatch and local phase owners; retained linear transaction/scan exceptions                             | Pass: final local gates      |
+| Related-input types; no behavioral boolean parameters | Child request/page declarations, typed embedding/member policy, query dispatch and sync attribution; explicit pane emphasis              | Pass: final local gates      |
+| Explicit imports and deliberate visibility            | No wildcard imports; direct defining-owner imports; documented capability-boundary exceptions                                            | Pass: final local gates      |
+| Useful docs on every application function             | No missing handwritten production comments; targeted constructor, effect, error, cleanup, ordering, and partial-state contracts reviewed | Pass: strict private Rustdoc |
+| Module/item orientation and examples                  | Module map, six crate introductions, engine examples, private representation/field contracts, and documented Python scripts              | Pass: final local gates      |
+| Linear nearby tests and clear fixtures                | Cross-crate local/protocol/integration dispositions below; construction/resource helpers distinguished from hidden scenario execution    | Pass: 525 cases, 27 suites   |
+| Current dependencies and tools                        | Direct/transitive freshness and upstream tool/action evidence checked 2026-09-29                                                         | Pass: dated freshness review |
+| Reusable guidance                                     | AGENTS links documentation, Rust conventions, and architecture; recurring findings recorded there                                        | Pass: records reconciled     |
+| Formatting and local gates                            | All local gates pass on final source; full workspace run passes 525 cases across 27 suites                                               | Pass: all final local gates  |
 
 Hosted Linux, Intel macOS, and Windows execution is separate release evidence. Native workflows are
 configured and their syntax validated; local cleanup checks cannot certify hosted results. No remote
@@ -154,8 +158,8 @@ Selection and deterministic chunks have local owners. `batches` owns request gro
 order, `scheduling::BatchScheduler` owns bounded workers and outcome dispatch, and
 `execution::EmbeddingWriter` owns service identity, fenced persistence, and lease release. Fatal
 exits now abort and drain outstanding requests before fence release, with direct cleanup cases and
-existing partial-success/retry integration evidence. Broad signature and documentation acceptance
-still belong to batch 7; this phase does not claim to complete the workspace cleanup.
+existing partial-success/retry integration evidence. Batch 7 and the signature dispositions below
+provide the separate API and documentation review.
 
 ### 2. Cluster construction — implemented
 
@@ -342,8 +346,8 @@ multi-step behavior from wrapped single calls or explicit domain values:
 
 Embedding-client backoff now belongs to `wait_to_retry`, with explicit budget and cancellation
 contracts. A one-shot failure/success protocol case and direct boundary cases cover its behavior.
-These dispositions cover the inspected engine matches, not the remaining signature and
-item-documentation review.
+These dispositions cover the inspected engine matches. Signature and item-documentation evidence
+appears in the separate cross-crate dispositions below.
 
 ### Remaining store match-arm dispositions
 
@@ -395,8 +399,8 @@ below.
 - GitHub success dispatch now delegates typed JSON decoding to the bounded response owner, with
   malformed/shape/pagination cases. No GitHub multiline match-arm findings remain in the inventory.
 
-These decisions close the refreshed multiline match inventory across the six crates. They do not
-close the independent broad-signature, documentation-depth, or full test-quality passes.
+These decisions close the refreshed multiline match inventory across the six crates. The separate
+signature, documentation, and test-quality dispositions below cover those independent requirements.
 
 ### Core broad-signature dispositions
 
@@ -413,8 +417,8 @@ close the independent broad-signature, documentation-depth, or full test-quality
 - The conservative syntax inventory also flags `ProviderData::insert` because it counts `self`. Its
   two actual inputs are a field name and JSON value; retain the normal map operation.
 
-This disposes of the core broad-signature candidates. Documentation-depth review still require their
-own evidence.
+This disposes of the core broad-signature candidates. Batch 7 and the core scenario dispositions
+provide their separate documentation and test evidence.
 
 ### Refresh embedding ownership and signatures
 
@@ -1096,3 +1100,29 @@ assertion evidence follows above; final-tree acceptance remains separate.
 Hosted Linux, Intel macOS, and Windows results remain separate validation evidence. Workflow syntax
 and local gates do not establish those results. No remote publication or hosted execution has been
 performed as part of this cleanup.
+
+## Final presentation and boolean-input dispositions
+
+`PaneEmphasis` owns the visual border choice and derives browser emphasis from `Focus`. Maintainer
+projections choose strong emphasis explicitly. It does not select queries, authorize writers, or
+change selection state. Six linear cases check matching and nonmatching focus colors; the existing
+render snapshots retain whole-screen layout evidence.
+
+Remaining boolean inputs convey facts or convert boundary values rather than select hidden execution
+policies. `OutputMode::from` and `EmbeddingPolicy::from_force` convert parsed flags into named
+choices before execution. `is_not_stale` is a serialization predicate. Transport classification
+receives an observed rate-limit fact because status alone is ambiguous; run accounting receives an
+observed interruption fact alongside its independent failure evidence. Provider fixtures encode
+merged, resolved, and pagination facts directly. Predicate-test expected values are assertions, not
+workflow switches. Introducing wrappers for these independent facts would add concepts without
+improving reader locality.
+
+The final syntax scan covers 364 Rust files and finds no missing handwritten production function
+docs or module introductions; no file reaches 500 lines. A separate item scan inspects 2,172
+production declarations and identifies only the two standard trait-associated aliases described
+below. Its four functions over 50 lines comprise three retained production exceptions documented
+above and the cfg-test `documents/test_detail` constructor. Trait-associated `FromStr::Err` aliases
+inherit the standard trait contract; they are not undocumented application-specific outcomes. The
+two private selection variants explain obsolete skips and accepted content/evidence application.
+Rendering and transport construction helpers explain their intentionally small fixtures without
+hiding scenario execution.

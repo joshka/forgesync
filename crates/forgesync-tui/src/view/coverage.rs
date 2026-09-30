@@ -25,11 +25,11 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{family_name, pane_block};
+use crate::view::{PaneEmphasis, family_name};
 
 /// Draws archive-wide coverage and health, marking cached refreshes and current read failures.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let block = pane_block("Archive coverage and health", true);
+    let block = PaneEmphasis::Strong.block("Archive coverage and health");
     let mut lines = if app.coverage_panel.loading && app.coverage_panel.data.is_none() {
         vec![Line::from("Loading archive coverage…")]
     } else if let Some(error) = &app.coverage_panel.error {
