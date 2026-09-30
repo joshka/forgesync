@@ -18,6 +18,15 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Document fixture revisions now name parent/comment clocks and body in a shallow `DocumentSource`
+owner. Materialization verifies old reply removal, stable timestamp-only identity, and persisted
+content. Refresh checks a retained complete sync report and durable run after unavailable
+embeddings; retry separates read/presence boundaries and checks scope count before indexing. Initial
+review-thread membership names both provider IDs. All 15 sync cases pass; engine all-target Clippy
+passes with warnings denied. Remaining engine test work is the mixed embedding retry/hybrid/fallback
+owner and retained-chunk assertions; store observation acceptance, broad API/docs acceptance, and
+final gates remain open.
+
 Sync enumeration now separates replay, closed-sweep recovery, and run-creation cleanup into shallow
 owners. Replay uses a request-arrival notification and checks preserved discussion content;
 checkpoint setup verifies its affected row; failed run creation requires the expected foreign-key

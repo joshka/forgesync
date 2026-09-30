@@ -1,8 +1,17 @@
 //! # Refresh stage scenarios
 //!
-//! These cases exercise sync followed by selected derived analysis. Each stage has its own report
-//! so a later failure cannot erase earlier committed evidence. Keep assertions explicit about
-//! requested, completed, failed, and unstarted stages.
+//! These two cases distinguish sync-only refresh from refresh that also requests embeddings without
+//! a configured service. Both acquire the same empty repository through a real engine operation;
+//! model-service construction is unnecessary for sync-only work.
+//!
+//! The sync-only result selects exactly sync and has no embedding/cluster stages or pending work.
+//! When embedding is requested but unavailable, the complete sync report and its durable run
+//! survive, while embedding reports a specific failure and remains pending for later work.
+//!
+//! Requests name optional stages and service identity explicitly. Setup configures provider
+//! fixtures without invoking refresh; assertions distinguish selected, completed, failed, and
+//! remaining work. Stage sequencing is the shared policy owned by this small suite, so the two
+//! cases stay together.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::outcome::OperationOutcome;
@@ -60,11 +69,13 @@ async fn refresh_syncs_without_constructing_a_model_service() {
     .expect("refresh report");
 
     assert_eq!(report.selected, [RefreshStageKind::Sync]);
-    assert_eq!(
-        report.sync.as_ref().unwrap().status,
-        RefreshStageStatus::Complete
-    );
-    assert!(report.sync.as_ref().unwrap().report.is_some());
+    let sync = report.sync.as_ref().expect("sync stage reported");
+    assert_eq!(sync.status, RefreshStageStatus::Complete);
+    let sync_report = sync
+        .report
+        .as_ref()
+        .expect("completed sync report retained");
+    assert_eq!(sync_report.outcome, OperationOutcome::Complete);
     assert!(report.embeddings.is_none());
     assert!(report.clusters.is_none());
     assert!(report.remaining.is_empty());
@@ -116,7 +127,17 @@ async fn refresh_retains_sync_when_an_optional_embedding_stage_is_unavailable() 
 
     let sync = report.sync.as_ref().expect("sync stage retained");
     assert_eq!(sync.status, RefreshStageStatus::Complete);
-    assert!(sync.report.is_some());
+    let sync_report = sync
+        .report
+        .as_ref()
+        .expect("completed sync report retained");
+    assert_eq!(sync_report.outcome, OperationOutcome::Complete);
+    let persisted = archive
+        .run_detail(sync_report.run.id)
+        .await
+        .expect("read retained sync run");
+    let persisted = persisted.expect("sync run remains durable");
+    assert_eq!(persisted.run.outcome, Some(OperationOutcome::Complete));
     let embeddings = report
         .embeddings
         .as_ref()

@@ -323,7 +323,9 @@ setup under `tests/sync_scenarios` has three sibling owners: `fixture_issues` fo
 responses and local clients, `fixture_reviews` for pull-request head/review responses, and
 `fixture_archive` for checked references, already-read coverage selection, and archive lifetime.
 Scenarios read current detail and archive status directly; fixtures perform no archive reads or
-writes and do not run engine workflows. Document-only response setup stays in `documents`. Review
+writes and do not run engine workflows. Document revision setup lives in
+`fixture_documents::DocumentSource`, whose named clocks and body configure provider responses
+without acquisition. The document scenario keeps actual sync and materialization visible. Review
 regressions have sibling owners for failure isolation, head freshness, membership replacement, and
 partial-collection isolation, keeping each complete scenario local without deeper module nesting.
 

@@ -719,9 +719,22 @@ requires the database foreign-key violation, confirms no run and no external can
 reacquires at the Unix epoch so release cannot be confused with expiration. Lease release has a
 separate fallible operation and boolean expectation. All 15 sync integration cases pass.
 
-Remaining engine test acceptance covers document materialization, embedding retry, refresh, retry
-selection, and final review-family assertion quality. Completed enumeration and comment grouping
-findings are removed from that inventory. Store observation assertion acceptance and broad
+Document materialization retains its dependent initial, repeated, timestamp-only, and edited phases
+as one linear identity contract. `DocumentSource` names parent/comment source clocks and reply text
+in a shallow fixture owner; its method only configures provider responses. The scenario verifies
+persisted first content, initial body/reply inclusion, stable hashes for timestamp changes, and
+replacement of old reply text after editing. Optional document retrieval has separate read/presence
+failures. Refresh's two related policy cases stay together, with named stage/report expectations and
+an explicit durable run read proving successful sync survives unavailable embeddings. Retry checks
+selected scope count before indexing and separates local retrieval from presence and request-history
+assertions. Review-thread initial membership now names both provider identities, rather than only a
+count. The existing review failure/head/partial/restore transitions retain their coherent baselines.
+All 15 sync cases pass after these changes.
+
+Remaining engine test acceptance is the embedding workflow owner: one scenario still combines
+partial chunk retry, hybrid retrieval, and missing-key fallback. Give those independent contracts
+shallow owners and document the stateful service responder; retained chunk assertions should compare
+which chunks survive rather than only their count. Store observation assertion acceptance and broad
 production documentation/API acceptance remain separate review work.
 
 ### Store lifecycle and cluster-suite dispositions

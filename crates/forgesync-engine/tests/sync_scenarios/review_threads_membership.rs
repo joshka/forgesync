@@ -89,6 +89,13 @@ async fn complete_review_thread_snapshots_remove_and_restore_current_membership(
         .await
         .expect("read current thread 18 detail");
     assert_eq!(thread_18_detail.review_threads.len(), 2);
+    assert_eq!(
+        [
+            thread_18_detail.review_threads[0].id.as_str(),
+            thread_18_detail.review_threads[1].id.as_str()
+        ],
+        ["PRRT_old", "PRRT_page_two"]
+    );
 
     server.reset().await;
     mount_repository(&server).await;

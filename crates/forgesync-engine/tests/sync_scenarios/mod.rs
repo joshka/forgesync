@@ -8,12 +8,13 @@
 //! Shared setup has explicit owners: `fixture_issues` constructs REST discussion responses and
 //! local clients, `fixture_reviews` supplies pull-request head/review responses, and
 //! `fixture_archive` constructs references, selects already-read coverage, and owns database
-//! lifetime. Scenarios import those
-//! owners directly.
+//! lifetime. `fixture_documents` names document source revisions. Scenarios import these owners
+//! directly.
 //!
 //! The real workflow calls and their requests stay in each test; fixtures never run acquisition.
 //! Read the affected scenario to see family selection, failure setup, and canonical-state
-//! assertions. Document-only response setup stays alongside document materialization scenarios.
+//! assertions. Document source setup configures HTTP responses; materialization stays in its
+//! scenario.
 
 mod closed_sweep;
 mod comments_empty;
@@ -23,6 +24,7 @@ mod documents;
 mod embeddings;
 mod enumeration_replay;
 mod fixture_archive;
+mod fixture_documents;
 mod fixture_issues;
 mod fixture_reviews;
 mod refresh;

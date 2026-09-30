@@ -1,8 +1,16 @@
 //! # Retry scenarios
 //!
-//! These cases use recorded run failures to select the work attempted again. They protect precise
-//! scope: a failed family can be retried without repeating unrelated completed work. The previous
-//! attempt remains inspectable in the run ledger.
+//! The initial workflow records failures for multiple child families on one pull request. Retry
+//! planning selects only comments, so the next operation must leave reviews unresolved and make no
+//! review-provider request. The original attempt remains inspectable in the durable run ledger.
+//!
+//! The selected failure and scope counts are checked before indexed field assertions. The retry run
+//! names its original parent, and the stored comment failure points to that successful retry while
+//! the review failure stays unresolved. Local ledger reads have separate result/presence failures.
+//!
+//! Provider setup may construct responses and clients, but retry planning and execution remain in
+//! this linear scenario. The two phases stay together because family selection is defined by the
+//! original recorded failures; this suite does not reconstruct a synthetic retry plan.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::outcome::OperationOutcome;
@@ -84,6 +92,7 @@ async fn retry_selects_one_family_and_leaves_other_failures_unresolved() {
         .await
         .expect("plan selected retry");
     assert_eq!(plan.failure_ids.len(), 1);
+    assert_eq!(plan.scopes.len(), 1);
     assert!(plan.scopes[0].include_comments);
     assert!(!plan.scopes[0].include_reviews);
     let clients = clients_for(&server, &selector);
@@ -97,8 +106,8 @@ async fn retry_selects_one_family_and_leaves_other_failures_unresolved() {
     let updated = archive
         .run_detail(original.run.id)
         .await
-        .expect("read original run")
-        .expect("original run exists");
+        .expect("read original run");
+    let updated = updated.expect("original run exists");
     let comments = updated
         .failures
         .iter()
@@ -112,11 +121,9 @@ async fn retry_selects_one_family_and_leaves_other_failures_unresolved() {
     assert!(comments.resolved_at.is_some());
     assert_eq!(comments.retry_run_id, Some(retry.runs[0].run.id));
     assert!(reviews.resolved_at.is_none());
+    let requests = server.received_requests().await.expect("received requests");
     assert!(
-        server
-            .received_requests()
-            .await
-            .expect("received requests")
+        requests
             .iter()
             .all(|request| request.url.path() != "/api/v3/repos/owner/repo/pulls/18/reviews")
     );

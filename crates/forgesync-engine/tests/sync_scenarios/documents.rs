@@ -1,23 +1,28 @@
 //! # Document materialization scenarios
 //!
-//! These cases build derived search documents from archived discussion evidence. They cover the
-//! boundary between source observations and recipe-shaped text. A recipe or observation change may
-//! require regeneration, while source content remains stored independently.
+//! This dependent regression follows enriched discussion text through initial materialization,
+//! identical repetition, a source timestamp-only change, and an edited comment. Content hashes and
+//! archive row identity stay stable for equivalent text; an actual reply edit changes the hash.
+//!
+//! Provider fixture values name parent and comment clocks separately. The fixture configures HTTP
+//! responses only; each sync and materialization operation stays visible in the scenario. The first
+//! archive read verifies persisted content independently of the builder/materializer comparison.
+//!
+//! The longer linear transition stays together because later hash comparisons need the original
+//! document as a baseline. Recipe rendering rules live in focused document unit suites; this case
+//! connects source acquisition, content identity, and persisted derived-document updates.
 
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::documents::{build_thread_document, materialize_thread_document};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
-use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use wiremock::MockServer;
 
 use super::fixture_archive::{remove_archive, temporary_archive_path};
-use super::fixture_issues::{
-    clients_for, comment, issue_with_comment_count, mount_comments, mount_open_issues,
-    mount_repository,
-};
+use super::fixture_documents::DocumentSource;
+use super::fixture_issues::clients_for;
 
 #[tokio::test]
 async fn document_materialization_tracks_content_but_ignores_source_timestamps() {
@@ -33,12 +38,12 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
         .parse::<ThreadSelector>()
         .expect("thread selector");
 
-    mount_document_source(
-        &server,
-        "2026-09-20T09:30:00Z",
-        "2026-09-19T08:00:00Z",
-        "Stable discussion reply",
-    )
+    DocumentSource {
+        issue_updated_at: "2026-09-20T09:30:00Z",
+        comment_updated_at: "2026-09-19T08:00:00Z",
+        comment_body: "Stable discussion reply",
+    }
+    .mount(&server)
     .await;
     let clients = clients_for(&server, &repository);
     let request = SyncRequest {
@@ -76,12 +81,14 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     .await
     .expect("materialize first document");
     assert_eq!(first.document, built);
+    assert!(first.document.text.contains("Original discussion body"));
+    assert!(first.document.text.contains("Stable discussion reply"));
     assert!(first.write.content_changed);
     let stored_first = archive
         .document(&first.document.source_identity, first.document.recipe)
         .await
-        .expect("load first document")
-        .expect("document is stored");
+        .expect("load first document");
+    let stored_first = stored_first.expect("document is stored");
     assert_eq!(stored_first, first.document);
 
     let repeated = materialize_thread_document(
@@ -96,12 +103,12 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     assert_eq!(repeated.document.content_hash, first.document.content_hash);
 
     server.reset().await;
-    mount_document_source(
-        &server,
-        "2026-09-20T09:31:00Z",
-        "2026-09-19T08:00:00Z",
-        "Stable discussion reply",
-    )
+    DocumentSource {
+        issue_updated_at: "2026-09-20T09:31:00Z",
+        comment_updated_at: "2026-09-19T08:00:00Z",
+        comment_body: "Stable discussion reply",
+    }
+    .mount(&server)
     .await;
     let clients = clients_for(&server, &repository);
     let request = SyncRequest {
@@ -141,12 +148,12 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     );
 
     server.reset().await;
-    mount_document_source(
-        &server,
-        "2026-09-20T09:32:00Z",
-        "2026-09-20T09:32:00Z",
-        "Edited discussion reply",
-    )
+    DocumentSource {
+        issue_updated_at: "2026-09-20T09:32:00Z",
+        comment_updated_at: "2026-09-20T09:32:00Z",
+        comment_body: "Edited discussion reply",
+    }
+    .mount(&server)
     .await;
     let clients = clients_for(&server, &repository);
     let request = SyncRequest {
@@ -178,26 +185,8 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
     assert!(edited.write.content_changed);
     assert_ne!(edited.document.content_hash, first.document.content_hash);
     assert!(edited.document.text.contains("Edited discussion reply"));
+    assert!(!edited.document.text.contains("Stable discussion reply"));
 
     archive.close().await;
     remove_archive(&archive_path);
-}
-
-/// Mounts the fixed original-body discussion and one comment with explicit source clocks.
-///
-/// Setup configures provider responses only; the scenario performs acquisition before
-/// materialization.
-async fn mount_document_source(
-    server: &MockServer,
-    issue_updated_at: &str,
-    comment_updated_at: &str,
-    comment_body: &str,
-) {
-    mount_repository(server).await;
-    let mut issue = issue_with_comment_count(91, 11, "Document target", issue_updated_at, 1);
-    issue["body"] = json!("Original discussion body");
-    mount_open_issues(server, vec![issue]).await;
-    let mut comment = comment(1101, comment_body);
-    comment["updated_at"] = json!(comment_updated_at);
-    mount_comments(server, 11, vec![comment]).await;
 }
