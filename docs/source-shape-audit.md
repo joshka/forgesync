@@ -211,10 +211,10 @@ canonical selection phases, and member-detail enrichment/role precedence. These 
 transaction/read ordering, and public output contracts.
 
 Dismissal/restoration now has named state and audit phases with archive-owned validation, fencing,
-and commit. Final store acceptance/gates pass. Broader visibility/import seams and suite
-fixture complexity stay in the workspace conventions/test batches. A direct public-archive
-restoration scenario now checks dismissal clearing, retained member projections, and ordered durable
-audit reasons. Final gates pass with that scenario included.
+and commit. Final store acceptance/gates pass. Broader visibility/import seams and suite fixture
+complexity stay in the workspace conventions/test batches. A direct public-archive restoration
+scenario now checks dismissal clearing, retained member projections, and ordered durable audit
+reasons. Final gates pass with that scenario included.
 
 Retained with reason: SQL column/bind projections, diagnostic counter reads, archive-status
 assembly, and simple event/family mappings are linear statements of their owning read/write

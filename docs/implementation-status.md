@@ -1860,8 +1860,23 @@ checks; final acceptance reruns with this scenario included. The specifically re
 coverage gap is closed. Broader fixture, suite locality, and convention review remain in their
 bounded batches rather than being silently removed from scope.
 
+Store acceptance passes with direct restoration coverage included: all workspace tests/doctests, the
+CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
+formatting, rumdl, and changed-page Markdown linting. The first five bounded batches are
+implemented. Presentation, workspace conventions/documentation, test-suite review, and final
+acceptance remain.
 
-Store acceptance passes with direct restoration coverage included: all workspace tests/doctests,
-the CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
-formatting, rumdl, and changed-page Markdown linting. The first five bounded batches are implemented.
-Presentation, workspace conventions/documentation, test-suite review, and final acceptance remain.
+## Continued maintenance: named CLI timeline wording
+
+CLI detail section assembly remains in `reports::detail`; event wording now lives in a private
+`reports::timeline` module. Dispatch calls named opened/closed/comment/review projections. Borrowed
+review-thread path, resolution, and outdated facts share one context for thread and comment wording,
+without behavioral boolean parameters. Reviewer, state, and body suffix have explanatory locals.
+
+Labels, punctuation, source-body spelling, missing-data fallback, timestamps, section order, and
+JSON DTOs remain unchanged. Two nearby linear cases protect resolved/outdated and unknown-path
+wording. Both focused cases, all offline query output cases, workspace Clippy, formatting, rumdl,
+and changed-page Markdown linting pass. All workspace tests/doctests, the CLI build without default
+features, and strict public/private Rustdoc also pass. Review-thread match arms
+retain only explicit source-field projection into a named context; all wording policy lives below
+the dispatcher. Presentation cleanup remains open.
