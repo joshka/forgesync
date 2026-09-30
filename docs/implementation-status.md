@@ -13,6 +13,14 @@ findings and their dispositions; the [module map](architecture.md) explains the 
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
 
+## Diagnostic colors follow-up
+
+Text diagnostics enable tracing's default ANSI colors and respect nonempty `NO_COLOR`. JSON logs
+remain uncolored. Process checks verify those behaviors and unchanged stdout. Validation in the
+isolated `work/tracing-colors` workspace passes: 31 CLI contract tests, 542 workspace tests across
+29 suites, nightly formatting, workspace Clippy, the CLI-only build, Rustdoc, and Markdown lint.
+The next action is PR review and workspace cleanup after merge; no implementation work remains.
+
 ## Registry and trusted release follow-up
 
 The public `joshka/forgesync` repository and MIT OR Apache-2.0 licensing are configured. All seven
