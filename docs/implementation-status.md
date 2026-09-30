@@ -2058,8 +2058,9 @@ Run IDs include a positive/zero example. Host parsing documents trimming, author
 default-port omission, ASCII DNS input, rejected URL forms, and its distinction from transport
 request authorization, with a compiled example. Outcome guidance keeps workflow-specific count units
 and accounting responsibility explicit. The reusable constructor-boundary rule is recorded in the
-documentation guide. Focused core tests/doctests, strict core Rustdoc, and workspace Clippy are
-running; full workspace conventions and test reviews remain open.
+documentation guide. Focused core tests/doctests, strict core Rustdoc, workspace Clippy, formatting,
+rumdl, and changed-page Markdown linting pass. Full workspace conventions and test reviews remain
+open.
 
 ## Continued maintenance: GitHub transport dependency locality
 
@@ -2094,6 +2095,20 @@ resource module; the wire leaf is 176 lines with documentation. Wire types/field
 the private module and are not exposed as domain, archive, or CLI APIs.
 
 Serde names, defaults, flattening, serialization derives, and normalized behavior are unchanged. All
-20 GitHub tests pass; doctests and workspace Clippy are finishing. Strict GitHub Rustdoc and
-remaining workspace gates remain to run. GraphQL response ownership and remaining provider API
-contracts still belong to the bounded conventions review.
+20 GitHub tests, both doctests, workspace Clippy, strict GitHub Rustdoc, formatting, rumdl, and
+changed-page Markdown linting pass. Full workspace gates remain to run. GraphQL response ownership
+and remaining provider API contracts still belong to the bounded conventions review.
+
+## Continued maintenance: GraphQL response ownership
+
+Private `review_threads::wire` owns query variables, operation envelopes, outer/nested connections,
+page metadata, and raw thread/comment/author/review nodes. Type and field contracts explain nullable
+provider omission, required acquisition checks, independent nested pagination, source facts, and
+extension retention. Normalization imports raw nodes from their actual private owner. The public
+review-thread page and acquisition coordination remain separate from wire representation.
+
+Serde shape, required/optional values, defaults, and normalized behavior are preserved. All 20
+GitHub tests and both doctests pass. Clippy identified leftover imports after extraction; they are
+removed. Final-tree workspace Clippy and strict GitHub Rustdoc pass, as do formatting, rumdl, and
+changed-page Markdown linting. Provider acquisition/API contracts and broader convention review
+remain open; extraction alone does not close the crate audit.

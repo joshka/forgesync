@@ -14,18 +14,22 @@
 //! page does not mean the family is complete until every outer page has been acquired and applied.
 //! Transport owns the HTTP request; `normalize` owns GraphQL-to-domain conversion.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 mod normalize;
+mod wire;
 
 use forgesync_core::content::{Repository, ReviewThread};
 use forgesync_core::identity::{CommitSha, ProviderId, ThreadId};
 use normalize::normalize_review_thread;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
+use crate::review_threads::wire::{
+    GraphqlEnvelope, GraphqlPageInfo, GraphqlReviewThread, ReviewThreadCommentsData,
+    ReviewThreadCommentsVariables, ReviewThreadsData, ReviewThreadsVariables,
+};
 use crate::transport::GitHubClient;
 
 const REVIEW_THREADS_QUERY: &str = r#"
@@ -252,119 +256,6 @@ where
 struct GraphqlRequest<'a, V> {
     query: &'a str,
     variables: &'a V,
-}
-
-#[derive(Deserialize)]
-struct GraphqlEnvelope<T> {
-    data: Option<T>,
-    #[serde(default)]
-    errors: Vec<Value>,
-}
-
-#[derive(Serialize)]
-struct ReviewThreadsVariables<'a> {
-    owner: &'a str,
-    repo: &'a str,
-    number: u64,
-    cursor: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct ReviewThreadCommentsVariables<'a> {
-    #[serde(rename = "threadID")]
-    thread_id: &'a ProviderId,
-    cursor: Option<&'a str>,
-}
-
-#[derive(Deserialize)]
-struct ReviewThreadsData {
-    repository: Option<GraphqlRepository>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlRepository {
-    #[serde(rename = "pullRequest")]
-    pull_request: Option<GraphqlPullRequest>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlPullRequest {
-    #[serde(rename = "reviewThreads")]
-    review_threads: Option<GraphqlConnection<GraphqlReviewThread>>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlConnection<T> {
-    nodes: Option<Vec<T>>,
-    #[serde(rename = "pageInfo")]
-    page_info: Option<GraphqlPageInfo>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlPageInfo {
-    #[serde(rename = "hasNextPage")]
-    has_next_page: Option<bool>,
-    #[serde(rename = "endCursor")]
-    end_cursor: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlReviewThread {
-    id: String,
-    #[serde(rename = "isResolved")]
-    is_resolved: Option<bool>,
-    #[serde(rename = "isOutdated")]
-    is_outdated: Option<bool>,
-    path: Option<String>,
-    line: Option<i64>,
-    #[serde(rename = "startLine")]
-    start_line: Option<i64>,
-    comments: Option<GraphqlConnection<GraphqlComment>>,
-    #[serde(flatten)]
-    extra: BTreeMap<String, Value>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlComment {
-    id: String,
-    #[serde(rename = "databaseId")]
-    database_id: Option<u64>,
-    body: String,
-    author: Option<GraphqlAuthor>,
-    path: Option<String>,
-    #[serde(rename = "diffHunk")]
-    diff_hunk: Option<String>,
-    #[serde(rename = "createdAt")]
-    created_at: String,
-    #[serde(rename = "updatedAt")]
-    updated_at: Option<String>,
-    url: Option<String>,
-    #[serde(rename = "pullRequestReview")]
-    pull_request_review: Option<GraphqlReviewRef>,
-    #[serde(flatten)]
-    extra: BTreeMap<String, Value>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlAuthor {
-    login: Option<String>,
-    #[serde(flatten)]
-    extra: BTreeMap<String, Value>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlReviewRef {
-    id: String,
-}
-
-#[derive(Deserialize)]
-struct ReviewThreadCommentsData {
-    node: Option<GraphqlReviewThreadNode>,
-}
-
-#[derive(Deserialize)]
-struct GraphqlReviewThreadNode {
-    comments: Option<GraphqlConnection<GraphqlComment>>,
 }
 
 #[cfg(test)]

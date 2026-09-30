@@ -21,7 +21,7 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde_json::Value;
 
 use crate::error::GitHubError;
-use crate::review_threads::{GraphqlComment, GraphqlReviewThread};
+use crate::review_threads::wire::{GraphqlComment, GraphqlReviewThread};
 
 /// Converts a fully paged GraphQL thread into normalized review evidence.
 pub fn normalize_review_thread(
