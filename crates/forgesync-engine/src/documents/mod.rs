@@ -100,4 +100,6 @@ pub async fn materialize_thread_document(
 }
 
 #[cfg(test)]
+mod test_detail;
+#[cfg(test)]
 mod tests;

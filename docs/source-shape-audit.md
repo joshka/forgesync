@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Document recipe assertions now separate comment ordering, review inclusion, bot exclusion, and
+deduplication case normalization. The construction-only detail fixture lives in a shallow sibling
+test module with explicit identity, chronology, bot metadata, and coverage contracts. Stale-family
+selection remains one coherent comparison of excluded stale and included fresh evidence. Sync
+accounting retains direct named counter scenarios with no workflow fixture or scenario branching.
+
 Engine scoring now isolates best-chunk relevance, stable-identity ties, and zero-score exclusion in
 separate linear scenarios. Cancellation naming reflects a token canceled before entry rather than
 claiming an in-flight cancellation experiment. Construction helpers document fixed identities,
