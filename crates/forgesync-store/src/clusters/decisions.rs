@@ -10,8 +10,9 @@
 
 use super::{
     Archive, ArchiveLeaseToken, SqliteConnection, StoreError, ThreadId, UtcTimestamp,
-    require_active_archive_lease, thread_row_id,
+    require_active_archive_lease,
 };
+use crate::clusters::generation_input::thread_row_id;
 
 #[derive(Clone, Copy)]
 enum ClusterDecision {

@@ -8,9 +8,11 @@
 //! Lifecycle, member state, and member role are separate because a proposed relationship and a
 //! maintainer decision have different meanings. `generation` writes proposed membership, `queries`
 //! reads it, and `decisions` records local triage actions. The engine owns candidate selection;
-//! this module owns persistence and the durable effect of decisions.
+//! this module owns persistence and the durable effect of decisions. `generation_input` validates
+//! proposals and resolves archived rows inside the write transaction; `generation_matching` retains
+//! durable identity through membership overlap. Their private representations stay beside those
+//! operations rather than appearing as another layer of API types here.
 
-use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use forgesync_core::content::Repository;
@@ -188,20 +190,10 @@ pub struct ClusterPage {
     pub next_offset: Option<u64>,
 }
 
-struct PreparedCluster {
-    representative_id: i64,
-    title: String,
-    members: Vec<(i64, Option<f64>)>,
-}
-
-struct ExistingCluster {
-    id: i64,
-    members: HashSet<i64>,
-}
-
 mod decisions;
 mod generation;
+mod generation_input;
+mod generation_matching;
 mod queries;
 
 use decisions::{checked_cluster_id, insert_cluster_event};
-use generation::thread_row_id;

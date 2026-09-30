@@ -1486,3 +1486,21 @@ tests/doctests, the CLI build without default features, strict public/private Ru
 formatting, workspace rumdl, and changed-page Markdown linting. The snapshot and coordinator
 introductions now describe their separate read/analysis/write roles. Store generation application
 and identity matching remain the final implementation surface of the cluster construction batch.
+
+## Continued maintenance: store generation preparation boundaries
+
+Generation validation and SQL identity resolution now live in `generation_input`; durable overlap
+matching lives in `generation_matching`. Their representations have local field contracts rather
+than private declarations on the cluster API root. Decision operations import the shared row
+resolver from its defining module. Preparation docs now correctly distinguish validation before
+transaction creation from row resolution within the transaction.
+
+The generation transaction and SQL algorithms remain unchanged. Write orchestration, repeated run
+identity/timestamp parameters, and overlap-ranking representation remain the next store review
+targets before the cluster construction batch can be closed.
+
+Current-tree validation passes: workspace Clippy, all workspace tests/doctests, the CLI build
+without default features, strict public/private Rustdoc, nightly formatting, workspace rumdl, and
+changed Markdown linting. The public cluster page and decision entry points retain their existing
+API; only private generation representations moved. The cluster construction batch remains open for
+matching evidence representation and transaction write orchestration.

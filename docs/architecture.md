@@ -204,3 +204,9 @@ inconsistent evidence before graph analysis. Thread counts use offset pages; vec
 store's raw cursor and one fixed build request identity. The generation coordinator consumes that
 snapshot under its existing lease and projects candidate membership through a named store-input
 conversion.
+
+Store `clusters/generation_input` validates proposed membership before transaction creation, then
+resolves source identities inside the active transaction into sorted `PreparedCluster` rows. Local
+decisions share its discussion-row resolver. `generation_matching` loads existing active/excluded
+membership and assigns durable IDs by ordered overlap. Neither module commits or performs generation
+writes; `generation` retains the fenced transaction and its commit boundary.

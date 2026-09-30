@@ -12,14 +12,16 @@
 use std::fmt::Write as _;
 
 use sha2::Digest;
-use sqlx::Row;
 
 use super::{
     Archive, ArchiveLeaseToken, ClusterGenerationInput, ClusterGenerationResult, DocumentRecipe,
-    ExistingCluster, HashMap, HashSet, PreparedCluster, QueryBuilder, RepositoryId, Sha256, Sqlite,
-    SqliteConnection, StoreError, ThreadId, UtcTimestamp, insert_cluster_event,
+    QueryBuilder, Sha256, Sqlite, SqliteConnection, StoreError, UtcTimestamp, insert_cluster_event,
     require_active_archive_lease,
 };
+use crate::clusters::generation_input::{
+    PreparedCluster, prepare_clusters, repository_row_id, validate_generation,
+};
+use crate::clusters::generation_matching::{load_existing_clusters, match_cluster_identities};
 
 impl Archive {
     /// Saves a cluster generation under the active archive writer fence.
@@ -120,177 +122,6 @@ impl Archive {
             complete_coverage: input.complete_coverage,
         })
     }
-}
-
-/// Rejects a generation that cannot safely replace current membership, including duplicate
-/// threads, representatives outside their cluster, and a false claim of complete vector coverage.
-fn validate_generation(input: &ClusterGenerationInput) -> Result<(), StoreError> {
-    if input.endpoint.trim().is_empty()
-        || input.model.trim().is_empty()
-        || (input.complete_coverage && input.eligible_threads != input.vector_threads)
-        || input.vector_threads > input.eligible_threads
-    {
-        return Err(StoreError::InvalidClusterGeneration);
-    }
-    let mut seen = HashSet::new();
-    for cluster in &input.clusters {
-        if cluster.members.is_empty() || cluster.title.len() > 16_384 {
-            return Err(StoreError::InvalidClusterGeneration);
-        }
-        let mut contains_representative = false;
-        for member in &cluster.members {
-            if member.thread.repository() != &input.repository
-                || !seen.insert(member.thread.clone())
-                || member
-                    .score_to_representative
-                    .is_some_and(|score| !score.is_finite() || !(-1.0..=1.0).contains(&score))
-            {
-                return Err(StoreError::InvalidClusterGeneration);
-            }
-            contains_representative |= member.thread == cluster.representative;
-        }
-        if !contains_representative || cluster.representative.repository() != &input.repository {
-            return Err(StoreError::InvalidClusterGeneration);
-        }
-    }
-    Ok(())
-}
-
-/// Resolves the repository whose cluster generation is being replaced.
-async fn repository_row_id(
-    connection: &mut SqliteConnection,
-    repository: &RepositoryId,
-) -> Result<i64, StoreError> {
-    sqlx::query_scalar("SELECT id FROM repositories WHERE host = ? AND provider_id = ?")
-        .bind(repository.host().as_str())
-        .bind(repository.provider_id().as_str())
-        .fetch_optional(&mut *connection)
-        .await?
-        .ok_or(StoreError::RepositoryMissing)
-}
-
-/// Validates generated groups before opening the write transaction.
-async fn prepare_clusters(
-    connection: &mut SqliteConnection,
-    input: &ClusterGenerationInput,
-    repository_row_id: i64,
-) -> Result<Vec<PreparedCluster>, StoreError> {
-    let mut prepared = Vec::with_capacity(input.clusters.len());
-    for cluster in &input.clusters {
-        let representative_id =
-            thread_row_id(connection, repository_row_id, &cluster.representative).await?;
-        let mut members = Vec::with_capacity(cluster.members.len());
-        for member in &cluster.members {
-            let thread_id = thread_row_id(connection, repository_row_id, &member.thread).await?;
-            members.push((thread_id, member.score_to_representative));
-        }
-        members.sort_by_key(|(thread_id, _)| *thread_id);
-        prepared.push(PreparedCluster {
-            representative_id,
-            title: cluster.title.clone(),
-            members,
-        });
-    }
-    Ok(prepared)
-}
-
-/// Resolves a candidate discussion to its stored row identity.
-pub async fn thread_row_id(
-    connection: &mut SqliteConnection,
-    repository_row_id: i64,
-    thread: &ThreadId,
-) -> Result<i64, StoreError> {
-    let number = i64::try_from(thread.number().get()).map_err(|_| StoreError::IntegerOutOfRange)?;
-    sqlx::query_scalar(
-        "SELECT id FROM threads WHERE repository_id = ? AND provider_id = ? AND number = ?",
-    )
-    .bind(repository_row_id)
-    .bind(thread.provider_id().as_str())
-    .bind(number)
-    .fetch_optional(&mut *connection)
-    .await?
-    .ok_or(StoreError::ThreadMissing)
-}
-
-/// Loads current stable keys so regenerated groups retain identity.
-async fn load_existing_clusters(
-    connection: &mut SqliteConnection,
-    repository_id: i64,
-) -> Result<Vec<ExistingCluster>, StoreError> {
-    let rows = sqlx::query(
-        "SELECT c.id, cm.thread_id FROM clusters c LEFT JOIN cluster_memberships cm ON cm.cluster_id = c.id AND cm.state IN ('active', 'excluded') WHERE c.repository_id = ? ORDER BY c.id, cm.thread_id",
-    )
-    .bind(repository_id)
-    .fetch_all(&mut *connection)
-    .await?;
-    let mut clusters = Vec::<ExistingCluster>::new();
-    for row in rows {
-        let id: i64 = row.try_get("id")?;
-        if clusters.last().is_none_or(|cluster| cluster.id != id) {
-            clusters.push(ExistingCluster {
-                id,
-                members: HashSet::new(),
-            });
-        }
-        let thread_id: Option<i64> = row.try_get("thread_id")?;
-        if let Some(thread_id) = thread_id {
-            clusters
-                .last_mut()
-                .expect("cluster row was inserted")
-                .members
-                .insert(thread_id);
-        }
-    }
-    Ok(clusters)
-}
-
-/// Reuses durable cluster IDs by assigning the strongest membership overlaps first. The ordered
-/// tie breaks keep equal evidence from producing different IDs on repeated builds.
-fn match_cluster_identities(
-    existing: &[ExistingCluster],
-    generated: &[PreparedCluster],
-) -> HashMap<usize, i64> {
-    let mut candidates = Vec::<(usize, usize, usize, i64)>::new();
-    for (generated_index, current) in generated.iter().enumerate() {
-        let current_members = current
-            .members
-            .iter()
-            .map(|(thread_id, _)| *thread_id)
-            .collect::<HashSet<_>>();
-        for previous in existing {
-            let overlap = current_members.intersection(&previous.members).count();
-            if overlap > 0 {
-                let union = current_members.len() + previous.members.len() - overlap;
-                candidates.push((overlap, union, generated_index, previous.id));
-            }
-        }
-    }
-    candidates.sort_by(|left, right| {
-        right
-            .0
-            .cmp(&left.0)
-            .then_with(|| {
-                (u128::try_from(right.0).unwrap_or(u128::MAX)
-                    * u128::try_from(left.1).unwrap_or(u128::MAX))
-                .cmp(
-                    &(u128::try_from(left.0).unwrap_or(u128::MAX)
-                        * u128::try_from(right.1).unwrap_or(u128::MAX)),
-                )
-            })
-            .then_with(|| left.3.cmp(&right.3))
-            .then_with(|| left.2.cmp(&right.2))
-    });
-    let mut used_generated = HashSet::new();
-    let mut used_existing = HashSet::new();
-    let mut matches = HashMap::new();
-    for (_, _, generated_index, existing_id) in candidates {
-        if !used_generated.contains(&generated_index) && !used_existing.contains(&existing_id) {
-            used_generated.insert(generated_index);
-            used_existing.insert(existing_id);
-            matches.insert(generated_index, existing_id);
-        }
-    }
-    matches
 }
 
 /// Records the generation attempt before replacing current groups.
