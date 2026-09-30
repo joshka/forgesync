@@ -706,6 +706,28 @@ request. These dispositions cover the reviewed retrieval signatures, not unrelat
 clustering adapters. Contracts describe current evidence rather than a historical snapshot, shared
 worker permits, cancellation, source provenance, and fallback eligibility.
 
+### Engine clustering signature and contract dispositions
+
+Cluster building already has a request declaration, `ClusterBuildLease` for authority/cleanup,
+`ClusterSnapshot` for source/vector evidence, `CandidateEvidence` for relationships, and
+`ClusterProjection` for representative/member projection. The coordinator retains archive, request,
+lease, and cancellation as separate capabilities; it passes immutable documents, repository reference
+context, and graph options into the bounded worker. Snapshot vector loading keeps resolved repository
+identities separate from the original service/recipe request. These inputs do not require another
+bag of workflow state.
+
+Pure candidate construction and proposal formatting retain their input projections and policy
+limits. Their existing owners capture repeated indexes and scoring facts. Component docs now state
+endpoint-index preconditions, deterministic edge-order influence, retained intra-component edges,
+singleton output, and later minimum-size filtering. The worker adapter documents permit lifetime and
+cooperative cancellation independently of archive lease lifetime.
+
+Local decision functions retain archive, cluster ID, member selector, and optional rationale as
+caller choices. `ClusterMemberAction` already couples exclusion with its reason, avoiding behavioral
+flags; its match arms only delegate to the corresponding fenced store method. Store decision owners
+perform relational validation and mutation. This closes the inspected clustering broad-signature
+candidates; sync and remaining cross-crate acceptance are still separate.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

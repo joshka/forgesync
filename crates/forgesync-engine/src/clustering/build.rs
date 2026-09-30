@@ -161,6 +161,16 @@ fn cluster_input(cluster: ClusterCandidate) -> ClusterInput {
 }
 
 /// Constructs candidate edges under configured similarity and memory bounds.
+///
+/// The process-wide permit bounds active graph workers, including builds in other archives.
+/// Cancellation while waiting returns without starting a worker. Once started, graph construction
+/// checks the cloned token and this adapter awaits its result. The worker retains its permit until
+/// it exits even if the awaiting future is dropped; the lease coordinator separately ensures normal
+/// cancellation drains the operation before releasing writer authority.
+///
+/// Documents, reference context, and options move together into the worker; no archive connection
+/// crosses that boundary. A join failure becomes `ClusterWorkerFailed`, while analysis errors
+/// retain their classification. The returned edge count precedes component-size pruning.
 async fn build_cluster_candidates_bounded(
     documents: Vec<EmbeddingSearchDocument>,
     repository_full_name: String,

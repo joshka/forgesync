@@ -20,6 +20,16 @@ use super::evidence::CandidateEdge;
 use crate::scoring::stable_thread_id_cmp;
 
 /// Builds connected groups without exceeding the configured size.
+///
+/// The caller supplies validated options and edges whose endpoints index `documents`. Edge order
+/// decides which unions are admitted when the size limit prevents retaining every relationship;
+/// candidate construction establishes that order before calling this helper. An edge within an
+/// already joined component remains retained for representative degree and direct-score evidence.
+///
+/// Returns every component, including singletons, with stable identity-ordered members and larger
+/// components first. Equal sizes use stable identity ties. Minimum-size filtering belongs to
+/// proposal projection rather than this grouping phase. Empty documents and edges return empty
+/// outputs; invalid endpoint indexes are a caller error and can panic.
 pub fn bounded_components(
     documents: &[EmbeddingSearchDocument],
     edges: &[CandidateEdge],

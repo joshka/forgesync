@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Clustering contract review now documents deterministic grouping preconditions, retained edges,
+worker permit lifetime, and cancellation separately from the writer lease. The audit records the
+existing snapshot/evidence/projection owners and retained signature choices. These are comment-only
+changes; strict Rustdoc will run with final workspace acceptance.
+
 Chunk reuse now takes its count from each selected input and retains unmatched chunks directly.
 New linear cases isolate count, position, hash, and dimension compatibility. All eleven chunk unit
 cases, durable embedding retry, and engine all-target Clippy pass. Retrieval and embedding signature
