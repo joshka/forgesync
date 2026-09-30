@@ -2,6 +2,22 @@
 
 ## Current position
 
+The requested maintainability cleanup remains **in progress**. The bounded
+[source-shape audit](source-shape-audit.md) records six implemented workflow/presentation batches;
+workspace conventions/documentation and full test-quality review remain open. Completed slices and
+successful validation do not establish completion of those broader passes.
+
+Current work reviews broad signatures, item/field contracts, and scenario navigation. Closed-sweep
+publication and job creation have named inputs; child-family finalization uses its existing typed
+declaration. Review regressions have shallow sibling modules. A refreshed field-presence inventory
+has 98 candidates across 22 production files; those require contract review, not automatic prose.
+
+Next action: finish the remaining bounded review findings, reconcile every requested requirement,
+and run the applicable workspace gates on the final tree. Hosted platform results remain separate
+release evidence and are not the only outstanding work.
+
+## Implementation milestones and prior passes
+
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
   configuration/client phase, CLI codes, and displayed messages remain separate concerns.
 - Follow-up cleanup gives six CLI workflows a shared interruption lifetime owner. The listener stops
@@ -85,9 +101,9 @@
   `crypto-common` release remains outside the current compatible resolution.
 - P6.1 implementation is in place; hosted Windows, Linux, and Intel macOS platform results remain to
   be collected by CI.
-- Next action: **Run the hosted platform matrix before preparing a release**.
-- Future maintainability reviews should follow the completed ownership decisions and retained
-  linear-code rationale in the plan; apply those inspection signals when adding new behavior.
+- Hosted release validation: **Run the platform matrix before preparing a release**.
+- Follow-up review uses the completed ownership slices and retained linear-code rationale below;
+  these historical milestones do not close the current conventions/documentation or test pass.
 - Complete: **P0.1 — Capture the baseline and reconcile selected v2 scope**.
 - Complete: **P0.2 — Bootstrap the Rust workspace**.
 - Complete: **P0.3 — Build the fixture catalog**.

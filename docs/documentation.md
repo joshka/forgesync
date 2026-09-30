@@ -11,6 +11,9 @@ keep plans and historical evidence visibly separate.
 - Use reference pages for exact options, defaults, formats, and error contracts.
 - Use explanation pages for relationships, invariants, and decisions that code alone does not show.
 - Keep dated implementation evidence in `docs/implementation-status.md`, outside the newcomer path.
+- Lead status pages with current open work and the next action. Put prior milestones below that
+  summary, and state validation scope explicitly. Historical green checks or completed feature
+  slices must not imply that a broader cleanup or acceptance review is finished.
 
 Name the reader's task in the heading and lead with the useful point. Favor connected prose for
 relationships and short lists for independent steps. Explain the local contract before linking to
