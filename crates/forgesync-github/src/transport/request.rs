@@ -10,26 +10,38 @@
 //!
 //! `client` constructs the trusted transport; resource modules decode the returned typed JSON.
 
+use std::time::Instant;
+
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::{Method, Url};
+use serde::de::DeserializeOwned;
+use tokio::sync::OwnedSemaphorePermit;
+use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
-use super::pagination::next_page_from_headers;
-use super::response::{
+use crate::error::GitHubError;
+use crate::transport::pagination::next_page_from_headers;
+use crate::transport::response::{
     acquire_request_slot, classify_api_response, classify_transport_error, read_body,
     redirect_target,
 };
-use super::retry::retry_backoff;
-use super::{
-    ACCEPT, AUTHORIZATION, BodyReadError, CONTENT_TYPE, CancellationToken, DeserializeOwned,
-    GitHubClient, GitHubError, GitHubResponse, Instant, MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES,
-    Method, OwnedSemaphorePermit, RequestFailure, ResponseBody, USER_AGENT, Url,
+use crate::transport::retry::retry_backoff;
+use crate::transport::{
+    BodyReadError, GitHubClient, GitHubResponse, MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES,
+    RequestFailure, ResponseBody,
 };
 
 /// Immutable request data shared by all budgeted attempts.
 pub struct ProviderRequest<'a> {
+    /// Shared configured transport whose origin, retry policy, and concurrency bound apply.
     pub client: &'a GitHubClient,
+    /// Initial destination validated against the client origin before any authorization is sent.
     pub url: &'a Url,
+    /// HTTP method retained across the bounded request attempt sequence.
     pub method: Method,
+    /// Optional already encoded JSON body, borrowed for repeated attempts.
     pub body: Option<&'a [u8]>,
+    /// Caller cancellation scope observed while waiting for permits, requests, and retries.
     pub cancellation: &'a CancellationToken,
 }
 impl ProviderRequest<'_> {

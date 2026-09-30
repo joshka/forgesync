@@ -12,9 +12,13 @@
 //! Keep provider-specific error text out of logs and public reports. The failure category and safe
 //! short diagnostic are sufficient for callers to decide whether work can continue.
 
-use super::{
-    ApiFailureKind, Duration, RETRY_AFTER, RetryPolicy, StatusCode, SystemTime, UNIX_EPOCH,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use reqwest::StatusCode;
+use reqwest::header::RETRY_AFTER;
+
+use crate::error::ApiFailureKind;
+use crate::transport::RetryPolicy;
 
 /// Classifies an HTTP response for bounded retry or terminal reporting.
 pub fn api_failure_kind(status: StatusCode, rate_limited: bool) -> ApiFailureKind {

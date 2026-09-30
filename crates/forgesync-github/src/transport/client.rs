@@ -12,14 +12,28 @@
 //! Keep authorization attached to the configured origin. A redirect or pagination link to another
 //! origin must fail before it can receive the token, even if the link came from GitHub's response.
 
-use super::request::ProviderRequest;
-use super::{
-    CancellationToken, DeserializeOwned, GitHubClient, GitHubClientConfig, GitHubError,
-    GitHubResponse, GitHubToken, Method, Semaphore, TrustedOrigin, Url,
-};
+use reqwest::{Method, Url};
+use serde::de::DeserializeOwned;
+use tokio::sync::Semaphore;
+use tokio_util::sync::CancellationToken;
+
+use crate::error::GitHubError;
+use crate::token::GitHubToken;
+use crate::transport::request::ProviderRequest;
+use crate::transport::{GitHubClient, GitHubClientConfig, GitHubResponse, TrustedOrigin};
 
 impl GitHubClient {
-    /// Builds a reusable client that only sends requests to its configured API origin.
+    /// Builds a reusable transport restricted to its configured API origin.
+    ///
+    /// Construction checks timeouts, retry bounds, and the API base URL, but sends no request and
+    /// discovers no credentials. Client clones share the HTTP pool and concurrency permits.
+    /// Automatic redirects are disabled; request code validates each redirected destination before
+    /// adding authorization. Resource acquisition still needs explicit caller cancellation.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed configuration/base-URL errors for unusable settings and
+    /// [`GitHubError::ClientInitialization`] when the HTTP client cannot be built.
     pub fn new(
         config: GitHubClientConfig,
         token: Option<GitHubToken>,
@@ -48,7 +62,10 @@ impl GitHubClient {
         })
     }
 
-    /// Validates an API or pagination URL against the configured origin.
+    /// Checks a destination against the configured scheme, host, and effective port.
+    ///
+    /// Validation sends no request and does not establish resource existence or permission. A
+    /// mismatched origin or credential-bearing candidate returns [`GitHubError::UntrustedOrigin`].
     pub fn validate_destination(&self, candidate: &Url) -> Result<(), GitHubError> {
         self.origin.validate(candidate)
     }
@@ -84,7 +101,12 @@ impl GitHubClient {
         Ok(url)
     }
 
-    /// Sends a GET request and deserializes a bounded JSON response.
+    /// Acquires one bounded JSON page and returns its decoded content without continuation
+    /// metadata.
+    ///
+    /// Use [`Self::get_json_page`] when resource completeness requires following REST pagination.
+    /// This method uses the same origin validation, permit, retry, and cancellation policy, and
+    /// returns the same typed transport/API/decoding failures.
     pub async fn get_json<T>(
         &self,
         url: &Url,
@@ -96,7 +118,19 @@ impl GitHubClient {
         Ok(self.get_json_page(url, cancellation).await?.value)
     }
 
-    /// Sends a GET request and returns JSON content with a validated next-page URL.
+    /// Acquires one bounded JSON page with validated REST continuation metadata.
+    ///
+    /// Waits for a shared request permit, follows only validated bounded redirects, and applies the
+    /// configured request retry budget. Caller cancellation can stop permit waits, attempts, or
+    /// retry delays. A successful body is bounded before decoding, and any next-page URL is checked
+    /// before being returned. This method does not follow that continuation or claim a complete
+    /// evidence-family collection.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed destination, cancellation, request-budget, transport, API-status, body-limit,
+    /// pagination, and JSON-decoding failures. Safe errors omit credentials and raw response
+    /// bodies.
     pub async fn get_json_page<T>(
         &self,
         url: &Url,

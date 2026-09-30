@@ -11,11 +11,15 @@
 //! Resource modules consume the resulting typed value or error. They do not need to reason about
 //! body stream limits, semaphore permits, or retryable network failures.
 
-use super::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
-use super::{
-    BodyReadError, CancellationToken, GitHubError, LOCATION, MAX_ERROR_BODY_BYTES,
-    OwnedSemaphorePermit, RequestFailure, Response, ResponseBody, Semaphore, StatusCode,
-    TrustedOrigin, Url,
+use reqwest::header::LOCATION;
+use reqwest::{Response, StatusCode, Url};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::CancellationToken;
+
+use crate::error::GitHubError;
+use crate::transport::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
+use crate::transport::{
+    BodyReadError, MAX_ERROR_BODY_BYTES, RequestFailure, ResponseBody, TrustedOrigin,
 };
 
 /// Waits for a client permit or caller cancellation before sending a request.

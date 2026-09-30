@@ -10,7 +10,11 @@
 //! that a missing next link proves a prior partial page set was committed; durable checkpoint and
 //! family completeness remain engine and store responsibilities.
 
-use super::{GitHubError, LINK, TrustedOrigin, Url};
+use reqwest::Url;
+use reqwest::header::LINK;
+
+use crate::error::GitHubError;
+use crate::transport::TrustedOrigin;
 
 /// Extracts a validated next-page destination from provider Link headers.
 pub fn next_page_from_headers(

@@ -15,17 +15,12 @@
 //! configuration and the engine controls workflow progress.
 
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
-use reqwest::header::{
-    ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION, RETRY_AFTER, USER_AGENT,
-};
-use reqwest::{Method, Response, StatusCode, Url};
-use serde::de::DeserializeOwned;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::CancellationToken;
+use reqwest::Url;
+use tokio::sync::Semaphore;
 
-use crate::error::{ApiFailureKind, GitHubError};
+use crate::error::GitHubError;
 use crate::token::GitHubToken;
 
 const MAX_SUCCESS_BODY_BYTES: usize = 16 * 1024 * 1024;
@@ -87,11 +82,17 @@ impl GitHubClientConfig {
 /// Shared read-only client for GitHub REST or GraphQL JSON endpoints.
 #[derive(Clone)]
 pub struct GitHubClient {
+    /// Reusable connection pool; redirects are handled explicitly rather than followed by reqwest.
     http: reqwest::Client,
+    /// Configured endpoint base path used when constructing resource URLs.
     api_base_url: Url,
+    /// Scheme/host/port boundary checked before requests and pagination traversal.
     origin: TrustedOrigin,
+    /// Optional caller-supplied credential; never resolved from process configuration here.
     token: Option<GitHubToken>,
+    /// Request-local bounded attempt and wait policy, separate from engine workflow retries.
     retry: RetryPolicy,
+    /// Shared permits across client clones, held through response-body reading.
     request_slots: std::sync::Arc<Semaphore>,
 }
 

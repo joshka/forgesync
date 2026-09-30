@@ -2060,3 +2060,18 @@ request authorization, with a compiled example. Outcome guidance keeps workflow-
 and accounting responsibility explicit. The reusable constructor-boundary rule is recorded in the
 documentation guide. Focused core tests/doctests, strict core Rustdoc, and workspace Clippy are
 running; full workspace conventions and test reviews remain open.
+
+## Continued maintenance: GitHub transport dependency locality
+
+Transport client, request, response, retry, and pagination files import HTTP, runtime, Serde, error,
+and credential names from their actual owners. Shared transport policy/types remain explicit imports
+from their owning module; the parent drops dependency imports that existed only as a child prelude.
+No request, retry, origin, pagination, or credential behavior changes.
+
+All 20 GitHub cases, two doctests, and workspace Clippy pass. Request-context and client fields
+explain retained destination/body/cancellation and shared pool/permit ownership. Client methods
+explain construction without requests or credential discovery, origin checking, one-page versus
+pagination semantics, cancellation, bounded bodies, and typed failures. Strict GitHub Rustdoc,
+nightly formatting, rumdl, and changed-page Markdown linting also pass. Remaining provider modules,
+item depth, private protocol ownership, and restricted-visibility review remain in the conventions
+batch.
