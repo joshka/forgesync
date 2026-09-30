@@ -1,17 +1,31 @@
-//! # Apply local maintainer choices to clusters
+//! # Inspect clusters and record local maintainer choices
 //!
-//! Show, dismiss, restore, exclude, include, and canonical-selection operations resolve a stored
-//! cluster then call focused archive decision methods. These actions change the local triage
-//! interpretation of a generation.
+//! [`show_cluster`] reads persisted detail without acquiring a writer lease. Dismiss and restore
+//! operate on an archive-local cluster ID; exclude, include, and canonical selection first resolve
+//! a discussion selector to its durable identity through local inspection. These operations do
+//! not construct candidates, acquire provider evidence, or write back to GitHub.
 //!
-//! Decision work is separate from automatic candidate building so a rebuild does not masquerade as
-//! a human judgment. The store records events; this module validates the workflow request and
-//! reports its result to callers.
+//! Each mutation obtains the current clock and an archive writer lease, then invokes a fenced
+//! store decision operation. The store validates cluster/member relationships and owns the durable
+//! transaction and event record. Member lookup happens before lease acquisition, so that lookup
+//! alone does not prove membership at write time. Short decisions use a fixed lease without the
+//! generation builder's heartbeat loop.
+//!
+//! Cleanup attempts lease release after the store operation, including failures. The operation
+//! error takes precedence over a release error; a release failure after a successful write can
+//! still return an error even though the decision is durable. Missing decision members are mapped
+//! to the engine's invalid-decision error by the shared release adapter.
+//!
+//! Keeping maintainer actions separate from generation preserves authorship: derived analysis
+//! proposes groups, while these functions explicitly record local triage choices. Callers retain
+//! archive lifetime and presentation responsibility; this module installs no process diagnostics.
 
 use forgesync_store::archive::Archive;
 use forgesync_store::clusters::ClusterDetail;
 
-use super::lease::{CLUSTER_LEASE_DURATION, finish_cluster_decision_lease, finish_cluster_lease};
+use crate::clustering::lease::{
+    CLUSTER_LEASE_DURATION, finish_cluster_decision_lease, finish_cluster_lease,
+};
 use crate::documents::now_utc;
 use crate::error::EngineError;
 use crate::reference::ThreadSelector;
@@ -81,8 +95,11 @@ pub async fn set_canonical_cluster_member(
     finish_cluster_decision_lease(archive, &lease, result).await
 }
 
+/// A member decision with rationale attached only to exclusion.
 enum ClusterMemberAction<'a> {
+    /// Exclude the selected member and retain the caller's reason.
     Exclude(&'a str),
+    /// Clear the selected member's exclusion.
     Include,
 }
 

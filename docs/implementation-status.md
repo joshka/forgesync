@@ -2654,3 +2654,14 @@ counts that are not unique-identity or source-completeness claims.
 
 Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass for this documentation-only change.
+
+### Clustering candidate and decision boundaries
+
+Candidate docs now identify the evidence/component/proposal pipeline, validated options and
+duplicate identities, caller-owned eligibility, and edge-count scope before bounded grouping.
+Decision docs explain read versus write authority, pre-lease selector resolution, store validation,
+fixed leases, and operation-versus-release error precedence after durable writes. Private member
+actions have item/variant docs and touched imports name their defining clustering modules.
+
+Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

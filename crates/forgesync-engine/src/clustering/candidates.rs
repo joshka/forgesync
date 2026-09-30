@@ -1,22 +1,30 @@
-//! # Form duplicate candidates from thread relationships
+//! # Turn pairwise evidence into bounded cluster proposals
 //!
-//! Candidate building uses available similarity evidence and a union-find grouping step to turn
-//! pairwise relationships into cluster proposals. A proposed group is derived analysis, not a
-//! source observation or a maintainer decision.
+//! [`build_cluster_candidates`] coordinates pure derived analysis over supplied discussion/vector
+//! projections. It validates graph options, sorts inputs by stable discussion identity, rejects
+//! duplicate identities, and checks cancellation before constructing evidence indexes. It does
+//! not query an archive or verify model, recipe, source freshness, or repository membership.
 //!
-//! The builder returns candidate structures for `build` to persist. Keeping grouping here lets a
-//! reader inspect threshold and transitive-membership behavior without following database
-//! transactions or CLI rendering.
+//! The evidence module selects sparse pairwise edges using vector, title, and explicit-reference
+//! support. The components module groups those edges under the component-size policy. The proposals
+//! module formats retained groups, applying the minimum-size rule and recording their evidence.
+//! Keeping these owners separate exposes the progression from source projections to relationships
+//! to groups without mixing persistence or maintainer decisions into the graph calculation.
+//!
+//! The returned count is the selected edge count before bounded grouping, not necessarily the
+//! number of edges represented in persisted candidates. The build workflow owns vector eligibility,
+//! archive lease coordination, generation persistence, and coverage reporting. A candidate remains
+//! a proposal rather than a source observation or a human decision.
 
 use std::collections::HashMap;
 
 use forgesync_store::embeddings::EmbeddingSearchDocument;
 use tokio_util::sync::CancellationToken;
 
-use super::ClusterOptions;
-use super::components::bounded_components;
-use super::evidence::CandidateEvidence;
-use super::proposals::{ClusterCandidate, format_clusters};
+use crate::clustering::ClusterOptions;
+use crate::clustering::components::bounded_components;
+use crate::clustering::evidence::CandidateEvidence;
+use crate::clustering::proposals::{ClusterCandidate, format_clusters};
 use crate::error::EngineError;
 use crate::exact_search::stable_thread_id_cmp;
 
