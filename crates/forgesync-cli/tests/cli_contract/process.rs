@@ -1,12 +1,21 @@
 //! # Process and exit contract
 //!
-//! These cases run the executable as a shell user would and inspect status and streams. They
-//! protect the distinction between a successful report, a partial outcome, and an error.
-//! Lower-level engine reports are tested elsewhere; this file covers their process presentation.
+//! These cases invoke package version, global help, missing-subcommand usage, and the optional TUI
+//! terminal requirement. Arguments and stream/status expectations remain visible in each case.
+//! Help exposes only the selected application scope and reflects whether TUI support was built.
+//!
+//! The TUI case deliberately supplies invalid configuration while using noninteractive process
+//! streams. Terminal validation must precede configuration loading, so that configuration cannot
+//! obscure the actionable terminal error. It is compiled only with the TUI feature.
+//! These cases do not establish partial engine-report rendering; workflow suites cover those
+//! reports. Version output is checked against this package's build metadata rather than a prefix.
 
+#[cfg(feature = "tui")]
 use forgesync_store::archive::Archive;
 
-use super::{forgesync, remove_archive, temporary_archive_path};
+use crate::forgesync;
+#[cfg(feature = "tui")]
+use crate::{remove_archive, temporary_archive_path};
 
 #[test]
 fn version_flag_prints_package_version() {
@@ -14,7 +23,7 @@ fn version_flag_prints_package_version() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("version is UTF-8");
-    assert!(stdout.starts_with("forgesync "));
+    assert_eq!(stdout, format!("forgesync {}\n", env!("CARGO_PKG_VERSION")));
 }
 
 #[test]
@@ -38,7 +47,7 @@ fn help_lists_global_options_and_no_deferred_commands() {
     assert!(stdout.contains("run"));
     assert!(stdout.contains("embed"));
     assert!(stdout.contains("cluster"));
-    assert!(stdout.contains("tui"));
+    assert_eq!(stdout.contains("tui"), cfg!(feature = "tui"));
 }
 
 #[test]
@@ -51,6 +60,7 @@ fn json_does_not_change_clap_usage_errors() {
     assert!(stderr.contains("requires a subcommand"));
 }
 
+#[cfg(feature = "tui")]
 #[tokio::test]
 async fn tui_requires_an_interactive_terminal() {
     let path = temporary_archive_path();

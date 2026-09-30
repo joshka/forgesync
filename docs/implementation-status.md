@@ -110,6 +110,15 @@ command identity, status, typed error, and absent success data. All 22 CLI contr
 all-target Clippy, nightly formatting, and Markdown checks pass. The remaining suite review stays
 open.
 
+CLI status, empty sync, and process-flag contracts now describe their actual fixtures and coverage.
+Missing status asserts command identity and absent success data; empty sync constructs an archive
+without hiding initialization in another process call. Help expectations respect the TUI feature,
+the terminal-only case is feature-gated, and version output checks exact package metadata. All 22
+CLI contract cases pass with all features, and three process cases pass without default features.
+CLI all-target Clippy, nightly formatting, and Markdown checks pass. The process-suite quality
+review is disposed of in the source-shape audit; unit and remaining cross-crate suites are still
+open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

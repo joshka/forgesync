@@ -544,6 +544,21 @@ module introduction now describe the deliberately absent ledger rather than impl
 coverage. The show/retry parameterization selects command data only; execution and assertions remain
 linear and local, including command identity, failure status, typed code, and absent success data.
 
+### CLI process-suite review disposition
+
+The existing process suites have now been inspected across archive, configuration, search policy,
+status, sync, run history, process flags, cluster commands, and offline queries. Mixed independent
+scenarios are split; retained sequences verify a real round-trip (creation/status, build/list).
+Construction fixtures expose their data/effects and do not execute the scenario workflow. Fixed
+sidecar cleanup loops remain resource release, and parameterized cases select explicit command data.
+
+Missing-archive status now asserts command identity and absent success data. Empty `sync --all` uses
+an explicit empty archive fixture and a truthful zero-work name. Its lease-conflict scenario retains
+visible current-clock construction because the competing process checks expiry itself. Process help
+now reflects the selected TUI feature, the noninteractive TUI case is feature-gated, and version
+output matches exact package metadata. This closes the inspected CLI process-scenario quality
+findings; CLI unit suites and the remaining cross-crate suite review are separate work.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

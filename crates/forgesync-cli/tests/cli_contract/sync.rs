@@ -1,9 +1,14 @@
 //! # Sync command contract
 //!
-//! These cases invoke selected acquisition options and inspect the resulting process report.
-//! Independent failures should remain visible alongside completed jobs. Provider and store suites
-//! own pagination and transaction details; this suite protects user-facing selection and outcome
-//! behavior.
+//! These cases distinguish empty registered scope, invalid argument selection, and a competing
+//! writer lease. Empty `--all` succeeds with zero selected repositories and jobs; it does not
+//! establish provider pagination or successful acquisition of any repository.
+//!
+//! Scope rejection occurs at parsing. The lease case creates a real current-time lease before
+//! invoking a second process, then releases it explicitly during cleanup. Its wall-clock setup is
+//! necessary because the competing process validates expiry using its own clock.
+//! Engine/provider/store suites cover pagination, partial failures, and durable observation rules.
+//! These process cases own selection, reported counts, and the visible writer-conflict diagnostic.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -12,15 +17,11 @@ use forgesync_store::archive::Archive;
 
 use super::{forgesync, remove_archive, temporary_archive_path};
 
-#[test]
-fn sync_all_runs_against_the_registered_archive_and_emits_a_report() {
+#[tokio::test]
+async fn sync_all_with_no_registered_repositories_returns_zero_work_report() {
     let path = temporary_archive_path();
-    let init = forgesync()
-        .args(["archive", "init", "--archive"])
-        .arg(&path)
-        .output()
-        .expect("initialize archive");
-    assert!(init.status.success());
+    let archive = Archive::create(&path).await.expect("create empty archive");
+    archive.close().await;
 
     let sync = forgesync()
         .args(["sync", "--all", "--archive"])
