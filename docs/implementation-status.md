@@ -2973,3 +2973,14 @@ incidental resource cleanup.
 
 Both cluster-persistence integration scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass. The other fixture edits are documentation-only.
+
+### Observation fixture side-effect contracts
+
+Observation integration helpers document which setup creates an archive, registers a repository,
+reserves a durable sequence, or opens raw SQL for trigger/corruption scenarios. Value constructors
+state which clocks and completeness facts remain controlled by the caller. Canonical-title reads
+explain their independent committed-state check. These contracts expose the fixture assumptions
+without moving assertion behavior into helpers.
+
+All seven observation-transaction integration scenarios, nightly formatting, rumdl, and changed-page
+Markdown linting pass.

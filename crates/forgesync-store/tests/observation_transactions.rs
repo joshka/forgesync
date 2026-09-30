@@ -39,6 +39,9 @@ mod parents;
 #[path = "observation_transactions/rollback.rs"]
 mod rollback;
 
+/// Creates an on-disk archive and registers the synthetic repository.
+///
+/// The returned thread identity is not persisted until a scenario applies its observation.
 async fn create_archive_with_repository(path: &PathBuf) -> (Archive, RepositoryId, ThreadId) {
     let archive = Archive::create(path).await.expect("create archive");
     let repository_id = RepositoryId::new(
@@ -62,6 +65,7 @@ async fn create_archive_with_repository(path: &PathBuf) -> (Archive, RepositoryI
     (archive, repository_id, thread_id)
 }
 
+/// Constructs issue 101 under the supplied repository without writing a parent row.
 fn thread_id(repository_id: &RepositoryId) -> ThreadId {
     ThreadId::new(
         repository_id.clone(),
@@ -70,6 +74,10 @@ fn thread_id(repository_id: &RepositoryId) -> ThreadId {
     )
 }
 
+/// Builds an open issue payload with caller-selected title and provider update time.
+///
+/// Repository identity is checked against the thread; other content stays constant so scenarios
+/// can isolate source ordering and completeness changes.
 fn discussion(
     repository_id: &RepositoryId,
     thread_id: &ThreadId,
@@ -93,6 +101,8 @@ fn discussion(
     }
 }
 
+/// Constructs thread evidence while keeping source time, acquisition time, sequence, and
+/// completeness independently controlled by the scenario. No sequence is reserved here.
 fn thread_observation(
     discussion: Discussion,
     source_clock: &str,
@@ -110,6 +120,7 @@ fn thread_observation(
     )
 }
 
+/// Marks a received collection as unfinished because pagination did not complete.
 fn incomplete(received_items: u64) -> CollectionCompleteness {
     CollectionCompleteness::Incomplete {
         reason: IncompleteReason::Pagination,
@@ -117,6 +128,7 @@ fn incomplete(received_items: u64) -> CollectionCompleteness {
     }
 }
 
+/// Pairs a synthetic provider identity with the exact staging payload supplied by the scenario.
 fn item(id: &str, payload: serde_json::Value) -> StagedItem<serde_json::Value> {
     StagedItem {
         id: ProviderId::new(id).expect("provider item ID"),
@@ -124,6 +136,7 @@ fn item(id: &str, payload: serde_json::Value) -> StagedItem<serde_json::Value> {
     }
 }
 
+/// Reserves a durable acquisition sequence at the supplied timestamp before evidence is built.
 async fn reserve(archive: &Archive, started_at: &str) -> ObservationSequence {
     archive
         .reserve_observation_sequence(timestamp(started_at))
@@ -131,10 +144,14 @@ async fn reserve(archive: &Archive, started_at: &str) -> ObservationSequence {
         .expect("reserve observation sequence")
 }
 
+/// Parses a fixture timestamp, failing immediately if the scenario contains invalid setup.
 fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
 }
 
+/// Reads the single canonical thread title through a separate read-only SQL connection.
+///
+/// This observes committed state directly, independently of archive projection helpers.
 async fn read_current_thread_title(path: &PathBuf) -> String {
     let pool = SqlitePoolOptions::new()
         .max_connections(1)
@@ -155,6 +172,9 @@ async fn read_current_thread_title(path: &PathBuf) -> String {
     title
 }
 
+/// Opens an existing database for scenario-specific trigger installation or corruption setup.
+///
+/// It does not create or migrate an archive; callers close it before exercising archive writes.
 async fn writable_pool(path: &PathBuf) -> sqlx::SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)
