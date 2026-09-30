@@ -2131,3 +2131,17 @@ validate pull-request kind. All endpoint and acquisition behavior is preserved.
 The initial split passes all 20 GitHub tests, both doctests, and workspace Clippy. Final-tree
 focused checks, Clippy, and strict GitHub Rustdoc are running after the additional API contracts and
 guard rename. Broader provider and workspace convention reviews remain open.
+
+## Continued maintenance: GraphQL request owner
+
+Private `review_threads::request` owns query text and the borrowed `GraphqlRequest` pair of
+operation and typed variables. Its `execute` method encodes the unchanged two-field request shape,
+uses the existing GraphQL endpoint/transport/cancellation path, and rejects provider error envelopes
+while retaining only the safe error count. Acquisition still validates required data and paginates
+outer and nested connections; request execution proves no resource completeness and writes no
+archive.
+
+The initial ownership change passes all 20 GitHub tests, both doctests, and workspace Clippy. A
+nearby linear encoding case checks named operation variables and a null initial cursor. Final-tree
+focused checks, Clippy, and strict GitHub Rustdoc are running. Nested comment pagination still has
+live state in a long function and remains an explicit convention-review target.

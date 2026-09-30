@@ -17,63 +17,23 @@
 use std::collections::HashSet;
 
 mod normalize;
+mod request;
 mod wire;
 
 use forgesync_core::content::{Repository, ReviewThread};
 use forgesync_core::identity::{CommitSha, ProviderId, ThreadId};
 use normalize::normalize_review_thread;
-use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
+use crate::review_threads::request::{
+    GraphqlRequest, REVIEW_THREAD_COMMENTS_QUERY, REVIEW_THREADS_QUERY,
+};
 use crate::review_threads::wire::{
     GraphqlEnvelope, GraphqlPageInfo, GraphqlReviewThread, ReviewThreadCommentsData,
     ReviewThreadCommentsVariables, ReviewThreadsData, ReviewThreadsVariables,
 };
 use crate::transport::GitHubClient;
-
-const REVIEW_THREADS_QUERY: &str = r#"
-query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100, after: $cursor) {
-        nodes {
-          id isResolved isOutdated path line startLine
-          viewerCanResolve viewerCanUnresolve viewerCanReply
-          comments(first: 100) {
-            nodes {
-              id databaseId body
-              author { login __typename }
-              path diffHunk createdAt updatedAt url
-              pullRequestReview { id }
-            }
-            pageInfo { hasNextPage endCursor }
-          }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-}
-"#;
-
-const REVIEW_THREAD_COMMENTS_QUERY: &str = r#"
-query($threadID: ID!, $cursor: String) {
-  node(id: $threadID) {
-    ... on PullRequestReviewThread {
-      comments(first: 100, after: $cursor) {
-        nodes {
-          id databaseId body
-          author { login __typename }
-          path diffHunk createdAt updatedAt url
-          pullRequestReview { id }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-}
-"#;
 
 /// Opaque GraphQL cursor for one page of review threads.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -115,8 +75,12 @@ pub async fn fetch_review_thread_page(
         number: thread.number().get(),
         cursor: after.map(GraphqlCursor::as_str),
     };
+    let request = GraphqlRequest {
+        query: REVIEW_THREADS_QUERY,
+        variables: &variables,
+    };
     let response: GraphqlEnvelope<ReviewThreadsData> =
-        execute_graphql(client, REVIEW_THREADS_QUERY, &variables, cancellation).await?;
+        request.execute(client, cancellation).await?;
     let data = response.data.ok_or(GitHubError::InvalidProviderData)?;
     let pull_request = data
         .repository
@@ -182,13 +146,12 @@ async fn complete_review_thread(
             thread_id: &provider_id,
             cursor: Some(&cursor),
         };
-        let response: GraphqlEnvelope<ReviewThreadCommentsData> = execute_graphql(
-            client,
-            REVIEW_THREAD_COMMENTS_QUERY,
-            &variables,
-            cancellation,
-        )
-        .await?;
+        let request = GraphqlRequest {
+            query: REVIEW_THREAD_COMMENTS_QUERY,
+            variables: &variables,
+        };
+        let response: GraphqlEnvelope<ReviewThreadCommentsData> =
+            request.execute(client, cancellation).await?;
         let data = response.data.ok_or(GitHubError::InvalidProviderData)?;
         let node_data = data.node.ok_or(GitHubError::InvalidProviderData)?;
         let connection = node_data.comments.ok_or(GitHubError::InvalidProviderData)?;
@@ -227,35 +190,6 @@ fn required_next_cursor(page_info: &GraphqlPageInfo) -> Result<String, GitHubErr
         .filter(|cursor| !cursor.is_empty())
         .map(str::to_owned)
         .ok_or(GitHubError::InvalidPaginationLink)
-}
-
-/// Sends one bounded GraphQL request through the configured transport client.
-async fn execute_graphql<T, V>(
-    client: &GitHubClient,
-    query: &str,
-    variables: &V,
-    cancellation: &CancellationToken,
-) -> Result<GraphqlEnvelope<T>, GitHubError>
-where
-    T: for<'de> Deserialize<'de>,
-    V: Serialize,
-{
-    let url = client.graphql_endpoint_url()?;
-    let body = serde_json::to_vec(&GraphqlRequest { query, variables })
-        .map_err(|_| GitHubError::InvalidProviderData)?;
-    let response: GraphqlEnvelope<T> = client.post_json(&url, &body, cancellation).await?;
-    if !response.errors.is_empty() {
-        return Err(GitHubError::GraphqlErrors {
-            count: u32::try_from(response.errors.len()).unwrap_or(u32::MAX),
-        });
-    }
-    Ok(response)
-}
-
-#[derive(Serialize)]
-struct GraphqlRequest<'a, V> {
-    query: &'a str,
-    variables: &'a V,
 }
 
 #[cfg(test)]
