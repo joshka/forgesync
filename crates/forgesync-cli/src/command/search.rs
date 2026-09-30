@@ -16,14 +16,13 @@ use std::process::ExitCode;
 use clap::{ArgAction, Args};
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embedding_client::EmbeddingClient;
-use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::search::{SearchMode, SearchRequest, retrieve_threads};
 use forgesync_store::archive::Archive;
 
 use super::embedding_service::EmbeddingSetupError;
 use super::interruption::CommandInterruption;
-use super::thread::thread_filters;
-use crate::command::values::{SearchModeArg, ThreadKindArg, ThreadSortArg, ThreadStateArg};
+use crate::command::thread_filters::ThreadFilterArgs;
+use crate::command::values::SearchModeArg;
 use crate::config::EmbeddingServiceConfig;
 use crate::reports::threads::render_search_page;
 use crate::{OutputMode, render_engine_error, render_error_with_status, render_store_error};
@@ -33,34 +32,15 @@ use crate::{OutputMode, render_engine_error, render_error_with_status, render_st
 pub struct SearchArgs {
     /// Search text sent to the selected local or semantic retrieval mode.
     pub query: String,
-    /// Limit results to one or more registered repositories.
-    #[arg(long = "repo", value_name = "OWNER/REPO")]
-    pub repositories: Vec<RepositorySelector>,
-    /// Limit results to issues or pull requests.
-    #[arg(long, value_enum)]
-    pub kind: Option<ThreadKindArg>,
-    /// Filter by source open or closed state.
-    #[arg(long, value_enum, default_value_t = ThreadStateArg::All)]
-    pub state: ThreadStateArg,
+    /// Shared repository, discussion, ordering, and page filters.
+    #[command(flatten)]
+    pub filters: ThreadFilterArgs,
     /// Choose keyword, semantic, hybrid, or explicit FTS5 retrieval.
     #[arg(long, value_enum, default_value_t = SearchModeArg::Keyword)]
     pub mode: SearchModeArg,
     /// Return keyword results if semantic retrieval has no compatible data or fails.
     #[arg(long, action = ArgAction::SetTrue)]
     pub keyword_fallback: bool,
-    /// Sort results by relevance, source update time, or creation time.
-    #[arg(long, value_enum)]
-    pub sort: Option<ThreadSortArg>,
-    /// Maximum number of results (1-1000).
-    #[arg(
-        long,
-        default_value_t = 20,
-        value_parser = clap::value_parser!(u32).range(1..=1000)
-    )]
-    pub limit: u32,
-    /// Number of matching rows to skip.
-    #[arg(long, default_value_t = 0)]
-    pub offset: u64,
 }
 
 impl SearchArgs {
@@ -99,14 +79,7 @@ impl SearchArgs {
             SearchModeArg::Semantic => SearchMode::Semantic,
             SearchModeArg::Hybrid => SearchMode::Hybrid,
         };
-        let filters = thread_filters(
-            self.repositories,
-            self.kind,
-            self.state,
-            self.sort,
-            self.limit,
-            self.offset,
-        );
+        let filters = self.filters.into_filters();
         SearchRequest {
             query: self.query,
             mode,

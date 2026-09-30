@@ -2721,3 +2721,15 @@ Logs are in `/tmp/forgesync-cleanup-workspace-tests.log`,
 `/tmp/forgesync-cleanup-workspace-doc.log`. This validates accumulated changes locally; the bounded
 conventions review, broad test-quality review, and requirements reconciliation remain open. These
 results do not establish hosted platform-matrix outcomes.
+
+### Typed discussion filter arguments
+
+Thread listing and search now flatten the same CLI-owned `ThreadFilterArgs` into their arguments.
+The type owns conversion to engine filters, replacing a six-parameter bare function and the list
+variant's construction block. Request conversion preserves absent sort policy for the workflow.
+Repository, kind, state, limit, and offset flags keep their names and defaults; shared sort help now
+serves both commands. The initial compile caught a missing module declaration, which is corrected.
+All CLI tests and its doctest pass.
+
+CLI Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl, and
+changed-page Markdown linting also pass.

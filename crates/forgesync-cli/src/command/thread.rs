@@ -19,14 +19,11 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use forgesync_core::content::ThreadKind;
-use forgesync_engine::inspect::{
-    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, list_threads, show_thread,
-};
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::inspect::{ThreadListRequest, list_threads, show_thread};
+use forgesync_engine::reference::ThreadSelector;
 use forgesync_store::archive::Archive;
 
-use crate::command::values::{ThreadKindArg, ThreadSortArg, ThreadStateArg};
+use crate::command::thread_filters::ThreadFilterArgs;
 use crate::reports::threads::{render_thread_detail, render_thread_page};
 use crate::{OutputMode, render_engine_error, render_store_error};
 
@@ -34,30 +31,7 @@ use crate::{OutputMode, render_engine_error, render_store_error};
 #[derive(Clone, Debug, Subcommand)]
 pub enum ThreadCommand {
     /// List discussions in stable update order.
-    List {
-        /// Limit results to one or more registered repositories.
-        #[arg(long = "repo", value_name = "OWNER/REPO")]
-        repositories: Vec<RepositorySelector>,
-        /// Limit results to issues or pull requests.
-        #[arg(long, value_enum)]
-        kind: Option<ThreadKindArg>,
-        /// Filter by source open or closed state.
-        #[arg(long, value_enum, default_value_t = ThreadStateArg::All)]
-        state: ThreadStateArg,
-        /// Sort by source update or creation time.
-        #[arg(long, value_enum)]
-        sort: Option<ThreadSortArg>,
-        /// Maximum number of results (1-1000).
-        #[arg(
-            long,
-            default_value_t = 20,
-            value_parser = clap::value_parser!(u32).range(1..=1000)
-        )]
-        limit: u32,
-        /// Number of matching rows to skip.
-        #[arg(long, default_value_t = 0)]
-        offset: u64,
-    },
+    List(ThreadFilterArgs),
     /// Show one discussion and its current selected evidence.
     Show {
         /// OWNER/REPO#NUMBER or a GitHub issue/pull-request URL.
@@ -71,19 +45,7 @@ impl ThreadCommand {
     /// Both variants open the existing archive read-only and close it before rendering.
     pub async fn run(self, path: &Path, output: OutputMode) -> ExitCode {
         match self {
-            Self::List {
-                repositories,
-                kind,
-                state,
-                sort,
-                limit,
-                offset,
-            } => {
-                let request = ThreadListRequest {
-                    filters: thread_filters(repositories, kind, state, sort, limit, offset),
-                };
-                Self::list(path, output, request).await
-            }
+            Self::List(args) => Self::list(path, output, args.into_request()).await,
             Self::Show { reference } => Self::show(path, output, reference).await,
         }
     }
@@ -117,32 +79,11 @@ impl ThreadCommand {
     }
 }
 
-/// Converts parsed thread options to an engine read filter.
-pub fn thread_filters(
-    repositories: Vec<forgesync_engine::reference::RepositorySelector>,
-    kind: Option<ThreadKindArg>,
-    state: ThreadStateArg,
-    sort: Option<ThreadSortArg>,
-    limit: u32,
-    offset: u64,
-) -> ThreadFilters {
-    ThreadFilters {
-        repositories,
-        kind: kind.map(|kind| match kind {
-            ThreadKindArg::Issue => ThreadKind::Issue,
-            ThreadKindArg::Pr => ThreadKind::PullRequest,
-        }),
-        state: match state {
-            ThreadStateArg::All => ThreadStateFilter::All,
-            ThreadStateArg::Open => ThreadStateFilter::Open,
-            ThreadStateArg::Closed => ThreadStateFilter::Closed,
-        },
-        sort: sort.map(|sort| match sort {
-            ThreadSortArg::Relevance => ThreadSort::Relevance,
-            ThreadSortArg::Updated => ThreadSort::Updated,
-            ThreadSortArg::Created => ThreadSort::Created,
-        }),
-        limit,
-        offset,
+impl ThreadFilterArgs {
+    /// Builds an ordinary listing request while preserving the engine's default sort policy.
+    fn into_request(self) -> ThreadListRequest {
+        ThreadListRequest {
+            filters: self.into_filters(),
+        }
     }
 }

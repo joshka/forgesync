@@ -24,6 +24,7 @@ mod run;
 mod search;
 mod sync;
 mod thread;
+mod thread_filters;
 #[cfg(feature = "tui")]
 mod tui;
 pub mod values;
