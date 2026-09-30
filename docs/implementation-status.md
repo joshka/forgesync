@@ -18,6 +18,14 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Embedding-client protocol tests now compare the complete request body and response count. Redirect
+rejection checks one source request and no destination requests; fallible history reads have their
+own failure context. Named validation and retry-classification cases retain exact error assertions.
+All 19 embedding-client-filtered unit tests pass; engine all-target Clippy passes with warnings
+denied. The remaining workflow inventory includes cluster setup behavior helpers and mixed
+generation scenarios, plus sync read projections and assertions. Final workspace acceptance remains
+open.
+
 Store detail now compares complete comment membership and exact timeline events, names issue
 coverage families, and verifies absence of PR-only collections. FTS replacement separates its query
 from the empty-result assertion and no longer claims rollback coverage. Search migration explains

@@ -8,13 +8,20 @@
 //!
 //! The retry case declares a one-shot server failure followed by a successful response. Direct
 //! backoff cases establish budget rejection and cancellation without making a provider request.
+//! The protocol scenario matches the full JSON request, including input order, and checks the
+//! returned vector count before comparing indexed values. Redirect assertions inspect both source
+//! and destination request histories so rejection is tied to one actual source attempt.
+//!
+//! Configuration fixtures only construct settings. Request execution, retry policy overrides, and
+//! mock expectations stay beside the operation and result. Response-shape rejection has its own
+//! named fixture suite; these transport cases do not duplicate its validation matrix.
 
 use std::time::{Duration, Instant};
 
 use reqwest::Url;
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
-use wiremock::matchers::{body_string_contains, header, method, path};
+use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::embedding_client::{EmbeddingClient, EmbeddingClientConfig, EmbeddingClientError};
@@ -25,8 +32,12 @@ async fn compatible_embedding_request_orders_responses_by_index() {
     Mock::given(method("POST"))
         .and(path("/v1/embeddings"))
         .and(header("authorization", "Bearer fixture-secret"))
-        .and(body_string_contains("\"model\":\"fixture-model\""))
-        .and(body_string_contains("\"dimensions\":2"))
+        .and(body_json(json!({
+            "model": "fixture-model",
+            "dimensions": 2,
+            "encoding_format": "float",
+            "input": ["first", "second"]
+        })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "data": [
                 {"index": 1, "embedding": [0.0, 1.0]},
@@ -46,9 +57,11 @@ async fn compatible_embedding_request_orders_responses_by_index() {
         .await
         .expect("embedding vectors");
 
+    assert_eq!(result.len(), 2);
     assert_eq!(result[0].values(), &[1.0, 0.0]);
     assert_eq!(result[1].values(), &[0.0, 1.0]);
-    assert_eq!(server.received_requests().await.expect("requests").len(), 1);
+    let requests = server.received_requests().await.expect("recorded requests");
+    assert_eq!(requests.len(), 1);
 }
 
 #[tokio::test]
@@ -69,13 +82,13 @@ async fn authenticated_redirect_is_rejected_without_forwarding_the_key() {
         .await;
 
     assert_eq!(result, Err(EmbeddingClientError::RedirectRejected));
-    assert!(
-        destination
-            .received_requests()
-            .await
-            .expect("requests")
-            .is_empty()
-    );
+    let source_requests = source.received_requests().await.expect("source requests");
+    let destination_requests = destination
+        .received_requests()
+        .await
+        .expect("destination requests");
+    assert_eq!(source_requests.len(), 1);
+    assert!(destination_requests.is_empty());
 }
 
 #[tokio::test]

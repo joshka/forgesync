@@ -664,7 +664,23 @@ acceptance without title overlap. Reference membership is explicit. Proposal cas
 edges directly, while scheduler and cluster lease tests inspect real resource cleanup and error
 precedence. Sync/refresh accounting and recorded selection use direct named values and transitions.
 Cosine tests distinguish exact axis results from tolerance-based arithmetic. These dispositions do
-not close engine client or workflow integration review.
+not close workflow integration review.
+
+### Engine embedding-client suite dispositions
+
+Protocol acceptance matches the entire JSON request, including model, configured dimensions, float
+encoding, and ordered inputs. It checks exact response count before indexed vector comparisons and
+reads request history separately from assertions. Redirect rejection proves one source attempt and
+no destination requests. Retry keeps two explicit mock expectations; direct backoff cases assert
+budget exhaustion and cancellation without HTTP requests. Configuration helpers construct settings
+only. Named response-validation and error-classification matrices already compare exact errors
+without scenario loops or hidden operations and are retained.
+
+Engine workflow integration remains open. The cluster scenario still hides observation application
+and fenced document/vector writes in behavior helpers, and combines complete generation,
+partial-preservation, and unavailable-vector rejection. Address those concrete ownership and
+scenario findings next; fixture construction may stay pure. Sync scenario read projections also need
+inspection for hidden retrieval boundaries and assertions that establish only counts.
 
 ### Store lifecycle and cluster-suite dispositions
 
@@ -695,10 +711,9 @@ retained membership, and read-only audit events. Its construction helpers supply
 all fenced mutations and cleanup remain visible. Splitting this coherent before/after regression
 would duplicate its transitions without improving understanding of restoration.
 
-Remaining test-quality work covers store observation/search integration acceptance and engine client
-and workflow suites. Completed local, lifecycle, and cluster findings are removed from that
-remaining inventory. Broad API/convention and production documentation-depth acceptance remain
-independent.
+Remaining test-quality work covers store observation/search integration acceptance and engine
+workflow suites. Completed local, lifecycle, and cluster findings are removed from that remaining
+inventory. Broad API/convention and production documentation-depth acceptance remain independent.
 
 ### Store observation and search-suite dispositions
 
