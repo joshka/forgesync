@@ -10,7 +10,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, RunId};
 use forgesync_core::provider_data::ProviderData;
-use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
 use forgesync_store::reads::ThreadPage;
 
@@ -147,7 +147,7 @@ fn opening_keyword_search_returns_to_the_browser() {
 }
 
 #[test]
-fn maintainer_keys_target_the_selected_cluster_member() {
+fn exclude_targets_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
         cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
@@ -156,18 +156,38 @@ fn maintainer_keys_target_the_selected_cluster_member() {
         },
         ..App::default()
     };
+    let reference = "owner/repo#7"
+        .parse::<ThreadSelector>()
+        .expect("member selector");
 
-    let exclude = app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
-    assert!(matches!(
-        exclude.as_slice(),
-        [QueryAction::ExcludeClusterMember { id: 17, .. }]
-    ));
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
 
-    let canonical = app.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE));
-    assert!(matches!(
-        canonical.as_slice(),
-        [QueryAction::SetCanonicalClusterMember { id: 17, .. }]
-    ));
+    assert_eq!(
+        actions,
+        [QueryAction::ExcludeClusterMember { id: 17, reference }]
+    );
+}
+
+#[test]
+fn canonical_targets_the_selected_cluster_member() {
+    let mut app = App {
+        screen: Screen::ClusterDetail,
+        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
+            data: Some(sample_cluster_detail()),
+            ..Default::default()
+        },
+        ..App::default()
+    };
+    let reference = "owner/repo#7"
+        .parse::<ThreadSelector>()
+        .expect("member selector");
+
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE));
+
+    assert_eq!(
+        actions,
+        [QueryAction::SetCanonicalClusterMember { id: 17, reference }]
+    );
 }
 
 #[test]

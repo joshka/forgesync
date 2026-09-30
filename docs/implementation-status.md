@@ -2871,3 +2871,13 @@ restyling assertions.
 
 All 11 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Exact cluster-member action scenarios
+
+The combined maintainer-key test ignored the emitted member field. Separate exclusion and canonical
+scenarios now compare the entire action against an explicit discussion selector and cluster ID. Each
+test has one keyboard action and one direct expected result, so wrong-member routing cannot pass
+merely because the cluster ID or action variant is correct.
+
+All 12 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
