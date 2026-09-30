@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Refresh embedding selection now delegates to documented execution methods for service-backed work
+and unavailable-service reporting; cluster result types use their defining-module import. Focused
+refresh validation passes eight unit cases and three integration cases. Strict workspace Rustdoc
+passes with warnings, missing public docs, and broken links denied, including private items. The
+current syntax inventory finds no missing handwritten production function comments or module
+introductions below ten lines; these are presence checks, not documentation-depth acceptance.
+
 Parent observation tests compare the full retained discussion after replay, conflict, and malformed
 clock rejection through explicit public archive reads. High-water assertions compare the complete
 coverage record, including acquisition time and count. The title-only read helper is removed. All 16

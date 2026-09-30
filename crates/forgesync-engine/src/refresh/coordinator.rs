@@ -38,8 +38,8 @@ use crate::refresh::clusters::build_repository_clusters;
 use crate::refresh::embeddings::embed_repositories;
 use crate::refresh::status::{refresh_outcome, remaining_stages, stage_failure};
 use crate::refresh::{
-    RefreshAnalysisStage, RefreshEmbeddingReport, RefreshReport, RefreshRequest, RefreshStage,
-    RefreshStageFailure, RefreshStageKind, RefreshStageStatus,
+    RefreshAnalysisStage, RefreshClusterRepository, RefreshEmbeddingReport, RefreshReport,
+    RefreshRequest, RefreshStage, RefreshStageFailure, RefreshStageKind, RefreshStageStatus,
 };
 use crate::sync::{SyncProgress, SyncReport, SyncRequest, sync_repositories};
 
@@ -168,30 +168,41 @@ impl RefreshExecution<'_> {
             .contains(&RefreshAnalysisStage::Embeddings)
         {
             Some(match self.embedding_client {
-                Some(client) => {
-                    embed_repositories(
-                        self.archive,
-                        &self.repositories,
-                        client,
-                        self.request.recipe,
-                        EmbeddingPolicy::from_force(self.request.force_embeddings),
-                        self.cancellation,
-                    )
-                    .await
-                }
-                None => RefreshStage::failed(RefreshStageFailure {
-                    code: "embedding_service_unavailable",
-                    message: "embedding analysis requires a valid configured embedding service"
-                        .to_owned(),
-                }),
+                Some(client) => self.embed(client).await,
+                None => self.unavailable_embeddings(),
             })
         } else {
             None
         }
     }
 
+    /// Acquires vectors for the stable repository scope using this refresh's replacement policy.
+    ///
+    /// The embedding workflow owns its writer lease and returns partial document/batch outcomes;
+    /// this adapter preserves that report for later aggregate outcome calculation.
+    async fn embed(&self, client: &EmbeddingClient) -> RefreshStage<RefreshEmbeddingReport> {
+        let policy = EmbeddingPolicy::from_force(self.request.force_embeddings);
+        embed_repositories(
+            self.archive,
+            &self.repositories,
+            client,
+            self.request.recipe,
+            policy,
+            self.cancellation,
+        )
+        .await
+    }
+
+    /// Records unavailable vector service as a stage failure so other selected stages still run.
+    fn unavailable_embeddings(&self) -> RefreshStage<RefreshEmbeddingReport> {
+        RefreshStage::failed(RefreshStageFailure {
+            code: "embedding_service_unavailable",
+            message: "embedding analysis requires a valid configured embedding service".to_owned(),
+        })
+    }
+
     /// Runs the selected clusters stage and retains its partial result.
-    async fn clusters(&self) -> Option<RefreshStage<Vec<super::RefreshClusterRepository>>> {
+    async fn clusters(&self) -> Option<RefreshStage<Vec<RefreshClusterRepository>>> {
         if self
             .request
             .analysis

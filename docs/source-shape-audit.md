@@ -362,8 +362,9 @@ multi-step behavior from wrapped single calls or explicit domain values:
   Retain the construction beside the missing-head transition; it performs no additional effects.
 - Sync scope arms construct explicit policy values. Retain visible scope order and closed-watermark
   facts rather than adding forwarding constructors for three-field literals.
-- Refresh embedding dispatch calls the named repository embedding operation or constructs one failed
-  stage. Retain the configured-service decision and its failure value together.
+- Refresh embedding dispatch calls `RefreshExecution::embed` or `unavailable_embeddings`. Each
+  branch names its operation; the execution owner retains repository scope, replacement policy, and
+  failure reporting. Cluster result types import their defining module directly.
 - Cluster release previously combined clock acquisition, archive release, and lost-fence translation
   in a match/closure chain. A named release operation now owns that behavior; result precedence
   stays with completion and has direct already-released regression cases.
@@ -514,6 +515,17 @@ delegates acquisition to that request. Retain path, output, verbosity, ID, and f
 that conversion boundary; no extra wrapper would remove a caller decision. Archive command dispatch
 similarly retains path and output beside `self`. These dispositions cover the inspected local read
 and run dispatch signatures rather than the remaining service-backed CLI preparations.
+
+### Service-backed CLI signature dispositions
+
+Service-backed CLI entry signatures retain archive path, output mode, verbosity, and configuration
+as independent process choices. Embed and refresh consume their parsed command and configuration
+during preparation; execution adds the invocation's cancellation token without discovering process
+state in libraries. Search retains independently selected service and recipe inputs, validates
+fallback policy before opening the archive, and stores the resulting request/client in
+`PreparedSearch`. A shared process-context bag would combine unrelated policies and add navigation;
+the existing prepared owners already capture the values that must agree. This disposes of the
+reviewed embed, refresh, and search signature candidates, not all engine/store signatures.
 
 ### Offline CLI scenario locality
 
@@ -805,8 +817,9 @@ assertions. Partial and incomplete-empty acquisitions retain the earlier complet
 complete-empty publication records zero members at the winning sequence. Review-thread rollback uses
 different old and replacement heads, proving both retained old context and rejected new context.
 Snapshot head checks also include a different-head negative control, with explicit pull request
-parents. These child cases pass all 16 observation integration tests. Parent integrity and
-high-water assertion review, cross-crate reconciliation, and final gates remain open.
+parents. All 16 observation integration tests pass. Parent integrity and high-water assertions now
+compare full retained discussions and exact coverage records. Cross-crate reconciliation and final
+gates remain open.
 
 Search integration has shallow pagination, filtering, scope coverage, status counts, read-only
 preservation, repository lookup, query validation, detail, FTS, and migration owners. Fixtures build
