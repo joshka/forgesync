@@ -1,22 +1,35 @@
 //! # Finalize a staged child-family observation
 //!
-//! Finishing checks the reserved sequence and staged pages, then applies the collection outcome.
-//! Complete membership may become canonical only after page validation; incomplete collection
-//! still records the acquisition result without erasing earlier complete members.
+//! The [`Archive`] methods here turn a reserved, staged acquisition into its terminal result.
+//! [`ChildFamilyObservation`] carries thread/family identity, sequence, acquisition time,
+//! completeness, expected page count, and optional pull-request head context. The convenience
+//! method omits head context; context-aware methods support head-bound review families.
 //!
-//! The engine calls this after pagination ends or fails. The store owns the transaction that makes
-//! the outcome and membership agree, so a subsequent read never has to guess whether a
-//! half-applied page set is authoritative.
+//! Validation rejects unsupported families and inconsistent completeness/page-count declarations
+//! before beginning the transaction. Complete reviews and review threads require head context;
+//! other families reject supplied head context. These checks validate the declaration rather than
+//! contacting the provider to verify the recorded head or acquisition time.
+//!
+//! The application module checks reservation ownership, recognizes completed replay, and loads
+//! staged pages. Complete application validates the page set before replacing canonical membership
+//! and coverage. Incomplete application verifies received counts and records the attempt without
+//! erasing prior complete members. A superseded reservation can return a skipped result rather
+//! than becoming a write error, so callers must inspect the disposition.
+//!
+//! This module owns the single transaction and commits after application succeeds. Fenced callers
+//! must hold a current archive lease; unfenced methods do not enforce that authority. No
+//! transaction crosses provider I/O. Application errors roll back this finalization, while staging
+//! from earlier calls remains separately durable for recovery or retry.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::{ObservationSequence, ThreadId};
 use forgesync_core::observation::CollectionCompleteness;
 use forgesync_core::timestamp::UtcTimestamp;
 
-use super::ChildFamilyObservation;
-use super::application::{FamilyApplication, FamilyFinalization};
 use crate::archive::Archive;
 use crate::error::StoreError;
+use crate::families::ChildFamilyObservation;
+use crate::families::application::{FamilyApplication, FamilyFinalization};
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{
     FamilyObservationResult, evidence_family_name, is_child_family, to_sql_sequence,
@@ -25,6 +38,10 @@ use crate::observations::{
 impl Archive {
     /// Commits a complete membership snapshot or records an incomplete attempt without replacing
     /// it.
+    ///
+    /// This convenience form supplies no head context, so complete reviews or review threads must
+    /// use a context-aware method instead. It does not enforce an archive lease. Inspect the
+    /// returned disposition: a superseded reservation is skipped without replacing membership.
     pub async fn finish_child_family_observation(
         &self,
         thread: &ThreadId,
@@ -57,6 +74,9 @@ impl Archive {
     }
 
     /// Finalizes a child family only while the supplied archive lease remains current.
+    ///
+    /// Authority is checked inside the finalization transaction. It does not prove provider
+    /// freshness or reservation ownership; the application checks the reservation separately.
     pub async fn finish_child_family_observation_fenced(
         &self,
         observation: ChildFamilyObservation<'_>,

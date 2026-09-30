@@ -2632,3 +2632,14 @@ imported from their defining observation module. Behavior is unchanged.
 
 Strict store Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Family finalization contracts
+
+Family finish orientation now explains declaration validation, head-bound review requirements,
+reservation skip/replay outcomes, complete membership promotion, and incomplete coverage-only
+application. It identifies the transaction owner, fenced versus unfenced authority, and separately
+durable staging after finalization rollback. The convenience method documents why complete review
+families need the context-aware form. Application imports now name their defining modules.
+
+Strict store Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
