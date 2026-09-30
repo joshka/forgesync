@@ -37,9 +37,14 @@ impl RepositoryWork<'_> {
 
 /// Started comment work whose terminal status incorporates all visited threads.
 struct CommentJob<'a> {
+    /// Repository selection and immutable services shared by each visited thread.
     work: RepositoryWork<'a>,
+    /// Durable job identity and accumulated terminal status, committed counts, and failure
+    /// priority.
     job: FamilyJob,
+    /// Comments received across acquisitions, kept separate from committed membership counts.
     received: u64,
+    /// Repository URL prepared once for progress messages; the provider ID remains in `work`.
     repository: String,
 }
 
@@ -144,7 +149,11 @@ impl<'a> CommentJob<'a> {
         Ok(result.interrupted)
     }
 
-    /// Persists the terminal job before adding its completed work to the run report.
+    /// Adds checked counts, persists terminal status, then publishes the completed-job outcome.
+    ///
+    /// A store error aborts the run before completion is published; accumulated source observations
+    /// remain durable. Provider failures were recorded per thread, so this ledger completion does
+    /// not create another failure entry for the same acquisition.
     async fn finish(self, summary: &mut WorkSummary) -> Result<(), EngineError> {
         self.add_counts(summary)?;
         let (status, failure, progress) = self.job.progress.outcome();

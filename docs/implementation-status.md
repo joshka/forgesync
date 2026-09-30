@@ -29,6 +29,13 @@ limits; writer documentation identifies renewal at persistence and fence checks 
 pass changes documentation only. Next action: continue the remaining field/signature and test
 reviews, then reconcile the full requested scope.
 
+The sync ownership review documents repository lookup inputs, reserved acquisition order, parent
+ledger IDs, review staging counters, and comment accounting beside their fields. Received members
+and committed membership are distinct; review page counts advance after successful staging. The
+comment completion contract now reflects its actual ordering: checked count accumulation precedes
+the terminal ledger write, while completion publication follows it. This is a documentation-only
+pass; strict engine Rustdoc and nightly formatting pass. The wider review remains open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

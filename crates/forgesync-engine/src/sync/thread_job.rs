@@ -28,9 +28,13 @@ use crate::reference::RepositorySelector;
 
 /// One durable parent-thread job whose scan and failure scope remain bound throughout execution.
 pub struct ThreadJob<'a> {
+    /// Repository scope and shared services used for fenced writes and progress publication.
     work: RepositoryWork<'a>,
+    /// Reserved sequence, start time, and provider traversal selection for this parent scan.
     scan: ThreadScanContext,
+    /// Started ledger row to finish; distinct from the scan's observation sequence.
     id: i64,
+    /// Repository URL used to identify failure targets and progress, rather than a SQL identity.
     target: String,
 }
 

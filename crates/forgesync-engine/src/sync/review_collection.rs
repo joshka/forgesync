@@ -49,6 +49,7 @@ use crate::provider_failure::github_failure;
 
 /// A review family's durable write scope before it has an observation reservation.
 pub struct ReviewSync<'a> {
+    /// Archive owning reservations, staged pages, canonical membership, and failure recovery.
     archive: &'a Archive,
     /// Provider client chosen by the caller for this repository host.
     pub client: &'a GitHubClient,
@@ -56,6 +57,7 @@ pub struct ReviewSync<'a> {
     pub scope: ThreadFamilyScope<'a>,
     /// Run ownership, cancellation, and lease shared with sibling family work.
     pub context: &'a SyncRunContext<'a>,
+    /// Couples provider traversal to the evidence family used in all durable writes.
     family: ReviewFamily,
 }
 
@@ -85,8 +87,12 @@ pub struct ReviewCollection<'a> {
     pub target: ReviewSync<'a>,
     /// Pull-request head captured from the metadata result before page acquisition.
     pub head: CommitSha,
+    /// Reserved generation checked by staging and consuming finalization.
     sequence: ObservationSequence,
+    /// Successfully staged pages; also the next zero-based page index and terminal page count.
     page_count: u32,
+    /// Provisional received-item accounting; completion fills committed counts from the store.
+    /// Received items can include repeated identities and are not canonical membership size.
     result: ThreadFamilyResult<()>,
 }
 

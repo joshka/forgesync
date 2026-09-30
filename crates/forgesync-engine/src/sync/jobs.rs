@@ -73,9 +73,13 @@ pub async fn run_jobs(
 
 /// Provider lookup scope and immutable services for one repository's jobs.
 struct RepositorySync<'a> {
+    /// Archive receiving fenced repository writes, reservations, and failure-ledger entries.
     archive: &'a Archive,
+    /// Provider client selected for the repository's host before lookup begins.
     client: &'a GitHubClient,
+    /// Requested owner/name identity used for lookup and diagnostics before a provider ID exists.
     selector: &'a RepositorySelector,
+    /// Shared run ID, lease, cancellation, selected families, and progress destination.
     context: &'a SyncRunContext<'a>,
 }
 
@@ -250,7 +254,9 @@ impl RepositorySync<'_> {
 /// Timestamp and local order reserved together before provider acquisition.
 #[derive(Clone, Copy)]
 struct Acquisition {
+    /// Local reservation time used as the scan start, independent of provider update timestamps.
     started_at: UtcTimestamp,
+    /// Archive ordering token reserved before provider I/O, not the order responses arrive.
     sequence: ObservationSequence,
 }
 
