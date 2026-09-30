@@ -2399,3 +2399,14 @@ Both fenced and unfenced public methods describe intended use, transaction behav
 Registration creates no child-family completeness or provider acquisition. Strict store Rustdoc,
 nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
 open.
+
+## Continued maintenance: observation sequence allocation contracts
+
+Sequence orientation now explains the archive-wide counter, committed allocation, valid gaps after
+failed acquisition, diagnostic start timestamp, and separation from provider time, generation
+reservation, and completeness. Both public methods document fenced/unfenced use and failures. The
+private implementation's misleading always-fenced description is corrected; its guard is optional.
+
+The checked conversion import names its actual observation-module owner. Strict store Rustdoc,
+nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
+open.
