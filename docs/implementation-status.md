@@ -2446,3 +2446,13 @@ trimming, and child-family descriptions direct readers to coverage instead of im
 Nearby envelope tests gain orientation and an explicit owner import. All three focused output tests,
 strict CLI Rustdoc, nightly formatting, and Markdown checks pass. Serialized shapes and behavior
 remain unchanged; broader review remains open.
+
+## Continued maintenance: selector identity contracts
+
+Selector orientation now distinguishes checked display coordinates from resolved durable IDs,
+case-sensitive equality from case-insensitive local lookup, and literal path grammar from a general
+URL parser. Fields and construction/formatting contracts explain rename, existence, kind, and
+percent-decoding limits. A runnable thread-selector example demonstrates the local number/path.
+
+All four engine doctests, strict engine Rustdoc, nightly formatting, and Markdown checks pass.
+Parsing behavior is unchanged; broader conventions and test review remain open.

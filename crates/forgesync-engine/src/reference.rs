@@ -1,11 +1,25 @@
 //! # Parse user-facing repository and thread selectors
 //!
-//! `RepositorySelector` and `ThreadSelector` turn command input into scoped domain identities.
+//! `RepositorySelector` and `ThreadSelector` turn command input into checked lookup coordinates.
 //! Their parsing errors identify malformed or ambiguous references before a workflow starts
 //! provider or archive work.
 //!
 //! Selectors are user-facing requests, not provider DTOs or SQL keys. The CLI parses them once,
 //! then engine workflows resolve them through the appropriate archive or GitHub boundary.
+//!
+//! Repository selectors retain normalized host and supplied owner/name spelling; they carry no
+//! stable provider repository ID. Thread selectors add a checked positive repository-local number,
+//! not a provider node ID or issue-versus-pull-request kind. Parsing proves shape, not existence,
+//! permission, current naming, or provider parentage.
+//!
+//! Derived equality/hash compare retained fields, including owner/name case. Local archive lookup
+//! can use case-insensitive display matching even when two selectors are unequal. Resolve before
+//! using durable domain identity for storage or cross-operation deduplication.
+//!
+//! HTTPS input is parsed as host plus literal path segments. Query and fragment suffixes and
+//! trailing slashes are discarded; percent escapes are not decoded. Plain owner/name pairs are
+//! not outer-trimmed and use `github.com`. This is the application's selector grammar, not a
+//! general browser URL parser. No archive or network effects occur in this module.
 
 use std::str::FromStr;
 
@@ -32,13 +46,19 @@ use thiserror::Error;
 /// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RepositorySelector {
+    /// Normalized host for lookup; no provider repository identity is encoded.
     host: GitHubHost,
+    /// Supplied display owner spelling, retained without case folding.
     owner: String,
+    /// Supplied display repository spelling, retained without percent decoding.
     name: String,
 }
 
 impl RepositorySelector {
-    /// Builds a selector from a repository already stored in the archive.
+    /// Copies the normalized host and current display path from a repository record.
+    ///
+    /// Does not retain its stable provider ID or validate the record's public display fields.
+    /// This is a new lookup coordinate, so rename changes can make a later lookup differ.
     pub fn from_repository(repository: &Repository) -> Self {
         Self {
             host: repository.id.host().clone(),
@@ -62,7 +82,10 @@ impl RepositorySelector {
         &self.name
     }
 
-    /// Returns a host-qualified URL suitable for stable run scope output.
+    /// Formats the retained host/display path as HTTPS text for run scope and diagnostics.
+    ///
+    /// Does not percent-encode path segments or create a durable repository ID. Its spelling can
+    /// change after a rename; consumers must resolve the selector for durable identity.
     pub fn as_url(&self) -> String {
         format!(
             "https://{}/{}/{}",
@@ -100,15 +123,32 @@ impl FromStr for RepositorySelector {
     }
 }
 
-/// A thread reference accepted by local inspect commands.
+/// Checked repository display path and positive local number used to request a thread.
+///
+/// Both issue and pull URLs produce this same shape; route spelling does not retain thread kind.
+/// Resolution determines the archived domain identity. Construction or parsing performs no lookup.
+///
+/// ```
+/// use forgesync_engine::reference::ThreadSelector;
+///
+/// let selector: ThreadSelector = "owner/project#42".parse()?;
+/// assert_eq!(selector.number().get(), 42);
+/// assert_eq!(selector.repository().name(), "project");
+/// # Ok::<(), forgesync_engine::reference::ReferenceParseError>(())
+/// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ThreadSelector {
+    /// Display-path lookup coordinates, without a stable provider repository ID.
     repository: RepositorySelector,
+    /// Checked positive number within the selected repository.
     number: ThreadNumber,
 }
 
 impl ThreadSelector {
-    /// Builds a selector from a validated repository identity and positive thread number.
+    /// Combines repository lookup coordinates with a checked positive thread number.
+    ///
+    /// Does not establish existence, thread kind, or provider parentage. The repository component
+    /// is a display selector rather than a resolved durable identity.
     pub fn new(repository: RepositorySelector, number: ThreadNumber) -> Self {
         Self { repository, number }
     }
