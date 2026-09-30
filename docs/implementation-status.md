@@ -2697,3 +2697,13 @@ mapping, or transaction behavior changes.
 
 Store Clippy across all targets/features, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Linear exact-scoring numerical scenarios
+
+The combined arithmetic test is split into named axis cases, a diagonal tolerance scenario, and a
+dimension-mismatch scenario. Expected directions are explicit rstest inputs, and the diagonal test
+names its difference before asserting it. A large-finite-component regression exercises the scaled
+accumulation contract without computing expected results through a test helper.
+
+All eight focused exact-search scenarios pass, together with nightly formatting, rumdl, and
+changed-page Markdown linting.
