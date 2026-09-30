@@ -11,11 +11,10 @@
 //! module adapts local ledger projections and does not choose which unresolved work to retry.
 
 use forgesync_engine::runs::RetryReport;
-use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};
+use forgesync_store::runs::{RunRecord, RunStatus, SyncJobStatus};
 use serde::Serialize;
 
 use crate::reports::sync::sync_summary;
-use crate::reports::threads::family_name;
 
 /// Safe interruption payload when retry stops before acquisition can produce a run report.
 ///
@@ -47,58 +46,6 @@ pub fn run_list_summary(runs: &Vec<RunRecord>) -> String {
     }
     if runs.is_empty() {
         lines.push("No runs recorded.".to_owned());
-    }
-    lines.join("\n")
-}
-
-/// Shows the jobs and unresolved failures attached to one run.
-pub fn run_detail_summary(detail: &RunDetail) -> String {
-    let mut lines = vec![format!(
-        "Run {}: {}\nStarted: {}\nParent: {}\nJobs: {}\nFailures: {}",
-        detail.run.id.get(),
-        run_status_name(detail.run.status),
-        detail
-            .run
-            .started_at
-            .format_rfc3339()
-            .unwrap_or_else(|_| "invalid timestamp".to_owned()),
-        detail
-            .run
-            .parent_id
-            .map(|parent| parent.get().to_string())
-            .unwrap_or_else(|| "-".to_owned()),
-        detail.jobs.len(),
-        detail.failures.len()
-    )];
-    lines.push("Jobs:".to_owned());
-    lines.extend(detail.jobs.iter().map(|job| {
-        format!(
-            "  {} {} [{}]: {} ({} items, {} pages)",
-            job.repository.full_name,
-            family_name(job.family),
-            job.scope_key,
-            sync_job_status_name(job.status),
-            job.items_committed,
-            job.pages_completed
-        )
-    }));
-    lines.push("Failures:".to_owned());
-    lines.extend(detail.failures.iter().map(|failure| {
-        format!(
-            "  {} {} [{}]: {}{}",
-            failure.target,
-            failure.family.map(family_name).unwrap_or("unassigned"),
-            failure.scope_key,
-            failure.failure.message,
-            if failure.resolved_at.is_some() {
-                " (resolved)"
-            } else {
-                ""
-            }
-        )
-    }));
-    if detail.failures.is_empty() {
-        lines.push("  None".to_owned());
     }
     lines.join("\n")
 }

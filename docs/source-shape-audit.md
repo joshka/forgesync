@@ -223,7 +223,7 @@ Member-target resolution keeps its ordered repository, source-thread, and curren
 validation together. Audit insertion's wide signature maps explicit SQL columns; representation
 review remains in the workspace batch.
 
-### 6. CLI and TUI presentation
+### 6. CLI and TUI presentation — implemented
 
 Review CLI detail/archive summaries and TUI coverage, cluster detail, search editing, and event-loop
 policy. Finish when presentation decisions and state-changing dispatch have named local owners,
@@ -237,13 +237,14 @@ CLI thread/search pages have owned summaries, row methods, and a shared coverage
 footer. Browser input and search editing retain their existing named transitions after review.
 Store/engine identities and JSON output remain unchanged.
 
-Remaining implementation inventory for this batch:
+CLI cluster page/detail coordinators now delegate named cluster rows, detail heading, and member
+rows. Run detail has a separate module with heading, job, and failure projections. Empty-page,
+coverage/continuation, and empty-run output cases supplement the existing offline and process
+contracts. Label mappings remain exhaustive local policy, and genuinely linear format projections
+stay together rather than splitting each field into a helper.
 
-- CLI cluster pages/details: name cluster and member projections inside traversal.
-- CLI run details: separate run identity, job rows, and failure rows.
-
-Finish with focused human-output evidence and full workspace gates. Broader test-suite and
-module/item documentation review stays in batches 7 and 8; these slices do not claim those reviews.
+Implementation inventory is addressed; focused scenarios and all local workspace gates pass. Broader
+fixture/snapshot adequacy and documentation-depth review remains in batches 7 and 8.
 
 ### 7. Workspace conventions and documentation
 

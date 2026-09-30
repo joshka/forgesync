@@ -1988,3 +1988,19 @@ The offline cluster contract and workspace Clippy pass. A nearby empty-page outp
 the existing decision JSON case; focused cases pass. Full acceptance will include this change with
 CLI page and final run-detail presentation changes. A first attempted test target name was absent;
 validation uses the repository's actual `cluster_contract` target.
+
+## Continued maintenance: run detail presentation
+
+A dedicated `reports::run_detail` module presents attempt identity, ordered jobs, and ordered
+failures through named projections. The coordinator keeps headings and explicit empty-failure
+wording visible. Explanatory start/parent/family/resolution locals preserve timestamp fallback,
+parent dash, unassigned family, and resolved suffix. Run-list and retry summaries retain their
+existing owning module and shared status-label queries. The command imports the detail renderer from
+its actual owner.
+
+All 14 CLI process contract cases and workspace Clippy pass for the implementation. A nearby exact
+empty-run case checks identity, timestamp, parent, counts, both headings, and the no-failures line.
+The focused empty-run case and all final workspace gates pass: Clippy, tests/doctests, the CLI build
+without default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
+Markdown linting. The sixth implementation batch is complete. Broader documentation-depth and
+test-suite review remain separate bounded batches.
