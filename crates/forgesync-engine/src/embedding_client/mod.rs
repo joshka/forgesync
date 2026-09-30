@@ -186,19 +186,34 @@ impl EmbeddingClient {
             match result {
                 Ok(vectors) => return Ok(vectors),
                 Err(error) if error.retryable() && attempt + 1 < self.max_attempts => {
-                    let delay = retry_delay(attempt);
-                    if delay >= self.total_budget.saturating_sub(started.elapsed()) {
-                        return Err(EmbeddingClientError::RetryBudgetExhausted);
-                    }
-                    tokio::select! {
-                        _ = cancellation.cancelled() => return Err(EmbeddingClientError::Cancelled),
-                        _ = tokio::time::sleep(delay) => {}
-                    }
+                    self.wait_to_retry(attempt, started, cancellation).await?;
                 }
                 Err(error) => return Err(error),
             }
         }
         Err(EmbeddingClientError::RetryBudgetExhausted)
+    }
+
+    /// Waits only when backoff fits strictly inside the remaining batch budget.
+    ///
+    /// `attempt` is the zero-based attempt that just failed; the caller checks retryability and
+    /// attempt limits before entering this wait. A delay equal to the remaining budget is rejected.
+    /// Caller cancellation interrupts sleep while the enclosing batch retains its concurrency slot.
+    async fn wait_to_retry(
+        &self,
+        attempt: u32,
+        started: Instant,
+        cancellation: &CancellationToken,
+    ) -> Result<(), EmbeddingClientError> {
+        let delay = retry_delay(attempt);
+        let remaining = self.total_budget.saturating_sub(started.elapsed());
+        if delay >= remaining {
+            return Err(EmbeddingClientError::RetryBudgetExhausted);
+        }
+        tokio::select! {
+            _ = cancellation.cancelled() => Err(EmbeddingClientError::Cancelled),
+            _ = tokio::time::sleep(delay) => Ok(()),
+        }
     }
 
     /// Limits simultaneous embedding calls before provider I/O begins.

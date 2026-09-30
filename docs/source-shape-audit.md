@@ -368,8 +368,10 @@ multi-step behavior from wrapped single calls or explicit domain values:
   in a match/closure chain. A named release operation now owns that behavior; result precedence
   stays with completion and has direct already-released regression cases.
 
-Embedding-client backoff remains a multi-step match-arm candidate. These dispositions cover the
-inspected engine matches, not the remaining signature and item-documentation review.
+Embedding-client backoff now belongs to `wait_to_retry`, with explicit budget and cancellation
+contracts. A one-shot failure/success protocol case and direct boundary cases cover its behavior.
+These dispositions cover the inspected engine matches, not the remaining signature and
+item-documentation review.
 
 ### Acceptance pass and stopping rules
 

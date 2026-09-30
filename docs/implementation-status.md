@@ -3387,3 +3387,16 @@ successful operation, while an earlier operation failure remains the reported er
 
 All five cluster lease cases, all-target/all-feature engine Clippy, nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Embedding backoff operation and direct scenarios
+
+The embedding retry arm delegates to a directly following method that owns delay, remaining-budget
+rejection, and cancellable waiting. Attempt eligibility stays in the request loop; the wait contract
+explains zero-based failed-attempt input and retained batch concurrency ownership.
+
+A linear HTTP scenario declares one retryable server failure followed by one successful vector
+response. Direct cases reject backoff equal to the available budget and return caller cancellation
+before waiting. The local configuration fixture now documents its defaults and lives below callers.
+
+All 19 embedding adapter cases, all-target/all-feature engine Clippy, nightly formatting, rumdl, and
+changed-page Markdown linting pass.
