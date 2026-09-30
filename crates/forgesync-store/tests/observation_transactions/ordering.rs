@@ -13,7 +13,7 @@ use forgesync_store::ordering::{
 };
 
 #[test]
-fn observation_ordering_covers_source_precedence_legacy_fallback_and_min_sequence() {
+fn newer_source_time_wins_despite_an_older_acquisition_sequence() {
     let incoming = SourceClock::from_raw(Some("2026-09-20T10:00:01Z"));
     let current = SourceClock::from_raw(Some("2026-09-20T10:00:00Z"));
     let sequence_one = ObservationSequence::new(1).expect("sequence");
@@ -23,10 +23,20 @@ fn observation_ordering_covers_source_precedence_legacy_fallback_and_min_sequenc
             .expect("source order"),
         Ordering::Greater
     );
+}
+
+#[test]
+fn minimum_legacy_sequence_maps_to_the_maximum_order_value() {
     assert_eq!(observation_sequence_order_value(i64::MIN), i64::MAX);
-    assert_eq!(
-        compare_revision_observation_order(&incoming, None, &current, None)
-            .expect("legacy source order"),
-        Ordering::Greater
-    );
+}
+
+#[test]
+fn legacy_revisions_without_sequences_compare_source_time() {
+    let incoming = SourceClock::from_raw(Some("2026-09-20T10:00:01Z"));
+    let current = SourceClock::from_raw(Some("2026-09-20T10:00:00Z"));
+
+    let order = compare_revision_observation_order(&incoming, None, &current, None)
+        .expect("legacy source order");
+
+    assert_eq!(order, Ordering::Greater);
 }

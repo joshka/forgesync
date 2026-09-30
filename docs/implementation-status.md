@@ -3034,3 +3034,13 @@ visible without duplicating construction code across suites.
 
 All seven observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Independent ordering regression scenarios
+
+The combined observation-ordering test is split into source-time precedence, minimum legacy-sequence
+conversion, and revision fallback without sequences. Each has one direct expectation and its own
+contract name; a failure no longer requires identifying which unrelated assertion failed inside a
+broad ordering scenario.
+
+All nine observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
