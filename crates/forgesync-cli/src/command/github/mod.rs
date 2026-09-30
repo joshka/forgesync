@@ -19,6 +19,7 @@ use std::process::ExitCode;
 use forgesync_core::identity::GitHubHost;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_github::error::GitHubError;
+use forgesync_github::token::GitHubToken;
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 
 use crate::credentials::CredentialError;
@@ -58,12 +59,7 @@ pub async fn github_clients_for_selectors(
                 | crate::credentials::CredentialError::CommandUnavailable
                 | crate::credentials::CredentialError::CommandFailed
                 | crate::credentials::CredentialError::TimedOut,
-            ) => {
-                if verbose > 0 {
-                    eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
-                }
-                None
-            }
+            ) => anonymous_access(&host, verbose),
             Err(crate::credentials::CredentialError::Cancelled) => {
                 return Err(GitHubClientSetupError::Cancelled);
             }
@@ -82,6 +78,18 @@ pub async fn github_clients_for_selectors(
         }
     }
     Ok(clients)
+}
+
+/// Selects unauthenticated access after an optional credential source was unavailable.
+///
+/// Positive verbosity explains this fallback on stderr without displaying credential causes or
+/// values. Returning no token does not establish access: the provider may subsequently reject
+/// acquisition. Invalid configured credentials and cancellation never enter this fallback.
+fn anonymous_access(host: &GitHubHost, verbose: u8) -> Option<GitHubToken> {
+    if verbose > 0 {
+        eprintln!("forgesync: no usable GitHub token for {host}; trying anonymously");
+    }
+    None
 }
 
 /// Failure preparing a host client before any GitHub acquisition begins.

@@ -402,6 +402,30 @@ Every remaining store arm in the refreshed multiline inventory has a local dispo
 This closes the inspected store match-arm findings. Broad signatures, item contract depth, and test
 scenario adequacy remain separate acceptance items.
 
+### CLI, TUI, and GitHub match-arm dispositions
+
+- CLI startup errors now call named configuration/runtime presenters. Optional credential fallback
+  calls a named anonymous-access operation. Archive status and doctor success paths have their own
+  named presenters, including unhealthy-report exit policy.
+- CLI/TUI timeline review-thread branches construct the existing source-fact context and invoke its
+  named presentation method. Retain explicit path/resolution/outdated facts; this performs no I/O or
+  state transition. Review-comment context construction follows the same projection rule.
+- Refresh cluster summaries invoke the named stage/detail projections. Retain the closure that
+  adapts the repository slice; it hides no work or state.
+- Cluster build dispatch invokes its named command method with resolved settings and cancellation.
+  Decision result rendering invokes the shared success renderer with one three-field output value.
+  These are long single calls, not embedded command implementations.
+- GitHub setup errors map to stable code/message/status triples before shared rendering. Retain the
+  complete local table so cancellation status and credential/endpoint/adapter boundaries are
+  visible.
+- TUI thread-query dispatch constructs the existing coherent request value and calls its named read
+  starter. Retain that assembly because the action already supplies exactly those request facts.
+- GitHub success dispatch now delegates typed JSON decoding to the bounded response owner, with
+  malformed/shape/pagination cases. No GitHub multiline match-arm findings remain in the inventory.
+
+These decisions close the refreshed multiline match inventory across the six crates. They do not
+close the independent broad-signature, documentation-depth, or full test-quality passes.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

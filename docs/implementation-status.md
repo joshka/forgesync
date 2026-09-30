@@ -3418,3 +3418,14 @@ rendering policy no longer fills process orchestration match arms.
 
 All-target/all-feature CLI Clippy and all 15 CLI process contracts pass. Nightly formatting, rumdl,
 and changed-page Markdown linting pass.
+
+### Anonymous provider setup fallback
+
+Optional unavailable credential branches select anonymous access through a directly following named
+operation. That operation owns the verbosity diagnostic and explicit no-token result. Its contract
+clarifies that provider authorization may still fail later, and that invalid configured credentials
+and cancellation never enter this fallback. Credential cause/token contents are not printed.
+
+The complete all-feature CLI unit, integration, and doctest suites pass. All-target CLI Clippy,
+nightly formatting, rumdl, and changed-page Markdown linting pass. The refreshed broad-signature
+inventory remains a review signal, not a completion claim for that separate pass.
