@@ -109,30 +109,35 @@ async fn check_integrity(pool: &sqlx::SqlitePool) -> HealthCheck {
 
 /// Checks whether required foreign-key enforcement works on this connection.
 async fn check_foreign_keys(pool: &sqlx::SqlitePool) -> HealthCheck {
-    let result: Result<(), String> = async {
-        let mut connection = pool
-            .acquire()
-            .await
-            .map_err(|_| "could not acquire a SQLite connection".to_owned())?;
-        let enabled: i64 = sqlx::query_scalar("PRAGMA foreign_keys")
-            .fetch_one(&mut *connection)
-            .await
-            .map_err(|_| "could not read the foreign_keys pragma".to_owned())?;
-        if enabled != 1 {
-            return Err("foreign_keys pragma is disabled".to_owned());
-        }
-
-        foreign_key_violation_is_enforced(&mut connection)
-            .await
-            .map_err(|_| "foreign-key enforcement probe failed".to_owned())?;
-        Ok(())
-    }
-    .await;
+    let result = probe_foreign_keys(pool).await;
 
     match result {
         Ok(()) => pass("foreign_keys", "foreign-key enforcement is enabled"),
         Err(detail) => fail("foreign_keys", detail),
     }
+}
+
+/// Acquires one reader connection and verifies its setting and actual constraint enforcement.
+///
+/// The returned detail distinguishes acquisition, pragma, and violation-probe failures. Temporary
+/// table creation and cleanup stay on that same connection; no durable archive rows are changed.
+async fn probe_foreign_keys(pool: &sqlx::SqlitePool) -> Result<(), String> {
+    let mut connection = pool
+        .acquire()
+        .await
+        .map_err(|_| "could not acquire a SQLite connection".to_owned())?;
+    let enabled: i64 = sqlx::query_scalar("PRAGMA foreign_keys")
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| "could not read the foreign_keys pragma".to_owned())?;
+    if enabled != 1 {
+        return Err("foreign_keys pragma is disabled".to_owned());
+    }
+
+    foreign_key_violation_is_enforced(&mut connection)
+        .await
+        .map_err(|_| "foreign-key enforcement probe failed".to_owned())?;
+    Ok(())
 }
 
 /// Probes a temporary violation to verify SQLite rejects broken references.

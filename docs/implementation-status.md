@@ -3092,3 +3092,13 @@ migration execution or archive lifecycle policy changes.
 
 All ten lifecycle/read-search integration scenarios, nightly formatting, rumdl, and changed-page
 Markdown linting pass.
+
+### Foreign-key probe and report ownership
+
+The foreign-key health check now delegates connection acquisition and constraint probing to a
+directly following named operation. The reporting function only converts the probe result into its
+stable check. The probe contract explains connection locality, temporary state, and distinct failure
+details. Error text and cleanup behavior remain unchanged.
+
+All six archive-lifecycle scenarios, nightly formatting, rumdl, and changed-page Markdown linting
+pass.
