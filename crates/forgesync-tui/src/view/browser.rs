@@ -1,12 +1,23 @@
 //! # Draw repository and discussion browsing
 //!
-//! `draw_browser` arranges the current repository, thread list, and selected discussion detail in
-//! terminal space. It uses `App` selections and loaded projections to show where the user is in
-//! the archive.
+//! [`draw_browser`] arranges the repository picker, discussion page, and selected discussion detail
+//! using projections already loaded into [`App`]. Wide areas use three columns; compact areas use
+//! three stacked panes. This module owns layout, labels, selection highlighting, and focus cues,
+//! while input handlers and asynchronous query owners decide which projections to load.
 //!
-//! The engine constructs the underlying offline view; this module chooses layout, labels, and
-//! focus cues. It should render loading and failure state from the app rather than silently
-//! implying an empty archive.
+//! The repository pane distinguishes the picker cursor from the applied repository filter: the
+//! highlighted row can be a pending choice while its title describes the active scope. Discussion
+//! rows use the loaded page and its selection rather than querying the archive during drawing.
+//! Loading placeholders and errors come from app state; retained rows can remain visible during a
+//! refresh, and an error replaces list rows when the loading-placeholder condition does not apply.
+//!
+//! Detail text is assembled by the sibling detail module, including its loading and failure states.
+//! Drawing clamps the stored detail scroll to a bound derived from the current lines and pane
+//! height. This is a presentation-state mutation, not a durable archive write or navigation action;
+//! the line-based bound does not measure the extra terminal rows introduced by wrapping.
+//!
+//! Per-frame list widget state is temporary. No rendering helper performs provider I/O, archive
+//! reads, or acquisition, and displaying retained content does not certify current source coverage.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};

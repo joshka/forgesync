@@ -1,11 +1,21 @@
 //! # Draw recorded acquisition failures
 //!
-//! `draw_failures` presents run and family failures associated with archive work. It uses the
-//! app's loaded failure projection so a reader can connect incomplete coverage to the failed unit
-//! of work.
+//! [`draw_failures`] presents the app's loaded recent-run projection and unresolved-work text for
+//! its selected run. Wide areas place list and detail side by side; compact areas stack them.
+//! Query and app owners select runs and prepare entry strings before rendering; this module does
+//! not filter the ledger, resolve targets, or infer source completeness from a run status.
 //!
-//! Rendering is read-only. Retry and refresh are workflow operations outside this view; the
-//! screen's job is to make recorded failure scope clear.
+//! The list distinguishes loading without retained rows, a recorded load error, and an empty
+//! projection. Selection highlighting is suppressed for errors and empty data. Detail prefers a
+//! currently selected retained run, then a load error, then a selection hint, so a list error can
+//! coexist with previously loaded detail until app state replaces that projection.
+//!
+//! A run with no entry strings gets an explicit absence message. The view does not invent retry
+//! targets from that absence or claim that every family is complete. The underlying run/coverage
+//! relationship remains an engine and store concern.
+//!
+//! Rendering borrows app state and uses temporary widget selection state. Retry and refresh are
+//! separate input-driven workflows; drawing issues no archive reads, writes, or provider requests.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};

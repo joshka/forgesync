@@ -2577,3 +2577,14 @@ rather than loading, filtering, or certifying source completeness.
 
 Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
 pass for this documentation-only change.
+
+### Browser and failure view orientation
+
+TUI browser and failure views now explain wide/compact layouts, loaded-projection ownership,
+selection versus applied scope, loading/error precedence, and retained-detail behavior. Browser docs
+identify scroll clamping as presentation state and explicitly describe its line-based bound rather
+than claiming wrapped-row measurement. Failure docs separate run projection from evidence coverage
+and describe absence messages without implying retry targets or completed acquisition.
+
+Strict TUI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
+pass for this documentation-only change.
