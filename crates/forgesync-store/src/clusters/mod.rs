@@ -12,19 +12,21 @@
 //! proposals and resolves archived rows inside the write transaction; `generation_matching` retains
 //! durable identity through membership overlap. Their private representations stay beside those
 //! operations rather than appearing as another layer of API types here.
+//!
+//! `members` enriches selected member rows with discussion coverage and effective role coordinates.
+//! `member_decision` keeps durable inclusion, visible state, canonical cleanup, and audit labels
+//! consistent within an archive-owned transaction. Read projections remain distinct from write
+//! authority; later decisions validate their own fence and membership.
 
 use std::num::NonZeroU32;
 
 use forgesync_core::content::Repository;
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::identity::{RepositoryId, ThreadId, ThreadNumber, ThreadReference};
+use forgesync_core::identity::{RepositoryId, ThreadId, ThreadReference};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
-use sqlx::{QueryBuilder, Sqlite};
 
-use crate::archive::Archive;
-use crate::error::StoreError;
-use crate::reads::{ThreadSummary, coverage_for_kind, load_thread_coverage};
+use crate::reads::ThreadSummary;
 
 /// One generated member and its default score to the graph representative.
 #[derive(Clone, Debug)]
@@ -199,6 +201,5 @@ mod generation_input;
 mod generation_matching;
 mod generation_rows;
 mod member_decision;
+mod members;
 mod queries;
-
-use decisions::checked_cluster_id;

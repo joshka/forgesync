@@ -1781,3 +1781,18 @@ The final combined member-decision/inspection-contract tree passes all workspace
 CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
 formatting, rumdl, and changed-page Markdown linting. Store-operation cleanup remains open; detail
 member projection and remaining decision coordination are next.
+
+## Continued maintenance: cluster member detail projection
+
+`cluster_detail` now reads its summary, captures role coordinates, loads enriched members, and
+returns the detail. `members` owns membership SQL, coverage acquisition, row decoding, and effective
+role projection. `MemberRoles` names canonical archive-row identity and representative repository
+number separately; `MemberProjection` shares those roles and loaded coverage across member rows.
+
+The existing membership SQL, row ordering, read ordering, coverage behavior, error classifications,
+and canonical/representative/related precedence remain unchanged. Read dependencies import actual
+owners rather than the cluster-root prelude; unused root aliases are removed. Coverage helpers use
+the existing crate-internal read boundary, whose visibility remains part of the workspace seam
+audit. Three nearby linear cases cover role precedence, number-versus-row identity, and unrelated
+members. Both cluster integration cases and initial workspace Clippy pass. Final workspace
+validation is running; remaining decision coordination stays in the bounded store-operation batch.

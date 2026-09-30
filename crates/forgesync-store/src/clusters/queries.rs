@@ -20,14 +20,18 @@
 //! Summary, membership, and coverage are separate reads. Concurrent writers may advance between
 //! them, so detail is an inspection projection rather than a frozen generation snapshot.
 
-use sqlx::Row;
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{RepositoryId, ThreadNumber, ThreadReference};
+use forgesync_core::timestamp::UtcTimestamp;
+use sqlx::{QueryBuilder, Row, Sqlite};
 
-use super::{
-    Archive, ClusterDetail, ClusterLifecycle, ClusterListQuery, ClusterMember, ClusterMemberRole,
-    ClusterMemberState, ClusterPage, ClusterSummary, QueryBuilder, Repository, RepositoryId,
-    Sqlite, StoreError, ThreadNumber, ThreadReference, ThreadSummary, UtcTimestamp,
-    checked_cluster_id, coverage_for_kind, load_thread_coverage,
+use crate::archive::Archive;
+use crate::clusters::decisions::checked_cluster_id;
+use crate::clusters::members::{MemberRoles, load_members};
+use crate::clusters::{
+    ClusterDetail, ClusterLifecycle, ClusterListQuery, ClusterPage, ClusterSummary,
 };
+use crate::error::StoreError;
 
 impl Archive {
     /// Lists durable generated clusters without contacting GitHub or mutating the archive.
@@ -102,46 +106,11 @@ impl Archive {
             .ok_or(StoreError::ClusterMissing)?;
         let canonical_thread_id: Option<i64> = summary_row.try_get("canonical_thread_id")?;
         let cluster = cluster_summary_from_row(summary_row)?;
-        let rows = sqlx::query(
-            "SELECT cm.thread_id, cm.state, cm.score_to_representative, t.payload_json AS discussion_json, r.payload_json AS repository_json FROM cluster_memberships cm JOIN threads t ON t.id = cm.thread_id JOIN repositories r ON r.id = t.repository_id WHERE cm.cluster_id = ? AND cm.state IN ('active', 'excluded') ORDER BY t.number, t.id",
-        )
-        .bind(cluster_id)
-        .fetch_all(&self.reader)
-        .await?;
-        let thread_ids = rows
-            .iter()
-            .map(|row| row.try_get::<i64, _>("thread_id"))
-            .collect::<Result<Vec<_>, _>>()?;
-        let coverage = load_thread_coverage(&self.reader, &thread_ids).await?;
-        let mut members = Vec::with_capacity(rows.len());
-        for row in rows {
-            let thread_id: i64 = row.try_get("thread_id")?;
-            let state = parse_member_state(row.try_get::<String, _>("state")?.as_str())?;
-            let discussion = serde_json::from_str(&row.try_get::<String, _>("discussion_json")?)?;
-            let repository = serde_json::from_str(&row.try_get::<String, _>("repository_json")?)?;
-            let summary = ThreadSummary {
-                coverage: coverage_for_kind(&discussion, coverage.get(&thread_id)),
-                discussion,
-                repository,
-            };
-            let role = if canonical_thread_id == Some(thread_id) {
-                ClusterMemberRole::Canonical
-            } else if cluster
-                .representative
-                .as_ref()
-                .is_some_and(|reference| reference.number() == summary.discussion.id.number())
-            {
-                ClusterMemberRole::Representative
-            } else {
-                ClusterMemberRole::Related
-            };
-            members.push(ClusterMember {
-                summary,
-                role,
-                state,
-                score_to_representative: row.try_get("score_to_representative")?,
-            });
-        }
+        let roles = MemberRoles {
+            canonical_thread_id,
+            representative: cluster.representative.as_ref().map(ThreadReference::number),
+        };
+        let members = load_members(&self.reader, cluster_id, roles).await?;
         Ok(ClusterDetail { cluster, members })
     }
 }
@@ -216,14 +185,4 @@ fn cluster_summary_from_row(row: sqlx::sqlite::SqliteRow) -> Result<ClusterSumma
         last_run_id,
         updated_at,
     })
-}
-
-/// Rejects unknown stored member-decision labels.
-fn parse_member_state(value: &str) -> Result<ClusterMemberState, StoreError> {
-    match value {
-        "active" => Ok(ClusterMemberState::Active),
-        "excluded" => Ok(ClusterMemberState::Excluded),
-        "removed" => Ok(ClusterMemberState::Removed),
-        _ => Err(StoreError::InvalidClusterGeneration),
-    }
 }
