@@ -187,6 +187,22 @@ and 636,764,160 bytes at 100k; each vector set contains 61,440,000 and 614,400,0
 Generation and startup are excluded from the reported ranking time but included in peak RSS. This
 measures in-memory cosine ranking and sorting, not SQLite reads or embedding-provider latency.
 
+## CI cache investigation
+
+The isolated `ci-cache` workspace adds opt-in Linux cache measurements to the manual Platform checks
+workflow. Routine CI and publication remain unchanged. Hosted cold/warm runs pass for compilation,
+Clippy, docs, default and CLI-only smoke, workspace tests, and focused process tests. Combined
+Clippy plus default-binary smoke finishes in 47 seconds for a complete warm workflow; focused
+CLI/offline tests finish in 37 seconds. Full workspace tests take 74 seconds complete warm and
+exceed the selected budget. Cold job costs range from 79 to 140 seconds across measured lanes.
+
+See the [experiment report](ci-cache-experiment.md) and [timing evidence](ci-cache-timings.json) for
+commands, revisions, step costs, cache invalidation, coverage limits, and the proposed gate.
+Actionlint and changed Markdown lint pass. The next task is to review the combined PR gate and
+repeat measurements with representative source/dependency changes before changing routine CI. Tokio
+signal/subprocess regressions are supplied separately by the merged
+[runtime-driver fix](https://github.com/joshka/forgesync/pull/2).
+
 ## Rapid release follow-up
 
 Routine hosted checks temporarily compile the workspace on Linux; full platform builds no longer

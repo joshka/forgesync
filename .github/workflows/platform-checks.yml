@@ -2,12 +2,23 @@ name: Platform checks
 
 on:
   workflow_dispatch:
+    inputs:
+      experiment:
+        description: Run Linux cache measurements instead of native packaging
+        type: boolean
+        default: false
+      gate:
+        description: Cache measurement lane
+        type: choice
+        default: all
+        options: [all, check, smoke, tests, clippy, docs, minimal, fast, focused]
 
 permissions:
   contents: read
 
 jobs:
   platform-smoke:
+    if: ${{ !inputs.experiment }}
     strategy:
       fail-fast: false
       matrix:
@@ -41,3 +52,56 @@ jobs:
           --output target/package-smoke
       - name: Check package exists
         run: python -c "from pathlib import Path; assert list(Path('target/package-smoke').iterdir())"
+
+  cache-experiment:
+    if: ${{ inputs.experiment && startsWith(github.ref, 'refs/heads/joshka/') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        gate: ${{ inputs.gate == 'all' && fromJSON('["check","smoke","tests","clippy","docs","minimal","fast","focused"]') || fromJSON(format('["{0}"]', inputs.gate)) }}
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Select pinned toolchain
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          prefix-key: ci-experiment-v1
+          key: ${{ matrix.gate }}
+          cache-bin: false
+      - name: Compile or link
+        env:
+          GATE: ${{ matrix.gate }}
+        run: |
+          case "$GATE" in
+            fast)
+              cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+              cargo build -p forgesync --locked
+              ;;
+            focused)
+              cargo test -p forgesync --all-features --locked \
+                --test cli_contract --test offline_queries --no-run
+              ;;
+            check) cargo check --workspace --all-targets --all-features --locked ;;
+            smoke) cargo build -p forgesync --locked ;;
+            tests) cargo test --workspace --all-features --locked --no-run ;;
+            clippy) cargo clippy --workspace --all-targets --all-features --locked -- -D warnings ;;
+            docs) cargo doc --workspace --no-deps --all-features --locked ;;
+            minimal) cargo build -p forgesync --no-default-features --features cli --locked ;;
+          esac
+      - name: Execute coverage
+        env:
+          GATE: ${{ matrix.gate }}
+        run: |
+          case "$GATE" in
+            smoke|minimal|fast) python3 scripts/smoke_binary.py target/debug/forgesync ;;
+            focused)
+              cargo test -p forgesync --all-features --locked \
+                --test cli_contract --test offline_queries
+              ;;
+            tests) cargo test --workspace --all-features --locked ;;
+          esac
