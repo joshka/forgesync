@@ -34,6 +34,13 @@ use crate::runs::{
 
 impl Archive {
     /// Inserts a run before acquisition and records its complete requested scope.
+    ///
+    /// `scope` is retained as caller-supplied JSON, not interpreted as a repository/family request.
+    /// The engine validates that request before calling. `parent_id` links an explicit retry to an
+    /// existing run; a missing parent fails through the database foreign-key constraint.
+    /// Creation checks the writer fence and commits the in-progress row before returning its ID.
+    /// It performs no acquisition or job creation, so later preparation failure can leave an
+    /// inspectable run without jobs. Read-only, lease, identifier, and database errors propagate.
     pub async fn create_run(
         &self,
         token: &ArchiveLeaseToken,
@@ -102,6 +109,13 @@ impl Archive {
     }
 
     /// Writes a job's terminal or interrupted state and adds its failure to the ledger.
+    ///
+    /// The job must still be in progress. Pending/in-progress completion declarations are rejected
+    /// before writing; a missing or already finished row returns `RunMissing`. Counts and optional
+    /// failure describe the caller's attempt, not independently verified canonical membership.
+    /// Fence validation, row update, and optional failure insertion share one transaction and
+    /// commit together. Failure rolls back this ledger change without undoing earlier
+    /// observation writes.
     pub async fn finish_sync_job(
         &self,
         token: &ArchiveLeaseToken,
@@ -147,6 +161,13 @@ impl Archive {
     }
 
     /// Persists the final operation outcome under the current lease fence.
+    ///
+    /// Only an existing in-progress run can finish; repeating completion returns `RunMissing`.
+    /// The structured outcome supplies the terminal status and is retained as JSON with the finish
+    /// time. This does not finish pending jobs, resolve failure entries, advance a checkpoint, or
+    /// prove family completeness. The engine owns those preceding transitions.
+    /// Lease validation and the terminal update commit together; an error leaves this run
+    /// unchanged.
     pub async fn finish_run(
         &self,
         token: &ArchiveLeaseToken,

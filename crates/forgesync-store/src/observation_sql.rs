@@ -164,6 +164,14 @@ pub async fn thread_row_id(
 }
 
 /// Records a family's completeness separately from its current membership.
+///
+/// Parent and child application call this on their existing transaction connection after deciding
+/// which observation may advance coverage. It accepts only complete/incomplete states and stores
+/// their serialized detail alongside independently supplied source/acquisition coordinates.
+/// Callers must keep those coordinates consistent with the state; this SQL adapter does not redo
+/// ordering, fence, or membership validation. It neither commits nor replaces child members.
+/// State, serialization, integer-conversion, and database failures propagate to the transaction
+/// owner so coverage and the owner's other writes can roll back together.
 pub async fn write_coverage(
     connection: &mut SqliteConnection,
     thread_row_id: i64,

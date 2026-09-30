@@ -188,6 +188,13 @@ impl Archive {
 }
 
 /// Appends a durable audit event for a local maintainer action.
+///
+/// Decision and generation writers call this inside the same transaction as their state changes.
+/// `run_id` associates generated events with a build; local decisions can omit it. `thread_id`
+/// identifies member-specific actions, while cluster-wide actions omit that target.
+/// The caller validates identity, event spelling, reason policy, and writer authority. This adapter
+/// binds those SQL columns without trimming or suppressing repeated actions, and never commits.
+/// Database failure propagates so the caller can roll back both state and its required audit event.
 pub async fn insert_cluster_event(
     connection: &mut SqliteConnection,
     cluster_id: i64,
