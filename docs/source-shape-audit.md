@@ -534,6 +534,16 @@ keyword fallback each have their own archive, command, and diagnostic/mode asser
 The configuration and search policy modules are 157 and 146 lines respectively; suite-level fixture
 and boundary documentation explains what process evidence proves.
 
+### Archive lifecycle and empty run-history scenarios
+
+Retain creation followed by status as one identity round-trip: status must expose the exact archive
+ID allocated by init. Current-schema migration and healthy-doctor expectations now use separate
+named scenarios with independent archives. This isolates maintenance failures from creation output.
+Empty run listing and missing-run show/retry likewise have separate named cases. Their names and
+module introduction now describe the deliberately absent ledger rather than implying recorded-run
+coverage. The show/retry parameterization selects command data only; execution and assertions remain
+linear and local, including command identity, failure status, typed code, and absent success data.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

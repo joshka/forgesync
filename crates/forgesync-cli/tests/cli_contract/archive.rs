@@ -4,11 +4,18 @@
 //! check observable output and state so a command refactor cannot silently create, migrate, or
 //! repair on a read path. The store unit and integration suites cover lower-level database
 //! invariants.
+//!
+//! Creation/status form one round-trip scenario that compares the newly allocated archive ID.
+//! Current-schema migration and health diagnosis use separate archives and named expectations.
+//! Those cases construct through the store API so a failing CLI init cannot obscure their result.
+//! Handles close before process invocation and cleanup removes the database and SQLite sidecars.
 
-use super::{forgesync, remove_archive, temporary_archive_path};
+use forgesync_store::archive::Archive;
+
+use crate::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]
-fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
+fn archive_creation_and_status_preserve_versioned_identity() {
     let path = temporary_archive_path();
 
     let init = forgesync()
@@ -56,6 +63,17 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
         true
     );
 
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn migration_of_current_archive_reports_no_applied_migrations() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path)
+        .await
+        .expect("create current archive");
+    archive.close().await;
+
     let migrate = forgesync()
         .args(["archive", "migrate", "--archive"])
         .arg(&path)
@@ -73,6 +91,17 @@ fn archive_lifecycle_commands_call_the_store_and_return_versioned_json() {
             .len(),
         0
     );
+
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn doctor_reports_current_empty_archive_as_healthy() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path)
+        .await
+        .expect("create current archive");
+    archive.close().await;
 
     let doctor = forgesync()
         .args(["archive", "doctor", "--archive"])
