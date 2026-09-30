@@ -2,6 +2,12 @@
 //!
 //! These cases exercise request conversion without credentials or an archive. Source-state cases
 //! name their expected domain scope; evidence selection remains visible as recorded request facts.
+//!
+//! `into_request` transfers parsed choices without resolving repositories or starting jobs. The
+//! all-repositories cases deliberately leave explicit selectors empty. The selected-family case
+//! includes comments and review threads while excluding reviews, guarding independent family flags.
+//! Provider setup, writer fencing, and durable progress belong to workflow/process suites; these
+//! cases establish the argument-to-engine mapping only.
 
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::SyncThreadScope;

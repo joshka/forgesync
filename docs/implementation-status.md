@@ -125,6 +125,13 @@ production argument/default ownership. Coherent whole-value parsing assertions a
 guards have explicit retained dispositions. All 76 CLI unit cases, CLI all-target Clippy, nightly
 formatting, and Markdown checks pass. Other CLI unit owners and cross-crate suites remain open.
 
+Prepared embedding projection now verifies nonzero chunk counts, stage identity/status, and retained
+batch, document, and stage diagnostics. Refresh cause preservation checks the exact typed variant;
+selection-order docs no longer imply engine execution order. Sync conversion docs identify its
+all-repository and independent-family contracts. These linear projection/translation cases have
+retained dispositions. All 76 CLI unit cases, CLI all-target Clippy, nightly formatting, and
+Markdown checks pass; remaining unit owners and cross-crate review stay open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

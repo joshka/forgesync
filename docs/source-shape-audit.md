@@ -573,6 +573,21 @@ retain a local `let`/`else` variant check because the test must establish the se
 inspecting its payload; this is a typed assertion rather than scenario control flow. This review
 covers configuration, global parsing, and shared filters; other CLI unit owners remain open.
 
+### Prepared acquisition unit scenarios
+
+Embedding preparation/projection cases keep static client configuration and stage data visible,
+without credentials, archives, or provider requests. The partial projection now contains nonzero
+chunk counts, batch failure, document failure, and stage failure, with direct identity/status/count
+assertions. Retain this linear whole-projection case together: splitting it would repeat
+construction without clarifying an independent policy. Cancellation-code and fallback-diagnostic
+cases remain separate named tests.
+
+Refresh cases retain coherent request preparation assertions and now distinguish caller selection
+order from engine execution order. Typed cause preservation checks the exact `InvalidSyncScope`
+variant rather than any engine error plus display wording. Sync conversion cases document empty
+all-repository scope and independent family flags. This disposes of the inspected embedding,
+refresh, and sync preparation suite findings, not every CLI unit or cross-crate suite.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

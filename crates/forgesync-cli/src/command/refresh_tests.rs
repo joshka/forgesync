@@ -9,6 +9,8 @@
 //! errors retain their engine source until the command's outer lifetime closes the archive.
 //! End-to-end refresh behavior and durable partial reports are covered by engine workflow tests;
 //! these tests establish the parsed-command translation that those engine tests do not exercise.
+//! Preparation retains the caller's analysis selection order; the engine coordinator independently
+//! chooses dependency execution order. These assertions do not prove stage execution order.
 
 use std::error::Error;
 
@@ -71,7 +73,7 @@ fn explicit_sync_state_and_families_reach_engine_scope() {
 }
 
 #[test]
-fn unusable_optional_service_preserves_stage_order_and_force_policy() {
+fn unusable_optional_service_preserves_selected_stages_and_force_policy() {
     let args = RefreshArgs {
         repositories: vec!["owner/repo".parse().expect("repository")],
         no_sync: true,
@@ -120,11 +122,10 @@ fn refresh_boundary_retains_the_typed_engine_cause() {
 
     let source = failure.source().expect("engine source");
 
-    assert!(source.downcast_ref::<EngineError>().is_some());
-    assert_eq!(
-        source.to_string(),
-        EngineError::InvalidSyncScope.to_string()
-    );
+    assert!(matches!(
+        source.downcast_ref::<EngineError>(),
+        Some(EngineError::InvalidSyncScope)
+    ));
 }
 
 #[tokio::test]

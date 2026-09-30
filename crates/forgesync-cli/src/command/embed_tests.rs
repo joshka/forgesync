@@ -14,9 +14,10 @@ use std::process::ExitCode;
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embedding_client::EmbeddingClient;
-use forgesync_engine::embeddings::EmbeddingPolicy;
+use forgesync_engine::embeddings::{EmbeddingBatchFailure, EmbeddingPolicy, EmbeddingReport};
 use forgesync_engine::refresh::{
-    RefreshEmbeddingReport, RefreshStage, RefreshStageFailure, RefreshStageStatus,
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStage, RefreshStageFailure,
+    RefreshStageStatus,
 };
 
 use crate::command::embed::{PreparedEmbedding, failure_exit_status, repository_scope};
@@ -108,7 +109,23 @@ fn partial_output_keeps_execution_identity_counts_and_safe_failure() {
         status: RefreshStageStatus::Partial,
         report: Some(RefreshEmbeddingReport {
             documents_materialized: 2,
-            ..Default::default()
+            embeddings: EmbeddingReport {
+                documents: 2,
+                chunks_selected: 4,
+                chunks_embedded: 3,
+                failed_batches: vec![EmbeddingBatchFailure {
+                    chunks: 1,
+                    code: "embedding_service_failed",
+                    message: "embedding service returned HTTP 503".to_owned(),
+                }],
+                ..Default::default()
+            },
+            document_failures: vec![RefreshDocumentFailure {
+                repository: "https://github.com/owner/repo".to_owned(),
+                number: 3,
+                code: "thread_missing",
+                message: "discussion unavailable".to_owned(),
+            }],
         }),
         failure: Some(RefreshStageFailure {
             code: "provider_response",
@@ -122,9 +139,22 @@ fn partial_output_keeps_execution_identity_counts_and_safe_failure() {
     assert_eq!(output.endpoint, "https://example.com/v1");
     assert_eq!(output.model, "local-model");
     assert_eq!(output.dimensions, Some(2));
+    assert_eq!(output.recipe, DocumentRecipe::DiscussionEnriched);
+    assert_eq!(output.status, RefreshStageStatus::Partial);
     assert_eq!(output.documents_materialized, 2);
+    assert_eq!(output.report.documents, 2);
+    assert_eq!(output.report.chunks_selected, 4);
+    assert_eq!(output.report.chunks_embedded, 3);
+    assert_eq!(output.report.failed_batches.len(), 1);
+    assert_eq!(output.report.failed_batches[0].chunks, 1);
     assert_eq!(
-        output.failure.expect("safe partial failure").message,
-        "safe failure"
+        output.report.failed_batches[0].code,
+        "embedding_service_failed"
     );
+    assert_eq!(output.document_failures.len(), 1);
+    assert_eq!(output.document_failures[0].number, 3);
+    assert_eq!(output.document_failures[0].code, "thread_missing");
+    let failure = output.failure.expect("safe partial failure");
+    assert_eq!(failure.code, "provider_response");
+    assert_eq!(failure.message, "safe failure");
 }
