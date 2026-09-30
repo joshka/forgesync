@@ -212,3 +212,10 @@ it now allows thirty seconds, and the final workspace run passes. Unix process c
 macOS; the portable runtime tests have not been executed on Windows in this task.
 
 The next action is integration and release by the parent task; this workspace does not publish.
+
+## Runner image stability
+
+All Linux workflow jobs pin `ubuntu-24.04`, including routine CI and release-plz, to avoid the
+automatic `ubuntu-latest` migration to Ubuntu 26.04. Actionlint passes for all workflows. The next
+CI task remains the measured coverage and cache work tracked in
+[the CI follow-up issue](https://github.com/joshka/forgesync/issues/1).
