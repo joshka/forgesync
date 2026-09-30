@@ -1846,3 +1846,22 @@ Dismissal's workspace Clippy and both existing cluster integration cases pass. F
 and changed-page Markdown linting pass. Store acceptance workspace gates are running. Existing store
 integration cases exercise dismissal but not restoration; the bounded test-review batch must close
 that specific coverage gap rather than treat SQL preservation as complete behavior coverage.
+
+## Continued maintenance: public restoration coverage
+
+A dedicated linear public-archive scenario dismisses and restores one generated cluster. It checks
+normalized dismissal reason, cleared restoration state, retained lifecycle/title/representative, and
+unchanged member role/state/coverage. Read-only audit inspection verifies ordered dismissal and
+restoration events with trimmed and empty reasons respectively. Static fixtures construct domain
+values only; all archive transitions remain visible in the scenario.
+
+The new scenario and workspace Clippy pass. The prior store acceptance tree passes all workspace
+checks; final acceptance reruns with this scenario included. The specifically recorded restoration
+coverage gap is closed. Broader fixture, suite locality, and convention review remain in their
+bounded batches rather than being silently removed from scope.
+
+
+Store acceptance passes with direct restoration coverage included: all workspace tests/doctests,
+the CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
+formatting, rumdl, and changed-page Markdown linting. The first five bounded batches are implemented.
+Presentation, workspace conventions/documentation, test-suite review, and final acceptance remain.

@@ -203,7 +203,7 @@ dispatch, and metadata reservation's linear ordering. Their contracts remain loc
 forwarding wrappers would increase navigation. Final workspace gates pass. Broader item docs,
 visibility, and test-suite review remain in the bounded workspace batches.
 
-### 5. Store operations — final validation
+### 5. Store operations — implemented
 
 Implemented: aggregate coverage and checked bucket accumulation, document persistence phases,
 individual timeline projection, diagnostic consistency/effect contracts, member-decision writes,
@@ -211,9 +211,10 @@ canonical selection phases, and member-detail enrichment/role precedence. These 
 transaction/read ordering, and public output contracts.
 
 Dismissal/restoration now has named state and audit phases with archive-owned validation, fencing,
-and commit. Final store acceptance/gates are running. Broader visibility/import seams and suite
-fixture complexity stay in the workspace conventions/test batches. The test review must add direct
-restoration coverage: current store integration scenarios exercise dismissal but not restoration.
+and commit. Final store acceptance/gates pass. Broader visibility/import seams and suite
+fixture complexity stay in the workspace conventions/test batches. A direct public-archive
+restoration scenario now checks dismissal clearing, retained member projections, and ordered durable
+audit reasons. Final gates pass with that scenario included.
 
 Retained with reason: SQL column/bind projections, diagnostic counter reads, archive-status
 assembly, and simple event/family mappings are linear statements of their owning read/write
