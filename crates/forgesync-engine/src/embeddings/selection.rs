@@ -93,8 +93,7 @@ impl EmbeddingSelection {
         chunks: Vec<DocumentChunk>,
         dimensions: Option<u32>,
     ) -> Vec<DocumentChunk> {
-        let count = chunks.first().map_or(0, |chunk| chunk.count);
-        let compatible = compatible_chunks(existing, chunks, count, dimensions);
+        let compatible = compatible_chunks(existing, chunks, dimensions);
         self.report.chunks_skipped = self
             .report
             .chunks_skipped

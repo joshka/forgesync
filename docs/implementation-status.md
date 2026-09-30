@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Chunk reuse now takes its count from each selected input and retains unmatched chunks directly.
+New linear cases isolate count, position, hash, and dimension compatibility. All eleven chunk unit
+cases, durable embedding retry, and engine all-target Clippy pass. Retrieval and embedding signature
+dispositions are recorded in the source-shape audit.
+
 Family application/reuse and local cluster decisions now keep long SQL receivers separate from
 their binding chains. Generation loading separates database execution from missing-row validation.
 Nightly formatting, all 80 store unit/integration/documentation cases, and all-target store Clippy

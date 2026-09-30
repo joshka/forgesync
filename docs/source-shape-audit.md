@@ -685,9 +685,12 @@ these are the services, source set, and explicit reuse choice used to create its
 requests. Scheduler persistence takes the writer, report, batch, and returned vectors because these
 are independent capabilities and paired request/response facts, not another persistent owner.
 
-The chunk reuse helper still duplicates total count from the selected chunks. That specific input
-is pending removal; its loop also reconstructs unchanged chunks unnecessarily. This review therefore
-does not yet close embedding signatures.
+Chunk reuse now compares each prepared chunk's own count with its stored record rather than taking
+a duplicate count argument. Pending chunks move directly into the result without cloning their hash
+or reconstructing fields. Independent cases cover reuse with optional dimension policy and rejection
+for changed position, count, hash, or dimensions. All eleven chunk unit cases, the durable embedding
+retry integration case, and engine all-target Clippy pass. This closes
+the identified signature duplication, while final workspace acceptance remains separate.
 
 Retrieval uses `RankedSearch` for request/window interpretation, `SemanticSource` for one archive
 candidate scope, `SemanticRanking` for accumulated winners and compatibility evidence, and
