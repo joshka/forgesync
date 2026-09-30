@@ -624,6 +624,16 @@ Together with the preceding scenario and assertion fixes, this closes the inspec
 unit-suite quality findings. It does not close cross-crate test review, the CLI signature inventory,
 or production documentation-depth acceptance. New tests remain subject to the linked conventions.
 
+### Core identity scenario locality
+
+Accepted authority normalization uses named enterprise, IPv6, and default-port cases with explicit
+authority and origin expectations. Provider-text rejection, zero numeric identities, abbreviated SHA
+rejection, full SHA normalization, repository JSON round-trip, and host deserialization now have
+independent cases instead of one broad assertion bundle. The round-trip consumes its encoded value
+without an unnecessary clone. JSON rejection checks data classification and identity-validation
+wording; it does not claim that serde preserves the original typed cause. Imports name the defining
+identity module. Other core suites remain under review.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

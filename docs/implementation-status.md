@@ -151,6 +151,13 @@ All 76 CLI unit cases and CLI all-target Clippy pass, with nightly formatting an
 The existing CLI unit-suite review is disposed of; cross-crate suite quality, signatures, and
 production documentation-depth acceptance remain open.
 
+Core identity tests now separate normalization, provider text, numeric IDs, commit SHA, repository
+serialization, and host deserialization into named scenarios. JSON rejection asserts data-category
+and validation wording without claiming a preserved typed source. Defining-owner imports and
+consuming the encoded round-trip value keep dependencies and ownership explicit. All 56 core unit
+cases, four fixture-catalog cases, eight doc tests, core all-target Clippy, nightly formatting, and
+Markdown checks pass. Other core suites and cross-crate review remain open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

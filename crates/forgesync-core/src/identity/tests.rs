@@ -5,28 +5,34 @@
 //! represent source identity. Other crates rely on these constructors before persisting or
 //! comparing observations. Keep boundary cases here so store and GitHub tests can use valid
 //! identities without repeating the parsing rules.
+//!
+//! Named cases distinguish accepted authority normalization from rejection. Provider text, numeric
+//! IDs, commit SHA normalization, and repository JSON round-trip have independent expectations.
+//! Deserialization checks JSON data classification and validation wording; JSON errors do not
+//! retain the original typed identity error as their source.
 
 use serde_json::json;
 
-use super::{CommitSha, GitHubHost, IdentityError, ProviderId, RepositoryId, RunId, ThreadNumber};
+use crate::identity::{
+    CommitSha, GitHubHost, IdentityError, ProviderId, RepositoryId, RunId, ThreadNumber,
+};
 
-#[test]
-fn host_identity_normalizes_authorities_and_rejects_paths() {
-    let host = GitHubHost::parse("HTTPS://GHE.Example.Test:8443/").expect("valid host");
-    assert_eq!(host.as_str(), "ghe.example.test:8443");
-    assert_eq!(host.https_origin(), "https://ghe.example.test:8443");
-    assert_eq!(
-        GitHubHost::parse("https://[2001:DB8::1]:443")
-            .expect("IPv6 host")
-            .as_str(),
-        "[2001:db8::1]"
-    );
-    assert_eq!(
-        GitHubHost::parse("github.com:443")
-            .expect("default port")
-            .as_str(),
-        "github.com"
-    );
+#[rstest::rstest]
+#[case::enterprise(
+    "HTTPS://GHE.Example.Test:8443/",
+    "ghe.example.test:8443",
+    "https://ghe.example.test:8443"
+)]
+#[case::ipv6("https://[2001:DB8::1]:443", "[2001:db8::1]", "https://[2001:db8::1]")]
+#[case::default_port("github.com:443", "github.com", "https://github.com")]
+fn host_identity_normalizes_authority(
+    #[case] input: &str,
+    #[case] authority: &str,
+    #[case] origin: &str,
+) {
+    let host = GitHubHost::parse(input).expect("valid authority");
+    assert_eq!(host.as_str(), authority);
+    assert_eq!(host.https_origin(), origin);
 }
 
 #[rstest::rstest]
@@ -44,36 +50,61 @@ fn host_identity_rejects_invalid_authority(#[case] value: &str) {
     );
 }
 
-#[test]
-fn provider_and_numeric_identities_reject_invalid_values() {
-    assert_eq!(ProviderId::new(" "), Err(IdentityError::InvalidProviderId));
+#[rstest::rstest]
+#[case::whitespace(" ")]
+#[case::line_break("bad\nid")]
+fn provider_identity_rejects_invalid_text(#[case] input: &str) {
     assert_eq!(
-        ProviderId::new("bad\nid"),
+        ProviderId::new(input),
         Err(IdentityError::InvalidProviderId)
     );
+}
+
+#[test]
+fn zero_thread_number_is_rejected() {
     assert_eq!(
         ThreadNumber::new(0),
         Err(IdentityError::InvalidThreadNumber)
     );
+}
+
+#[test]
+fn zero_run_id_is_rejected() {
     assert_eq!(RunId::new(0), Err(IdentityError::InvalidRunId));
+}
+
+#[test]
+fn abbreviated_commit_sha_is_rejected() {
     assert_eq!(
         CommitSha::new("deadbeef"),
         Err(IdentityError::InvalidCommitSha)
     );
-    assert_eq!(
-        CommitSha::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            .expect("full SHA-1")
-            .as_str(),
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    );
+}
 
+#[test]
+fn full_commit_sha_normalizes_hexadecimal_case() {
+    let sha = CommitSha::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").expect("full SHA-1");
+    assert_eq!(sha.as_str(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+}
+
+#[test]
+fn repository_identity_round_trips_through_json() {
     let host = GitHubHost::parse("github.com").expect("host");
     let provider_id = ProviderId::new("R_fixture_41").expect("provider ID");
     let id = RepositoryId::new(host, provider_id);
     let value = serde_json::to_value(&id).expect("serialize repository ID");
-    let decoded: RepositoryId = serde_json::from_value(value.clone()).expect("deserialize ID");
+    let decoded: RepositoryId = serde_json::from_value(value).expect("deserialize ID");
     assert_eq!(decoded, id);
+}
 
-    let invalid: Result<GitHubHost, _> = serde_json::from_value(json!("http://github.com"));
-    assert!(invalid.is_err(), "deserialization must use host validation");
+#[test]
+fn host_deserialization_enforces_authority_validation() {
+    let result = serde_json::from_value::<GitHubHost>(json!("http://github.com"));
+    let error = result.expect_err("reject insecure serialized host");
+    assert_eq!(error.classify(), serde_json::error::Category::Data);
+    assert!(
+        error
+            .to_string()
+            .contains(&IdentityError::InvalidGitHubHost.to_string())
+    );
 }
