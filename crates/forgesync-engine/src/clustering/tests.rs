@@ -5,13 +5,19 @@
 //! fixture relationships matter because transitive grouping can make a plausible pair produce an
 //! implausible cluster. Read these alongside `candidates` before changing thresholds or union
 //! behavior; a new candidate rule should have a small example that explains the intended grouping.
+//!
+//! Documents are construction-only projections with supplied vectors and body references.
+//! Graph operations run directly; fixtures do not select expected edges or persist generations.
+//! Member identities accompany size expectations so unrelated discussions cannot substitute for
+//! intended neighbors. Repeated construction checks determinism of the same bounded policy.
+//! Writer fencing and local decision reconciliation are separate workflow/store contracts.
 
 use forgesync_core::content::ThreadKind;
 use tokio_util::sync::CancellationToken;
 
-use super::ClusterOptions;
-use super::candidates::build_cluster_candidates;
-use super::test_documents::document;
+use crate::clustering::ClusterOptions;
+use crate::clustering::candidates::build_cluster_candidates;
+use crate::clustering::test_documents::document;
 
 #[test]
 fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
@@ -74,6 +80,12 @@ fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
         [3, 1, 1]
     );
     assert_eq!(clusters[0].representative.number().get(), 1);
+    let members = clusters[0]
+        .members
+        .iter()
+        .map(|member| member.summary.discussion.id.number().get())
+        .collect::<Vec<_>>();
+    assert_eq!(members, [1, 2, 5]);
 }
 
 #[test]
@@ -114,6 +126,12 @@ fn references_are_repository_scoped_and_early_body_evidence_is_strong() {
         .find(|cluster| cluster.members.len() == 2)
         .expect("reference cluster");
     assert_eq!(referenced.members[0].score_to_representative, Some(1.0));
+    let members = referenced
+        .members
+        .iter()
+        .map(|member| member.summary.discussion.id.number().get())
+        .collect::<Vec<_>>();
+    assert_eq!(members, [101, 102]);
 }
 
 #[test]

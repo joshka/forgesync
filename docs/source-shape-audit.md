@@ -645,6 +645,14 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Candidate graph assertions now name intended discussion members alongside component sizes and
+representatives, preventing unrelated substitutions from satisfying grouping expectations. Imports
+name the defining clustering owners. Arithmetic-suite orientation distinguishes exact axis results,
+floating-point tolerances, dimension rejection, and separate document scoring policy. Lease tests
+retain real on-disk acquisition/release and explicit child-cleanup assertions; their fixed-epoch
+reclaim checks avoid relying on time passing to hide a leaked fence. Graph scenario separation and
+remaining integration-suite review are still open.
+
 Batch-limit cases now verify retained chunk order in addition to batch counts. A separate multibyte
 case proves UTF-8 byte accounting with explicit retained text. The construction fixture documents
 synthetic hashes; batching validates neither hashes nor complete source membership. Its helper
