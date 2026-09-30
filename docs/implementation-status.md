@@ -2707,3 +2707,17 @@ accumulation contract without computing expected results through a test helper.
 
 All eight focused exact-search scenarios pass, together with nightly formatting, rumdl, and
 changed-page Markdown linting.
+
+### Accumulated cleanup workspace validation
+
+The current six-crate tree passes all workspace tests and doctests with all features and the locked
+dependency set. Workspace Clippy passes across all targets/features with warnings denied. The CLI
+build without default features passes. Strict workspace Rustdoc includes private items and denies
+warnings, missing public documentation, and broken links. Nightly formatting, repository rumdl, and
+Markdown linting of the status/audit pages pass.
+
+Logs are in `/tmp/forgesync-cleanup-workspace-tests.log`,
+`/tmp/forgesync-cleanup-workspace-clippy.log`, `/tmp/forgesync-cleanup-cli-build.log`, and
+`/tmp/forgesync-cleanup-workspace-doc.log`. This validates accumulated changes locally; the bounded
+conventions review, broad test-quality review, and requirements reconciliation remain open. These
+results do not establish hosted platform-matrix outcomes.
