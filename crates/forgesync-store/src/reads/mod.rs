@@ -6,10 +6,10 @@
 //! complete or partial.
 //!
 //! `query` owns filtered list SQL, `detail` assembles a thread, and `coverage` reads evidence
-//! state. These are projections over the archive, not provider fetches. Engine inspection and
-//! search can use them without opening a network client or understanding SQL row layouts.
+//! state; `summary` aggregates family coverage and archive totals. These are projections over the
+//! archive, not provider fetches. Engine inspection and search can use them without opening a
+//! network client or understanding SQL row layouts.
 
-use std::collections::HashMap;
 use std::num::NonZeroU32;
 
 use forgesync_core::content::{
@@ -22,7 +22,6 @@ use forgesync_core::identity::{
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use sqlx::{QueryBuilder, Sqlite};
 
 use crate::archive::{Archive, ArchiveInfo};
 use crate::diagnostics::ArchiveDiagnostics;
@@ -236,6 +235,7 @@ const ALL_FAMILIES: [EvidenceFamily; 5] = [
 mod coverage;
 mod detail;
 mod query;
+mod summary;
 
 pub(crate) use coverage::{coverage_for_kind, load_thread_coverage};
 pub(crate) use query::{push_discussion_filters, push_repository_scope};

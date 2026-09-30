@@ -1678,3 +1678,23 @@ scan traversal remains a linear provider/apply/cursor loop. Fenced/unfenced stor
 an explicit choice of one archive call per branch; additional forwarding abstractions would add
 navigation without changing the concept. Metadata reservation retains its linear ordering and SQL
 observation projection. Final acquisition validation is in progress.
+
+## Continued maintenance: aggregate coverage projections
+
+Archive coverage totals and archive status now live in `reads::summary`; per-discussion coverage and
+staleness remain in `reads::coverage`. `FamilyCoverageSummary` owns checked bucket accumulation and
+stored-status validation. The leaf modules import actual external dependency owners, and obsolete
+root dependency aliases are removed.
+
+The SQL grouping, family applicability, count validation, bucket assignment, overflow behavior, and
+query ordering remain unchanged. Module guidance explains missing evidence and the separate read
+snapshots used by aggregate status. Three nearby linear cases cover bucket/denominator accounting,
+negative counts, and unsupported status labels. The small fixture creates only static zero counts.
+The three accumulation cases, four inspection integration cases, workspace Clippy, rumdl, and
+changed-page Markdown linting pass. Final workspace validation is running; store-operation review
+remains open.
+
+Final acquisition gates pass: all workspace tests/doctests, the CLI build without default features,
+strict public/private Rustdoc, workspace Clippy, nightly formatting, rumdl, and changed-page
+Markdown linting. The first four bounded batches are implemented; store operations, presentation,
+workspace conventions/docs, test-suite review, and final acceptance remain.

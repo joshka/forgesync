@@ -190,7 +190,7 @@ candidates, obtain semantic evidence, classify fallback, read coverage, and proj
 I/O inputs do not require an application-context wrapper. Workspace validation passes. Broader
 documentation and test review remain in their respective bounded batches.
 
-### 4. Acquisition — final validation
+### 4. Acquisition — implemented
 
 Implemented: provider traversal and reserved persistence have separate modules, terminal scan
 outcomes distinguish cancellation and failure, metadata completion names staging/application/ledger
@@ -200,7 +200,7 @@ rejection, empty terminal-page completion, and superseded-generation isolation.
 
 Retained: the scan loop's linear fetch/apply/cursor sequence, explicit fenced/unfenced single-call
 dispatch, and metadata reservation's linear ordering. Their contracts remain locally visible;
-forwarding wrappers would increase navigation. Final workspace gates are running. Broader item docs,
+forwarding wrappers would increase navigation. Final workspace gates pass. Broader item docs,
 visibility, and test-suite review remain in the bounded workspace batches.
 
 ### 5. Store operations

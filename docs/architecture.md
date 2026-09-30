@@ -241,3 +241,9 @@ observations remain usable after failed or cancelled traversal; only a durably r
 page permits complete scan coverage. The report is read after the terminal write. Store
 `enumeration::completion` validates terminal status/failure combinations and the active-generation
 cursor before writing terminal evidence within the archive-owned transaction.
+
+Store read projections separate individual discussion evidence (`reads::coverage`) from archive-wide
+counts and status (`reads::summary`). Summary accumulation validates grouped SQL labels/counts while
+preserving explicit missing/incomplete/complete buckets. Aggregate status uses separate read
+queries; it provides diagnostics rather than a transactionally frozen snapshot of concurrent
+writers.
