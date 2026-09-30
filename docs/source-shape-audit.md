@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Cluster persistence now has shallow generation, canonical-validation, coverage-validation, and
+fixture owners. The root maps responsibilities; scenario imports name their construction owner
+directly. Fixtures contain no archive capability or asynchronous writes. Canonical and coverage
+rejections can be read independently of preservation/retirement. The generation scenario remains the
+identified long mixed-contract case and still requires separation; moving it alone does not close
+that finding.
+
 Cluster persistence setup now shows every observation sequence reservation and application directly
 in its scenario. The remaining discussion fixture constructs values only and derives display text
 from the checked thread number rather than a duplicated argument. Generation values name coverage
