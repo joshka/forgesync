@@ -235,3 +235,22 @@ All Linux workflow jobs pin `ubuntu-24.04`, including routine CI and release-plz
 automatic `ubuntu-latest` migration to Ubuntu 26.04. Actionlint passes for all workflows. The next
 CI task remains the measured coverage and cache work tracked in
 [the CI follow-up issue](https://github.com/joshka/forgesync/issues/1).
+
+## Dependency maintenance
+
+The 2026-09-30 registry check replaces yanked `yoke-derive 0.8.3` with `0.8.4` and refreshes
+`quinn-proto` to `0.11.19` and `quinn-udp` to `0.5.16`. `yoke 0.8.3` is not yanked. All direct
+dependencies and workflow actions already resolve to their latest stable releases. Cargo retains
+`crypto-common 0.1.6` with `generic-array 0.14.9`; forcing `crypto-common 0.1.7` requires an exact
+`generic-array 0.14.7`, and a normal update restores Cargo's preferred pair.
+
+Dependabot checks Cargo and GitHub Actions weekly, groups each ecosystem's updates, and applies a
+seven-day cooldown. Cargo uses `increase-if-necessary` so compatible updates preserve manifest
+requirements while newer incompatible releases can propose requirement changes. Existing security
+updates remain enabled and are exempt from the version-update cooldown.
+
+Local validation passes: 41 focused process cases, all 542 workspace unit/integration/documentation
+cases, Clippy with warnings denied, nightly formatting, the CLI-only build, Rustdoc, workflow lint,
+and Dependabot YAML checks. Cargo outdated reports no pending workspace dependency updates; Cargo
+audit with `--deny yanked` reports no vulnerabilities or yanked packages. The next maintenance
+action is to review the scheduled Dependabot PRs; the CI follow-up remains tracked separately.
