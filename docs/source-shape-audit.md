@@ -499,6 +499,22 @@ without an extra context type. Handler inputs retain the explicit target, option
 path, and output policy; member identity and rationale are independent user choices. The renderer's
 output, command label, acknowledgment, and result remain independent presentation inputs.
 
+### CLI local read and run dispatch signatures
+
+Cluster listing now belongs to `ClusterListArgs::run_list`; its `into_request` converts the parsed
+selection before archive opening, rather than unpacking four loose filter values throughout the
+handler. The engine request remains the existing domain boundary. Cluster show retains ID, path, and
+output as independent inputs because it has no argument object with additional behavior.
+
+Thread list/show and run list/show retain their small associated handlers: path and output govern
+the process boundary, while request/selector/limit/ID govern the selected read. Archive operations
+remain visible and handles close before rendering. Run retry validates its positive ID before
+creating interruption ownership, converts selected family arguments once into `RetryRequest`, and
+delegates acquisition to that request. Retain path, output, verbosity, ID, and family selection at
+that conversion boundary; no extra wrapper would remove a caller decision. Archive command dispatch
+similarly retains path and output beside `self`. These dispositions cover the inspected local read
+and run dispatch signatures rather than the remaining service-backed CLI preparations.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

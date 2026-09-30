@@ -84,6 +84,12 @@ validation order; invalid threshold rejection is separate from offline build/lis
 cleanup fixtures document their effects. All seven cluster process cases, CLI all-target Clippy,
 strict CLI Rustdoc, nightly formatting, and Markdown checks pass. Broader suite review remains open.
 
+Cluster listing now executes on its parsed argument type and converts filters into one engine
+request before opening the archive. This removes the free handler's loose filter locals and keeps
+caller-before-callee reading order. The signature audit records retained local read and run dispatch
+inputs with their process/selection roles. Seven cluster process cases and CLI all-target Clippy
+pass; broader service-backed preparation and cross-crate signature review remain open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

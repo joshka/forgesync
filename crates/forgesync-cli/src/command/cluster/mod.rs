@@ -33,7 +33,7 @@ mod read;
 
 use decisions::{run_dismiss, run_exclude, run_include, run_restore, run_set_canonical};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
-use read::{run_list, run_show};
+use read::run_show;
 
 /// Deterministic cluster generation, inspection, and local governance operations.
 #[derive(Clone, Debug, Subcommand)]
@@ -173,7 +173,7 @@ impl ClusterCommand {
                 args.run_build(path, config, json, verbose, cancellation)
                     .await
             }
-            ClusterCommand::List(args) => run_list(args, path, json).await,
+            ClusterCommand::List(args) => args.run_list(path, json).await,
             ClusterCommand::Show { id } => run_show(id, path, json).await,
             ClusterCommand::Dismiss { id, reason } => run_dismiss(id, reason, path, json).await,
             ClusterCommand::Restore { id } => run_restore(id, path, json).await,
