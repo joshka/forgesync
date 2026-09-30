@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Pairwise graph thresholds now have a shallow sibling suite, separating title/kind acceptance from
+reference scoping, bounded grouping, and cancellation. A high-confidence same-kind case explicitly
+proves that unrelated titles do not reject otherwise strong vector evidence. The suite introductions
+name neighboring policy owners and construction limits. This closes the identified graph scenario
+separation finding without adding another fixture abstraction or nested module hierarchy.
+
 The combined title/kind graph fixture has now been replaced by independent two-document cases.
 Moderate same-kind similarity explicitly accepts shared title support and rejects unrelated titles.
 Cross-kind cases hold titles constant and compare vectors below and above their separate threshold.

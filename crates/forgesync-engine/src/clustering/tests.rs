@@ -1,7 +1,7 @@
 //! # Cluster candidate policy
 //!
-//! These tests document safeguards in the candidate graph: weak title evidence, cross-kind
-//! relationships, repository-scoped references, fanout, and maximum component size. The exact
+//! These tests document safeguards in the candidate graph: repository-scoped
+//! references, fanout, and maximum component size. The exact
 //! fixture relationships matter because transitive grouping can make a plausible pair produce an
 //! implausible cluster. Read these alongside `candidates` before changing thresholds or union
 //! behavior; a new candidate rule should have a small example that explains the intended grouping.
@@ -10,6 +10,7 @@
 //! Graph operations run directly; fixtures do not select expected edges or persist generations.
 //! Member identities accompany size expectations so unrelated discussions cannot substitute for
 //! intended neighbors. Repeated construction checks determinism of the same bounded policy.
+//! Pairwise title/kind thresholds live in `threshold_tests`; projection lives in `proposal_tests`.
 //! Writer fencing and local decision reconciliation are separate workflow/store contracts.
 
 use forgesync_core::content::ThreadKind;
@@ -18,72 +19,6 @@ use tokio_util::sync::CancellationToken;
 use crate::clustering::ClusterOptions;
 use crate::clustering::candidates::build_cluster_candidates;
 use crate::clustering::test_documents::document;
-
-#[rstest::rstest]
-#[case::shared_title("Memory crash after eviction", 1)]
-#[case::unrelated_title("Unrelated clipboard outage", 0)]
-fn moderate_similarity_requires_title_support(#[case] title: &str, #[case] expected_edges: usize) {
-    let docs = vec![
-        document(
-            1,
-            ThreadKind::Issue,
-            "Cache eviction memory crash",
-            None,
-            &[1.0, 0.0],
-        ),
-        document(2, ThreadKind::Issue, title, None, &[0.85, 0.5267827]),
-    ];
-    let options = ClusterOptions {
-        threshold: 0.80,
-        min_cluster_size: 2,
-        ..ClusterOptions::default()
-    };
-
-    let (clusters, edges) =
-        build_cluster_candidates(docs, "example/repo", options, &CancellationToken::new())
-            .expect("build title policy graph");
-
-    assert_eq!(edges, expected_edges);
-    assert_eq!(clusters.len(), expected_edges);
-}
-
-#[rstest::rstest]
-#[case::below_cross_kind_threshold(&[0.92, -0.39191836], 0)]
-#[case::above_cross_kind_threshold(&[0.95, 0.3122499], 1)]
-fn cross_kind_similarity_requires_its_own_threshold(
-    #[case] vector: &[f32],
-    #[case] expected_edges: usize,
-) {
-    let docs = vec![
-        document(
-            1,
-            ThreadKind::Issue,
-            "Cache eviction memory crash",
-            None,
-            &[1.0, 0.0],
-        ),
-        document(
-            2,
-            ThreadKind::PullRequest,
-            "Cache eviction memory crash",
-            None,
-            vector,
-        ),
-    ];
-    let options = ClusterOptions {
-        threshold: 0.80,
-        cross_kind_threshold: 0.93,
-        min_cluster_size: 2,
-        ..ClusterOptions::default()
-    };
-
-    let (clusters, edges) =
-        build_cluster_candidates(docs, "example/repo", options, &CancellationToken::new())
-            .expect("build kind policy graph");
-
-    assert_eq!(edges, expected_edges);
-    assert_eq!(clusters.len(), expected_edges);
-}
 
 #[test]
 fn references_are_repository_scoped_and_early_body_evidence_is_strong() {
