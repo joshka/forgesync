@@ -71,10 +71,20 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   and the next task.
 - Add dependencies only when the current selected feature needs them. Keep deferred crates and
   features out of the workspace and normal build.
-- Run focused tests, then applicable workspace gates: cargo +nightly fmt --all -- --check, cargo
-  clippy --workspace --all-targets --all-features -- -D warnings, cargo test --workspace
-  --all-features --locked, cargo build -p forgesync --no-default-features --features cli --locked,
-  and cargo doc --workspace --no-deps --all-features.
+- Optimize total wall-clock time to a completed change. Run cheap, focused local checks when they
+  save overall time. Once publication is authorized, push a reviewable change promptly so CI starts
+  early; do not wait for exhaustive local validation or every detail to be polished.
+- Inspect actual CI coverage before delegating validation. Routine CI currently runs only
+  `cargo check --workspace --all-targets --all-features --locked`; it does not execute tests,
+  Clippy, docs, or smoke checks. Use CI as the arbiter for expensive checks it actually runs.
+- Select additional checks for the changed behavior and known failure modes. Run a quick regression
+  reproducer locally when useful. Complete relevant checks missing from CI locally or through an
+  explicit hosted run; they can follow PR publication unless an explicit gate requires otherwise.
+  Do not turn hypothetical risks or cold multi-minute builds into blanket pre-push requirements.
+- Continue useful independent work while checks run. Parallelize checks only when it reduces finish
+  time; avoid Cargo target-directory lock contention and redundant cold builds. Follow through on
+  failures and report actual commands, results, pending checks, and coverage gaps. Prompt PR
+  publication does not waive explicit merge or release gates.
 - Lint changed Markdown with markdownlint-cli2 and /Users/joshka/.markdownlint-cli2.yaml.
 
 ## Release latency
