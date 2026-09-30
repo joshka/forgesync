@@ -2128,9 +2128,8 @@ and review docs explain their specific identity and source-data limits. The inte
 named `require_thread_scope`, accurately describing repository equality rather than claiming to
 validate pull-request kind. All endpoint and acquisition behavior is preserved.
 
-The initial split passes all 20 GitHub tests, both doctests, and workspace Clippy. Final-tree
-focused checks, Clippy, and strict GitHub Rustdoc are running after the additional API contracts and
-guard rename. Broader provider and workspace convention reviews remain open.
+Final-tree checks pass all 20 GitHub tests, both doctests, workspace Clippy, strict GitHub Rustdoc,
+formatting, and Markdown checks. Broader provider and workspace convention reviews remain open.
 
 ## Continued maintenance: GraphQL request owner
 
@@ -2141,10 +2140,9 @@ while retaining only the safe error count. Acquisition still validates required 
 outer and nested connections; request execution proves no resource completeness and writes no
 archive.
 
-The initial ownership change passes all 20 GitHub tests, both doctests, and workspace Clippy. A
-nearby linear encoding case checks named operation variables and a null initial cursor. Final-tree
-focused checks, Clippy, and strict GitHub Rustdoc are running. Nested comment pagination still has
-live state in a long function and remains an explicit convention-review target.
+Final-tree checks pass all 21 GitHub tests, both doctests, workspace Clippy, strict GitHub Rustdoc,
+formatting, and Markdown checks. A nearby linear encoding case checks named operation variables and
+a null initial cursor. Nested pagination is addressed by the following change.
 
 ## Continued maintenance: nested comment pagination owner
 
@@ -2157,6 +2155,19 @@ source/head context. No partial node list escapes on failure.
 Request order, member order, cursor spelling, repeated-cursor rejection, error classification,
 normalization, and cancellation behavior remain unchanged. Page application checks required members
 and metadata before updating retained state. Three nearby linear cases cover repeated continuation,
-terminal metadata without a cursor, and missing pagination flag. Existing GitHub request cases pass;
-final focused checks, workspace Clippy, and strict GitHub Rustdoc are running after removing
-leftover imports. Broader conventions/documentation and test-suite reviews remain open.
+terminal metadata without a cursor, and missing pagination flag. Final-tree checks pass all 24
+GitHub tests, both doctests, workspace Clippy, strict GitHub Rustdoc, formatting, and Markdown
+checks. Broader conventions/documentation and test-suite reviews remain open.
+
+## Continued maintenance: review-page acquisition contracts
+
+The public page and cursor contracts explain resource pairing, display-path versus stable identity,
+caller-selected head evidence, whole-page failure, and the distinction between a terminal provider
+page and durable replacement authority. The provider query does not verify the requested head or
+thread kind; those obligations remain explicit at the workflow boundary.
+
+The six acquisition inputs are retained: transport, repository routing, thread scope, evidence head,
+continuation, and cancellation have distinct roles. A parameter bag would only rename those facts.
+The outer coordinator retains its linear traversal and required-data checks; nested pagination state
+has its own owner. Strict GitHub documentation, nightly formatting, repository Markdown linting, and
+changed-file Markdown checks pass for this documentation change.

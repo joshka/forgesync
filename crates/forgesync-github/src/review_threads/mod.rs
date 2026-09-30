@@ -21,11 +21,11 @@ mod wire;
 
 use forgesync_core::content::{Repository, ReviewThread};
 use forgesync_core::identity::{CommitSha, ProviderId, ThreadId};
-use normalize::normalize_review_thread;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
 use crate::review_threads::comments::CommentPages;
+use crate::review_threads::normalize::normalize_review_thread;
 use crate::review_threads::request::{GraphqlRequest, REVIEW_THREADS_QUERY};
 use crate::review_threads::wire::{
     GraphqlEnvelope, GraphqlPageInfo, GraphqlReviewThread, ReviewThreadsData,
@@ -33,18 +33,34 @@ use crate::review_threads::wire::{
 };
 use crate::transport::GitHubClient;
 
-/// Opaque GraphQL cursor for one page of review threads.
+/// Opaque continuation returned by a successful review-thread page request.
+///
+/// Keep this value paired with the same repository and pull request when requesting another page.
+/// It preserves provider spelling and proves only that a nonempty continuation was supplied; it
+/// does not encode or independently validate the resource scope. Start acquisition with `None`
+/// rather than constructing a cursor from unrelated provider data.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GraphqlCursor(String);
+pub struct GraphqlCursor(
+    /// Provider-issued spelling retained unchanged for the next outer request.
+    String,
+);
 
 impl GraphqlCursor {
-    /// Returns the provider cursor value for use in a later page request.
+    /// Borrows the provider spelling without decoding or rewriting it.
+    ///
+    /// This is useful for diagnostics or request encoding. The spelling alone does not identify
+    /// the pull request to which the continuation belongs.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// One typed GraphQL page with every nested comment connection fully acquired.
+/// One outer page whose review threads have fully acquired nested comment connections.
+///
+/// Preserve the returned order when staging observations. An empty vector is a successful empty
+/// page, whereas acquisition or normalization failure returns an error without this value. A
+/// terminal page completes the outer traversal only when all preceding pages also succeeded;
+/// this type does not grant archive replacement authority by itself.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GraphqlReviewThreadPage {
     /// Review threads with complete nested comment lists.
@@ -58,6 +74,23 @@ pub struct GraphqlReviewThreadPage {
 /// The returned page is only successful when the outer connection and every nested comments
 /// connection have valid page metadata and all GraphQL responses have no partial errors. Callers
 /// can therefore stage its threads as one complete page without persisting partial nested state.
+///
+/// `repository` supplies the display owner/name used by GraphQL, and `thread` supplies the local
+/// pull-request number. Their stable repository identities must agree. The caller must select a
+/// client for the repository host and a pull-request thread: identity equality does not prove
+/// host routing, provider existence, or thread kind. Keep `after` paired with this same resource.
+///
+/// `head_sha` labels the normalized evidence with the head selected by the caller. This query does
+/// not fetch or verify that head, so the workflow owns detecting head changes and deciding whether
+/// the evidence can be applied. Acquisition writes no archive state.
+///
+/// # Errors
+///
+/// Returns [`GitHubError::InvalidProviderData`] for a repository identity mismatch, missing
+/// required response data, or invalid normalized values. Invalid continuation metadata returns the
+/// relevant pagination error. Transport, retry exhaustion, cancellation, and GraphQL envelope
+/// failures retain their typed errors. Failure of any nested connection rejects the entire outer
+/// page; already fetched members are not returned as a partial success.
 pub async fn fetch_review_thread_page(
     client: &GitHubClient,
     repository: &Repository,
