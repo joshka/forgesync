@@ -2922,3 +2922,14 @@ records are explicit construction fixtures; no scenario loops or behavior helper
 
 All four focused failure-projection scenarios and nightly formatting pass. Rumdl and changed-page
 Markdown linting pass.
+
+### Fallback task cancellation coverage
+
+The task-lifetime suite now exercises dropping the owner with a live writer. It checks both the
+shared cancellation signal and a cleanup acknowledgment, so aborting the writer cannot masquerade as
+cooperative shutdown. Explicit shutdown gains a bounded test wait to turn a lost cancellation signal
+into an actionable failure rather than a hanging suite. Construction and cleanup are visible in each
+linear scenario.
+
+The complete TUI suite passes: 75 unit scenarios and one doctest. Nightly formatting, rumdl, and
+changed-page Markdown linting pass.

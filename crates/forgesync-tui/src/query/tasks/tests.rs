@@ -4,6 +4,9 @@
 //! the same token a writer receives; completed reads are pruned before a subsequent read is
 //! tracked. Shutdown waits for a cancelled writer rather than aborting its cleanup work.
 
+use std::time::Duration;
+
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use crate::query::tasks::QueryTasks;
@@ -36,7 +39,9 @@ async fn shutdown_waits_for_writer_cleanup() {
     let mut tasks = QueryTasks::default();
     tasks.track_operation(handle, cancellation);
 
-    tasks.stop().await;
+    timeout(Duration::from_secs(5), tasks.stop())
+        .await
+        .expect("shutdown waits for cooperative cleanup");
 
     completion.await.expect("writer completed cleanup");
     assert!(tasks.operation.is_none());
@@ -55,4 +60,25 @@ async fn tracking_a_read_prunes_completed_reads() {
     assert_eq!(tasks.handles.len(), 1);
     tasks.stop().await;
     assert!(tasks.handles.is_empty());
+}
+
+#[tokio::test]
+async fn dropping_owner_signals_writer_and_allows_cleanup() {
+    let cancellation = CancellationToken::new();
+    let writer_token = cancellation.clone();
+    let (finished, completion) = tokio::sync::oneshot::channel();
+    let handle = tokio::spawn(async move {
+        writer_token.cancelled().await;
+        finished.send(()).expect("cleanup receiver remains alive");
+    });
+    let mut tasks = QueryTasks::default();
+    tasks.track_operation(handle, cancellation.clone());
+
+    drop(tasks);
+
+    assert!(cancellation.is_cancelled());
+    timeout(Duration::from_secs(5), completion)
+        .await
+        .expect("fallback cancellation permits cleanup")
+        .expect("writer completed cleanup");
 }
