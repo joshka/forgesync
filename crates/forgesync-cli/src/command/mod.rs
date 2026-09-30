@@ -51,7 +51,11 @@ use tui::run_tui;
 use crate::config::ForgesyncConfig;
 use crate::{OutputMode, usage_error};
 
-/// Global process options shared by every command.
+/// Parsed global options and the selected command for one process invocation.
+///
+/// Parsing retains user choices without opening an archive or resolving credentials. Dispatch
+/// combines these choices with resolved configuration and gives command owners their required
+/// process settings. Global options are accepted alongside subcommands through Clap's global flags.
 #[derive(Clone, Debug, Parser)]
 #[command(
     name = "forgesync",

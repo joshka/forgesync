@@ -3521,3 +3521,22 @@ coverage or workflow behavior.
 
 All 15 sync scenarios, focused warning-denying Clippy, nightly formatting, rumdl, and linting of
 both changed Markdown pages pass.
+
+### Non-function item contract inventory
+
+The refreshed production inventory extends beyond handwritten functions to private structs, enums,
+and constants. Thirteen genuine missing item introductions gained contracts; a multiline Clap
+attribute produced one false-positive candidate, whose existing argument-owner documentation was
+expanded after inspection rather than counted as absent.
+
+Transport failure facts, bounded-body errors, trusted origin/display separation, embedding wire
+fields, process output modes, and connection/body/batch/redirect/backoff bounds now explain their
+ownership and limits. Contracts distinguish retry eligibility from budget permission, origin trust
+from path-prefix policy, float payload encoding from credentials, and SQLite lock waiting from
+workflow deadlines. Private fields and variants on the newly documented types also explain their
+roles. No runtime behavior changed; documentation presence remains insufficient to close the depth
+review.
+
+Strict all-feature workspace Rustdoc including private items passes on the current tree. Nightly
+formatting, rumdl, and changed-page Markdown linting pass. Runtime tests were not repeated for this
+documentation-only change.

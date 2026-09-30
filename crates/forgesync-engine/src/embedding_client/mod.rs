@@ -26,8 +26,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::response::EmbeddingResponse;
 
+/// Bounds successful service payload memory independently of configured vector dimensions.
 const MAX_RESPONSE_BODY_BYTES: usize = 16 * 1024 * 1024;
+/// Hard upper bound for request input count, in addition to configured batch and byte limits.
 const MAX_BATCH_INPUTS: usize = 2048;
+/// Caps exponential backoff; the remaining total request budget may reject even this delay.
 const MAX_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 /// Independent endpoint and capacity settings for one embedding service.
@@ -293,12 +296,20 @@ impl EmbeddingClient {
     }
 }
 
+/// Borrowed wire payload for one OpenAI-compatible embedding request.
+///
+/// Batch policy and input validation precede construction. This type describes protocol fields
+/// only; credentials remain in a sensitive HTTP header and never enter the serialized JSON body.
 #[derive(Serialize)]
 struct EmbeddingRequest<'a> {
+    /// Configured provider model name, retained exactly in the request.
     model: &'a str,
+    /// Validated text inputs whose positions determine returned vector ordering.
     input: &'a [String],
+    /// Optional requested dimensions; absence omits the field for the provider default.
     #[serde(skip_serializing_if = "Option::is_none")]
     dimensions: Option<u32>,
+    /// Explicit float encoding, matching the checked numeric response decoder.
     encoding_format: &'static str,
 }
 

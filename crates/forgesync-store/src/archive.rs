@@ -29,7 +29,9 @@ use crate::migration::{
 /// Format identity stored in each native Forgesync archive.
 pub const ARCHIVE_FORMAT_ID: &str = "forgesync";
 
+/// Bounds concurrent local reads without giving each query an unbounded SQLite connection.
 const READER_CONNECTIONS: u32 = 4;
+/// Bounds SQLite lock waiting for both read and write connections; this is not a workflow timeout.
 const WRITER_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Stable archive metadata returned by `status` and lifecycle operations.

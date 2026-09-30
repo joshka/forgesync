@@ -193,9 +193,15 @@ fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigE
     ForgesyncConfig::load(args.config.as_deref())
 }
 
+/// Process presentation policy resolved once from the global JSON option.
+///
+/// Commands receive this value instead of a behavior-selecting boolean. Diagnostic and success
+/// renderers own stream selection; the policy does not select acquisition or storage behavior.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum OutputMode {
+    /// Human summaries on stdout and human errors on stderr.
     Text,
+    /// Versioned command envelopes on stdout, independent of tracing's stderr encoding.
     Json,
 }
 

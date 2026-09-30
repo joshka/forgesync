@@ -23,8 +23,11 @@ use tokio::sync::Semaphore;
 use crate::error::GitHubError;
 use crate::token::GitHubToken;
 
+/// Maximum successful payload bytes retained before typed DTO decoding.
 const MAX_SUCCESS_BODY_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum error prefix retained for classification, never an unbounded provider error body.
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
+/// Maximum trusted redirect hops per attempt, independent of the request retry count.
 const MAX_REDIRECTS: usize = 5;
 
 /// Retry limits for transient network, server, and rate-limit failures.
@@ -111,9 +114,16 @@ mod request;
 mod response;
 mod retry;
 
+/// Attempt failure plus the transport policy facts needed by the budgeted request loop.
+///
+/// Error category, eligibility for another attempt, and provider delay remain distinct. The loop
+/// still checks total budget and attempt limits; retryable does not promise another request.
 struct RequestFailure {
+    /// Safe typed cause retained if the retry loop cannot or should not recover.
     error: GitHubError,
+    /// Whether this classified attempt is eligible for retry, subject to loop bounds.
     retryable: bool,
+    /// Provider-suggested wait; absence selects local backoff rather than zero delay.
     retry_after: Option<Duration>,
 }
 
@@ -137,14 +147,24 @@ impl RequestFailure {
     }
 }
 
+/// Bounded-body acquisition failure before any provider JSON interpretation.
 enum BodyReadError {
+    /// Reading exceeded the configured body cap; no complete payload can be decoded.
     TooLarge,
+    /// Streaming failed and retains its transport cause for retry classification.
     Transport(reqwest::Error),
 }
 
+/// Validated scheme/host/port boundary for credential-bearing requests and pagination.
+///
+/// Trust is origin-based, not a REST path-prefix restriction. Redirect and pagination traversal
+/// checks every destination against this value before attaching authorization. Display text keeps
+/// only host/port so diagnostics do not expose credentials, paths, queries, or fragments.
 #[derive(Clone)]
 struct TrustedOrigin {
+    /// Exact URL origin shared by initial, redirected, and pagination destinations.
     origin: url::Origin,
+    /// Safe host/port label for request tracing, separate from the full configured URL.
     display: String,
 }
 
