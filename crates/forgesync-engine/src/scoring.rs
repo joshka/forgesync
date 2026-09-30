@@ -126,3 +126,7 @@ pub fn stable_thread_id_cmp(left: &ThreadSummary, right: &ThreadSummary) -> Orde
         .then_with(|| left_id.provider_id().cmp(right_id.provider_id()))
         .then_with(|| left_id.number().cmp(&right_id.number()))
 }
+
+#[cfg(test)]
+#[path = "scoring/tests.rs"]
+mod tests;

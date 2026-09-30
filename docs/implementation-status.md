@@ -2763,3 +2763,12 @@ path and now has a focused arithmetic orientation. No scoring or ranking behavio
 
 All 88 engine unit scenarios, engine Clippy across all targets/features, strict private-item
 Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Scoring test locality
+
+Cosine arithmetic scenarios retain only vector construction and direct numerical expectations.
+Ranked-candidate scenarios and their discussion construction fixtures move beside the private
+scoring owner. Both test modules explain what they establish and the timestamp-order policy they do
+not cover. The split preserves every scenario while removing cross-owner setup from arithmetic.
+
+All 88 engine unit scenarios, nightly formatting, rumdl, and changed-page Markdown linting pass.
