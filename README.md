@@ -34,10 +34,12 @@ forgesync --archive ./forgesync.sqlite archive status
 forgesync --archive ./forgesync.sqlite tui
 ```
 
-See [installation and operations](docs/installation.md) for setup, coverage, recovery, and
-diagnostics; [configuration](docs/configuration.md) for optional model-backed retrieval; and
-[TUI controls](docs/tui.md) for the interactive browser. A direct Rust example uses the same engine
-search and sync APIs as the frontends: [engine examples](crates/forgesync-engine/examples/).
+Read the [user manual](docs/user-manual.md) for the complete acquisition, search, triage, and
+recovery workflows. See [installation and operations](docs/installation.md) for setup, coverage,
+recovery, and diagnostics; [configuration](docs/configuration.md) for optional model-backed
+retrieval; and [TUI controls](docs/tui.md) for the interactive browser. A direct Rust example uses
+the same engine search and sync APIs as the frontends:
+[engine examples](crates/forgesync-engine/examples/).
 
 ## Scope
 
