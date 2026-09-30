@@ -2387,3 +2387,15 @@ Recording failure does not complete its job or mutate acquired evidence.
 
 Strict store Rustdoc, nightly formatting, and Markdown checks pass. SQL and behavior are unchanged;
 broader conventions and test review remain open.
+
+## Continued maintenance: repository registration contracts
+
+Repository storage orientation now distinguishes stable host/provider identity from replaceable
+descriptive fields and the returned SQLite row key. It explicitly documents unconditional payload
+replacement without discussion-style acquisition-sequence/source-clock ordering. A lease proves
+write authority rather than freshness of the caller-selected repository description.
+
+Both fenced and unfenced public methods describe intended use, transaction behavior, and failures.
+Registration creates no child-family completeness or provider acquisition. Strict store Rustdoc,
+nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
+open.
