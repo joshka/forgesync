@@ -426,6 +426,24 @@ scenario adequacy remain separate acceptance items.
 These decisions close the refreshed multiline match inventory across the six crates. They do not
 close the independent broad-signature, documentation-depth, or full test-quality passes.
 
+### Core broad-signature dispositions
+
+- `Observation::new` receives six independent evidence/acquisition facts and constructs their
+  existing coherent owner. Keep those facts explicit; a wrapper would neither validate generic
+  payload completeness nor prove archive sequence reservation.
+- `Document::new` receives source identity, recipe, rendered title/text, deduplication text, and
+  source time. Keep supplied rendering facts explicit because core does not render recipes. Hashing
+  moved from a five-parameter free function to the document's existing expected-hash query, shared
+  by construction and store validation. A fixed digest case protects version-one field encoding.
+- `ThreadId::new` combines checked repository identity, opaque provider ID, and local number. Keep
+  these distinct typed inputs; the result already names their relationship, and construction cannot
+  verify provider identity/number correspondence without acquisition evidence.
+- The conservative syntax inventory also flags `ProviderData::insert` because it counts `self`. Its
+  two actual inputs are a field name and JSON value; retain the normal map operation.
+
+This disposes of the core broad-signature candidates. The remaining crates and documentation-depth
+review still require their own evidence.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

@@ -3429,3 +3429,20 @@ and cancellation never enter this fallback. Credential cause/token contents are 
 The complete all-feature CLI unit, integration, and doctest suites pass. All-target CLI Clippy,
 nightly formatting, rumdl, and changed-page Markdown linting pass. The refreshed broad-signature
 inventory remains a review signal, not a completion claim for that separate pass.
+
+### Document hash receiver ownership
+
+The five-argument hash helper moved onto the `Document` value as the existing expected-hash query.
+Construction computes its hash through that same query before returning. Hash framing, field order,
+recipe version, source identity, lowercase digest encoding, and timestamp/deduplication exclusions
+remain unchanged. Contracts explain length framing and receiver-field ownership.
+
+The broad observation/document constructors retain their independent input facts: their resulting
+values are already the coherent concepts, and adding a parameter-only wrapper would hide those facts
+without introducing validation or behavior. The hash computation remains a linear field encoding
+sequence with one local digest formatter; splitting each field would increase navigation.
+
+Four document identity cases pass, including an independently calculated fixed version-one digest.
+All-target core Clippy, strict private-item Rustdoc, nightly formatting, rumdl, and changed-page
+Markdown checks pass. Core broad-signature candidates have explicit fixed/retained dispositions in
+the source-shape audit; this does not close other crates' signature review.

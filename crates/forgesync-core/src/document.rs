@@ -75,7 +75,8 @@ impl Document {
     /// The hash covers source identity, recipe/version, title, and text. Deduplication text and the
     /// source timestamp are deliberately excluded: a source-clock-only change leaves retrieval
     /// identity stable. Because fields are public, a value received or modified after construction
-    /// still needs store-boundary validation before persistence.
+    /// still needs store-boundary validation before persistence. Construction computes the initial
+    /// hash from the same fields returned to the caller.
     pub fn new(
         source_identity: ThreadId,
         recipe: DocumentRecipe,
@@ -84,18 +85,18 @@ impl Document {
         dedupe_text: String,
         source_updated_at: UtcTimestamp,
     ) -> Self {
-        let recipe_version = DocumentRecipe::VERSION;
-        let content_hash = content_hash(&source_identity, recipe, recipe_version, &title, &text);
-        Self {
+        let mut document = Self {
             source_identity,
             recipe,
-            recipe_version,
-            content_hash,
+            recipe_version: DocumentRecipe::VERSION,
+            content_hash: String::new(),
             title,
             text,
             dedupe_text,
             source_updated_at,
-        }
+        };
+        document.content_hash = document.expected_content_hash();
+        document
     }
 
     /// Recomputes the expected hash from the document's current identity, recipe, title, and text.
@@ -104,56 +105,46 @@ impl Document {
     /// document. Calling this query changes no field and does not validate recipe support,
     /// deduplication normalization, or source-clock consistency. The store applies its broader
     /// validation rules separately.
+    ///
+    /// The SHA-256 input uses length-prefixed fields and a fixed format marker; adjacent title/text
+    /// values cannot collide merely by shifting their boundary. The result is lowercase
+    /// hexadecimal. Recipe version and every stable source identity component participate in
+    /// this computation.
     pub fn expected_content_hash(&self) -> String {
-        content_hash(
-            &self.source_identity,
-            self.recipe,
-            self.recipe_version,
-            &self.title,
-            &self.text,
-        )
+        let mut hasher = Sha256::new();
+        add_field(&mut hasher, b"forgesync-document-v1");
+        add_field(&mut hasher, self.recipe.as_str().as_bytes());
+        add_field(&mut hasher, &self.recipe_version.to_be_bytes());
+        add_field(
+            &mut hasher,
+            self.source_identity.repository().host().as_str().as_bytes(),
+        );
+        add_field(
+            &mut hasher,
+            self.source_identity
+                .repository()
+                .provider_id()
+                .as_str()
+                .as_bytes(),
+        );
+        add_field(
+            &mut hasher,
+            self.source_identity.provider_id().as_str().as_bytes(),
+        );
+        add_field(
+            &mut hasher,
+            &self.source_identity.number().get().to_be_bytes(),
+        );
+        add_field(&mut hasher, self.title.as_bytes());
+        add_field(&mut hasher, self.text.as_bytes());
+        let digest = hasher.finalize();
+        let mut output = String::with_capacity(digest.len() * 2);
+        for byte in digest {
+            use std::fmt::Write as _;
+            let _ = write!(output, "{byte:02x}");
+        }
+        output
     }
-}
-
-/// Hashes the source identity, recipe, and rendered text; acquisition time is deliberately absent
-/// so a repeated fetch of unchanged content keeps the same document identity.
-fn content_hash(
-    source_identity: &ThreadId,
-    recipe: DocumentRecipe,
-    recipe_version: u32,
-    title: &str,
-    text: &str,
-) -> String {
-    let mut hasher = Sha256::new();
-    add_field(&mut hasher, b"forgesync-document-v1");
-    add_field(&mut hasher, recipe.as_str().as_bytes());
-    add_field(&mut hasher, &recipe_version.to_be_bytes());
-    add_field(
-        &mut hasher,
-        source_identity.repository().host().as_str().as_bytes(),
-    );
-    add_field(
-        &mut hasher,
-        source_identity
-            .repository()
-            .provider_id()
-            .as_str()
-            .as_bytes(),
-    );
-    add_field(
-        &mut hasher,
-        source_identity.provider_id().as_str().as_bytes(),
-    );
-    add_field(&mut hasher, &source_identity.number().get().to_be_bytes());
-    add_field(&mut hasher, title.as_bytes());
-    add_field(&mut hasher, text.as_bytes());
-    let digest = hasher.finalize();
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write as _;
-        let _ = write!(output, "{byte:02x}");
-    }
-    output
 }
 
 /// Prefixes each field with its length so adjacent fields cannot produce the same byte stream.
