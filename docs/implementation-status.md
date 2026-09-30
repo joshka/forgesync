@@ -3180,3 +3180,13 @@ recipe, keeping the hash contract independent of engine materialization assumpti
 
 All three focused document-hash scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Embedding validation and encoding boundaries
+
+Embedding contracts document validation precedence, unchanged magnitudes, and why matching
+dimensions do not establish model compatibility. Numeric and encoding regressions use named linear
+cases, including empty vectors, infinity, zero declared dimensions, and trailing bytes. Tests import
+the value owner directly and retain exact typed error expectations.
+
+All nine focused embedding scenarios, nightly formatting, rumdl, and changed-page Markdown linting
+pass.

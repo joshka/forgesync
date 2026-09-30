@@ -45,7 +45,15 @@ impl EmbeddingVector {
     /// Validates a model vector and, when supplied, its expected dimension.
     ///
     /// Empty, non-finite, zero-norm, and dimension-mismatched vectors are rejected. The input
-    /// order is preserved; this method does not normalize the vector's length.
+    /// order is preserved; this method does not normalize the vector's length. Components remain
+    /// unchanged, including finite magnitudes larger or smaller than unit length.
+    ///
+    /// # Errors
+    ///
+    /// Validation checks representable/nonempty dimension first, then the optional expected
+    /// dimension, then finite components and nonzero norm. When multiple conditions are invalid,
+    /// the first applicable check determines the error. Matching dimensions alone does not prove
+    /// that two vectors belong to the same service/model space.
     pub fn new(
         values: Vec<f32>,
         expected_dimensions: Option<u32>,
@@ -105,12 +113,18 @@ impl EmbeddingVector {
         Self::new(values, Some(dimensions))
     }
 
-    /// Returns the number of components.
+    /// Returns the validated nonzero component count in the archive's dimension unit.
+    ///
+    /// This describes shape only; it does not identify the model or prove compatibility with
+    /// another vector of the same dimension.
     pub fn dimensions(&self) -> u32 {
         u32::try_from(self.values.len()).expect("validated vector dimensions fit u32")
     }
 
-    /// Returns vector components in model order.
+    /// Borrows the original finite components in model order without normalization.
+    ///
+    /// The immutable slice preserves constructor validation. Similarity calculations may use
+    /// magnitude-independent cosine math, but this value does not store unit-length components.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
@@ -159,7 +173,7 @@ pub enum EmbeddingVectorError {
 
 #[cfg(test)]
 mod tests {
-    use super::{EmbeddingVector, EmbeddingVectorError};
+    use crate::embedding::{EmbeddingVector, EmbeddingVectorError};
 
     #[test]
     fn little_endian_vector_round_trips_with_explicit_dimensions() {
@@ -172,25 +186,27 @@ mod tests {
         );
     }
 
-    #[test]
-    fn invalid_dimensions_and_numeric_values_are_rejected() {
+    #[rstest::rstest]
+    #[case::empty(vec![], None, EmbeddingVectorError::Empty)]
+    #[case::dimension(vec![1.0, 2.0], Some(3), EmbeddingVectorError::WrongDimensions { expected: 3, actual: 2 })]
+    #[case::zero_norm(vec![0.0, 0.0], None, EmbeddingVectorError::ZeroNorm)]
+    #[case::nan(vec![f32::NAN], None, EmbeddingVectorError::NonFinite)]
+    #[case::infinity(vec![f32::INFINITY], None, EmbeddingVectorError::NonFinite)]
+    fn invalid_model_vectors_have_specific_errors(
+        #[case] values: Vec<f32>,
+        #[case] dimensions: Option<u32>,
+        #[case] expected: EmbeddingVectorError,
+    ) {
+        assert_eq!(EmbeddingVector::new(values, dimensions), Err(expected));
+    }
+
+    #[rstest::rstest]
+    #[case::zero_dimension(&[], 0)]
+    #[case::truncated(&[0, 0, 0, 0], 2)]
+    #[case::trailing_byte(&[0, 0, 0, 0, 1], 1)]
+    fn invalid_archive_lengths_are_rejected(#[case] bytes: &[u8], #[case] dimensions: u32) {
         assert_eq!(
-            EmbeddingVector::new(vec![1.0, 2.0], Some(3)),
-            Err(EmbeddingVectorError::WrongDimensions {
-                expected: 3,
-                actual: 2
-            })
-        );
-        assert_eq!(
-            EmbeddingVector::new(vec![0.0, 0.0], None),
-            Err(EmbeddingVectorError::ZeroNorm)
-        );
-        assert_eq!(
-            EmbeddingVector::new(vec![f32::NAN], None),
-            Err(EmbeddingVectorError::NonFinite)
-        );
-        assert_eq!(
-            EmbeddingVector::from_little_endian(&[0, 0, 0, 0], 2),
+            EmbeddingVector::from_little_endian(bytes, dimensions),
             Err(EmbeddingVectorError::InvalidEncoding)
         );
     }
