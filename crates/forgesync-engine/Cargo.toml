@@ -5,9 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-forgesync-core = { path = "../forgesync-core" }
-forgesync-github = { path = "../forgesync-github" }
-forgesync-store = { path = "../forgesync-store" }
+forgesync-core = { version = "0.1.0", path = "../forgesync-core" }
+forgesync-github = { version = "0.1.0", path = "../forgesync-github" }
+forgesync-store = { version = "0.1.0", path = "../forgesync-store" }
 reqwest.workspace = true
 regex.workspace = true
 sha2.workspace = true

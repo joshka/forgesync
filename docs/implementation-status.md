@@ -5,13 +5,25 @@
 The selected Forgesync implementation and maintainability cleanup are **complete**. All eight
 implementation/review batches have fixed or retained dispositions, and all applicable local gates
 passed on the cleanup baseline. That workspace run passed 525 tests across 27 suites, with no
-failures or ignored cases. The configured-archive follow-up below has separate validation evidence.
-Hosted native execution remains separate release evidence.
+failures or ignored cases. The follow-ups below have separate validation evidence. Hosted native
+execution remains separate release evidence.
 
 This file describes current status. The [source-shape audit](source-shape-audit.md) records review
 findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
+
+## Product facade follow-up
+
+The `forgesync` package now owns the installable executable and module-oriented Rust facade. Its CLI
+and TUI features are enabled by default. The CLI package is a library; process tests live with the
+executable. Workflow implementations remain in the existing core, store, provider, and engine
+owners. CI and release builds target the product, and workspace path dependencies carry registry
+version requirements so publication can preserve the same graph. No packages have been published.
+
+Validation is in progress: product process tests, workspace gates, library-only and CLI-only feature
+builds, and a local installation check. The next action is to complete these gates and record their
+results.
 
 ## Configured-archive follow-up
 

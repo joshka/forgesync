@@ -5,12 +5,19 @@ offline reads and presents maintainer decisions. This map names the owner of eac
 
 | Crate              | Owns                                                             | Main path                                   |
 | ------------------ | ---------------------------------------------------------------- | ------------------------------------------- |
+| `forgesync`        | Installable executable and curated application API modules       | Product entry point delegates to owners     |
 | `forgesync-core`   | Identities, normalized content, observations, coverage, outcomes | Provider values become domain values        |
 | `forgesync-github` | Typed responses, transport, pagination, normalization            | GitHub response becomes a typed observation |
 | `forgesync-store`  | Archive lifecycle, SQL, ordering, recovery, local decisions      | Observation becomes durable state           |
 | `forgesync-engine` | Sync, refresh, search, clustering policy                         | Request becomes a workflow report           |
 | `forgesync-cli`    | Arguments, configuration, process output and exit codes          | User command becomes an engine request      |
 | `forgesync-tui`    | Local navigation, actions, rendering                             | Archive state becomes an interactive view   |
+
+The product package lives in `crates/forgesync`, with `cli` and `tui` enabled by default. Its binary
+delegates to the CLI library; its library re-exports concept modules from core, engine, and store.
+This facade adds no workflow policy or process setup to Rust API calls. Process integration tests
+live with the product executable; CLI unit tests stay with their owning library. Library-only
+consumers disable default features, while a CLI without browsing selects only `cli`.
 
 For a sync change, start at the CLI command, follow the engine sync operation through the GitHub
 resource method and store application method, then inspect the matching fixture and regression test.

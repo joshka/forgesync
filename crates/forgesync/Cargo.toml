@@ -1,0 +1,40 @@
+[package]
+name = "forgesync"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Local-first GitHub discussion archive, search, and triage"
+
+[features]
+default = ["cli", "tui"]
+cli = ["dep:forgesync-cli"]
+tui = ["cli", "forgesync-cli/tui"]
+
+[[bin]]
+name = "forgesync"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "cli_contract"
+required-features = ["cli"]
+
+[[test]]
+name = "cluster_contract"
+required-features = ["cli"]
+
+[[test]]
+name = "offline_queries"
+required-features = ["cli"]
+
+[dependencies]
+forgesync-cli = { version = "0.1.0", path = "../forgesync-cli", optional = true, default-features = false }
+forgesync-core = { version = "0.1.0", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.0", path = "../forgesync-engine" }
+forgesync-store = { version = "0.1.0", path = "../forgesync-store" }
+
+[dev-dependencies]
+assert_cmd = "2"
+rstest = "0.27.0"
+serde_json.workspace = true
+tokio.workspace = true

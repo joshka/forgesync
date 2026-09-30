@@ -24,11 +24,11 @@ external background. Avoid repeating identifiers, signatures, or obvious control
 
 ## Document ownership and effects
 
-The [module map](architecture.md) explains the six crate boundaries. Public module Rustdoc should
-state the concept it owns, its primary workflow, and related modules. Public types should explain
-their invariant and who constructs them. Fallible operations should explain relevant side effects,
-partial state, cancellation, retry, and recovery. State the lifecycle of archives, network clients,
-and terminal state at their owning APIs.
+The [module map](architecture.md) explains the product facade and implementation crate boundaries.
+Public module Rustdoc should state the concept it owns, its primary workflow, and related modules.
+Public types should explain their invariant and who constructs them. Fallible operations should
+explain relevant side effects, partial state, cancellation, retry, and recovery. State the lifecycle
+of archives, network clients, and terminal state at their owning APIs.
 
 For checked constructors, state what is validated and what remains a caller or downstream boundary
 obligation. Valid spelling, positivity, or encoding does not prove record existence, archive

@@ -24,7 +24,7 @@ distribution process.
 Build and check the current host's binary without publishing:
 
 ```sh
-cargo build -p forgesync-cli --release --locked
+cargo build -p forgesync --release --locked
 python scripts/smoke_binary.py target/release/forgesync
 python scripts/package_binary.py \
   --binary target/release/forgesync \

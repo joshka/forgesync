@@ -47,7 +47,7 @@ jobs:
             exit 1
           fi
       - name: Build native CLI
-        run: cargo build -p forgesync-cli --release --locked
+        run: cargo build -p forgesync --release --locked
       - name: Smoke test without credentials
         run: python scripts/smoke_binary.py target/release/${{ matrix.binary }}
       - name: Package native binary

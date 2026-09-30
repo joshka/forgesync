@@ -10,18 +10,31 @@
 Forgesync is a native CLI for Linux, macOS, and Windows. The source build uses the bundled SQLite
 library; `archive doctor` checks the SQLite build, FTS5, and foreign-key enforcement at runtime.
 
+## Install the product
+
+The package is named `forgesync`; its default features include both the CLI and interactive TUI.
+Once the workspace packages are published to crates.io, install with:
+
+```sh
+cargo install forgesync --locked
+```
+
+This checkout does not publish those packages automatically. Use the source installation below until
+a registry release is available. Rust callers can depend on `forgesync` with
+`default-features = false` to use its application modules without frontend dependencies.
+
 ## Build from source
 
 From a checkout, install the default CLI with the interactive TUI enabled:
 
 ```sh
-cargo install --path crates/forgesync-cli --locked
+cargo install --path crates/forgesync --locked
 ```
 
 For a smaller build without the TUI:
 
 ```sh
-cargo install --path crates/forgesync-cli --locked --no-default-features
+cargo install --path crates/forgesync --locked --no-default-features --features cli
 ```
 
 ## Create an archive and sync

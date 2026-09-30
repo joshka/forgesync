@@ -29,6 +29,10 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Run tests
         run: cargo test --workspace --all-features --locked
+      - name: Build CLI without terminal browsing
+        run: cargo build -p forgesync --no-default-features --features cli --locked
+      - name: Check library-only product
+        run: cargo check -p forgesync --lib --no-default-features --locked
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings -D missing_docs -D rustdoc::broken_intra_doc_links
@@ -58,7 +62,7 @@ jobs:
         with:
           python-version: "3.x"
       - name: Build native CLI
-        run: cargo build -p forgesync-cli --release --locked
+        run: cargo build -p forgesync --release --locked
       - name: Smoke test without credentials
         run: python scripts/smoke_binary.py target/release/${{ matrix.binary }}
       - name: Package native binary

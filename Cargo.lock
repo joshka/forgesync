@@ -697,10 +697,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
-name = "forgesync-cli"
+name = "forgesync"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "forgesync-cli",
+ "forgesync-core",
+ "forgesync-engine",
+ "forgesync-store",
+ "rstest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "forgesync-cli"
+version = "0.1.0"
+dependencies = [
  "clap",
  "etcetera",
  "forgesync-core",

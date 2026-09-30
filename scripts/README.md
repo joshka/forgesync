@@ -10,7 +10,7 @@ Run `python scripts/smoke_binary.py BINARY` from the repository root. `BINARY` m
 for the current host; the script resolves its path before running it. For example:
 
 ```sh
-cargo build -p forgesync-cli --release --locked
+cargo build -p forgesync --release --locked
 python scripts/smoke_binary.py target/release/forgesync
 ```
 

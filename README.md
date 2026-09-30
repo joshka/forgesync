@@ -11,8 +11,12 @@ embedding service; keyword queries stay offline.
 Build and install the CLI from this checkout with Rust 1.98 or newer:
 
 ```sh
-cargo install --path crates/forgesync-cli --locked
+cargo install --path crates/forgesync --locked
 ```
+
+The registry install command is `cargo install forgesync --locked` once the workspace packages are
+published. Default features include both the CLI and TUI; see
+[installation options](docs/installation.md#install-the-product).
 
 Create your normal archive explicitly, then sync a repository:
 
@@ -44,6 +48,15 @@ recovery, and diagnostics; [configuration](docs/configuration.md) for optional m
 retrieval; and [TUI controls](docs/tui.md) for the interactive browser. A direct Rust example uses
 the same engine search and sync APIs as the frontends:
 [engine examples](crates/forgesync-engine/examples/).
+
+## Rust application APIs
+
+The `forgesync` library provides a module facade over the existing domain, archive, and engine
+owners. Start with `forgesync::archive`, `forgesync::inspect`, `forgesync::sync`, or
+`forgesync::search`; these are the same types and operations used by the frontends. Library-only
+consumers select `default-features = false`. The CLI library remains available separately when
+embedding the process interface is the task. See the [module map](docs/architecture.md) and
+[facade introduction](crates/forgesync/src/lib.rs).
 
 ## Scope
 

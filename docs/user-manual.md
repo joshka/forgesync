@@ -25,7 +25,7 @@ edits, or comments on GitHub issues or pull requests.
 From a checkout, install with Rust 1.98 or newer:
 
 ```sh
-cargo install --path crates/forgesync-cli --locked
+cargo install --path crates/forgesync --locked
 forgesync --version
 ```
 

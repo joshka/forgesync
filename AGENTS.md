@@ -22,6 +22,9 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
 
 ## Boundaries
 
+- The `forgesync` product package owns the executable and module facade. CLI and TUI are default
+  product features; library-only consumers opt out. Keep workflow behavior in its existing owner,
+  and keep process integration tests with the executable package.
 - Core owns domain identities, normalized content, observations, coverage, and outcomes.
 - Store owns SQLite lifecycle, SQL, ordering/application, recovery, and local decisions.
 - GitHub owns typed provider DTOs, transport, pagination, and normalization; it does not write to
@@ -67,6 +70,6 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   features out of the workspace and normal build.
 - Run focused tests, then applicable workspace gates: cargo +nightly fmt --all -- --check, cargo
   clippy --workspace --all-targets --all-features -- -D warnings, cargo test --workspace
-  --all-features --locked, cargo build -p forgesync-cli --no-default-features --locked, and cargo
-  doc --workspace --no-deps --all-features.
+  --all-features --locked, cargo build -p forgesync --no-default-features --features cli --locked,
+  and cargo doc --workspace --no-deps --all-features.
 - Lint changed Markdown with markdownlint-cli2 and /Users/joshka/.markdownlint-cli2.yaml.

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/forgesync",
     "crates/forgesync-core",
     "crates/forgesync-github",
     "crates/forgesync-store",

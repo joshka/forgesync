@@ -6,10 +6,10 @@ rust-version.workspace = true
 
 [dependencies]
 crossterm.workspace = true
-forgesync-core = { path = "../forgesync-core" }
-forgesync-engine = { path = "../forgesync-engine" }
-forgesync-github = { path = "../forgesync-github" }
-forgesync-store = { path = "../forgesync-store" }
+forgesync-core = { version = "0.1.0", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.0", path = "../forgesync-engine" }
+forgesync-github = { version = "0.1.0", path = "../forgesync-github" }
+forgesync-store = { version = "0.1.0", path = "../forgesync-store" }
 ratatui.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

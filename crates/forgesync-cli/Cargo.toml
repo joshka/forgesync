@@ -8,18 +8,14 @@ rust-version.workspace = true
 default = ["tui"]
 tui = ["dep:forgesync-tui"]
 
-[[bin]]
-name = "forgesync"
-path = "src/main.rs"
-
 [dependencies]
 clap.workspace = true
 etcetera.workspace = true
-forgesync-core = { path = "../forgesync-core" }
-forgesync-engine = { path = "../forgesync-engine" }
-forgesync-github = { path = "../forgesync-github" }
-forgesync-store = { path = "../forgesync-store" }
-forgesync-tui = { path = "../forgesync-tui", optional = true }
+forgesync-core = { version = "0.1.0", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.0", path = "../forgesync-engine" }
+forgesync-github = { version = "0.1.0", path = "../forgesync-github" }
+forgesync-store = { version = "0.1.0", path = "../forgesync-store" }
+forgesync-tui = { version = "0.1.0", path = "../forgesync-tui", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -31,5 +27,4 @@ tracing-subscriber.workspace = true
 url.workspace = true
 
 [dev-dependencies]
-assert_cmd = "2"
 rstest = "0.27.0"
