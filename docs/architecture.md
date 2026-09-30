@@ -234,3 +234,8 @@ and the validated `SearchWindow` together during vector acquisition and page con
 window bounds the offset-plus-page prefix and adds a continuation probe. Named semantic and hybrid
 projections apply cosine evidence or fusion before pagination; the public search module selects the
 workflow and retains its public request/result types.
+
+Repository enumeration keeps provider traversal in `enumeration::scan`, reserved archive mutations
+in `scan_persistence`, and terminal coverage/diagnostic meaning in `scan_outcome`. Earlier parent
+observations remain usable after failed or cancelled traversal; only a durably recorded terminal
+page permits complete scan coverage. The report is read after the terminal write.

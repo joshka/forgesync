@@ -8,6 +8,11 @@
 //! variants allow the sync coordinator to ask for only the identities it needs. The store persists
 //! scan state so a later run can distinguish an empty complete repository from an interrupted
 //! scan.
+//!
+//! `scan` owns provider traversal and pagination-cycle detection. `scan_persistence` owns the
+//! reserved archive write phases, while `scan_outcome` maps acquisition completion, cancellation,
+//! and failure to durable coverage and report diagnostics. Cursor advancement follows parent
+//! observation commits; terminal coverage follows the recorded terminal page.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -28,6 +33,8 @@ use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
 mod scan;
+mod scan_outcome;
+mod scan_persistence;
 pub(crate) use scan::enumerate_repository_thread_pages;
 
 /// Result of enumerating all currently visible issues and pull requests in one repository.
@@ -41,12 +48,21 @@ pub struct ThreadEnumerationReport {
     pub interrupted: bool,
 }
 
+/// Reserved repository acquisition identity, source scope, and observation coordinates.
+///
+/// The same sequence/time applies to all parent observations and scan writes. State and cutoff
+/// constrain provider traversal; they do not change the ordering of canonical observation writes.
 #[derive(Clone)]
 pub(crate) struct ThreadScanContext {
+    /// Provider-resolved repository, including its current renamed path.
     pub repository: Repository,
+    /// Acquisition order reserved before provider requests begin.
     pub sequence: forgesync_core::identity::ObservationSequence,
+    /// Local acquisition time shared by the scan's parent observations.
     pub started_at: UtcTimestamp,
+    /// Provider list scope selected by the enumeration coordinator.
     pub state: ThreadListState,
+    /// Optional provider update cutoff for an incremental scan.
     pub since: Option<UtcTimestamp>,
 }
 

@@ -1613,3 +1613,17 @@ result from that attempt. The existing sync scenarios cover metadata-dependent r
 heads, partial snapshots, and retry behavior. The final metadata tree passes workspace Clippy, all
 15 sync workflow scenarios, nightly formatting, rumdl, and changed-page Markdown linting.
 Acquisition scan and store finalization remain open in the bounded acquisition batch.
+
+## Continued maintenance: repository scan persistence
+
+Repository provider traversal, durable scan writes, and terminal meaning now live in separate
+private modules. `ScanPersistence` uses its borrowed reservation directly instead of repeatedly
+cloning/destructuring the full context. Terminal recording precedes the durable report read in a
+short `finish` method. `ScanOutcome` documents and maps complete, interrupted, and failed
+acquisition without conflating cancellation with a provider diagnostic.
+
+Three nearby linear cases cover complete coverage, cancellation without failure evidence, and safe
+network-failure classification. Existing integration cases cover page-two failure retaining page one
+and replay avoiding duplicate canonical rows. Page application, cursor advancement, optional fence
+checks, clock evaluation, and incomplete coverage retain their existing ordering. Validation is in
+progress; store scan finalization and replay-scenario review remain in the acquisition batch.
