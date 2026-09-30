@@ -18,6 +18,12 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Timestamp tests now separate typed source-parse failure from calendar validation during JSON
+deserialization. The latter checks data classification and validation wording instead of merely
+checking that some error occurred. Core validation passes with 57 unit tests, four fixture-catalog
+tests, and eight doc tests, alongside core all-target Clippy and nightly formatting. This closes
+the timestamp scenario finding; the broader core and cross-crate reviews remain open.
+
 The full workspace tests with all features and the locked dependency graph passed on September 30,
 along with workspace Clippy, nightly formatting, and the CLI build without default features. These
 gates validate the implemented slices; the two remaining review batches remain open.

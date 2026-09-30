@@ -31,13 +31,24 @@ fn timestamps_compare_as_instants_and_serialize_as_utc() {
 }
 
 #[test]
-fn invalid_timestamp_inputs_fail_clearly() {
+fn malformed_source_timestamp_has_a_typed_parse_error() {
     assert_eq!(
         UtcTimestamp::parse("not-a-time"),
         Err(TimestampError::InvalidRfc3339)
     );
-    let decoded: Result<UtcTimestamp, _> = serde_json::from_value(json!("2026-99-40T00:00:00Z"));
-    assert!(decoded.is_err(), "invalid serialized time must be rejected");
+}
+
+#[test]
+fn invalid_calendar_timestamp_is_rejected_during_deserialization() {
+    let error = serde_json::from_value::<UtcTimestamp>(json!("2026-99-40T00:00:00Z"))
+        .expect_err("invalid calendar date must be rejected");
+
+    assert_eq!(error.classify(), serde_json::error::Category::Data);
+    assert!(
+        error
+            .to_string()
+            .contains(&TimestampError::InvalidRfc3339.to_string())
+    );
 }
 
 #[test]

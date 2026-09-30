@@ -634,6 +634,15 @@ without an unnecessary clone. JSON rejection checks data classification and iden
 wording; it does not claim that serde preserves the original typed cause. Imports name the defining
 identity module. Other core suites remain under review.
 
+### Core timestamp boundary scenarios
+
+Malformed source parsing and invalid calendar-date deserialization have separate named tests.
+Parsing compares the typed timestamp error; JSON rejection checks serde's data classification and
+the validation message, without claiming preservation of a typed cause. The offset-equivalence
+round-trip stays together because its assertions describe one instant's normalized representation.
+Archive range and precision retain named boundary cases with fixed times rather than clock fixtures.
+Other core suites remain under review.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
