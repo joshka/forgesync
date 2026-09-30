@@ -2621,3 +2621,14 @@ rerun directives from SQL validation, database generation, and runtime archive l
 script behavior changes.
 
 Store compilation, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Direct family coverage read contracts
+
+Observation coverage documentation previously described writes despite containing only a read. The
+module and method now describe recorded-state lookup, missing family versus missing discussion, JSON
+decoding failures, and separate pooled reads. They explicitly identify that this method does not
+derive timestamp/head staleness; richer read projections own that comparison. Shared helpers are
+imported from their defining observation module. Behavior is unchanged.
+
+Strict store Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
