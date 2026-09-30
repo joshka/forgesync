@@ -159,7 +159,7 @@ exits now abort and drain outstanding requests before fence release, with direct
 existing partial-success/retry integration evidence. Broad signature and documentation acceptance
 still belong to batch 7; this phase does not claim to complete the workspace cleanup.
 
-### 2. Cluster construction — in progress
+### 2. Cluster construction — implemented
 
 Implemented: `ClusterBuildLease` owns renewal, cooperative interruption, and release ordering. Three
 nearby lease cases and generation integration establish error preservation, release, child cleanup,
@@ -168,8 +168,9 @@ canonical identity/policy conversion cases and archive-close-before-presentation
 traversal now has a stage owner and direct outcome-policy cases. Engine evidence preparation now has
 a repository-scoped snapshot and named generation projection. Store input preparation and durable
 identity matching now have named modules and local row contracts. Overlap ranking now uses named
-membership evidence with six direct assignment cases. Transactional write orchestration remains in
-this batch.
+membership evidence with six direct assignment cases. Transactional writes now have an application
+owner, with a visible single archive commit and linear SQL bind maps retained at their private
+owner.
 
 Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clusters`, and store
 `clusters/generation`. Finish when preparation, analysis, and generation persistence have coherent

@@ -1522,3 +1522,28 @@ tests/doctests, the CLI build without default features, strict public/private Ru
 formatting, workspace rumdl, and changed-page Markdown linting. Generation write orchestration
 remains the next concrete cluster surface; the matching rule and durable identity ordering are
 preserved.
+
+## Continued maintenance: cluster generation application state
+
+`GenerationApplication` owns the facts shared by generation writes and their accumulated outcomes.
+The archive entry validates, opens/fences the transaction, resolves rows, matches durable identity,
+applies membership, and commits once. Per-cluster application names identity upsert, membership
+movement, complete-coverage removal, generated member writes, and event insertion. Retirement and
+run finalization occur after all groups. Result conversion retains its original post-commit timing.
+
+SQL helpers live in `generation_rows` with explicit column/value correspondence. Their broad
+signatures are retained as bounded SQL mutation inputs rather than hidden generic write contexts;
+the application owner supplies shared run/repository/time facts consistently. The leaf is roughly
+250 lines because its bind maps are linear, not because it contains another coordinator.
+
+The store generation suite covers partial preservation, complete retirement, durable decisions, and
+invalid coverage rejection. The engine generation suite covers current vectors and
+coverage-dependent retirement. Cluster construction now has coherent preparation, analysis, lease,
+and persistence owners; remaining workspace-wide signatures/docs/test review stays in its respective
+bounded batch.
+
+Final current-tree gates pass: workspace Clippy, all workspace tests/doctests including store and
+engine generation contracts, the CLI build without default features, strict public/private Rustdoc,
+nightly formatting, workspace rumdl, and changed-page Markdown linting. The first two bounded
+implementation batches are implemented. Six implementation batches and final acceptance remain;
+search ranking/retrieval is next.

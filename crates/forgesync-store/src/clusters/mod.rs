@@ -20,7 +20,6 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{RepositoryId, ThreadId, ThreadNumber, ThreadReference};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
-use sha2::Sha256;
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
 
 use crate::archive::Archive;
@@ -192,8 +191,10 @@ pub struct ClusterPage {
 
 mod decisions;
 mod generation;
+mod generation_apply;
 mod generation_input;
 mod generation_matching;
+mod generation_rows;
 mod queries;
 
-use decisions::{checked_cluster_id, insert_cluster_event};
+use decisions::checked_cluster_id;

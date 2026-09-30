@@ -216,3 +216,9 @@ generated position, and existing row ID. Candidate enumeration, priority compari
 one-to-one assignment are separate local operations. Absolute overlap takes precedence over
 proportional overlap; exact fraction comparison and stable row/index tie breaks preserve repeatable
 identity reuse. Nearby static-membership cases cover assignment without SQL setup.
+
+Store `generation_apply::GenerationApplication` owns one run's repository identity, timestamp,
+coverage policy, seen cluster rows, and membership accounting. It orders cluster/member application,
+complete-scope retirement, and run finalization. `generation_rows` keeps the underlying SQL bind
+maps linear. `Archive::save_clusters_fenced` retains transaction creation, fencing, and the single
+commit; helpers never commit. Result conversion follows commit under the existing outcome contract.
