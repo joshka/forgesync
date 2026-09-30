@@ -24,6 +24,13 @@ their invariant and who constructs them. Fallible operations should explain rele
 partial state, cancellation, retry, and recovery. State the lifecycle of archives, network clients,
 and terminal state at their owning APIs.
 
+For checked constructors, state what is validated and what remains a caller or downstream boundary
+obligation. Valid spelling, positivity, or encoding does not prove record existence, archive
+allocation, provider parentage, model compatibility, or truthful counts. Public record construction
+and derived deserialization often preserve supplied facts without validating their relationships.
+Document normalization and rejected-input behavior where they occur; explain equality/hash scope
+when readers might mistake a local number or display name for durable identity.
+
 For assembled read projections, document whether related values share one database snapshot or come
 from separate reads that concurrent writers may advance between. Explain ordering and fallback
 selection where those determine visible identities. A diagnostic observation is not mutation

@@ -2,8 +2,8 @@
 //!
 //! [`RepositoryId`] combines host and provider repository ID. [`ThreadId`] adds the
 //! provider-issued discussion ID and a positive repository-local number. [`CommentId`],
-//! [`ReviewId`], and [`ReviewThreadId`] retain their owning thread so a child cannot silently move
-//! to another parent.
+//! [`ReviewId`], and [`ReviewThreadId`] retain their supplied parent thread as part of equality and
+//! hashing. Construction binds checked parts; it does not verify the provider's parent relation.
 //!
 //! These values join normalized content to observations and archive rows. Provider normalization
 //! constructs them from checked response fields; the store converts them to SQL keys at its
@@ -21,10 +21,18 @@ use super::{GitHubHost, IdentityError, ProviderId};
 
 /// Positive issue or pull request number scoped to one repository.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ThreadNumber(NonZeroU64);
+pub struct ThreadNumber(
+    /// Positive repository-local display number, not an archive row or opaque provider identity.
+    NonZeroU64,
+);
 
 impl ThreadNumber {
-    /// Creates a checked positive thread number.
+    /// Checks positivity without selecting a repository or looking up a discussion.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidThreadNumber`] for zero. SQL range and record existence are
+    /// checked later by the store; a positive number alone has no global discussion identity.
     pub fn new(value: u64) -> Result<Self, IdentityError> {
         NonZeroU64::new(value)
             .map(Self)
@@ -62,7 +70,9 @@ impl<'de> Deserialize<'de> for ThreadNumber {
 /// Host-qualified stable repository identity.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RepositoryId {
+    /// Checked authority that scopes the provider's repository ID.
     host: GitHubHost,
+    /// Stable provider repository ID, independent of owner/name display path.
     provider_id: ProviderId,
 }
 
@@ -86,13 +96,20 @@ impl RepositoryId {
 /// Stable issue or pull request identity scoped to its repository.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ThreadId {
+    /// Stable repository scope included in equality and hashing.
     repository: RepositoryId,
+    /// Opaque discussion provider ID, independent of its visible number.
     provider_id: ProviderId,
+    /// Repository-local number, also included in this value's equality and hashing.
     number: ThreadNumber,
 }
 
 impl ThreadId {
-    /// Creates a thread identity with its host-qualified parent and display number.
+    /// Combines the checked repository, opaque discussion ID, and positive local number.
+    ///
+    /// All three parts participate in equality and hashing. Construction performs no lookup and
+    /// does not prove that the provider ID and number refer to the same discussion; normalization
+    /// and archive application validate their relationship.
     pub fn new(repository: RepositoryId, provider_id: ProviderId, number: ThreadNumber) -> Self {
         Self {
             repository,
@@ -120,7 +137,9 @@ impl ThreadId {
 /// Stable comment identity scoped to a discussion.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CommentId {
+    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
+    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 
@@ -147,7 +166,9 @@ impl CommentId {
 /// Stable pull request review identity scoped to a discussion.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReviewId {
+    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
+    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 
@@ -174,7 +195,9 @@ impl ReviewId {
 /// Stable review-thread identity scoped to a pull request.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReviewThreadId {
+    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
+    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 

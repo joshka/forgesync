@@ -10,6 +10,11 @@
 //!
 //! Use this enum to describe the outcome of an operation as a whole. Use [`crate::coverage`] for
 //! the state of each evidence family, and typed errors for a call that cannot return a report.
+//!
+//! Counts describe the owning workflow's work units; this enum does not impose a universal unit
+//! across acquisition, derived documents, or retries. Constructing or deserializing a variant does
+//! not verify those counts against durable rows. Engine accounting chooses the truthful terminal
+//! outcome, while store records and presentation retain it without reclassifying diagnostic text.
 
 use serde::{Deserialize, Serialize};
 

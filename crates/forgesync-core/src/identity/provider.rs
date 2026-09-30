@@ -19,10 +19,21 @@ use super::IdentityError;
 
 /// A non-empty provider-issued ID, kept opaque because REST and GraphQL use different forms.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ProviderId(String);
+pub struct ProviderId(
+    /// Original nonempty spelling, with no whitespace or control characters.
+    String,
+);
 
 impl ProviderId {
-    /// Creates an opaque provider ID without changing its spelling.
+    /// Checks an opaque provider ID while preserving its exact spelling and case.
+    ///
+    /// No trimming, numeric conversion, or Unicode normalization occurs. The value need not be
+    /// numeric and is not interpreted as a repository-local discussion number.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidProviderId`] for empty input or any Unicode whitespace or
+    /// control character. This validates shape, not provider-issued existence or resource kind.
     pub fn new(value: impl Into<String>) -> Result<Self, IdentityError> {
         let value = value.into();
         if value.is_empty()
@@ -73,10 +84,22 @@ impl<'de> Deserialize<'de> for ProviderId {
 
 /// Full Git commit object ID, supporting SHA-1 and SHA-256 repositories.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct CommitSha(String);
+pub struct CommitSha(
+    /// Canonical ASCII lowercase full hexadecimal object ID, with 40 or 64 characters.
+    String,
+);
 
 impl CommitSha {
-    /// Creates a lower-case commit ID from a full hexadecimal SHA-1 or SHA-256 value.
+    /// Checks a full SHA-1 or SHA-256 object ID and normalizes ASCII hexadecimal case.
+    ///
+    /// Abbreviated revisions, surrounding whitespace, branch names, and non-ASCII hexadecimal
+    /// lookalikes are rejected. This validates spelling and length; it does not hash content or
+    /// verify that the commit exists in a repository.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidCommitSha`] unless input contains exactly 40 or 64 ASCII
+    /// hexadecimal characters.
     pub fn new(value: impl Into<String>) -> Result<Self, IdentityError> {
         let value = value.into();
         if !matches!(value.len(), 40 | 64) || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {

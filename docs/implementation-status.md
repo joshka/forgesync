@@ -2043,3 +2043,20 @@ Document constructor/hash-query docs distinguish supplied rendering from derived
 spell out excluded deduplication/source-clock fields. Content's module guidance explains which
 record relationships public construction/deserialization does not establish. These common limits
 live at the module or constructor level rather than being repeated on every source field.
+
+## Continued maintenance: checked identity contracts
+
+Core identity constructors explain checked shape versus provider/archive existence, sequence
+allocation, SQL range, and parent relationship validation. Private fields document their scope.
+Thread/child docs identify which supplied parts participate in equality and hashing.
+Thread-reference orientation corrects the misleading rename explanation: a repository display path
+can change while its provider identity remains stable, and a local number still needs repository
+scope.
+
+Provider/commit docs explain preserved opaque spelling versus normalized full hexadecimal revisions.
+Run IDs include a positive/zero example. Host parsing documents trimming, authority normalization,
+default-port omission, ASCII DNS input, rejected URL forms, and its distinction from transport
+request authorization, with a compiled example. Outcome guidance keeps workflow-specific count units
+and accounting responsibility explicit. The reusable constructor-boundary rule is recorded in the
+documentation guide. Focused core tests/doctests, strict core Rustdoc, and workspace Clippy are
+running; full workspace conventions and test reviews remain open.

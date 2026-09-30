@@ -25,10 +25,40 @@ use super::IdentityError;
 /// Accepts `github.com`, `https://github.com`, and HTTPS enterprise authorities with an optional
 /// port. It rejects paths so an API base path cannot accidentally create a second host identity.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct GitHubHost(String);
+pub struct GitHubHost(
+    /// Canonical authority with normalized host spelling and any non-default HTTPS port.
+    String,
+);
 
 impl GitHubHost {
-    /// Parses a public or enterprise GitHub HTTPS host.
+    /// Checks and canonicalizes a public or enterprise HTTPS authority without contacting it.
+    ///
+    /// Trims outer whitespace and accepts a bare authority or case-insensitive `https://` origin.
+    /// A single trailing slash is accepted on the origin form. DNS spelling becomes ASCII
+    /// lowercase, a trailing DNS dot is removed, and port 443 is omitted. Bracketed IPv6
+    /// addresses use their canonical address spelling. Non-default positive ports are retained.
+    ///
+    /// Host identity is not a credential or request authorization decision. Transport code still
+    /// validates every request and pagination URL against its configured origin.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidGitHubHost`] for unsupported schemes, credentials, paths,
+    /// query/fragment syntax, malformed authorities or labels, and unusable ports. DNS names must
+    /// already use ASCII spelling; this parser does not perform IDNA conversion or DNS lookup.
+    ///
+    /// ```
+    /// use forgesync_core::identity::{GitHubHost, IdentityError};
+    ///
+    /// let host = GitHubHost::parse(" https://GHE.Example.test.:443/ ")?;
+    /// assert_eq!(host.as_str(), "ghe.example.test");
+    /// assert_eq!(host.https_origin(), "https://ghe.example.test");
+    /// assert_eq!(
+    ///     GitHubHost::parse("http://github.com"),
+    ///     Err(IdentityError::InvalidGitHubHost)
+    /// );
+    /// # Ok::<(), IdentityError>(())
+    /// ```
     pub fn parse(value: &str) -> Result<Self, IdentityError> {
         let input = value.trim();
         let authority = if input
@@ -65,7 +95,11 @@ impl GitHubHost {
         &self.0
     }
 
-    /// Returns the HTTPS origin for this host.
+    /// Builds the HTTPS origin from this canonical authority, without an API path or trailing
+    /// slash.
+    ///
+    /// A retained non-default port and IPv6 brackets remain part of the origin. This creates text;
+    /// it does not resolve the host or prove a GitHub API is available there.
     pub fn https_origin(&self) -> String {
         format!("https://{}", self.0)
     }

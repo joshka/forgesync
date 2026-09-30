@@ -19,10 +19,26 @@ use super::IdentityError;
 
 /// Positive local archive run identity.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct RunId(NonZeroU64);
+pub struct RunId(
+    /// Positive archive-local numeric identity; SQL representability is checked by the store.
+    NonZeroU64,
+);
 
 impl RunId {
-    /// Creates a checked positive run ID.
+    /// Checks positivity without allocating a run or verifying that it exists in an archive.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidRunId`] for zero. Positive `u64` values are accepted here;
+    /// the store separately checks SQLite's signed integer range and record existence.
+    ///
+    /// ```
+    /// use forgesync_core::identity::{IdentityError, RunId};
+    ///
+    /// assert_eq!(RunId::new(17)?.get(), 17);
+    /// assert_eq!(RunId::new(0), Err(IdentityError::InvalidRunId));
+    /// # Ok::<(), IdentityError>(())
+    /// ```
     pub fn new(value: u64) -> Result<Self, IdentityError> {
         NonZeroU64::new(value)
             .map(Self)
@@ -58,10 +74,22 @@ impl<'de> Deserialize<'de> for RunId {
 
 /// Positive acquisition sequence assigned before a family request starts.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ObservationSequence(NonZeroU64);
+pub struct ObservationSequence(
+    /// Positive acquisition ordering token; allocation and archive ownership belong to the store.
+    NonZeroU64,
+);
 
 impl ObservationSequence {
-    /// Creates a checked positive observation sequence.
+    /// Checks a positive acquisition token without reserving it in any archive.
+    ///
+    /// Workflow code obtains sequences from the archive before provider acquisition; this
+    /// constructor is also used while decoding or adapting an already assigned token. Numeric
+    /// ordering alone does not establish collection completeness or provider revision order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdentityError::InvalidObservationSequence`] for zero. The store checks signed SQL
+    /// range and allocation separately.
     pub fn new(value: u64) -> Result<Self, IdentityError> {
         NonZeroU64::new(value)
             .map(Self)
