@@ -1,12 +1,17 @@
 //! # Persist search documents derived from discussions
 //!
-//! `DocumentWrite` carries the recipe and content of a normalized search document. The engine
-//! builds it from a `ThreadDetail`; archive methods save and retrieve the resulting derived
-//! representation.
+//! The engine builds a core `Document` from a thread detail; archive methods save and retrieve
+//! that derived representation. `DocumentWrite` reports its archive row identity and whether its
+//! content hash changed, allowing embedding workflows to decide whether regeneration is needed.
 //!
 //! Documents are not provider evidence. A recipe change or a newer discussion observation can
 //! require rebuilding them. Keeping document storage distinct from thread observations makes that
 //! invalidation and regeneration explicit.
+//!
+//! The private `write` module owns validation and the prepared SQL projection. This module owns
+//! archive transaction/fence coordination and decoding stored documents. A source-clock-only update
+//! preserves build time; unchanged writes preserve row identity. These writes do not acquire source
+//! evidence or contact an embedding service.
 
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_core::identity::ThreadId;
@@ -26,6 +31,8 @@ pub struct DocumentWrite {
     /// Whether the source text identity changed and embeddings need regeneration.
     pub content_changed: bool,
 }
+
+mod write;
 
 impl Archive {
     /// Returns a stored document for one recipe and source discussion.
@@ -48,18 +55,23 @@ impl Archive {
     }
 
     /// Inserts or updates a document under the archive's active writer fence.
+    ///
+    /// The source discussion must already exist. An unchanged document retains its row ID and
+    /// build time. Source-clock-only changes update the recorded source time without requesting
+    /// embedding regeneration; the returned `content_changed` compares content hashes.
+    ///
+    /// # Errors
+    ///
+    /// Invalid recipe versions or inconsistent content hashes are rejected before writer access.
+    /// A read-only archive, lost lease, or absent source discussion prevents persistence. SQL and
+    /// serialization errors leave this transaction uncommitted; success is returned after commit.
     pub async fn upsert_document_fenced(
         &self,
         token: &ArchiveLeaseToken,
         document: &Document,
         built_at: UtcTimestamp,
     ) -> Result<DocumentWrite, StoreError> {
-        if document.recipe_version != DocumentRecipe::VERSION
-            || document.content_hash != document.expected_content_hash()
-            || document.content_hash.len() != 64
-        {
-            return Err(StoreError::InvalidDocument);
-        }
+        write::validate(document)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
@@ -68,46 +80,10 @@ impl Archive {
         else {
             return Err(StoreError::ThreadMissing);
         };
-        let source_identity_json = serde_json::to_string(&document.source_identity)?;
-        let previous_hash: Option<String> = sqlx::query_scalar(
-            "SELECT content_hash FROM documents WHERE thread_id = ? AND recipe = ?",
-        )
-        .bind(thread_row_id)
-        .bind(document.recipe.as_str())
-        .fetch_optional(&mut *transaction)
-        .await?;
-        let content_changed = previous_hash.as_deref() != Some(document.content_hash.as_str());
-
-        let id: Option<i64> = sqlx::query_scalar(
-            "INSERT INTO documents (thread_id, recipe, recipe_version, source_identity_json, content_hash, title, text, dedupe_text, source_updated_at_us, built_at_us) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (thread_id, recipe) DO UPDATE SET recipe_version = excluded.recipe_version, source_identity_json = excluded.source_identity_json, content_hash = excluded.content_hash, title = excluded.title, text = excluded.text, dedupe_text = excluded.dedupe_text, source_updated_at_us = excluded.source_updated_at_us, built_at_us = CASE WHEN documents.content_hash <> excluded.content_hash OR documents.recipe_version <> excluded.recipe_version OR documents.source_identity_json <> excluded.source_identity_json THEN excluded.built_at_us ELSE documents.built_at_us END WHERE documents.recipe_version <> excluded.recipe_version OR documents.source_identity_json <> excluded.source_identity_json OR documents.content_hash <> excluded.content_hash OR documents.title <> excluded.title OR documents.text <> excluded.text OR documents.dedupe_text <> excluded.dedupe_text OR documents.source_updated_at_us <> excluded.source_updated_at_us RETURNING id",
-        )
-        .bind(thread_row_id)
-        .bind(document.recipe.as_str())
-        .bind(i64::from(document.recipe_version))
-        .bind(source_identity_json)
-        .bind(&document.content_hash)
-        .bind(&document.title)
-        .bind(&document.text)
-        .bind(&document.dedupe_text)
-        .bind(document.source_updated_at.unix_microseconds())
-        .bind(built_at.unix_microseconds())
-        .fetch_optional(&mut *transaction)
-        .await?;
-        let id = match id {
-            Some(id) => id,
-            None => {
-                sqlx::query_scalar("SELECT id FROM documents WHERE thread_id = ? AND recipe = ?")
-                    .bind(thread_row_id)
-                    .bind(document.recipe.as_str())
-                    .fetch_one(&mut *transaction)
-                    .await?
-            }
-        };
+        let update = write::DocumentUpdate::new(document, thread_row_id, built_at)?;
+        let result = update.persist(&mut transaction).await?;
         transaction.commit().await?;
-        Ok(DocumentWrite {
-            id,
-            content_changed,
-        })
+        Ok(result)
     }
 }
 

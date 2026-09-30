@@ -1698,3 +1698,21 @@ Final acquisition gates pass: all workspace tests/doctests, the CLI build withou
 strict public/private Rustdoc, workspace Clippy, nightly formatting, rumdl, and changed-page
 Markdown linting. The first four bounded batches are implemented; store operations, presentation,
 workspace conventions/docs, test-suite review, and final acceptance remain.
+
+## Continued maintenance: prepared document persistence
+
+`DocumentUpdate` binds the validated domain document, resolved thread row, serialized source
+identity, and build time for one persistence operation. The archive entry now exposes validation,
+transaction/fence, parent resolution, projection preparation, persistence, and commit. The
+projection names prior hash comparison, the explicit upsert map, and unchanged-row ID lookup.
+
+Upsert SQL is byte-for-byte identical to the prior change. Bind order, validation-before-writer
+precedence, parent-resolution-before-serialization precedence, source-clock-only build-time
+preservation, unchanged-row identity, hash-change reporting, and commit timing are retained. The SQL
+column map stays linear rather than introducing helpers per field. Workspace Clippy passes; document
+materialization scenarios and final workspace gates are running. Store-operation review remains
+open.
+
+Aggregate coverage final gates pass: all workspace tests/doctests, the CLI build without default
+features, strict public/private Rustdoc, workspace Clippy, formatting, rumdl, and changed-page
+Markdown linting.
