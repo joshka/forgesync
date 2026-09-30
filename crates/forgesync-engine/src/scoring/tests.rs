@@ -4,6 +4,12 @@
 //! and cancellation before candidate scoring. Construction fixtures supply fixed valid records,
 //! not expected ranking calculations. Equal timestamps mean these cases cover relevance rather
 //! than created/updated ordering.
+//!
+//! Ranking is called directly on constructed candidates. The fixture assigns stable provider
+//! identities and consecutive chunk coordinates without computing expected scores or ordering.
+//! Separate scenarios isolate best-chunk selection, identity ties, and zero-score exclusion.
+//! Cancellation is already signaled before entry; it does not simulate cancellation during work.
+//! Store hydration, model calls, and approximate retrieval are outside this unit boundary.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::Coverage;
@@ -18,15 +24,13 @@ use tokio_util::sync::CancellationToken;
 use crate::scoring::score_embedding_page;
 
 #[test]
-fn exact_search_ranks_chunk_maxima_and_breaks_score_ties_by_stable_identity() {
+fn relevance_uses_the_best_chunk_in_each_document() {
     let query = vector(&[1.0, 0.0]);
     let results = score_embedding_page(
         &query,
         vec![
             candidate(3, &[&[0.2, 0.8], &[1.0, 0.0]]),
-            candidate(2, &[&[0.8, 0.6]]),
             candidate(1, &[&[0.8, 0.6]]),
-            candidate(4, &[&[0.0, 1.0]]),
         ],
         ThreadSort::Relevance,
         10,
@@ -39,14 +43,47 @@ fn exact_search_ranks_chunk_maxima_and_breaks_score_ties_by_stable_identity() {
             .iter()
             .map(|result| result.summary.discussion.id.number().get())
             .collect::<Vec<_>>(),
-        [3, 1, 2]
+        [3, 1]
     );
     assert_eq!(results[0].score, 1.0);
     assert!((results[1].score - 0.8).abs() < 1e-6);
 }
 
 #[test]
-fn exact_search_observes_cancellation_between_candidates() {
+fn equal_scores_are_ordered_by_stable_identity() {
+    let query = vector(&[1.0, 0.0]);
+    let results = score_embedding_page(
+        &query,
+        vec![candidate(2, &[&[0.8, 0.6]]), candidate(1, &[&[0.8, 0.6]])],
+        ThreadSort::Relevance,
+        10,
+        &CancellationToken::new(),
+    )
+    .expect("rank tied vectors");
+
+    assert_eq!(results[0].summary.discussion.id.number().get(), 1);
+    assert_eq!(results[1].summary.discussion.id.number().get(), 2);
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].score, results[1].score);
+}
+
+#[test]
+fn zero_similarity_candidates_are_excluded() {
+    let query = vector(&[1.0, 0.0]);
+    let results = score_embedding_page(
+        &query,
+        vec![candidate(1, &[&[0.0, 1.0]])],
+        ThreadSort::Relevance,
+        10,
+        &CancellationToken::new(),
+    )
+    .expect("score orthogonal vector");
+
+    assert!(results.is_empty());
+}
+
+#[test]
+fn already_cancelled_scoring_returns_cancellation() {
     let cancellation = CancellationToken::new();
     cancellation.cancel();
     let error = score_embedding_page(
@@ -60,10 +97,15 @@ fn exact_search_observes_cancellation_between_candidates() {
     assert_eq!(error.code(), "operation_cancelled");
 }
 
+/// Validates supplied components without normalizing or calculating expected similarity.
 fn vector(values: &[f32]) -> EmbeddingVector {
     EmbeddingVector::new(values.to_vec(), None).expect("valid vector")
 }
 
+/// Constructs one issue with fixed timestamps and caller-supplied chunks in input order.
+///
+/// Chunk mapping supplies consecutive coordinates and a common count; it performs no ranking,
+/// archive writes, or model requests. The number determines both display and provider identity.
 fn candidate(number: u64, vectors: &[&[f32]]) -> EmbeddingSearchDocument {
     let host = GitHubHost::parse("github.com").expect("host");
     let repository_id = RepositoryId::new(

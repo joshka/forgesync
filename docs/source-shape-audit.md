@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Engine scoring now isolates best-chunk relevance, stable-identity ties, and zero-score exclusion in
+separate linear scenarios. Cancellation naming reflects a token canceled before entry rather than
+claiming an in-flight cancellation experiment. Construction helpers document fixed identities,
+timestamps, and chunk coordinates, and calculate no expected rankings. Recorded retry selection and
+response-validation tables retain named explicit inputs and exact decoded/error expectations. These
+dispositions cover the inspected local suites, not the wider engine integration review.
+
 Coverage representation comparisons now hold the evidence family constant so only acquisition state
 differs. Whole-value JSON expectations check complete metadata and omission of the default freshness
 flag. The stale case checks that timestamp, sequence, and cardinality remain intact while the flag
