@@ -18,6 +18,15 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Recent test-quality work separates engine scoring, recipe rendering, chunking, batching, and graph
+threshold scenarios. Store lifecycle and cluster persistence now have shallow scenario owners with
+construction-only fixtures; lease and checkpoint rejection assertions verify preserved state.
+Focused validation passes for 18 clustering unit cases, nine lifecycle cases, five cluster
+persistence cases, three lease cases, and two scan-completion cases, alongside engine/store Clippy,
+nightly formatting, and changed Markdown checks. The source-shape audit consolidates current
+dispositions and removes superseded findings. Engine client/workflow and store observation/search
+integration acceptance remain open; these results do not establish final workspace acceptance.
+
 Core representation suites now explain their tested boundaries and the separate responsibilities of
 provider, engine, and store tests. Vector serialization checks exact byte order, content
 serialization separates fallible steps, and observation setup names acquisition metadata once. Core

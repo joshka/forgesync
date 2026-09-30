@@ -643,136 +643,64 @@ round-trip stays together because its assertions describe one instant's normaliz
 Archive range and precision retain named boundary cases with fixed times rather than clock fixtures.
 Other core suites remain under review.
 
+### Core and engine local-suite dispositions
+
+Core content, vector, coverage, observation, timestamp, identity, outcome, and document suites now
+have direct scenarios and local orientation. Coverage holds evidence family constant and compares
+whole JSON values. Vector encoding checks exact bytes. Timestamp parsing and JSON rejection are
+separate boundaries; deterministic hash tests retain explicit version-one encoding evidence.
+Round-trips remain together when they establish one value representation. Fixture-catalog traversal
+remains a deliberate complete-catalog check rather than fixed scenario iteration.
+
+Engine scoring separates best-chunk relevance, identity ties, zero-score exclusion, and cancellation
+already signaled before entry. Document recipes separate ordering, review inclusion, bot exclusion,
+case normalization, and stale-family eligibility; construction lives in a shallow sibling module.
+Chunking separates repeatability from explicit whitespace, UTF-8, and empty-input cases. Batching
+checks counts, retained order, and multibyte byte accounting. Construction helpers calculate no
+expected rankings or results, and chunk/batch contracts identify caller validation responsibilities.
+
+Graph title/kind thresholds have their own shallow suite, including high-confidence same-kind
+acceptance without title overlap. Reference membership is explicit. Proposal cases supply retained
+edges directly, while scheduler and cluster lease tests inspect real resource cleanup and error
+precedence. Sync/refresh accounting and recorded selection use direct named values and transitions.
+Cosine tests distinguish exact axis results from tolerance-based arithmetic. These dispositions do
+not close engine client or workflow integration review.
+
+### Store lifecycle and cluster-suite dispositions
+
+Store local completion, summary, timeline, role, lease-conversion, and generation-matching suites
+have documented checked-value boundaries. Matching compares entire assignment maps. Timeline inverse
+comparisons establish one ordering contract; summary accumulation establishes one bucket total.
+
+Lifecycle integration has shallow access, diagnostics, migration, and infrastructure owners.
+Opening, current migration, missing-file rejection, healthy probes, and damaged history are
+independently named. Diagnostics compare persisted lease owner, fence, expiry, and the entire named
+family/count sequence. Raw pools explicitly disable creation; archive operations and assertions
+remain visible.
+
+Lease integration proves stale reservation leaves sequence one available to its successor and stale
+release cannot revoke that successor. Scan completion compares entire checkpoints before and after
+rejection. Terminal-page acceptance remains one coherent linear transition; superseded generations
+have a separate scenario. Fixed times are used for checkpoint state and current time for live
+fencing.
+
+Cluster persistence has shallow decision-retention, partial-preservation, complete-retirement,
+canonical-validation, coverage-validation, and construction owners. Generation values name coverage
+and counts, and every observation reservation/application is visible. Invalid complete coverage
+checks its specific error and absence of persisted clusters. Replacement cases compare omitted group
+identity/lifecycle separately from human decisions. Fixtures perform no archive operations.
+
+The restoration regression remains one linear public-operation contract: dismissal, restoration,
+retained membership, and read-only audit events. Its construction helpers supply fixed values only;
+all fenced mutations and cleanup remain visible. Splitting this coherent before/after regression
+would duplicate its transitions without improving understanding of restoration.
+
+Remaining test-quality work covers store observation/search integration acceptance and engine client
+and workflow suites. Completed local, lifecycle, and cluster findings are removed from that
+remaining inventory. Broad API/convention and production documentation-depth acceptance remain
+independent.
+
 ### Acceptance pass and stopping rules
-
-The long cluster replacement scenario is now three independent contracts: retained dismissal,
-exclusion, and canonical choice on a matched group; preservation of an omitted group under partial
-coverage; and retirement under complete coverage. The coverage cases use two singleton groups and
-explicit before/after durable identities, avoiding human-decision setup unrelated to retirement. All
-observation reservations and generation writes remain visible. The matched decision case uses two
-discussions without the unrelated third group. This closes the identified mixed generation scenario;
-broader integration acceptance remains open.
-
-Cluster persistence now has shallow generation, canonical-validation, coverage-validation, and
-fixture owners. The root maps responsibilities; scenario imports name their construction owner
-directly. Fixtures contain no archive capability or asynchronous writes. Canonical and coverage
-rejections can be read independently of preservation/retirement. The generation scenario remains the
-identified long mixed-contract case and still requires separation; moving it alone does not close
-that finding.
-
-Cluster persistence setup now shows every observation sequence reservation and application directly
-in its scenario. The remaining discussion fixture constructs values only and derives display text
-from the checked thread number rather than a duplicated argument. Generation values name coverage
-and counts instead of passing positional booleans through a five-argument helper. Construction
-helpers explain their supplied identities, scores, and fixed timestamps. This removes hidden archive
-execution; the expanded suite still needs its planned scenario/file organization pass.
-
-Cluster persistence now separates canonical nonmember rejection from false complete-vector coverage.
-The count mismatch uses an explicit generation value, compares `InvalidClusterGeneration`, and reads
-all lifecycles to prove that no cluster was stored. Canonical selection remains its own named case.
-The larger preservation/retirement scenario and wide generation/setup helpers remain open findings;
-this targeted rejection fix does not dispose of that suite's structure.
-
-Scan-completion integration now compares entire checkpoints before and after premature or superseded
-completion rejection. Separate result and optional-row expectations identify lookup failure versus
-missing state. Terminal-page acceptance stays with its preceding rejection as one linear state
-transition contract; superseded generation remains separate. Fixed timestamps and direct archive
-operations are deliberate here because this suite checks checkpoint state rather than live fencing.
-
-Archive lease integration now proves that stale guarded reservation leaves sequence one available to
-the current owner. A separate stale-release scenario proves false return and successor write
-authority. These controls distinguish stale-token rejection from an archive that rejects every
-write. Clock/path/cleanup helpers document their narrow setup roles; current time is deliberate
-because transaction fencing checks process-clock expiry. The small suite remains in one file.
-
-Lifecycle diagnostics now compare the acquired lease owner with the persisted owner and check its
-first fence and explicit expiry. Family failures compare the entire named family/count sequence,
-including zero buckets, rather than unexplained numeric positions. Unassigned failures and active
-runs have explicit zero expectations for the supplied partial ledger. These assertions establish the
-projection's identity and accounting facts without exposing token internals as public API.
-
-Lifecycle integration now has shallow access, diagnostics, migration, and infrastructure modules.
-The suite root maps those contracts instead of serving as an import prelude. Each scenario imports
-its infrastructure owner directly; that owner contains only filename allocation, explicit raw-pool
-capabilities, and cleanup. Archive operations and assertions remain in the scenario files. Module
-introductions identify SQL fixture arrangement and the provider/workflow evidence outside scope.
-Diagnostic fixture assertion depth remains part of the ongoing integration review.
-
-Archive lifecycle scenarios now separate identity/access-mode reopening, healthy diagnostics with
-temporary probes, and no-op current-schema migration. Missing-archive open and migration each have
-their own direct noncreation assertion. Raw inspection and corruption pools document their test-only
-capabilities and disabled creation; the suite explains deliberate current-clock lease reporting and
-fixed SQL ledger facts. Remaining lifecycle file grouping and diagnostic fixture locality stay in
-the integration review rather than being treated as closed by this scenario split.
-
-Store's local scan-completion, summary accumulation, timeline ordering, member-role, and lease
-conversion suites now explain their checked-value boundaries and integration evidence limits. Their
-existing direct cases retain specific error variants and explicit inputs. Timeline inverse
-comparisons form one ordering contract; summary accumulation forms one denominator/bucket contract.
-Generation matching already compares entire assignment maps from construction-only memberships, so
-its named overlap and tie-break cases need no behavioral fixture or scenario restructuring. Store
-integration-suite quality acceptance remains separate work.
-
-Pairwise graph thresholds now have a shallow sibling suite, separating title/kind acceptance from
-reference scoping, bounded grouping, and cancellation. A high-confidence same-kind case explicitly
-proves that unrelated titles do not reject otherwise strong vector evidence. The suite introductions
-name neighboring policy owners and construction limits. This closes the identified graph scenario
-separation finding without adding another fixture abstraction or nested module hierarchy.
-
-The combined title/kind graph fixture has now been replaced by independent two-document cases.
-Moderate same-kind similarity explicitly accepts shared title support and rejects unrelated titles.
-Cross-kind cases hold titles constant and compare vectors below and above their separate threshold.
-Every case invokes graph construction directly with explicit options and compares selected edges and
-minimum-size-filtered proposals. This supersedes the earlier combined-fixture membership assertion;
-reference membership remains explicit in its separate graph scenario.
-
-Candidate graph assertions now name intended discussion members alongside component sizes and
-representatives, preventing unrelated substitutions from satisfying grouping expectations. Imports
-name the defining clustering owners. Arithmetic-suite orientation distinguishes exact axis results,
-floating-point tolerances, dimension rejection, and separate document scoring policy. Lease tests
-retain real on-disk acquisition/release and explicit child-cleanup assertions; their fixed-epoch
-reclaim checks avoid relying on time passing to hide a leaked fence. Graph scenario separation and
-remaining integration-suite review are still open.
-
-Batch-limit cases now verify retained chunk order in addition to batch counts. A separate multibyte
-case proves UTF-8 byte accounting with explicit retained text. The construction fixture documents
-synthetic hashes; batching validates neither hashes nor complete source membership. Its helper
-contract names nonzero-limit prerequisites and singleton behavior for oversized inputs rather than
-implying that grouping performs client validation. Refresh cluster accounting retains explicit
-transitions and named outcomes; its first-failure and successful-generation checks remain local.
-
-Chunk tests separate repeatability from named whitespace, multibyte-boundary, and empty-input
-expectations. Exact expected fragments replace generic predicates that made the reader reconstruct
-splitting behavior. Chunk helper contracts distinguish lookup-scoped recipe/service identity from
-position/text hashing and spell out trimming, byte budgets, errors, and reuse checks. Scheduling
-cleanup retains direct oneshot resource-lifetime assertions; proposal projection retains explicit
-graphs and direct representative/member expectations without hidden graph construction.
-
-Document recipe assertions now separate comment ordering, review inclusion, bot exclusion, and
-deduplication case normalization. The construction-only detail fixture lives in a shallow sibling
-test module with explicit identity, chronology, bot metadata, and coverage contracts. Stale-family
-selection remains one coherent comparison of excluded stale and included fresh evidence. Sync
-accounting retains direct named counter scenarios with no workflow fixture or scenario branching.
-
-Engine scoring now isolates best-chunk relevance, stable-identity ties, and zero-score exclusion in
-separate linear scenarios. Cancellation naming reflects a token canceled before entry rather than
-claiming an in-flight cancellation experiment. Construction helpers document fixed identities,
-timestamps, and chunk coordinates, and calculate no expected rankings. Recorded retry selection and
-response-validation tables retain named explicit inputs and exact decoded/error expectations. These
-dispositions cover the inspected local suites, not the wider engine integration review.
-
-Coverage representation comparisons now hold the evidence family constant so only acquisition state
-differs. Whole-value JSON expectations check complete metadata and omission of the default freshness
-flag. The stale case checks that timestamp, sequence, and cardinality remain intact while the flag
-becomes present. This strengthens the existing two scenarios without adding a setup abstraction.
-
-The small core content, vector, coverage, and outcome suites retain nearby inline tests with module
-introductions explaining their boundaries and evidence limits. Content serialization now exposes
-each fallible step and consumes JSON without a redundant clone. Vector encoding checks exact
-little-endian bytes rather than length alone. Coverage imports its defining owner and names the
-value before applying freshness. Observation setup names timestamp and sequence once. Their
-round-trip assertions describe coherent value contracts; named rejection and outcome cases remain
-linear. Larger cross-crate suite review remains open.
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
 - Give every inspection candidate one disposition: fixed or retained with a concrete reason. Line
