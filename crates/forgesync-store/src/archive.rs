@@ -72,7 +72,12 @@ pub struct ArchiveInfo {
 /// # }
 /// ```
 pub struct Archive {
+    /// Validated read pool shared by store operations, hidden from archive consumers.
     pub(crate) reader: SqlitePool,
+    /// Writable capability present only for explicitly writable handles.
+    ///
+    /// Store operations check this capability before mutation; exposing the pool publicly would
+    /// bypass lifecycle, fencing, and transaction APIs.
     pub(crate) writer: Option<SqlitePool>,
     path: PathBuf,
     info: ArchiveInfo,
@@ -228,6 +233,9 @@ impl Archive {
 }
 
 /// Checks archive format and migration history before exposing a handle.
+///
+/// Shared by lifecycle and diagnostics but crate-only because it accepts a raw pool. Consumers
+/// choose explicit archive opening operations rather than validating arbitrary SQL resources.
 pub(crate) async fn validate_and_load_info(
     path: &Path,
     pool: &SqlitePool,
@@ -306,6 +314,9 @@ async fn load_metadata(pool: &SqlitePool) -> Result<(), StoreError> {
 }
 
 /// Rejects absent paths and non-file paths before opening SQLite.
+///
+/// This lifecycle precondition is shared with explicit migration, not a public archive-opening
+/// alternative. It checks filesystem shape without creating, migrating, or validating schema.
 pub(crate) fn existing_archive_file(path: &Path) -> Result<PathBuf, StoreError> {
     let metadata = std::fs::metadata(path).map_err(|source| {
         if source.kind() == std::io::ErrorKind::NotFound {

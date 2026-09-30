@@ -297,6 +297,14 @@ derivation. Publishing them would expose arbitrary request/protocol setup as acq
 source contracts document the exception and shared transport safeguards. This disposes of non-store
 visibility candidates; store SQL and archive lifecycle seams remain under review.
 
+Store visibility candidates are now disposed of. Observation SQL, coverage projection, and shared
+query predicates have private owners and direct imports. Remaining restrictions preserve archive
+pool capabilities, lifecycle validation, the embedded migration catalog and raw-pool operations, and
+transaction-local lease checks. Publishing those seams would let callers bypass explicit
+opening/migration or fenced archive writes. Their source contracts and linked conventions explain
+these exceptions. The complete store test suite passes after the ownership moves, including
+integration and documentation scenarios.
+
 ### 8. Tests
 
 Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the

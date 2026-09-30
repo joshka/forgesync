@@ -2850,3 +2850,13 @@ The touched browsing query imports its own root-defined types explicitly.
 Store Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
 and changed-page Markdown linting pass. Combined integration validation remains pending for the
 recent store ownership moves.
+
+### Store boundary integration validation and disposition
+
+The complete store test suite and doctests pass after observation-SQL, coverage-projection, and
+query-predicate ownership moves (`/tmp/forgesync-store-boundaries-tests.log`). Integration scenarios
+exercise ordering/replay, family completeness, rollback, clustering decisions, and scan
+finalization. The visibility audit retains raw pool capabilities, lifecycle/migration operations,
+and lease checks as documented exceptions; archive pool fields and lifecycle helper contracts now
+explain those boundaries directly. This closes store visibility candidates, not the full
+conventions/test review.
