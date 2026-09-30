@@ -90,7 +90,9 @@ impl ReviewCollection<'_> {
 /// Continuation state for one GraphQL traversal, with cycle detection scoped to the attempt.
 #[derive(Default)]
 struct ReviewThreadPages {
+    /// Cursor for the next provider request; absence marks initial or terminal traversal state.
     next: Option<GraphqlCursor>,
+    /// Accepted continuation identities used to reject cycles within this acquisition attempt.
     seen: HashSet<String>,
 }
 

@@ -215,10 +215,15 @@ enum ThreadSelection {
 
 /// Selected canonical row with independent source and complete-evidence high-water positions.
 struct CanonicalSelection {
+    /// Local thread row chosen for the transaction's payload or evidence update.
     id: i64,
+    /// Whether selection permits replacing canonical payload, independently of evidence hydration.
     canonical_updated: bool,
+    /// Selected canonical acquisition position returned even when only evidence advances.
     high_water: ObservationSequence,
+    /// Stored complete-evidence source clock, compared separately from canonical content ordering.
     evidence_clock: SourceClock,
+    /// Stored complete-evidence acquisition position; absence allows the first complete hydration.
     evidence_sequence: Option<ObservationSequence>,
 }
 

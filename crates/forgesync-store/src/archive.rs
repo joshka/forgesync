@@ -82,7 +82,9 @@ pub struct Archive {
     /// Store operations check this capability before mutation; exposing the pool publicly would
     /// bypass lifecycle, fencing, and transaction APIs.
     pub(crate) writer: Option<SqlitePool>,
+    /// Validated archive file path retained for diagnostics and handle identity.
     path: PathBuf,
+    /// Metadata captured when this handle opened, rather than a live query on every access.
     info: ArchiveInfo,
 }
 

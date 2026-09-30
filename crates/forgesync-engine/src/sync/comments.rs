@@ -42,10 +42,16 @@ impl RepositoryWork<'_> {
 
 /// A reserved discussion comment collection, with progress that stays provisional until finish.
 struct CommentCollection<'a> {
+    /// Repository services and run ownership retained through every staged and terminal write.
     work: RepositoryWork<'a>,
+    /// Parent identity and update clock captured before comment acquisition begins.
     discussion: &'a Discussion,
+    /// Reserved archive-local generation checked when staging and finalizing comments.
     sequence: ObservationSequence,
+    /// Successfully staged pages, also the next zero-based index and final expected page count.
     page_count: u32,
+    /// Provisional received counts and terminal outcome; complete membership counts come from
+    /// storage.
     result: ThreadFamilyResult<()>,
 }
 

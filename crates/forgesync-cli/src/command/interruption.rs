@@ -16,7 +16,9 @@ use tokio_util::sync::CancellationToken;
 
 /// Ctrl-C listener and the token borrowed by a single command's workflow.
 pub struct CommandInterruption {
+    /// Signal shared with the workflow; cancelling it requests cooperative engine cleanup.
     cancellation: CancellationToken,
+    /// Ctrl-C task aborted on owner drop so a finished command leaves no listener behind.
     listener: JoinHandle<()>,
 }
 impl CommandInterruption {

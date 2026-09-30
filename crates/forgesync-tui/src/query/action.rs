@@ -73,9 +73,14 @@ pub async fn execute_operation(
 /// Action methods share the already opened archive and never construct a second runtime or
 /// cancellation scope. The dispatcher selects a method; each method owns its request and message.
 struct OperationExecution<'a> {
+    /// Writable archive owned by the operation task, with mutation fences enforced by
+    /// engine/store.
     archive: &'a Archive,
+    /// Prepared host-specific provider clients used by acquisition actions.
     clients: &'a std::collections::HashMap<GitHubHost, GitHubClient>,
+    /// Task interruption forwarded to engine workflows that own durable cleanup.
     cancellation: &'a CancellationToken,
+    /// Sync progress forwarded to the UI; action completion is returned separately as status text.
     progress: Sender<SyncProgress>,
 }
 

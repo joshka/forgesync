@@ -143,9 +143,13 @@ impl<'a> RepositoryWork<'a> {
 
 /// Started family jobs belonging to one immutable repository execution scope.
 struct PullRequestJobs<'a> {
+    /// Repository scope and shared services used by all selected family jobs.
     work: RepositoryWork<'a>,
+    /// Mandatory metadata job, whose head result supplies context for both review traversals.
     metadata: FamilyJob,
+    /// Started review job only when requested; absence means unselected rather than failed.
     reviews: Option<FamilyJob>,
+    /// Independently started review-thread job only when its traversal was requested.
     review_threads: Option<FamilyJob>,
 }
 

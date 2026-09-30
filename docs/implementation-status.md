@@ -9,8 +9,8 @@ successful validation do not establish completion of those broader passes.
 
 Current work reviews broad signatures, item/field contracts, and scenario navigation. Closed-sweep
 publication and job creation have named inputs; child-family finalization uses its existing typed
-declaration. Review regressions have shallow sibling modules. A refreshed field-presence inventory
-has 98 candidates across 22 production files; those require contract review, not automatic prose.
+declaration. Review regressions have shallow sibling modules. The named production field inventory
+now finds no missing leading docs across 1,301 fields; presence does not establish contract quality.
 
 Next action: finish the remaining bounded review findings, reconcile every requested requirement,
 and run the applicable workspace gates on the final tree. Hosted platform results remain separate
@@ -55,6 +55,13 @@ canonical membership from provisional pages, provider-ID ordering from chronolog
 from complete coverage. Unknown-count early return and separately read coverage/head/count checks
 are explicit; reuse eligibility does not authorize later writes. This documentation-only pass
 preserves transaction and fencing behavior; strict store Rustdoc and nightly formatting pass.
+
+The remaining named-field presence candidates now have local contracts: canonical versus complete
+evidence positions, archive opening metadata, comment and review job state, GraphQL continuation
+identity, TUI execution services, and CLI interruption ownership. Five apparent CLI candidates were
+already documented above multiline Clap attributes and required no changes. A refreshed syntax
+inventory covers 1,301 named production fields with no missing leading comments, excluding tests and
+examples. This closes the presence candidates, not the complete documentation-depth review.
 
 ## Implementation milestones and prior passes
 
