@@ -3462,3 +3462,18 @@ proof that the current broad APIs are optimal.
 
 Strict store Rustdoc including private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass. Runtime tests were not repeated for this documentation-only contract correction.
+
+### Closed-sweep checkpoint publication value
+
+`ClosedSweepCheckpoint` names one repository/sequence/source-boundary/publication-time update. The
+writer token remains an independent capability. Archive publication accepts this value, while the
+engine constructs its named fields directly before the side effect. The type is exported through its
+owning checkpoints module rather than the crate root.
+
+No request value proves completion by itself: the transaction still validates the active fence,
+registered repository, same-sequence complete scan without a cursor, and strictly newer checkpoint
+sequence. Source boundary and publication time retain their independent meanings and SQL values.
+
+All 15 sync workflow scenarios pass, including closed-sweep failure retention and overlap retry.
+All-target/all-feature store and engine Clippy, strict private-item store Rustdoc, nightly
+formatting, rumdl, and changed-page Markdown linting pass.

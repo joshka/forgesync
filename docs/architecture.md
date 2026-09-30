@@ -323,3 +323,11 @@ setup under `tests/sync_scenarios` has three sibling owners: `fixture_issues` fo
 responses and local clients, `fixture_reviews` for pull-request head/review responses, and
 `fixture_archive` for local projections and archive lifetime. These modules construct or inspect
 fixture state; they do not run engine workflows. Document-only response setup stays in `documents`.
+
+### Closed-sweep publication
+
+The store's public `checkpoints` module owns `ClosedSweepCheckpoint`, the typed input for publishing
+a completed scan's source boundary. The engine parent-thread job constructs repository, scan
+sequence, source boundary, and publication time together. `Archive` owns validation and commit; the
+lease token remains separate from checkpoint data. Checkpoint reads still return the retained
+source-time boundary without acquiring provider data.

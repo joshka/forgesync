@@ -10,6 +10,7 @@
 //! scheduled by the repository coordinator after this independent parent job.
 
 use forgesync_core::coverage::{EvidenceFamily, Failure};
+use forgesync_store::checkpoints::ClosedSweepCheckpoint;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::error::StoreError;
 use forgesync_store::runs::{RunFailureScope, SyncJobCompletion};
@@ -117,15 +118,15 @@ impl<'a> ThreadJob<'a> {
             return Ok(());
         }
         if self.work.unit.update_closed_watermark {
+            let checkpoint = ClosedSweepCheckpoint {
+                repository: &self.work.repository.id,
+                sequence: self.scan.sequence,
+                watermark: self.scan.started_at,
+                updated_at: now_utc()?,
+            };
             self.work
                 .archive
-                .commit_closed_sweep_watermark(
-                    self.work.context.lease,
-                    &self.work.repository.id,
-                    self.scan.sequence,
-                    self.scan.started_at,
-                    now_utc()?,
-                )
+                .commit_closed_sweep_watermark(self.work.context.lease, checkpoint)
                 .await?;
         }
         self.work

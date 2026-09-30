@@ -56,7 +56,7 @@
 //! SDK.
 
 pub mod archive;
-mod checkpoints;
+pub mod checkpoints;
 mod clock;
 pub mod clusters;
 mod coverage_projection;

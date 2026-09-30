@@ -10,8 +10,9 @@
 //!
 //! [`Archive::closed_sweep_watermark`] reads the last committed source-time boundary. Absence is
 //! different from a zero timestamp: an unregistered repository or a repository without this
-//! checkpoint both return `None`. The engine decides the overlap and source query for its next
-//! sweep; the store does not interpret provider clocks as acquisition order.
+//! checkpoint both return `None`. [`ClosedSweepCheckpoint`] names the publication input; it keeps
+//! source boundary and acquisition ordering distinct. The engine decides the overlap and source
+//! query for its next sweep; the store does not interpret provider clocks as acquisition order.
 //!
 //! [`Archive::commit_closed_sweep_watermark`] is the publication boundary. Within one transaction
 //! it checks the active writer lease, resolves the registered repository, verifies a completed
@@ -27,6 +28,23 @@ use sqlx::SqliteConnection;
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+
+/// A closed-sweep source boundary tied to the scan that permits its publication.
+///
+/// This value names one checkpoint update, not proof that acquisition completed. The archive checks
+/// the matching scan and writer fence in its transaction. Keeping sequence and source boundary
+/// together makes their independent meanings explicit at the workflow publication point.
+#[derive(Clone, Copy, Debug)]
+pub struct ClosedSweepCheckpoint<'a> {
+    /// Registered repository whose closed-sweep progress is being published.
+    pub repository: &'a RepositoryId,
+    /// Archive-reserved scan sequence used to reject older or equal checkpoint updates.
+    pub sequence: ObservationSequence,
+    /// Provider source-time boundary selected by the workflow, not derived by the store.
+    pub watermark: UtcTimestamp,
+    /// Local publication time for diagnostics, independent of the source boundary.
+    pub updated_at: UtcTimestamp,
+}
 
 impl Archive {
     /// Returns the committed closed-sweep source-time boundary, if one exists.
@@ -59,8 +77,8 @@ impl Archive {
 
     /// Publishes a closed-sweep boundary after the same-sequence scan is complete.
     ///
-    /// `sequence` identifies the durable scan, `watermark` is the provider source-time boundary
-    /// selected by the workflow, and `updated_at` records when the checkpoint was published. The
+    /// The checkpoint sequence identifies the durable scan; its watermark is the provider source
+    /// boundary selected by the workflow, and its update time records publication. The
     /// store does not derive or compare these two timestamps. The scan must have status `complete`
     /// and no next-page URL; this check does not independently prove which source query was used.
     ///
@@ -79,11 +97,14 @@ impl Archive {
     pub async fn commit_closed_sweep_watermark(
         &self,
         token: &ArchiveLeaseToken,
-        repository: &RepositoryId,
-        sequence: ObservationSequence,
-        watermark: UtcTimestamp,
-        updated_at: UtcTimestamp,
+        checkpoint: ClosedSweepCheckpoint<'_>,
     ) -> Result<(), StoreError> {
+        let ClosedSweepCheckpoint {
+            repository,
+            sequence,
+            watermark,
+            updated_at,
+        } = checkpoint;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = i64::try_from(sequence.get()).map_err(|_| StoreError::IntegerOutOfRange)?;
         let mut transaction = writer.begin().await?;
