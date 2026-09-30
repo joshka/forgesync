@@ -18,6 +18,14 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Embedding integration now separates missing-chunk retry, hybrid retrieval, and explicit keyword
+fallback into shallow owners. Retry compares every retained chunk value; search assertions identify
+provenance and exact service call counts from independent complete-vector baselines. The service
+fixture documents ordinal fault injection and constructs clients without archive operations. All 17
+sync cases pass; engine all-target Clippy passes with warnings denied. Identified engine test
+findings have scoped dispositions; store observation assertions, cross-crate reconciliation, broad
+API/docs acceptance, and final workspace gates remain open.
+
 Document fixture revisions now name parent/comment clocks and body in a shallow `DocumentSource`
 owner. Materialization verifies old reply removal, stable timestamp-only identity, and persisted
 content. Refresh checks a retained complete sync report and durable run after unavailable

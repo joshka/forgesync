@@ -731,11 +731,20 @@ assertions. Review-thread initial membership now names both provider identities,
 count. The existing review failure/head/partial/restore transitions retain their coherent baselines.
 All 15 sync cases pass after these changes.
 
-Remaining engine test acceptance is the embedding workflow owner: one scenario still combines
-partial chunk retry, hybrid retrieval, and missing-key fallback. Give those independent contracts
-shallow owners and document the stateful service responder; retained chunk assertions should compare
-which chunks survive rather than only their count. Store observation assertion acceptance and broad
-production documentation/API acceptance remain separate review work.
+Embedding integration now has independent retry, hybrid retrieval, and keyword-fallback owners, with
+explicit source acquisition, fenced document persistence, embedding preparation, and reads. Retry
+identifies the four initially committed indices and compares each entire retained chunk after
+filling the missing index, including hash and vector. Hybrid starts with complete vectors, requires
+keyword and semantic first-rank provenance, and counts exactly one query-vector request. Missing-key
+fallback starts from the same complete-vector precondition and proves keyword-only provenance and no
+additional service request. The shallow fixture documents its ordinal fault policy and atomics;
+client construction performs no archive operations. Scenario files are 170–180 lines and the fixture
+is 79 lines. All 17 sync integration cases pass.
+
+The identified engine local, protocol, and workflow test findings now have concrete fixed/retained
+dispositions. These scoped results do not establish the final cross-crate acceptance gates.
+Remaining test acceptance covers store observation assertions and reconciliation of the broader test
+inventory; production documentation/API acceptance remains independent.
 
 ### Store lifecycle and cluster-suite dispositions
 
@@ -766,9 +775,10 @@ retained membership, and read-only audit events. Its construction helpers supply
 all fenced mutations and cleanup remain visible. Splitting this coherent before/after regression
 would duplicate its transitions without improving understanding of restoration.
 
-Remaining test-quality work covers store observation/search integration acceptance and engine
-workflow suites. Completed local, lifecycle, and cluster findings are removed from that remaining
-inventory. Broad API/convention and production documentation-depth acceptance remain independent.
+Remaining test-quality acceptance covers store observation assertions and cross-crate
+reconciliation. Completed local, lifecycle, cluster, search, and engine workflow findings have
+dispositions here and are removed from the remaining inventory. Broad API/convention and production
+documentation-depth acceptance remain independent.
 
 ### Store observation and search-suite dispositions
 
@@ -800,7 +810,7 @@ with queries separated from assertions; its name no longer implies a rollback te
 retains visible linear schema teardown because that setup explains the backfill boundary, replaces
 eight repeated bookkeeping deletes with one bounded statement, and reports the controlled fixture's
 historical-schema limits. These inspected search cases have concrete dispositions; observation
-assertion acceptance and engine client/workflow review remain open.
+assertion acceptance and final cross-crate reconciliation remain open.
 
 ### Acceptance pass and stopping rules
 

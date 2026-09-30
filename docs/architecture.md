@@ -339,6 +339,11 @@ recovery, and failed-run writer-fence cleanup. Replay's responder notification i
 page boundary directly; closed sweep owns overlap and checkpoint fault setup; run creation needs no
 provider fixture because its foreign-key rejection precedes acquisition.
 
+Embedding integration has sibling retry, hybrid-search, and keyword-fallback owners. Each constructs
+its own explicit archive/vector precondition instead of reaching search through an unrelated failed
+batch. `fixture_embeddings` owns only deterministic service response policy and client construction;
+its counters expose HTTP attempts while archive operations remain in the scenarios.
+
 Cluster integration under `tests/clustering_workflow` has shallow complete, partial, and namespace
 scenario owners. Its fixture module constructs identities and source/document values only, plus path
 allocation and cleanup. Scenarios explicitly reserve observations, apply source evidence, persist
