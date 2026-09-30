@@ -702,6 +702,13 @@ independent.
 
 ### Acceptance pass and stopping rules
 
+Parent high-water hydration, parent integrity, comment rollback, and review-thread rollback now have
+shallow invariant owners with direct fixture imports. High-water transitions remain together because
+each step constrains later evidence selection. Integrity holds replay/conflict cases nearby without
+mixing arithmetic precedence. Rollback suites document trigger placement, retained state, and staged
+retry where exercised. This closes the identified parent/rollback grouping finding while preserving
+visible archive operations and construction-only payload fixtures.
+
 Child-family publication now has shallow independent replay, partial, incomplete-empty,
 head-snapshot, and supersession suites. Review and review-thread snapshots use named rstest inputs
 with the same explicit public operations. Replacement cases construct their own complete membership

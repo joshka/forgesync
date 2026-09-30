@@ -2,10 +2,11 @@
 //!
 //! Parent application, ordering, child completion, and rollback have separate scenario owners.
 //! The store chooses canonical acquired evidence while retaining incomplete attempts independently.
-//! `parents` covers normalized source/evidence high waters and payload acceptance.
+//! `parent_high_water` covers independent source/evidence selection; `parent_integrity` covers
+//! replay and rejected conflicts.
 //! `ordering` covers direct clock and acquisition-sequence comparisons without a database.
 //! The `child_*` suites isolate replay, partial/empty attempts, head snapshots, and supersession.
-//! `rollback` injects SQL failures and checks preserved canonical evidence and staged retry.
+//! `rollback_comments` and `rollback_review_threads` isolate their atomic publication contracts.
 //!
 //! `fixture` owns value construction, filename allocation, raw inspection, and cleanup.
 //! Archive creation, repository registration, and sequence reservation remain visible in scenarios.
@@ -16,10 +17,6 @@
 mod fixture;
 #[path = "observation_transactions/ordering.rs"]
 mod ordering;
-#[path = "observation_transactions/parents.rs"]
-mod parents;
-#[path = "observation_transactions/rollback.rs"]
-mod rollback;
 
 #[path = "observation_transactions/child_empty_attempt.rs"]
 mod child_empty_attempt;
@@ -31,3 +28,12 @@ mod child_replay;
 mod child_snapshots;
 #[path = "observation_transactions/child_supersession.rs"]
 mod child_supersession;
+
+#[path = "observation_transactions/parent_high_water.rs"]
+mod parent_high_water;
+#[path = "observation_transactions/parent_integrity.rs"]
+mod parent_integrity;
+#[path = "observation_transactions/rollback_comments.rs"]
+mod rollback_comments;
+#[path = "observation_transactions/rollback_review_threads.rs"]
+mod rollback_review_threads;
