@@ -3081,3 +3081,14 @@ documentation, and broken intra-doc links denied. Evidence is in
 `/tmp/forgesync-current-workspace-doc.log`. This verifies compilable documentation and links, not
 semantic depth for every contract. The cumulative audit now distinguishes earlier open findings from
 later completed visibility dispositions and records the recent test review surfaces.
+
+### Local migration-record validation
+
+Migration-history validation delegates each loaded record to a directly following named helper. The
+outer operation now reads as load history, validate records, and validate the supplied baseline. The
+helper keeps row decoding, version lookup, and checksum comparison together with their distinct
+error contracts. It caches the supported version locally instead of recomputing it for one error. No
+migration execution or archive lifecycle policy changes.
+
+All ten lifecycle/read-search integration scenarios, nightly formatting, rumdl, and changed-page
+Markdown linting pass.

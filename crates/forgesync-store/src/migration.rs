@@ -25,6 +25,7 @@
 //! facts, while pool-level helpers retain crate visibility to preserve the archive lifecycle seam.
 
 use serde::Serialize;
+use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 
 use crate::error::StoreError;
@@ -114,22 +115,7 @@ pub(crate) async fn validate_migration_history(
     .await?;
 
     for row in rows {
-        let version: i64 = row.try_get("version")?;
-        if version > supported_schema_version() {
-            return Err(StoreError::SchemaTooNew {
-                found: version,
-                supported: supported_schema_version(),
-            });
-        }
-
-        let migration = MIGRATOR
-            .iter()
-            .find(|migration| migration.version == version)
-            .ok_or(StoreError::MigrationVersionUnknown { version })?;
-        let checksum: Vec<u8> = row.try_get("checksum")?;
-        if migration.checksum.as_ref() != checksum.as_slice() {
-            return Err(StoreError::MigrationChecksumMismatch { version });
-        }
+        validate_recorded_migration(&row)?;
     }
 
     if schema_version > supported_schema_version() {
@@ -137,6 +123,30 @@ pub(crate) async fn validate_migration_history(
             found: schema_version,
             supported: supported_schema_version(),
         });
+    }
+    Ok(())
+}
+
+/// Checks one successful history record against this binary's immutable migration catalog.
+///
+/// Unknown versions and altered checksums remain distinct from versions newer than the binary.
+/// This reads a loaded row only; it neither queries the pool nor repairs recorded history.
+fn validate_recorded_migration(row: &SqliteRow) -> Result<(), StoreError> {
+    let version: i64 = row.try_get("version")?;
+    let supported = supported_schema_version();
+    if version > supported {
+        return Err(StoreError::SchemaTooNew {
+            found: version,
+            supported,
+        });
+    }
+    let migration = MIGRATOR
+        .iter()
+        .find(|migration| migration.version == version)
+        .ok_or(StoreError::MigrationVersionUnknown { version })?;
+    let checksum: Vec<u8> = row.try_get("checksum")?;
+    if migration.checksum.as_ref() != checksum.as_slice() {
+        return Err(StoreError::MigrationChecksumMismatch { version });
     }
     Ok(())
 }
