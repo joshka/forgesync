@@ -3258,3 +3258,13 @@ first. Existing retained keys, pull-request classification, and error mapping ar
 
 The complete GitHub suite passes: 24 unit tests and two doctests. Nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Current review-head projection ownership
+
+Coverage loading delegates current pull-request head lookup to a directly following query. The
+helper owns membership payload decoding and documents that its read is separate from acquired head
+context and completeness rows. Coverage assembly now follows the two source reads explicitly, while
+preserving bound parameters, malformed-data errors, and freshness interpretation.
+
+All 13 read/search and observation integration scenarios, nightly formatting, rumdl, and
+changed-page Markdown linting pass.

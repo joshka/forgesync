@@ -63,24 +63,7 @@ pub async fn load_thread_coverage(
     if thread_ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let mut metadata_statement = QueryBuilder::<Sqlite>::new(
-        "SELECT thread_id, payload_json FROM thread_family_membership WHERE family = 'pull_request_metadata' AND thread_id IN (",
-    );
-    for (index, thread_id) in thread_ids.iter().enumerate() {
-        if index > 0 {
-            metadata_statement.push(", ");
-        }
-        metadata_statement.push_bind(thread_id);
-    }
-    metadata_statement.push(")");
-    let metadata_rows = metadata_statement.build().fetch_all(pool).await?;
-    let mut current_heads = HashMap::with_capacity(metadata_rows.len());
-    for row in metadata_rows {
-        let thread_id: i64 = row.try_get("thread_id")?;
-        let payload_json: String = row.try_get("payload_json")?;
-        let metadata: PullRequestMetadata = serde_json::from_str(&payload_json)?;
-        current_heads.insert(thread_id, metadata.head.sha.as_str().to_owned());
-    }
+    let current_heads = current_review_heads(pool, thread_ids).await?;
 
     let mut statement = QueryBuilder::<Sqlite>::new(
         "SELECT c.thread_id, c.family, c.state_json, c.source_clock_state, c.source_clock_us, h.head_sha AS snapshot_head_sha FROM family_coverage c LEFT JOIN thread_family_head_contexts h ON h.thread_id = c.thread_id AND h.family = c.family WHERE c.thread_id IN (",
@@ -118,6 +101,37 @@ pub async fn load_thread_coverage(
             );
     }
     Ok(coverage)
+}
+
+/// Reads current pull-request heads used to interpret separately acquired review coverage.
+///
+/// Membership payloads supply current metadata only; this query neither reads acquisition head
+/// context nor establishes a shared snapshot with the subsequent coverage query. Parameters are
+/// bound, and malformed stored metadata returns a typed store error before projection continues.
+async fn current_review_heads(
+    pool: &sqlx::SqlitePool,
+    thread_ids: &[i64],
+) -> Result<HashMap<i64, String>, StoreError> {
+    let mut metadata_statement = QueryBuilder::<Sqlite>::new(
+        "SELECT thread_id, payload_json FROM thread_family_membership WHERE family = 'pull_request_metadata' AND thread_id IN (",
+    );
+    for (index, thread_id) in thread_ids.iter().enumerate() {
+        if index > 0 {
+            metadata_statement.push(", ");
+        }
+        metadata_statement.push_bind(thread_id);
+    }
+    metadata_statement.push(")");
+    let metadata_rows = metadata_statement.build().fetch_all(pool).await?;
+    let mut current_heads = HashMap::with_capacity(metadata_rows.len());
+    for row in metadata_rows {
+        let thread_id: i64 = row.try_get("thread_id")?;
+        let payload_json: String = row.try_get("payload_json")?;
+        let metadata: PullRequestMetadata = serde_json::from_str(&payload_json)?;
+        current_heads.insert(thread_id, metadata.head.sha.as_str().to_owned());
+    }
+
+    Ok(current_heads)
 }
 
 /// Projects stored family coverage onto the families relevant to this discussion kind. Missing
