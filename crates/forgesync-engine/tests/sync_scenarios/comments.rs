@@ -17,7 +17,7 @@ use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::fixture_archive::{
-    comment_bodies, comment_coverage, remove_archive, temporary_archive_path, thread_summary,
+    comment_coverage, remove_archive, temporary_archive_path, thread_reference,
 };
 use super::fixture_issues::{
     clients_for, comment, issue_with_comment_count, mount_comments, mount_open_issues,
@@ -99,7 +99,11 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
     .await
     .expect("durable sync report");
     assert_eq!(parent_refresh.outcome, OperationOutcome::Complete);
-    let stale_summary = thread_summary(&archive, 12).await;
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
+    let stale_summary = thread_12_detail.summary;
     let stale_coverage = comment_coverage(&stale_summary);
     assert!(stale_coverage.is_stale());
 
@@ -158,9 +162,31 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
     assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
     assert_eq!(partial.failures.len(), 1);
     assert_eq!(partial.failures[0].thread_number, Some(12));
-    assert_eq!(comment_bodies(&archive, 11).await, ["old first"]);
-    assert_eq!(comment_bodies(&archive, 12).await, ["old second"]);
-    let failed_summary = thread_summary(&archive, 12).await;
+    let thread_11_detail = archive
+        .thread_detail(&thread_reference(11))
+        .await
+        .expect("read current thread 11 detail");
+    let comment_bodies_11: Vec<_> = thread_11_detail
+        .comments
+        .into_iter()
+        .map(|item| item.payload.body)
+        .collect();
+    assert_eq!(comment_bodies_11, ["old first"]);
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
+    let comment_bodies_12: Vec<_> = thread_12_detail
+        .comments
+        .into_iter()
+        .map(|item| item.payload.body)
+        .collect();
+    assert_eq!(comment_bodies_12, ["old second"]);
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
+    let failed_summary = thread_12_detail.summary;
     let incomplete = comment_coverage(&failed_summary);
     assert!(matches!(
         incomplete.state(),
@@ -225,7 +251,19 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
     .await
     .expect("durable sync report");
     assert_eq!(retried.outcome, OperationOutcome::Complete);
-    assert_eq!(comment_bodies(&archive, 12).await.len(), 2);
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
+    let comment_bodies_12: Vec<_> = thread_12_detail
+        .comments
+        .into_iter()
+        .map(|item| item.payload.body)
+        .collect();
+    assert_eq!(
+        comment_bodies_12,
+        ["first replacement", "second replacement"]
+    );
     let resolved_failure = archive
         .run_detail(partial.run.id)
         .await
@@ -326,14 +364,40 @@ async fn complete_empty_comments_replace_membership_but_incomplete_empty_does_no
     .await
     .expect("durable sync report");
     assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
-    assert!(comment_bodies(&archive, 11).await.is_empty());
-    assert_eq!(comment_bodies(&archive, 12).await, ["preserved"]);
+    let thread_11_detail = archive
+        .thread_detail(&thread_reference(11))
+        .await
+        .expect("read current thread 11 detail");
+    let comment_bodies_11: Vec<_> = thread_11_detail
+        .comments
+        .into_iter()
+        .map(|item| item.payload.body)
+        .collect();
+    assert!(comment_bodies_11.is_empty());
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
+    let comment_bodies_12: Vec<_> = thread_12_detail
+        .comments
+        .into_iter()
+        .map(|item| item.payload.body)
+        .collect();
+    assert_eq!(comment_bodies_12, ["preserved"]);
+    let thread_11_detail = archive
+        .thread_detail(&thread_reference(11))
+        .await
+        .expect("read current thread 11 detail");
     assert!(matches!(
-        comment_coverage(&thread_summary(&archive, 11).await).state(),
+        comment_coverage(&thread_11_detail.summary).state(),
         CoverageState::Complete { item_count: 0, .. }
     ));
+    let thread_12_detail = archive
+        .thread_detail(&thread_reference(12))
+        .await
+        .expect("read current thread 12 detail");
     assert!(matches!(
-        comment_coverage(&thread_summary(&archive, 12).await).state(),
+        comment_coverage(&thread_12_detail.summary).state(),
         CoverageState::Incomplete {
             received_items: 0,
             ..

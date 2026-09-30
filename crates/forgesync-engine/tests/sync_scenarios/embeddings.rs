@@ -23,7 +23,7 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
 use super::fixture_archive::{
-    current_timestamp, remove_archive, temporary_archive_path, thread_summary,
+    current_timestamp, remove_archive, temporary_archive_path, thread_reference,
 };
 use super::fixture_issues::{
     clients_for, issue_with_comment_count, mount_open_issues, mount_repository,
@@ -81,7 +81,11 @@ async fn embedding_retry_keeps_successful_batches_and_requests_only_missing_chun
     .await
     .expect("durable sync report");
     assert_eq!(sync.outcome, OperationOutcome::Complete);
-    let thread = thread_summary(&archive, 11).await;
+    let thread_11_detail = archive
+        .thread_detail(&thread_reference(11))
+        .await
+        .expect("read current thread 11 detail");
+    let thread = thread_11_detail.summary;
     let now = current_timestamp();
     let text = "alpha beta gamma delta epsilon".to_owned();
     let document = Document::new(

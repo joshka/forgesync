@@ -7,7 +7,8 @@
 //!
 //! Shared setup has explicit owners: `fixture_issues` constructs REST discussion responses and
 //! local clients, `fixture_reviews` supplies pull-request head/review responses, and
-//! `fixture_archive` provides local reads and database lifetime helpers. Scenarios import those
+//! `fixture_archive` constructs references, selects already-read coverage, and owns database
+//! lifetime. Scenarios import those
 //! owners directly.
 //!
 //! The real workflow calls and their requests stay in each test; fixtures never run acquisition.

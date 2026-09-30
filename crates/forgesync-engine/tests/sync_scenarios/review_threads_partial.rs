@@ -5,7 +5,8 @@
 //! cannot be completed. Canonical members survive while coverage records the partial attempt.
 //!
 //! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses, construct clients, and read local state. No acquisition is hidden
+//! configure provider responses and construct clients or references. Archive reads remain visible;
+//! no acquisition is hidden
 //! in a test helper. Source head, family selection, and expected canonical state remain explicit.
 //! This integration regression complements focused store ordering and finalization tests.
 
@@ -20,8 +21,7 @@ use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::fixture_archive::{
-    remove_archive, review_thread_coverage, review_thread_members, temporary_archive_path,
-    thread_summary,
+    remove_archive, review_thread_coverage, temporary_archive_path, thread_reference,
 };
 use super::fixture_issues::{clients_for, mount_open_issues, mount_repository};
 use super::fixture_reviews::{
@@ -68,7 +68,13 @@ async fn partial_graphql_review_thread_snapshot_keeps_last_complete_membership()
     .await
     .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
-    let original_members = review_thread_members(&archive, 18).await;
+    let thread_18_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read current thread 18 detail");
+    let original_members = thread_18_detail.review_threads;
+    assert_eq!(original_members.len(), 1);
+    assert_eq!(original_members[0].id.as_str(), "PRRT_old");
 
     server.reset().await;
     mount_repository(&server).await;
@@ -119,8 +125,12 @@ async fn partial_graphql_review_thread_snapshot_keeps_last_complete_membership()
             ..
         }
     ));
-    assert_eq!(review_thread_members(&archive, 18).await, original_members);
-    let summary = thread_summary(&archive, 18).await;
+    let thread_18_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read current thread 18 detail");
+    assert_eq!(thread_18_detail.review_threads, original_members);
+    let summary = thread_18_detail.summary;
     assert!(matches!(
         review_thread_coverage(&summary).state(),
         CoverageState::Incomplete { .. }

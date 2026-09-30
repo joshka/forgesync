@@ -18,6 +18,14 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Sync scenarios now show current-detail and archive-status reads directly. Checked fixture references
+replace bounded all-thread search; the archive fixture performs no reads or writes. Review failure
+compares full retained comment/review membership, head-change compares complete retained reviews,
+and retry checks exact replacement bodies. All 15 sync integration cases pass; engine all-target
+Clippy passes with warnings denied. The remaining sync cohesion finding is the mixed comment
+scenario owner; store observation assertions, broad API/docs acceptance, and final gates remain
+open.
+
 Enumeration engine integration has shallow partial-failure, replay, and fixture owners. Assertions
 compare exact continuation and persisted scans, retained discussion identity/content, complete
 parent coverage, and missing unselected comments. Replay compares both original discussion payloads

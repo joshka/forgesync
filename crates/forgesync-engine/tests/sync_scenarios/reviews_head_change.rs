@@ -5,7 +5,8 @@
 //! membership remains available but cannot claim completeness for the new head.
 //!
 //! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses, construct clients, and read local state. No acquisition is hidden
+//! configure provider responses and construct clients or references. Archive reads remain visible;
+//! no acquisition is hidden
 //! in a test helper. Source head, family selection, and expected canonical state remain explicit.
 //! This integration regression complements focused store ordering and finalization tests.
 
@@ -19,8 +20,8 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::fixture_archive::{
-    remove_archive, review_coverage, review_members, review_thread_coverage,
-    temporary_archive_path, thread_summary,
+    remove_archive, review_coverage, review_thread_coverage, temporary_archive_path,
+    thread_reference,
 };
 use super::fixture_issues::{clients_for, mount_open_issues, mount_repository};
 use super::fixture_reviews::{
@@ -80,13 +81,19 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
     .await
     .expect("durable sync report");
     assert_eq!(initial.outcome, OperationOutcome::Complete);
+    let thread_18_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read current thread 18 detail");
+    let original_reviews = thread_18_detail.reviews;
+    assert_eq!(original_reviews.len(), 1);
+    let original_head = original_reviews[0]
+        .payload
+        .commit_sha
+        .as_ref()
+        .expect("original review head");
     assert_eq!(
-        review_members(&archive, 18).await[0]
-            .payload
-            .commit_sha
-            .as_ref()
-            .unwrap()
-            .as_str(),
+        original_head.as_str(),
         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     );
 
@@ -122,7 +129,12 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
     assert_eq!(metadata_only.outcome, OperationOutcome::Complete);
     assert_eq!(metadata_only.reviews_seen, 0);
 
-    let summary = thread_summary(&archive, 18).await;
+    let thread_18_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read current thread 18 detail");
+    assert_eq!(thread_18_detail.reviews, original_reviews);
+    let summary = thread_18_detail.summary;
     assert!(matches!(
         review_coverage(&summary).state(),
         CoverageState::Complete { item_count: 1, .. }
@@ -133,15 +145,6 @@ async fn changed_pull_request_head_marks_old_reviews_stale_without_refetching_th
         CoverageState::Complete { item_count: 1, .. }
     ));
     assert!(review_thread_coverage(&summary).is_stale());
-    assert_eq!(
-        review_members(&archive, 18).await[0]
-            .payload
-            .commit_sha
-            .as_ref()
-            .unwrap()
-            .as_str(),
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    );
     let metadata = archive
         .child_family_members::<forgesync_core::content::PullRequestMetadata>(
             &summary.discussion.id,

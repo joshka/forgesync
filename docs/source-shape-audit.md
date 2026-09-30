@@ -692,9 +692,19 @@ after reacquisition, and checks terminal continuation/failure absence plus persi
 Client and repository-response fixtures perform no enumeration or archive mutation. The dependent
 before/after replay remains one linear contract.
 
-Engine workflow integration remains open for sync suites. Sync read projections need inspection for
-hidden retrieval boundaries and assertions that establish only counts. Remaining observation
-assertion acceptance and broad documentation/API acceptance are separate review work.
+Sync scenario archive reads now use explicit thread-detail operations with checked references to
+fixture repository provider ID 41, rather than a bounded all-thread search that assumes global
+uniqueness of discussion numbers. The fixture module performs no archive reads or writes; coverage
+selectors operate on already-read values. Enumeration scenarios read archive-wide counts directly.
+Review failure compares full retained comment and review membership from its explicit initial
+baseline, and head-change scenarios compare full retained reviews. Partial review-thread publication
+checks the original member identity before preservation; comment retry checks exact replacement
+bodies instead of only their count. All 15 sync cases pass after these assertion changes.
+
+Engine sync assertion and module-cohesion acceptance remain open. The comments owner now contains
+three independent contracts across 489 lines and should become shallow retry, empty-membership, and
+ledger-failure scenarios. Remaining observation assertion acceptance and broad documentation/API
+acceptance are separate review work.
 
 ### Store lifecycle and cluster-suite dispositions
 

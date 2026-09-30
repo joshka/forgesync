@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::fixture_archive::{remove_archive, temporary_archive_path, thread_count};
+use super::fixture_archive::{remove_archive, temporary_archive_path};
 use super::fixture_issues::{clients_for, issue, mount_repository};
 
 #[tokio::test]
@@ -103,7 +103,8 @@ async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {
     assert_eq!(first.jobs[0].status, SyncJobStatus::Interrupted);
     assert_eq!(first.pages_completed, 1);
     assert_eq!(first.threads_seen, 1);
-    assert_eq!(thread_count(&archive).await, 1);
+    let status = archive.archive_status().await.expect("read archive counts");
+    assert_eq!(status.threads, 1);
 
     server.reset().await;
     mount_repository(&server).await;
@@ -146,7 +147,8 @@ async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {
     assert_eq!(resumed.outcome, OperationOutcome::Complete);
     assert_eq!(resumed.pages_completed, 2);
     assert_eq!(resumed.threads_seen, 2);
-    assert_eq!(thread_count(&archive).await, 2);
+    let status = archive.archive_status().await.expect("read archive counts");
+    assert_eq!(status.threads, 2);
 
     archive.close().await;
     remove_archive(&archive_path);

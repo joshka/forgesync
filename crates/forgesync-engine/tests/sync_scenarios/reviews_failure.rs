@@ -5,7 +5,8 @@
 //! canonical values intact while recording incomplete review evidence.
 //!
 //! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses, construct clients, and read local state. No acquisition is hidden
+//! configure provider responses and construct clients or references. Archive reads remain visible;
+//! no acquisition is hidden
 //! in a test helper. Source head, family selection, and expected canonical state remain explicit.
 //! This integration regression complements focused store ordering and finalization tests.
 
@@ -19,8 +20,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::MockServer;
 
 use super::fixture_archive::{
-    comment_bodies, comment_coverage, remove_archive, review_coverage, review_members,
-    temporary_archive_path, thread_summary,
+    comment_coverage, remove_archive, review_coverage, temporary_archive_path, thread_reference,
 };
 use super::fixture_issues::{
     clients_for, comment, mount_comments, mount_open_issues, mount_repository,
@@ -75,10 +75,19 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
     assert_eq!(initial.outcome, OperationOutcome::Complete);
     assert_eq!(initial.comments_seen, 1);
     assert_eq!(initial.reviews_seen, 1);
-    let comments_before = comment_bodies(&archive, 18).await;
-    let reviews_before = review_members(&archive, 18).await;
-    assert_eq!(comments_before, ["existing issue comment"]);
+    let initial_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read initial comment and review membership");
+    let comments_before = initial_detail.comments;
+    let reviews_before = initial_detail.reviews;
+    assert_eq!(comments_before.len(), 1);
+    assert_eq!(comments_before[0].payload.body, "existing issue comment");
     assert_eq!(reviews_before.len(), 1);
+    assert_eq!(
+        reviews_before[0].payload.state,
+        ReviewState::ChangesRequested
+    );
 
     server.reset().await;
     mount_repository(&server).await;
@@ -112,19 +121,18 @@ async fn failed_review_refresh_preserves_comments_and_last_complete_reviews() {
         }
     ));
 
-    let summary = thread_summary(&archive, 18).await;
-    assert_eq!(comment_bodies(&archive, 18).await, comments_before);
-    assert!(comment_coverage(&summary).is_stale());
+    let failed_detail = archive
+        .thread_detail(&thread_reference(18))
+        .await
+        .expect("read canonical evidence after review failure");
+    assert_eq!(failed_detail.comments, comments_before);
+    assert_eq!(failed_detail.reviews, reviews_before);
+    assert!(comment_coverage(&failed_detail.summary).is_stale());
     assert!(matches!(
-        review_coverage(&summary).state(),
+        review_coverage(&failed_detail.summary).state(),
         CoverageState::Incomplete { .. }
     ));
-    assert!(review_coverage(&summary).is_stale());
-    assert_eq!(review_members(&archive, 18).await, reviews_before);
-    assert_eq!(
-        review_members(&archive, 18).await[0].payload.state,
-        ReviewState::ChangesRequested
-    );
+    assert!(review_coverage(&failed_detail.summary).is_stale());
 
     archive.close().await;
     remove_archive(&archive_path);

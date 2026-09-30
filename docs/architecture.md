@@ -321,11 +321,11 @@ concurrent writers.
 The sync integration suite keeps real acquisition requests and operations in each scenario. Shared
 setup under `tests/sync_scenarios` has three sibling owners: `fixture_issues` for REST discussion
 responses and local clients, `fixture_reviews` for pull-request head/review responses, and
-`fixture_archive` for local projections and archive lifetime. These modules construct or inspect
-fixture state; they do not run engine workflows. Document-only response setup stays in `documents`.
-Review regressions have sibling owners for failure isolation, head freshness, membership
-replacement, and partial-collection isolation, keeping each complete scenario local without deeper
-module nesting.
+`fixture_archive` for checked references, already-read coverage selection, and archive lifetime.
+Scenarios read current detail and archive status directly; fixtures perform no archive reads or
+writes and do not run engine workflows. Document-only response setup stays in `documents`. Review
+regressions have sibling owners for failure isolation, head freshness, membership replacement, and
+partial-collection isolation, keeping each complete scenario local without deeper module nesting.
 
 Cluster integration under `tests/clustering_workflow` has shallow complete, partial, and namespace
 scenario owners. Its fixture module constructs identities and source/document values only, plus path
