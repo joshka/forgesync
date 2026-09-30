@@ -4,14 +4,27 @@
 //! distinguish a usable vector from a successful HTTP response and preserve partial batch
 //! failures. Search compatibility is checked separately from materialization.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
+
+use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::embedding_client::{EmbeddingClient, EmbeddingClientConfig};
+use forgesync_engine::embeddings::embed_documents;
+use forgesync_engine::inspect::{ThreadFilters, ThreadSort, ThreadStateFilter};
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::search::{SearchMode, SearchRanking, SearchRequest, retrieve_threads};
+use forgesync_engine::sync::SyncThreadScope;
+use forgesync_store::archive::Archive;
+use serde_json::json;
+use tokio_util::sync::CancellationToken;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
+
 use super::{
-    Arc, Archive, AtomicUsize, CancellationToken, Document, DocumentRecipe, Duration,
-    EmbeddingClient, EmbeddingClientConfig, Mock, MockServer, OperationOutcome, Ordering,
-    RepositorySelector, Request, Respond, ResponseTemplate, SearchMode, SearchRanking,
-    SearchRequest, SyncThreadScope, ThreadFilters, ThreadSort, ThreadStateFilter,
-    current_timestamp, embed_documents, issue_with_comment_count, json, method, mount_open_issues,
-    mount_repository, path, remove_archive, retrieve_threads, sync_once, temporary_archive_path,
-    thread_summary,
+    current_timestamp, issue_with_comment_count, mount_open_issues, mount_repository,
+    remove_archive, sync_once, temporary_archive_path, thread_summary,
 };
 
 #[tokio::test]

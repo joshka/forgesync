@@ -4,13 +4,22 @@
 //! completeness, failure scope, and canonical membership after interruption. A partial page set
 //! should remain recorded as an attempt without replacing a prior complete family.
 
+use forgesync_core::coverage::{CoverageState, FailureKind};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::error::EngineError;
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
+use forgesync_store::archive::Archive;
+use serde_json::json;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use tokio_util::sync::CancellationToken;
+use wiremock::matchers::{method, path, query_param};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
 use super::{
-    Archive, CancellationToken, CoverageState, EngineError, FailureKind, Mock, MockServer,
-    OperationOutcome, RepositorySelector, ResponseTemplate, SqliteConnectOptions,
-    SqlitePoolOptions, SyncRequest, SyncThreadScope, clients_for, comment, comment_bodies,
-    comment_coverage, issue_with_comment_count, json, method, mount_comments, mount_open_issues,
-    mount_repository, path, query_param, remove_archive, sync_once_with_comments,
-    sync_repositories, temporary_archive_path, thread_summary,
+    clients_for, comment, comment_bodies, comment_coverage, issue_with_comment_count,
+    mount_comments, mount_open_issues, mount_repository, remove_archive, sync_once_with_comments,
+    temporary_archive_path, thread_summary,
 };
 
 #[tokio::test]

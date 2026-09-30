@@ -4,11 +4,20 @@
 //! so a later failure cannot erase earlier committed evidence. Keep assertions explicit about
 //! requested, completed, failed, and unstarted stages.
 
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::refresh::{
+    RefreshAnalysisStage, RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
+    refresh,
+};
+use forgesync_engine::sync::SyncThreadScope;
+use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
+use wiremock::MockServer;
+
 use super::{
-    Archive, CancellationToken, DocumentRecipe, MockServer, OperationOutcome, RefreshAnalysisStage,
-    RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions, RepositorySelector,
-    SyncThreadScope, clients_for, mount_open_issues, mount_repository, refresh, remove_archive,
-    temporary_archive_path,
+    clients_for, mount_open_issues, mount_repository, remove_archive, temporary_archive_path,
 };
 
 #[tokio::test]

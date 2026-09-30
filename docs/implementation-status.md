@@ -3304,3 +3304,13 @@ construction, filename allocation, and best-effort SQLite sidecar cleanup. Missi
 conflicting scope have independent named tests, so one failure no longer masks the other.
 
 All 15 CLI process contract cases pass after the import and scenario changes.
+
+### Sync scenario import ownership
+
+All seven sync scenario children import external types, provider mocks, matchers, and workflow
+operations from their defining modules. The shared fixture parent no longer supplies an external
+prelude. Shared acquisition helpers still have positional family flags and remain explicit
+candidates for the test-quality pass; this import cleanup does not close their behavior review.
+
+Focused all-warning Clippy and all 15 sync workflow scenarios pass. Nightly formatting, rumdl, and
+changed-page Markdown linting pass.

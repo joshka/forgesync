@@ -4,10 +4,15 @@
 //! boundary between source observations and recipe-shaped text. A recipe or observation change may
 //! require regeneration, while source content remains stored independently.
 
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_engine::documents::{build_thread_document, materialize_thread_document};
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::sync::SyncThreadScope;
+use forgesync_store::archive::Archive;
+use wiremock::MockServer;
+
 use super::{
-    Archive, MockServer, OperationOutcome, RepositorySelector, SyncThreadScope, ThreadSelector,
-    build_thread_document, materialize_thread_document, mount_document_source, remove_archive,
-    sync_once_with_comments, temporary_archive_path,
+    mount_document_source, remove_archive, sync_once_with_comments, temporary_archive_path,
 };
 
 #[tokio::test]

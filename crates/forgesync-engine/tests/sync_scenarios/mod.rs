@@ -8,38 +8,22 @@
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread};
-use forgesync_core::coverage::{CoverageState, EvidenceFamily, FailureKind};
-use forgesync_core::document::{Document, DocumentRecipe};
+use forgesync_core::content::{Comment, Review, ReviewThread};
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::GitHubHost;
-use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_engine::documents::{build_thread_document, materialize_thread_document};
-use forgesync_engine::embedding_client::{EmbeddingClient, EmbeddingClientConfig};
-use forgesync_engine::embeddings::embed_documents;
-use forgesync_engine::error::EngineError;
-use forgesync_engine::inspect::{ThreadFilters, ThreadSort, ThreadStateFilter};
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
-use forgesync_engine::refresh::{
-    RefreshAnalysisStage, RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
-    refresh,
-};
-use forgesync_engine::runs::{plan_run_retry, run_retry};
-use forgesync_engine::search::{SearchMode, SearchRanking, SearchRequest, retrieve_threads};
+use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_github::transport::{GitHubClient, GitHubClientConfig};
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::ThreadQuery;
-use forgesync_store::runs::SyncJobStatus;
 use serde_json::json;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, method, path, query_param};
-use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 
