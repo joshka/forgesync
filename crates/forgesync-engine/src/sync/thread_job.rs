@@ -13,7 +13,7 @@ use forgesync_core::coverage::{EvidenceFamily, Failure};
 use forgesync_store::checkpoints::ClosedSweepCheckpoint;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::error::StoreError;
-use forgesync_store::runs::{RunFailureScope, SyncJobCompletion};
+use forgesync_store::runs::{RunFailureScope, SyncJobCompletion, SyncJobStart};
 
 use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
@@ -41,16 +41,16 @@ impl<'a> ThreadJob<'a> {
         scan: ThreadScanContext,
         summary: &WorkSummary,
     ) -> Result<Self, EngineError> {
+        let start = SyncJobStart {
+            run_id: work.context.run_id,
+            repository: &work.repository.id,
+            family: EvidenceFamily::Threads,
+            scope_key: work.unit.key,
+            started_at: scan.started_at,
+        };
         let id = work
             .archive
-            .start_sync_job(
-                work.context.lease,
-                work.context.run_id,
-                &work.repository.id,
-                EvidenceFamily::Threads,
-                work.unit.key,
-                scan.started_at,
-            )
+            .start_sync_job(work.context.lease, start)
             .await?;
         let target = RepositorySelector::from_repository(work.repository).as_url();
         let job = Self {

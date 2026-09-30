@@ -3491,3 +3491,18 @@ declaration and operation result before asserting failure, making the side effec
 
 All 13 observation/read integration cases, all-target/all-feature store Clippy, strict private-item
 store Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Sync job start declaration
+
+`SyncJobStart` names the selected run/repository/family/sub-scope/start-time ledger declaration,
+complementing the existing completion input. The active writer token stays outside work data.
+Thread, comment, and pull-request family jobs construct named fields before the archive side effect
+instead of passing five positional values.
+
+The start transaction still checks authority, resolves the registered repository, inserts one
+in-progress row with zero counters, and returns its local ID. Contracts distinguish this ledger
+transition from provider acquisition or evidence completeness. No SQL, timestamp, or scope semantics
+changed.
+
+All 15 sync scenarios, all-target/all-feature store and engine Clippy, strict private-item store
+Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.

@@ -18,8 +18,7 @@
 //! the same transaction. A missing or already finished target is rejected rather than silently
 //! creating a replacement. These methods perform no provider I/O or automatic retry.
 
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::identity::{RepositoryId, RunId};
+use forgesync_core::identity::RunId;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde_json::Value;
@@ -29,8 +28,8 @@ use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observation_sql::{evidence_family_name, repository_row_id};
 use crate::runs::{
-    SyncJobCompletion, SyncJobStatus, checked_run_id, job_status_name, run_status, run_status_name,
-    to_sql_id, to_sql_id_u64,
+    SyncJobCompletion, SyncJobStart, SyncJobStatus, checked_run_id, job_status_name, run_status,
+    run_status_name, to_sql_id, to_sql_id_u64,
 };
 
 impl Archive {
@@ -60,16 +59,24 @@ impl Archive {
         checked_run_id(raw_id)
     }
 
-    /// Starts a fenced job for one repository, evidence family, and sub-scope.
+    /// Records the declared repository-family attempt with in-progress status and zero counters.
+    ///
+    /// The active fence check, registered repository lookup, and insert share one transaction.
+    /// Scope text and start time are preserved as supplied; no provider request or completeness
+    /// validation occurs. The returned archive-local row ID identifies the later job completion.
+    /// Read-only, lease, missing repository/run, ID conversion, and database failures propagate.
     pub async fn start_sync_job(
         &self,
         token: &ArchiveLeaseToken,
-        run_id: RunId,
-        repository: &RepositoryId,
-        family: EvidenceFamily,
-        scope_key: &str,
-        started_at: UtcTimestamp,
+        job: SyncJobStart<'_>,
     ) -> Result<i64, StoreError> {
+        let SyncJobStart {
+            run_id,
+            repository,
+            family,
+            scope_key,
+            started_at,
+        } = job;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;

@@ -16,6 +16,7 @@ use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort};
+use forgesync_store::runs::SyncJobStart;
 
 use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
@@ -94,16 +95,16 @@ impl<'a> RepositoryWork<'a> {
         family: EvidenceFamily,
         started_at: UtcTimestamp,
     ) -> Result<FamilyJob, EngineError> {
+        let start = SyncJobStart {
+            run_id: self.context.run_id,
+            repository: &self.repository.id,
+            family,
+            scope_key: self.unit.key,
+            started_at,
+        };
         let id = self
             .archive
-            .start_sync_job(
-                self.context.lease,
-                self.context.run_id,
-                &self.repository.id,
-                family,
-                self.unit.key,
-                started_at,
-            )
+            .start_sync_job(self.context.lease, start)
             .await?;
         Ok(FamilyJob::new(id))
     }

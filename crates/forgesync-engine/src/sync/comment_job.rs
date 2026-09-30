@@ -15,7 +15,7 @@ use std::num::NonZeroU32;
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort};
-use forgesync_store::runs::{RunFailureScope, SyncJobCompletion, SyncJobStatus};
+use forgesync_store::runs::{RunFailureScope, SyncJobCompletion, SyncJobStart, SyncJobStatus};
 
 use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
@@ -46,16 +46,16 @@ struct CommentJob<'a> {
 impl<'a> CommentJob<'a> {
     /// Creates the ledger entry and marks earlier scope failures as retried before traversal.
     async fn start(work: RepositoryWork<'a>, summary: &WorkSummary) -> Result<Self, EngineError> {
+        let start = SyncJobStart {
+            run_id: work.context.run_id,
+            repository: &work.repository.id,
+            family: EvidenceFamily::Comments,
+            scope_key: work.unit.key,
+            started_at: now_utc()?,
+        };
         let id = work
             .archive
-            .start_sync_job(
-                work.context.lease,
-                work.context.run_id,
-                &work.repository.id,
-                EvidenceFamily::Comments,
-                work.unit.key,
-                now_utc()?,
-            )
+            .start_sync_job(work.context.lease, start)
             .await?;
         let repository = RepositorySelector::from_repository(work.repository).as_url();
         let job = Self {

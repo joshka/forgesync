@@ -76,6 +76,24 @@ pub struct RunRecord {
     pub outcome: Option<OperationOutcome>,
 }
 
+/// Selected work recorded when a repository-family job begins.
+///
+/// This declaration identifies one attempt within a parent run. Starting the job initializes its
+/// ledger state and zero counters; it does not acquire content or establish family completeness.
+/// The writer token stays separate so durable work data does not carry archive authority.
+pub struct SyncJobStart<'a> {
+    /// Parent run under which this attempt is recorded.
+    pub run_id: RunId,
+    /// Registered stable repository identity, distinct from a selector or display path.
+    pub repository: &'a RepositoryId,
+    /// Independently acquired resource family selected for this job.
+    pub family: EvidenceFamily,
+    /// Sub-scope such as open or closed threads, preserved exactly in the ledger.
+    pub scope_key: &'a str,
+    /// Local start time, used for both initial start and update timestamps.
+    pub started_at: UtcTimestamp,
+}
+
 /// Durable result for one repository and family in a run.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyncJobRecord {
