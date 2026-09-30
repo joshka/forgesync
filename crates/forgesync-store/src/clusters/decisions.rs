@@ -7,6 +7,21 @@
 //! Decision events preserve the maintainer's action so later cluster reads can distinguish an
 //! automatic proposal from an explicit choice. ID conversion and validation stay beside the write
 //! path because malformed or out-of-range identifiers must fail before SQL receives them.
+//!
+//! Every successful decision commits state and its audit event in one fenced transaction. A
+//! failed fence, unknown target, SQL write, or event insertion returns an error without committing
+//! this decision. Repeated valid actions still append events; these APIs do not suppress history
+//! merely because the visible state already matches the requested choice.
+//!
+//! Dismissal and exclusion reasons are limited to 2,048 UTF-8 bytes before trimming; persisted
+//! reasons discard surrounding whitespace. Invalid reason length returns
+//! `InvalidClusterGeneration`. Missing cluster IDs return `ClusterMissing`; removed,
+//! foreign-repository, or unknown members return `ClusterMemberMissing`. A member must be active to
+//! become canonical.
+//!
+//! Detail reads are observations, not write authority. These operations independently validate
+//! writer fencing and target membership. Canonical selection changes the display choice while
+//! preserving the generated representative, allowing future generations to retain their own policy.
 
 use forgesync_core::identity::ThreadId;
 use forgesync_core::timestamp::UtcTimestamp;
@@ -18,14 +33,21 @@ use crate::clusters::member_decision::{MemberDecision, MemberDecisionWrite};
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
+/// Explicit local dismissal choice, independent of active/retired generation lifecycle.
 #[derive(Clone, Copy)]
 enum ClusterDecision {
+    /// Record a maintainer dismissal and its reason without removing generated membership.
     Dismiss,
+    /// Clear dismissal and its stored reason without regenerating the cluster.
     Restore,
 }
 
 impl Archive {
     /// Dismisses a generated cluster as a local maintainer decision.
+    ///
+    /// Records the trimmed reason and action time with a `dismissed` audit event. Generated
+    /// membership, lifecycle, and representative remain intact. An oversized reason is rejected
+    /// before writable-archive and lease checks; state and event commit together.
     pub async fn dismiss_cluster_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -38,6 +60,10 @@ impl Archive {
     }
 
     /// Restores a locally dismissed generated cluster.
+    ///
+    /// Clears dismissal time and reason and appends a `restored` event. Restoration does not
+    /// reactivate a retired generation or regenerate membership; those are separate operations.
+    /// Repeating restoration still records the valid maintainer action.
     pub async fn restore_cluster_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -101,6 +127,11 @@ impl Archive {
     }
 
     /// Excludes one current generated member as a local decision.
+    ///
+    /// Persists exclusion across future generations and marks current membership excluded. If
+    /// this member is canonical, clears that choice in the same transaction. The trimmed reason
+    /// and `member_excluded` event are committed with the state changes; source evidence is
+    /// retained.
     pub async fn exclude_cluster_member_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -114,6 +145,10 @@ impl Archive {
     }
 
     /// Includes one previously excluded generated member.
+    ///
+    /// Persists inclusion and restores active membership with a `member_included` audit event.
+    /// Inclusion does not select this member as canonical or restore a canonical choice cleared
+    /// by exclusion. Removed or unknown members cannot be restored through this operation.
     pub async fn include_cluster_member_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -156,6 +191,11 @@ impl Archive {
     }
 
     /// Sets the canonical member while preserving the generated representative for future runs.
+    ///
+    /// Requires current active membership in the selected cluster. The canonical choice and
+    /// `canonical_set` event commit together; excluded/removed members return
+    /// `ClusterMemberMissing`. A later generation or local exclusion may invalidate the choice,
+    /// so prior inspection does not bypass membership or fencing validation here.
     pub async fn set_cluster_canonical_fenced(
         &self,
         token: &ArchiveLeaseToken,

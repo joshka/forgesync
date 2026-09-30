@@ -1796,3 +1796,19 @@ the existing crate-internal read boundary, whose visibility remains part of the 
 audit. Three nearby linear cases cover role precedence, number-versus-row identity, and unrelated
 members. Both cluster integration cases and initial workspace Clippy pass. Final workspace
 validation is running; remaining decision coordination stays in the bounded store-operation batch.
+
+## Continued maintenance: cluster mutation contracts
+
+Decision documentation now distinguishes local dismissal from generation lifecycle and local
+inclusion from canonical selection. It explains shared transactional state/event commits, repeated
+valid audit actions, reason byte limits and trimming, current-member validation, and the distinction
+between absent source threads and invalid cluster membership. Public operations describe their
+specific effects without duplicating the shared transaction contract at each method.
+
+The documentation is grounded in the existing SQL, member resolver, fence checks, and statement
+order. No mutation or error behavior changes. Final member projection validation is running;
+remaining cluster-level and canonical write coordination stays in the store-operation batch.
+
+Final member-projection gates pass: all workspace tests/doctests including the three role cases, the
+CLI build without default features, strict public/private Rustdoc, workspace Clippy, formatting,
+rumdl, and changed-page Markdown linting. Store-operation review remains open.
