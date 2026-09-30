@@ -1892,3 +1892,16 @@ A linear offline command scenario protects human section order, counts, thread c
 lease, and valid schema history. All three offline query scenarios pass. Workspace Clippy passed for
 the implementation before the added scenario; final workspace validation remains to run.
 Presentation and the subsequent workspace review batches remain open.
+
+## Continued maintenance: TUI coverage presentation
+
+A borrowed `CoverageView` presents identity, evidence, work diagnostics, and lease sections through
+named methods. The draw function retains initial loading, error precedence, cached-refresh marker,
+wrapping, and frame placement. Family order, heading emphasis, wording, owner/expiry fallback, and
+held-only owner display remain unchanged. The context borrows one loaded projection and performs no
+diagnostic refresh or archive operation.
+
+A nearby linear on-disk archive scenario checks the health heading, empty work counters, and
+available-lease line. All 68 TUI cases and its crate doctest pass. Workspace Clippy passes. The full
+workspace acceptance gates remain to rerun for this change. Presentation review remains open,
+including cluster detail and remaining list/detail summaries.
