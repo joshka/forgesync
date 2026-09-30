@@ -3200,3 +3200,11 @@ These tests make the documented arithmetic boundary explicit without scenario lo
 
 All nine focused timestamp scenarios, nightly formatting, rumdl, and changed-page Markdown linting
 pass.
+
+### Core value review gates
+
+All-target/all-feature core Clippy and strict Rustdoc including private items pass after
+observation, document, embedding, and timestamp cleanup. Evidence is in
+`/tmp/forgesync-core-review-clippy.log` and `/tmp/forgesync-core-review-doc.log`. The audit records
+these concrete reviewed contracts while keeping the complete item-depth and suite-quality passes
+open. Markdown gates pass.

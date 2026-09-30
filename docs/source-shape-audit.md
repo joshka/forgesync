@@ -272,14 +272,19 @@ keyword/ranking contracts have received targeted review; the complete pass remai
 The first core review covered coverage and provider extensions: stale marking became a named
 operation, and extension-object validation, rejected-value retention, replacement/null semantics,
 and sorted field access gained concrete contracts. Subsequent dispositions below record additional
-reviewed surfaces; the complete item-depth review remains open.
+reviewed surfaces; the complete item-depth review remains open. Observation accessors now explain
+source/acquisition context and archive-local sequence meaning. Document hashing, vector validation,
+and timestamp precision have explicit named regression scenarios; vector contracts distinguish shape
+validation from model compatibility. Core Clippy and strict private-item Rustdoc pass after these
+changes.
 
 The targeted conventions pass has since reviewed the previously short module introductions across
 CLI inspection/cluster commands, presentation views, engine inspection/refresh/clustering/error, and
 store coverage/finalization/build inputs. It corrected inaccurate effect and completeness claims
 rather than using line counts as completion evidence. Shared discussion filter arguments now have a
 CLI owner, and shared engine query adapters live in a private module with ordinary public functions.
-These findings are fixed; other visibility and item-depth candidates remain open.
+These findings are fixed. Visibility dispositions are recorded below; remaining item-depth
+candidates still require review.
 
 Engine restricted-visibility review now leaves two deliberate seams: the enumeration scan context
 and executor bridge, and embedding-client retry classification. Enumeration shares already reserved
