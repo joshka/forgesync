@@ -444,6 +444,20 @@ close the independent broad-signature, documentation-depth, or full test-quality
 This disposes of the core broad-signature candidates. The remaining crates and documentation-depth
 review still require their own evidence.
 
+### Refresh embedding ownership and signatures
+
+`refresh::embed_repositories` now lives beside repository traversal and stage reporting in the
+embedding adapter. The coordinator imports that owner directly; the former six-argument forwarding
+layer is removed. CLI embedding and composed refresh retain the same public operation and report.
+
+Retain the public operation's explicit archive, repository selection, service, document recipe,
+embedding policy, and cancellation inputs. They describe independent boundary choices; wrapping them
+in a second context would duplicate the private execution owner without reducing caller facts. The
+coordinator's `refresh` entry likewise accepts independently prepared services and a validated
+request rather than inventing an application-wide context. Private execution fields now distinguish
+request selection from deduplicated order, sync-only progress, stage failures, and document
+failures. These dispositions cover those two entry signatures, not all refresh or engine signatures.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

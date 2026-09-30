@@ -219,5 +219,6 @@ mod coordinator;
 mod embeddings;
 mod status;
 
-pub use coordinator::{embed_repositories, refresh};
+pub use coordinator::refresh;
+pub use embeddings::embed_repositories;
 use status::status_for_failure;

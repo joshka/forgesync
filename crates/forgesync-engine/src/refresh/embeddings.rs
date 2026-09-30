@@ -1,6 +1,6 @@
 //! # Materialize and embed refresh repository pages
 //!
-//! [`collect_embedding_repositories`] traverses each selected repository's retained discussions in
+//! [`embed_repositories`] traverses each selected repository's retained discussions in
 //! updated-order pages, including open and closed states. A private execution owner carries the
 //! archive, client, recipe, embedding policy, cancellation token, aggregate counts, and first
 //! stage-level failure. This module adapts document and embedding workflows into refresh reporting;
@@ -36,7 +36,8 @@ use crate::inspect::{
 use crate::reference::{RepositorySelector, ThreadSelector};
 use crate::refresh::status::{keep_first_failure, stage_failure};
 use crate::refresh::{
-    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStageFailure, RefreshStageStatus,
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStage, RefreshStageFailure,
+    RefreshStageStatus,
 };
 
 /// Materializes repositories independently, retaining successful pages and the first stage failure.
@@ -44,14 +45,14 @@ use crate::refresh::{
 /// Document failures are recorded individually and do not prevent other documents on the page from
 /// being embedded. Cancellation stops traversal after the current document and lets the embedding
 /// workflow finalize its durable batches before returning its partial report.
-pub async fn collect_embedding_repositories(
+pub async fn embed_repositories(
     archive: &Archive,
     repositories: &[RepositorySelector],
     client: &EmbeddingClient,
     recipe: DocumentRecipe,
     policy: EmbeddingPolicy,
     cancellation: &CancellationToken,
-) -> (RefreshEmbeddingReport, Option<RefreshStageFailure>) {
+) -> RefreshStage<RefreshEmbeddingReport> {
     let mut work = RepositoryEmbeddings {
         archive,
         client,
@@ -67,17 +68,27 @@ pub async fn collect_embedding_repositories(
             break;
         }
     }
-    (work.report, work.first_failure)
+    let status = embedding_status(&work.report, work.first_failure.as_ref());
+    RefreshStage::with_report(status, work.report, work.first_failure)
 }
 
 /// One refresh stage's services and accumulated outcomes across independent repository pages.
 struct RepositoryEmbeddings<'a> {
+    /// Archive supplying local discussion pages and receiving documents and vectors.
     archive: &'a Archive,
+    /// Vector service whose limits and identity apply to every page in this execution.
     client: &'a EmbeddingClient,
+    /// Document rendering identity used consistently across independently materialized
+    /// discussions.
     recipe: DocumentRecipe,
+    /// Whether compatible chunks may be reused or must be requested again.
     policy: EmbeddingPolicy,
+    /// Shared interruption signal checked between materializations and by provider work.
     cancellation: &'a CancellationToken,
+    /// Reported work and per-document failures accumulated across pages, not unique source counts.
     report: RefreshEmbeddingReport,
+    /// Earliest page-read or embedding-operation failure; per-document failures remain in
+    /// `report`.
     first_failure: Option<RefreshStageFailure>,
 }
 

@@ -23,7 +23,6 @@
 
 use std::collections::HashSet;
 
-use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_github::transport::GitHubClient;
@@ -36,7 +35,7 @@ use crate::embeddings::EmbeddingPolicy;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 use crate::refresh::clusters::build_repository_clusters;
-use crate::refresh::embeddings::{collect_embedding_repositories, embedding_status};
+use crate::refresh::embeddings::embed_repositories;
 use crate::refresh::status::{refresh_outcome, remaining_stages, stage_failure};
 use crate::refresh::{
     RefreshAnalysisStage, RefreshEmbeddingReport, RefreshReport, RefreshRequest, RefreshStage,
@@ -74,12 +73,21 @@ pub async fn refresh(
 /// Stages run in dependency order and retain independent reports. A failed stage does not erase
 /// acquired source evidence or prevent another explicitly selected stage from reporting its result.
 struct RefreshExecution<'a> {
+    /// Already opened archive shared by acquisition and independently committed derived stages.
     archive: &'a Archive,
+    /// Host-specific clients used only by the selected acquisition stage.
     github_clients: &'a std::collections::HashMap<GitHubHost, GitHubClient>,
+    /// Optional vector service; absence becomes a selected-stage failure rather than scope
+    /// failure.
     embedding_client: Option<&'a EmbeddingClient>,
+    /// Validated stage selection and policy, retaining caller input separately from deduplicated
+    /// scope.
     request: &'a RefreshRequest,
+    /// Caller interruption forwarded to every stage; earlier durable work is retained.
     cancellation: &'a CancellationToken,
+    /// Acquisition progress destination; derived stages report through their terminal reports.
     progress: Option<mpsc::Sender<SyncProgress>>,
+    /// First-occurrence repository order shared by all stages after URL-based deduplication.
     repositories: Vec<RepositorySelector>,
 }
 
@@ -204,25 +212,6 @@ impl RefreshExecution<'_> {
             None
         }
     }
-}
-
-/// Materializes current repository documents and embeds their missing compatible chunks.
-///
-/// Repository and document failures are retained in the stage report so callers can present
-/// successful work and retry guidance without losing already stored batches.
-pub async fn embed_repositories(
-    archive: &Archive,
-    repositories: &[RepositorySelector],
-    client: &EmbeddingClient,
-    recipe: DocumentRecipe,
-    policy: EmbeddingPolicy,
-    cancellation: &CancellationToken,
-) -> RefreshStage<RefreshEmbeddingReport> {
-    let (report, failure) =
-        collect_embedding_repositories(archive, repositories, client, recipe, policy, cancellation)
-            .await;
-    let status = embedding_status(&report, failure.as_ref());
-    RefreshStage::with_report(status, report, failure)
 }
 
 /// Rejects refresh selections that cannot run before any stage starts.

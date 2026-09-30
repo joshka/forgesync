@@ -36,6 +36,12 @@ comment completion contract now reflects its actual ordering: checked count accu
 the terminal ledger write, while completion publication follows it. This is a documentation-only
 pass; strict engine Rustdoc and nightly formatting pass. The wider review remains open.
 
+Refresh embedding execution now lives in its embedding adapter, removing a six-argument forwarding
+layer from the coordinator while preserving the public operation used by CLI embedding. Its owner
+documents service/policy inputs, independent document failures, first stage failure, and accumulated
+work. Three refresh-filtered integration cases and engine/CLI all-target Clippy pass. Signature
+dispositions are recorded in the source-shape audit; the remaining cross-crate review is still open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
