@@ -3190,3 +3190,13 @@ the value owner directly and retain exact typed error expectations.
 
 All nine focused embedding scenarios, nightly formatting, rumdl, and changed-page Markdown linting
 pass.
+
+### Timestamp precision boundary scenarios
+
+Timestamp archive round-trip, unsupported range, and discarded precision now have independent
+scenarios. Named microsecond cases establish truncation toward the epoch on both sides, including a
+negative sub-microsecond instant becoming zero. Signed extremes both reject unsupported instants.
+These tests make the documented arithmetic boundary explicit without scenario loops.
+
+All nine focused timestamp scenarios, nightly formatting, rumdl, and changed-page Markdown linting
+pass.

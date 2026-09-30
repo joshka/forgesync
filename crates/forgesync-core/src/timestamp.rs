@@ -128,7 +128,7 @@ impl<'de> Deserialize<'de> for UtcTimestamp {
 mod tests {
     use serde_json::json;
 
-    use super::{TimestampError, UtcTimestamp};
+    use crate::timestamp::{TimestampError, UtcTimestamp};
 
     #[test]
     fn timestamps_compare_as_instants_and_serialize_as_utc() {
@@ -159,18 +159,42 @@ mod tests {
     }
 
     #[test]
-    fn archive_microseconds_round_trip() {
+    fn pre_epoch_archive_microseconds_round_trip() {
         let timestamp = UtcTimestamp::parse("1969-12-31T23:59:59.123456Z").expect("valid time");
         let micros = timestamp.unix_microseconds();
+
         assert_eq!(UtcTimestamp::from_unix_microseconds(micros), Ok(timestamp));
+    }
+
+    #[rstest::rstest]
+    #[case::maximum(i64::MAX)]
+    #[case::minimum(i64::MIN)]
+    fn unsupported_archive_instants_are_rejected(#[case] micros: i64) {
         assert_eq!(
-            UtcTimestamp::from_unix_microseconds(i64::MAX),
+            UtcTimestamp::from_unix_microseconds(micros),
             Err(TimestampError::OutOfRange)
         );
+    }
 
+    #[rstest::rstest]
+    #[case::after_epoch("1970-01-01T00:00:00.000001999Z", 1)]
+    #[case::before_epoch("1969-12-31T23:59:59.999998001Z", -1)]
+    #[case::near_epoch("1969-12-31T23:59:59.999999999Z", 0)]
+    fn sub_microsecond_precision_truncates_toward_epoch(
+        #[case] source: &str,
+        #[case] expected_micros: i64,
+    ) {
+        let timestamp = UtcTimestamp::parse(source).expect("valid precise timestamp");
+
+        assert_eq!(timestamp.unix_microseconds(), expected_micros);
+    }
+
+    #[test]
+    fn formatting_does_not_restore_discarded_precision() {
         let precise = UtcTimestamp::parse("2026-09-20T10:00:00.123456789Z").expect("timestamp");
         let stored = UtcTimestamp::from_unix_microseconds(precise.unix_microseconds())
             .expect("microsecond timestamp");
+
         assert_eq!(
             stored.format_rfc3339().expect("format"),
             "2026-09-20T10:00:00.123456Z"
