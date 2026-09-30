@@ -9,7 +9,7 @@
 //! closes the handle before presenting the result. The engine and store own target validation,
 //! write authority, transactions, and durable decision semantics. No handler writes to GitHub.
 //!
-//! The shared rendering helper awaits the operation and emits a small decision acknowledgment
+//! The shared rendering helper receives the finished result and emits a small acknowledgment
 //! containing the cluster ID and action name. It does not reload cluster detail or make an
 //! optimistic state change. Store failures keep store diagnostic codes; other engine failures keep
 //! engine codes. A rendering failure after a successful operation does not undo its durable write.
@@ -38,24 +38,32 @@ pub async fn run_dismiss(
     path: &Path,
     json: OutputMode,
 ) -> ExitCode {
-    mutate_cluster(json, "cluster dismiss", id, "dismissed", async {
-        let archive = Archive::open_read_write(path).await?;
-        let result = dismiss_cluster(&archive, id, reason.as_deref().unwrap_or("")).await;
-        archive.close().await;
-        result
-    })
-    .await
+    let archive = match Archive::open_read_write(path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "cluster dismiss", error),
+    };
+    let result = dismiss_cluster(&archive, id, reason.as_deref().unwrap_or("")).await;
+    archive.close().await;
+    let output = ClusterDecisionOutput {
+        cluster_id: id,
+        action: "dismissed",
+    };
+    render_decision(json, "cluster dismiss", output, result)
 }
 
 /// Restores a locally dismissed cluster to maintainer triage.
 pub async fn run_restore(id: u64, path: &Path, json: OutputMode) -> ExitCode {
-    mutate_cluster(json, "cluster restore", id, "restored", async {
-        let archive = Archive::open_read_write(path).await?;
-        let result = restore_cluster(&archive, id).await;
-        archive.close().await;
-        result
-    })
-    .await
+    let archive = match Archive::open_read_write(path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "cluster restore", error),
+    };
+    let result = restore_cluster(&archive, id).await;
+    archive.close().await;
+    let output = ClusterDecisionOutput {
+        cluster_id: id,
+        action: "restored",
+    };
+    render_decision(json, "cluster restore", output, result)
 }
 
 /// Excludes a member from local cluster triage and retains an optional reason.
@@ -66,14 +74,18 @@ pub async fn run_exclude(
     path: &Path,
     json: OutputMode,
 ) -> ExitCode {
-    mutate_cluster(json, "cluster exclude", id, "member_excluded", async move {
-        let archive = Archive::open_read_write(path).await?;
-        let result =
-            exclude_cluster_member(&archive, id, &member, reason.as_deref().unwrap_or("")).await;
-        archive.close().await;
-        result
-    })
-    .await
+    let archive = match Archive::open_read_write(path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "cluster exclude", error),
+    };
+    let result =
+        exclude_cluster_member(&archive, id, &member, reason.as_deref().unwrap_or("")).await;
+    archive.close().await;
+    let output = ClusterDecisionOutput {
+        cluster_id: id,
+        action: "member_excluded",
+    };
+    render_decision(json, "cluster exclude", output, result)
 }
 
 /// Returns a previously excluded member to its generated cluster.
@@ -83,13 +95,17 @@ pub async fn run_include(
     path: &Path,
     json: OutputMode,
 ) -> ExitCode {
-    mutate_cluster(json, "cluster include", id, "member_included", async move {
-        let archive = Archive::open_read_write(path).await?;
-        let result = include_cluster_member(&archive, id, &member).await;
-        archive.close().await;
-        result
-    })
-    .await
+    let archive = match Archive::open_read_write(path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "cluster include", error),
+    };
+    let result = include_cluster_member(&archive, id, &member).await;
+    archive.close().await;
+    let output = ClusterDecisionOutput {
+        cluster_id: id,
+        action: "member_included",
+    };
+    render_decision(json, "cluster include", output, result)
 }
 
 /// Records the canonical discussion selected by the maintainer.
@@ -99,33 +115,31 @@ pub async fn run_set_canonical(
     path: &Path,
     json: OutputMode,
 ) -> ExitCode {
-    mutate_cluster(json, "cluster canonical", id, "canonical_set", async move {
-        let archive = Archive::open_read_write(path).await?;
-        let result = set_canonical_cluster_member(&archive, id, &member).await;
-        archive.close().await;
-        result
-    })
-    .await
+    let archive = match Archive::open_read_write(path).await {
+        Ok(archive) => archive,
+        Err(error) => return render_store_error(json, "cluster canonical", error),
+    };
+    let result = set_canonical_cluster_member(&archive, id, &member).await;
+    archive.close().await;
+    let output = ClusterDecisionOutput {
+        cluster_id: id,
+        action: "canonical_set",
+    };
+    render_decision(json, "cluster canonical", output, result)
 }
 
-/// Renders a local decision consistently while preserving typed engine and store failures.
-async fn mutate_cluster<F>(
+/// Presents an already finished local decision with its typed engine or store failure.
+///
+/// The handler has closed the archive before calling this renderer. The acknowledgment describes
+/// the selected action only on success; rendering never invokes or retries the mutation.
+fn render_decision(
     json: OutputMode,
     command: &'static str,
-    cluster_id: u64,
-    action: &'static str,
-    operation: F,
-) -> ExitCode
-where
-    F: std::future::Future<Output = Result<(), EngineError>>,
-{
-    match operation.await {
-        Ok(()) => render_success(
-            json,
-            command,
-            &ClusterDecisionOutput { cluster_id, action },
-            cluster_decision_summary,
-        ),
+    output: ClusterDecisionOutput,
+    result: Result<(), EngineError>,
+) -> ExitCode {
+    match result {
+        Ok(()) => render_success(json, command, &output, cluster_decision_summary),
         Err(EngineError::Store(error)) => render_store_error(json, command, error),
         Err(error) => render_engine_error(json, command, error),
     }

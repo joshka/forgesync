@@ -489,6 +489,16 @@ categories, not descendant cleanup or provider authentication. Portable variable
 three named rstest cases instead of one assertion bundle. This disposes of the inspected credential,
 root-renderer, and progress-start signatures; other CLI candidates remain open.
 
+### CLI local decision execution
+
+Dismiss, restore, exclude, include, and canonical handlers now show archive opening, the named
+engine mutation, archive closing, and presentation as a linear sequence. The renderer receives a
+completed typed result and `ClusterDecisionOutput`; it no longer accepts an opaque mutation future
+or separate acknowledgment fields. This removes hidden side effects and one broad helper signature
+without an extra context type. Handler inputs retain the explicit target, optional member/reason,
+path, and output policy; member identity and rationale are independent user choices. The renderer's
+output, command label, acknowledgment, and result remain independent presentation inputs.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

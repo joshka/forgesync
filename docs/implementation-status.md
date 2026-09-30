@@ -77,6 +77,13 @@ credential, root-renderer, and progress-start signatures with their distinct pol
 credential cases and all-target CLI Clippy pass; the remaining signature and suite-quality
 inventories stay open.
 
+Local cluster decisions now show opening, named mutation, closing, and rendering directly in each
+handler. The renderer accepts the finished typed result and acknowledgment instead of an async
+mutation block. Five named unavailable-target cases cover the decision commands and their actual
+validation order; invalid threshold rejection is separate from offline build/list. Construction and
+cleanup fixtures document their effects. All seven cluster process cases, CLI all-target Clippy,
+strict CLI Rustdoc, nightly formatting, and Markdown checks pass. Broader suite review remains open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
