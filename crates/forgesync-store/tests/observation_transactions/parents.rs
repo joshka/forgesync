@@ -8,23 +8,42 @@ use std::cmp::Ordering;
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::observations::ObservationDisposition;
 use forgesync_store::ordering::compare_revision_observation_order;
 
 use crate::fixture::{
-    create_archive_with_repository, discussion, incomplete, read_current_thread_title,
-    remove_archive, reserve, temporary_archive_path, thread_observation,
+    discussion, incomplete, read_current_thread_title, remove_archive, repository,
+    temporary_archive_path, thread_id, thread_observation, timestamp,
 };
 
 #[tokio::test]
 async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let first_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
-    let second_sequence = reserve(&archive, "2026-09-20T10:00:01Z").await;
-    let third_sequence = reserve(&archive, "2026-09-20T10:00:02Z").await;
-    let fourth_sequence = reserve(&archive, "2026-09-20T10:00:03Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let first_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
+    let second_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:01Z"))
+        .await
+        .expect("reserve observation sequence");
+    let third_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:02Z"))
+        .await
+        .expect("reserve observation sequence");
+    let fourth_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:03Z"))
+        .await
+        .expect("reserve observation sequence");
 
     let first = discussion(&thread_id, "2026-09-20T10:00:00Z", "first");
     let applied = archive
@@ -120,8 +139,17 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
 #[tokio::test]
 async fn tied_conflicts_are_rejected_and_identical_observations_are_idempotent() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
     let observation = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "same"),
         "2026-09-20T10:00:00Z",
@@ -161,9 +189,21 @@ async fn tied_conflicts_are_rejected_and_identical_observations_are_idempotent()
 #[tokio::test]
 async fn malformed_source_clocks_are_ambiguous_but_revision_sequences_remain_distinct() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let first_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
-    let second_sequence = reserve(&archive, "2026-09-20T10:00:01Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let first_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
+    let second_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:01Z"))
+        .await
+        .expect("reserve observation sequence");
     let first = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "first"),
         "not-a-time-a",

@@ -7,20 +7,30 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::families::ChildFamilyObservation;
 use serde_json::json;
 
 use crate::fixture::{
-    create_archive_with_repository, discussion, item, remove_archive, reserve,
-    temporary_archive_path, thread_observation, timestamp, writable_pool,
+    discussion, item, remove_archive, repository, temporary_archive_path, thread_id,
+    thread_observation, timestamp, writable_pool,
 };
 
 #[tokio::test]
 async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let thread_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
     archive
         .apply_thread_observation(&thread_observation(
             discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
@@ -154,8 +164,17 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
 #[tokio::test]
 async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_context() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let thread_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
     archive
         .apply_thread_observation(&thread_observation(
             discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),

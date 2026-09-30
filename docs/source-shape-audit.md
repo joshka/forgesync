@@ -704,9 +704,10 @@ independent.
 
 Observation integration fixtures now have a shallow defining owner with direct scenario imports. The
 root maps parent, ordering, child, rollback, and fixture responsibilities without an import prelude.
-Fixture docs distinguish archive creation/registration and durable sequence reservation from pure
-value construction and raw inspection. Scenario writes and assertions remain in their owners.
-Remaining fixture execution burden and parent/child assertion depth stay under review.
+Archive creation, repository registration, and all ten sequence reservations now appear directly in
+scenarios. Fixtures construct values and supply raw inspection/pool/cleanup capabilities; they no
+longer create an archive, register source content, or reserve acquisitions. Parent/child scenario
+separation and assertion depth stay under review.
 
 Observation rollback regressions now require the database error variant and the injected trigger
 diagnostic before checking retained membership and coverage. An unrelated failure can no longer

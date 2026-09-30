@@ -7,20 +7,30 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
+use forgesync_store::archive::Archive;
 use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::observations::ObservationDisposition;
 use serde_json::json;
 
 use crate::fixture::{
-    create_archive_with_repository, discussion, incomplete, item, remove_archive, reserve,
-    temporary_archive_path, thread_observation, timestamp,
+    discussion, incomplete, item, remove_archive, repository, temporary_archive_path, thread_id,
+    thread_observation, timestamp,
 };
 
 #[tokio::test]
 async fn child_families_stage_pages_and_only_complete_results_replace_membership() {
     let path = temporary_archive_path();
-    let (archive, thread_id) = create_archive_with_repository(&path).await;
-    let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let thread_sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
     archive
         .apply_thread_observation(&thread_observation(
             discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),

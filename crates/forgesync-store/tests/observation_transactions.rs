@@ -7,7 +7,8 @@
 //! `children` covers paginated membership publication and complete-empty replacement.
 //! `rollback` injects SQL failures and checks preserved canonical evidence and staged retry.
 //!
-//! `fixture` owns value construction, archive setup, explicit sequence reservation, and inspection.
+//! `fixture` owns value construction, filename allocation, raw inspection, and cleanup.
+//! Archive creation, repository registration, and sequence reservation remain visible in scenarios.
 //! Scenario imports name that owner directly rather than depending on root imports.
 //! Provider traversal and workflow scheduling remain engine integration responsibilities.
 

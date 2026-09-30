@@ -1,9 +1,9 @@
 //! # Observation integration setup and value construction
 //!
-//! Archive setup creates an on-disk database and registers one fixed synthetic repository.
-//! Its returned thread identity is not written until a scenario applies an observation.
+//! Repository and thread constructors supply fixed checked identities without archive writes.
+//! Scenarios create the database and register that repository explicitly.
 //! Value helpers construct discussion payloads, independent clocks, completeness, and staging rows.
-//! Sequence reservation is an explicit durable operation; it does not apply evidence.
+//! Scenarios reserve every durable acquisition sequence before applying their evidence.
 //!
 //! Raw read-only inspection checks committed titles independently of public projection helpers.
 //! Writable pools arrange trigger failures or corruption without creating or migrating databases.
@@ -24,23 +24,20 @@ use forgesync_core::observation::{
 };
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
-use forgesync_store::archive::Archive;
 use forgesync_store::observations::StagedItem;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 /// Separates database filenames for concurrently executing cases in this process.
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 
-/// Creates an on-disk archive and registers the synthetic repository.
-///
-/// The returned thread identity is not persisted until a scenario applies its observation.
-pub async fn create_archive_with_repository(path: &PathBuf) -> (Archive, ThreadId) {
-    let archive = Archive::create(path).await.expect("create archive");
+/// Constructs synthetic repository identity and metadata without creating or registering an
+/// archive.
+pub fn repository() -> Repository {
     let repository_id = RepositoryId::new(
         GitHubHost::parse("github.com").expect("host"),
         ProviderId::new("repository-42").expect("repository provider ID"),
     );
-    let repository = Repository {
+    Repository {
         id: repository_id.clone(),
         owner: "example".to_owned(),
         name: "project".to_owned(),
@@ -48,13 +45,7 @@ pub async fn create_archive_with_repository(path: &PathBuf) -> (Archive, ThreadI
         default_branch: Some("main".to_owned()),
         updated_at: Some(timestamp("2026-09-20T10:00:00Z")),
         provider_data: ProviderData::new(),
-    };
-    archive
-        .upsert_repository(&repository)
-        .await
-        .expect("insert repository");
-    let thread_id = thread_id(&repository_id);
-    (archive, thread_id)
+    }
 }
 
 /// Constructs issue 101 under the supplied repository without writing a parent row.
@@ -120,14 +111,6 @@ pub fn item(id: &str, payload: serde_json::Value) -> StagedItem<serde_json::Valu
         id: ProviderId::new(id).expect("provider item ID"),
         payload,
     }
-}
-
-/// Reserves a durable acquisition sequence at the supplied timestamp before evidence is built.
-pub async fn reserve(archive: &Archive, started_at: &str) -> ObservationSequence {
-    archive
-        .reserve_observation_sequence(timestamp(started_at))
-        .await
-        .expect("reserve observation sequence")
 }
 
 /// Parses a fixture timestamp, failing immediately if the scenario contains invalid setup.
