@@ -69,7 +69,7 @@ pub fn normalize_repository(
 /// Converts an issue or pull-request issue record to normalized discussion content.
 pub fn normalize_issue(
     repository: &Repository,
-    issue: RestIssue,
+    mut issue: RestIssue,
 ) -> Result<Discussion, GitHubError> {
     let id = ThreadId::new(
         repository.id.clone(),
@@ -93,25 +93,7 @@ pub fn normalize_issue(
         .flatten()
         .filter_map(|assignee| assignee.login.clone())
         .collect::<Vec<_>>();
-    let mut provider_data = provider_data(issue.extra);
-    if let Some(user) = issue.user {
-        provider_data.insert("user", serde_json::to_value(user).map_err(json_error)?);
-    }
-    if let Some(labels) = issue.labels {
-        provider_data.insert(
-            "labels_source",
-            serde_json::to_value(labels).map_err(json_error)?,
-        );
-    }
-    if let Some(assignees) = issue.assignees {
-        provider_data.insert(
-            "assignees_source",
-            serde_json::to_value(assignees).map_err(json_error)?,
-        );
-    }
-    if let Some(pull_request) = issue.pull_request {
-        provider_data.insert("pull_request", pull_request);
-    }
+    let provider_data = issue.take_provider_data()?;
 
     Ok(Discussion {
         id,
@@ -131,6 +113,36 @@ pub fn normalize_issue(
         assignees,
         provider_data,
     })
+}
+
+impl RestIssue {
+    /// Moves raw extension fields and selected source objects into retained provider evidence.
+    ///
+    /// Labels and assignees must be projected before calling this method: it takes those fields,
+    /// along with user and pull-request markers, while leaving scalar discussion fields available
+    /// for domain construction. No archive write or completeness decision occurs here.
+    fn take_provider_data(&mut self) -> Result<ProviderData, GitHubError> {
+        let mut retained = provider_data(std::mem::take(&mut self.extra));
+        if let Some(user) = self.user.take() {
+            retained.insert("user", serde_json::to_value(user).map_err(json_error)?);
+        }
+        if let Some(labels) = self.labels.take() {
+            retained.insert(
+                "labels_source",
+                serde_json::to_value(labels).map_err(json_error)?,
+            );
+        }
+        if let Some(assignees) = self.assignees.take() {
+            retained.insert(
+                "assignees_source",
+                serde_json::to_value(assignees).map_err(json_error)?,
+            );
+        }
+        if let Some(pull_request) = self.pull_request.take() {
+            retained.insert("pull_request", pull_request);
+        }
+        Ok(retained)
+    }
 }
 
 /// Converts a REST comment while preserving source fields needed by the archive.

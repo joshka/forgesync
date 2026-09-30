@@ -3248,3 +3248,13 @@ decisions.
 The focused engine error-name selection passes all 22 matching scenarios, including error mapping
 and error-preserving lease cleanup. Nightly formatting, rumdl, and changed-page Markdown linting
 pass.
+
+### Issue source-field retention ownership
+
+REST issue normalization delegates raw extension/object retention to a method on the issue DTO. The
+domain mapper keeps identity, display projections, timestamps, and discussion assembly together. The
+directly following method documents which fields it takes and why labels/assignees must be projected
+first. Existing retained keys, pull-request classification, and error mapping are preserved.
+
+The complete GitHub suite passes: 24 unit tests and two doctests. Nightly formatting, rumdl, and
+changed-page Markdown linting pass.
