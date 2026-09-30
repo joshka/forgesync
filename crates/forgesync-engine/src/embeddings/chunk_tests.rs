@@ -12,23 +12,32 @@
 use crate::embeddings::chunks::chunk_document;
 
 #[test]
-fn chunks_are_deterministic_utf8_safe_and_within_the_byte_budget() {
+fn repeated_chunking_preserves_text_coordinates_and_hashes() {
     let text = "first phrase 🦀 and another very long phrase";
     let first = chunk_document(text, 16).expect("chunks");
     let second = chunk_document(text, 16).expect("repeat chunks");
 
-    assert_eq!(first.len(), second.len());
-    assert!(first.iter().all(|chunk| chunk.text.len() <= 16));
-    assert!(first.iter().all(|chunk| chunk.hash.len() == 64));
+    assert_eq!(first, second);
+}
+
+#[rstest::rstest]
+#[case::whitespace_boundary("first phrase 🦀 and another very long phrase", 16, vec!["first phrase", "🦀 and", "another very", "long phrase"])]
+#[case::multibyte_boundary("🦀🦀x", 4, vec!["🦀", "🦀", "x"])]
+#[case::trimmed_empty(" \n\t ", 4, vec![])]
+fn chunk_text_respects_utf8_and_whitespace_boundaries(
+    #[case] text: &str,
+    #[case] max_bytes: usize,
+    #[case] expected: Vec<&str>,
+) {
+    let chunks = chunk_document(text, max_bytes).expect("chunks");
+
     assert_eq!(
-        first
+        chunks
             .iter()
             .map(|chunk| chunk.text.as_str())
-            .collect::<Vec<_>>()
-            .join(" "),
-        text
+            .collect::<Vec<_>>(),
+        expected
     );
-    assert_eq!(first, second);
 }
 
 #[test]

@@ -32,6 +32,11 @@ pub struct DocumentChunk {
 }
 
 /// Selects chunks matching the current document and model identity.
+///
+/// The caller supplies records already scoped to the document, recipe, endpoint, and model.
+/// Reuse additionally requires the selected total count, optional dimensions, position, and hash.
+/// Pending inputs retain their original order; each reused input increments `skipped` once.
+/// This function checks no archive freshness and neither requests nor writes vectors.
 pub fn compatible_chunks(
     existing: Vec<StoredEmbeddingChunk>,
     chunks: Vec<DocumentChunk>,
@@ -75,6 +80,17 @@ pub struct CompatibleChunks {
 }
 
 /// Splits one document into deterministic model inputs.
+///
+/// Trims outer whitespace and prefers the last whitespace boundary within the byte budget.
+/// When no such boundary exists, splitting uses the last whole UTF-8 character that fits.
+/// Whitespace around each split is discarded; empty or whitespace-only input produces no chunks.
+/// Every returned input has consecutive coordinates, a common count, and a text/position hash.
+///
+/// # Errors
+///
+/// Budgets below four bytes return [`EngineError::EmbeddingWorkerFailed`], since they cannot
+/// accommodate every UTF-8 scalar. An unrepresentable chunk count or unusable boundary returns
+/// [`EngineError::InvalidEmbeddingInput`]. No model request or archive operation runs here.
 pub fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>, EngineError> {
     if max_bytes < 4 {
         return Err(EngineError::EmbeddingWorkerFailed);
@@ -124,7 +140,9 @@ pub fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>
         .collect())
 }
 
-/// Hashes one chunk with its recipe context for reuse decisions.
+/// Hashes the versioned domain, position, and text with length framing for reuse decisions.
+///
+/// Recipe and service identity are established by the caller's archive lookup, not this digest.
 fn chunk_hash(index: u32, text: &str) -> String {
     let mut hasher = Sha256::new();
     add_hash_field(&mut hasher, b"forgesync-embedding-chunk-v1");

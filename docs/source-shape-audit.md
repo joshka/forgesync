@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Chunk tests separate repeatability from named whitespace, multibyte-boundary, and empty-input
+expectations. Exact expected fragments replace generic predicates that made the reader reconstruct
+splitting behavior. Chunk helper contracts distinguish lookup-scoped recipe/service identity from
+position/text hashing and spell out trimming, byte budgets, errors, and reuse checks. Scheduling
+cleanup retains direct oneshot resource-lifetime assertions; proposal projection retains explicit
+graphs and direct representative/member expectations without hidden graph construction.
+
 Document recipe assertions now separate comment ordering, review inclusion, bot exclusion, and
 deduplication case normalization. The construction-only detail fixture lives in a shallow sibling
 test module with explicit identity, chronology, bot metadata, and coverage contracts. Stale-family
