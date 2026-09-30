@@ -332,6 +332,11 @@ failure-ledger abort. The retry case retains its dependent acquisition phases to
 membership compares two issues in one run to show sibling failure isolation; the ledger case targets
 preservation of both provider and database failure causes.
 
+Sync enumeration regressions have sibling owners for cancellation/replay, closed-sweep watermark
+recovery, and failed-run writer-fence cleanup. Replay's responder notification identifies the second
+page boundary directly; closed sweep owns overlap and checkpoint fault setup; run creation needs no
+provider fixture because its foreign-key rejection precedes acquisition.
+
 Cluster integration under `tests/clustering_workflow` has shallow complete, partial, and namespace
 scenario owners. Its fixture module constructs identities and source/document values only, plus path
 allocation and cleanup. Scenarios explicitly reserve observations, apply source evidence, persist

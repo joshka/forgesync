@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Sync enumeration now separates replay, closed-sweep recovery, and run-creation cleanup into shallow
+owners. Replay uses a request-arrival notification and checks preserved discussion content;
+checkpoint setup verifies its affected row; failed run creation requires the expected foreign-key
+violation and proves fence release with a non-expiring historical clock. All 15 sync cases pass;
+engine all-target Clippy passes with warnings denied. Remaining engine assertion review, store
+observation assertions, broad API/docs acceptance, and final workspace gates remain open.
+
 Comment sync now separates retry, empty-membership isolation, and failure-ledger abort into shallow
 owners. Empty-membership checks establish the original values and compare full retained members.
 Ledger assertions downcast the typed error source and require the injected database failure while

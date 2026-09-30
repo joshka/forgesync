@@ -15,12 +15,13 @@
 //! Read the affected scenario to see family selection, failure setup, and canonical-state
 //! assertions. Document-only response setup stays alongside document materialization scenarios.
 
+mod closed_sweep;
 mod comments_empty;
 mod comments_ledger;
 mod comments_retry;
 mod documents;
 mod embeddings;
-mod enumeration;
+mod enumeration_replay;
 mod fixture_archive;
 mod fixture_issues;
 mod fixture_reviews;
@@ -30,3 +31,4 @@ mod review_threads_membership;
 mod review_threads_partial;
 mod reviews_failure;
 mod reviews_head_change;
+mod run_creation;

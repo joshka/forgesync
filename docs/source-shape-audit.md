@@ -710,10 +710,19 @@ retained-member comparisons. The ledger regression checks the engine code, downc
 source to `StoreError`, requires its database variant and injected trigger diagnostic, and
 separately asserts the retained provider failure. Its raw pool cannot create an archive.
 
-Engine sync assertion and module-cohesion acceptance remain open. The enumeration owner still
-combines interrupted replay, closed-sweep watermark recovery, and failed-run fence cleanup; these
-independent contracts need shallow owners and targeted assertion review. Remaining observation
-assertion acceptance and broad documentation/API acceptance are separate review work.
+Sync enumeration now has shallow replay, closed-sweep, and run-creation owners. Replay coordinates
+cancellation with a responder notification instead of polling request history, verifies its sole
+interrupted job, and compares the full committed first discussion after replay alongside the added
+second identity. Closed sweep verifies one affected checkpoint row and separates read/presence and
+unchanged-watermark assertions. Its raw pool cannot create an archive. Run-creation rejection
+requires the database foreign-key violation, confirms no run and no external cancellation, then
+reacquires at the Unix epoch so release cannot be confused with expiration. Lease release has a
+separate fallible operation and boolean expectation. All 15 sync integration cases pass.
+
+Remaining engine test acceptance covers document materialization, embedding retry, refresh, retry
+selection, and final review-family assertion quality. Completed enumeration and comment grouping
+findings are removed from that inventory. Store observation assertion acceptance and broad
+production documentation/API acceptance remain separate review work.
 
 ### Store lifecycle and cluster-suite dispositions
 

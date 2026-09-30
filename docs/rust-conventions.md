@@ -119,6 +119,10 @@ Review changes to parsing, traits, MSRV, and feature resolution separately from 
   behavior under test. Fixed resource cleanup loops may remain when their purpose is documented;
   expanding identical cleanup steps adds noise without clarifying a scenario. Name fixture policies
   such as active versus historical selection instead of passing behavior booleans.
+- Coordinate asynchronous scenarios with an observable fixture boundary when possible. A responder
+  notification can identify request arrival directly; polling request history adds a loop, timeout,
+  and matching policy that readers must understand before they can follow the tested transition.
+  Keep the actual workflow and cancellation visible in the scenario.
 - Compare values or structured error variants so failures explain what changed. Use `insta` for
   stable structured output or rendering when the snapshot is easier to review than many asserts.
   Review each changed snapshot as a behavior change.
