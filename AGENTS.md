@@ -66,6 +66,8 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   publisher; CI uses the matching workflow filename and environment without a registry secret.
 - Use jj for version control. Start a described new change for each separable task and run jj
   operations sequentially. Do not create Git worktree threads.
+- Use each jj workspace's own build target directory. Sharing a Cargo target directory between
+  active workspaces causes build-lock contention and mixes validation artifacts.
 - Read the plan, this file, implementation status, and the selected reference tests before each
   task. Implement the earliest unblocked task and update docs/implementation-status.md with evidence
   and the next task.

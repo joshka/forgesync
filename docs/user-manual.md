@@ -533,7 +533,8 @@ forgesync -vv --log-format json sync ratatui/ratatui \
   > result.txt 2> diagnostics.jsonl
 ```
 
-`-v` enables informational logs, `-vv` debug logs, and `-vvv` trace logs. `--log-format json`
+`-v` enables informational logs, `-vv` debug logs, and `-vvv` trace logs. Text diagnostics use
+tracing's default ANSI colors; set `NO_COLOR` to a nonempty value to disable them. `--log-format json`
 changes diagnostics only; add `--json` for JSON command results. Credentials, authorization headers,
 and raw discussion payloads are not logged by Forgesync's diagnostics.
 
