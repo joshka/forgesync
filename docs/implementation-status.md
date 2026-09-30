@@ -1905,3 +1905,19 @@ A nearby linear on-disk archive scenario checks the health heading, empty work c
 available-lease line. All 68 TUI cases and its crate doctest pass. Workspace Clippy passes. The full
 workspace acceptance gates remain to rerun for this change. Presentation review remains open,
 including cluster detail and remaining list/detail summaries.
+
+## Continued maintenance: cluster display projections
+
+TUI cluster list wording belongs to `cluster_item`. A borrowed `ClusterDetailView` holds the loaded
+member projection and selected index together. Its heading and member methods preserve repository
+scope, counts, dismissal suffix, member order, optional three-decimal score, role/inclusion labels,
+and matching selection marker/highlight. Drawing retains loading/error precedence, refresh markers,
+selection eligibility, wrapping, and frame placement. Domain label matches remain exhaustive value
+maps rather than behavioral dispatch.
+
+The initial projection change passes all 68 TUI tests, its doctest, and workspace Clippy. A final
+member-method simplification introduces named role/inclusion label queries and computes selection
+once. Focused and full workspace validation pass for that final tree, including the previous
+coverage presentation change: all tests/doctests, workspace Clippy, the CLI build without default
+features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown
+linting. Remaining CLI list/detail and TUI input/event-loop review stays open.

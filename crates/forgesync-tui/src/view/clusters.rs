@@ -5,9 +5,16 @@
 //!
 //! A proposal and a maintainer decision should look distinguishable. Layout here explains the
 //! current cluster state; key handling and persistence remain in app input and query operations.
+//!
+//! `cluster_item` owns list-row wording. A borrowed `ClusterDetailView` keeps the loaded members
+//! and selection together for heading and member-line rendering. Roles and inclusion states remain
+//! distinct, scores are omitted when absent, and the marker and highlight identify the same member.
+//! Drawing functions own loading/error precedence and widget placement; these projections start no
+//! query and record no maintainer decision.
 
 use forgesync_store::clusters::{
-    ClusterDetail, ClusterLifecycle, ClusterMemberRole, ClusterMemberState,
+    ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
+    ClusterSummary,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -20,29 +27,7 @@ use crate::view::{pane_block, selected_style};
 
 /// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut items: Vec<ListItem<'_>> = app
-        .cluster_list
-        .items
-        .iter()
-        .map(|cluster| {
-            let lifecycle = match cluster.lifecycle {
-                ClusterLifecycle::Active => "active",
-                ClusterLifecycle::Retired => "retired",
-            };
-            let dismissed = if cluster.dismissed {
-                " · dismissed"
-            } else {
-                ""
-            };
-            ListItem::new(format!(
-                "{} · {} · {} active / {} excluded{dismissed}",
-                cluster.title,
-                lifecycle,
-                cluster.active_member_count,
-                cluster.excluded_member_count
-            ))
-        })
-        .collect();
+    let mut items: Vec<ListItem<'_>> = app.cluster_list.items.iter().map(cluster_item).collect();
     if app.cluster_list.loading && items.is_empty() {
         items.push(ListItem::new("Loading clusters…"));
     } else if let Some(error) = &app.cluster_list.error {
@@ -72,7 +57,11 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     } else if let Some(error) = &app.cluster_detail_pane.error {
         vec![Line::from(error.clone())]
     } else if let Some(detail) = &app.cluster_detail_pane.data {
-        cluster_detail_lines(detail, app.cluster_detail_pane.selected_member)
+        let view = ClusterDetailView {
+            detail,
+            selected_member: app.cluster_detail_pane.selected_member,
+        };
+        view.lines()
     } else {
         vec![Line::from(
             "Select a cluster to inspect its members and neighbor scores.",
@@ -89,41 +78,79 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-/// Builds the ordered detail lines for one generated cluster.
-fn cluster_detail_lines(detail: &ClusterDetail, selected_member: usize) -> Vec<Line<'static>> {
-    let cluster = &detail.cluster;
-    let mut lines = vec![
-        Line::from(format!("Cluster #{} · {}", cluster.id, cluster.title)).style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Line::from(format!(
-            "{} · {} active · {} excluded{}",
-            cluster.repository.full_name,
-            cluster.active_member_count,
-            cluster.excluded_member_count,
-            if cluster.dismissed {
-                " · dismissed"
-            } else {
-                ""
-            }
-        )),
-        Line::from(""),
-        Line::from("Members and neighbor scores")
-            .style(Style::default().add_modifier(Modifier::BOLD)),
-    ];
-    lines.extend(detail.members.iter().enumerate().map(|(index, member)| {
-        let state = match member.state {
-            ClusterMemberState::Active => "included",
-            ClusterMemberState::Excluded => "excluded",
-            ClusterMemberState::Removed => "removed",
-        };
-        let role = match member.role {
-            ClusterMemberRole::Canonical => "canonical",
-            ClusterMemberRole::Representative => "representative",
-            ClusterMemberRole::Related => "related",
-        };
+/// Formats one generated suggestion without confusing dismissal with generation lifecycle.
+fn cluster_item(cluster: &ClusterSummary) -> ListItem<'static> {
+    let lifecycle = match cluster.lifecycle {
+        ClusterLifecycle::Active => "active",
+        ClusterLifecycle::Retired => "retired",
+    };
+    let dismissed = if cluster.dismissed {
+        " · dismissed"
+    } else {
+        ""
+    };
+    ListItem::new(format!(
+        "{} · {} · {} active / {} excluded{dismissed}",
+        cluster.title, lifecycle, cluster.active_member_count, cluster.excluded_member_count
+    ))
+}
+
+/// Loaded cluster and its selected member, borrowed for one frame's presentation.
+///
+/// Selection is an index in this detail's ordered member projection. Application state validates
+/// whether that selection can authorize an action; drawing only adds the visual marker and style.
+struct ClusterDetailView<'a> {
+    /// Loaded metadata and members, with their existing role and evidence score.
+    detail: &'a ClusterDetail,
+    /// Index whose line receives the selection marker and highlight.
+    selected_member: usize,
+}
+
+impl ClusterDetailView<'_> {
+    /// Places the cluster heading before members in the projection's existing order.
+    fn lines(&self) -> Vec<Line<'static>> {
+        let mut lines = self.heading_lines();
+        lines.extend(
+            self.detail
+                .members
+                .iter()
+                .enumerate()
+                .map(|(index, member)| self.member_line(index, member)),
+        );
+        lines
+    }
+
+    /// Explains generated identity, repository scope, and local inclusion counts.
+    fn heading_lines(&self) -> Vec<Line<'static>> {
+        let cluster = &self.detail.cluster;
+        vec![
+            Line::from(format!("Cluster #{} · {}", cluster.id, cluster.title)).style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::from(format!(
+                "{} · {} active · {} excluded{}",
+                cluster.repository.full_name,
+                cluster.active_member_count,
+                cluster.excluded_member_count,
+                if cluster.dismissed {
+                    " · dismissed"
+                } else {
+                    ""
+                }
+            )),
+            Line::from(""),
+            Line::from("Members and neighbor scores")
+                .style(Style::default().add_modifier(Modifier::BOLD)),
+        ]
+    }
+
+    /// Shows one member's role, inclusion, optional score, and selection cue.
+    fn member_line(&self, index: usize, member: &ClusterMember) -> Line<'static> {
+        let state = member_state_name(member.state);
+        let role = member_role_name(member.role);
+        let selected = index == self.selected_member;
         let score = member
             .score_to_representative
             .map(|score| format!(" · score {score:.3}"))
@@ -131,15 +158,32 @@ fn cluster_detail_lines(detail: &ClusterDetail, selected_member: usize) -> Vec<L
         let discussion = &member.summary.discussion;
         let line = Line::from(format!(
             "{} #{} {} · {role} · {state}{score}",
-            if index == selected_member { "›" } else { " " },
+            if selected { "›" } else { " " },
             discussion.id.number().get(),
             discussion.title
         ));
-        if index == selected_member {
+        if selected {
             line.style(selected_style())
         } else {
             line
         }
-    }));
-    lines
+    }
+}
+
+/// Uses inclusion wording for active members, independently of their role in the cluster.
+fn member_state_name(state: ClusterMemberState) -> &'static str {
+    match state {
+        ClusterMemberState::Active => "included",
+        ClusterMemberState::Excluded => "excluded",
+        ClusterMemberState::Removed => "removed",
+    }
+}
+
+/// Labels explicit canonical choice separately from generated representative and related members.
+fn member_role_name(role: ClusterMemberRole) -> &'static str {
+    match role {
+        ClusterMemberRole::Canonical => "canonical",
+        ClusterMemberRole::Representative => "representative",
+        ClusterMemberRole::Related => "related",
+    }
 }
