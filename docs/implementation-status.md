@@ -2752,3 +2752,14 @@ operation API remain under inspection; no SQL resources are exposed. Engine comp
 
 All 88 engine unit scenarios pass. Engine Clippy across all targets/features, strict private-item
 Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Private scoring boundary
+
+Public exact-search arithmetic is separated from internal ranked-candidate policy. The private
+scoring module owns scored projections, best-chunk selection, bounded merging, and stable ordering;
+its five formerly crate-restricted declarations use ordinary public visibility within that module.
+Search and clustering import their defining owner directly. Cosine similarity retains its public
+path and now has a focused arithmetic orientation. No scoring or ranking behavior changes.
+
+All 88 engine unit scenarios, engine Clippy across all targets/features, strict private-item
+Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.

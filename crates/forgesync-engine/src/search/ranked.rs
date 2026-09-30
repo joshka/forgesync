@@ -18,9 +18,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
-use crate::exact_search::ScoredThread;
 use crate::inspect::ThreadSort;
 use crate::query::resolve_repositories;
+use crate::scoring::ScoredThread;
 use crate::search::fusion::fuse_hybrid;
 use crate::search::keyword::{KeywordCandidates, keyword_candidates};
 use crate::search::ranking::{ResultPageRequest, fallback_allowed, result_page};

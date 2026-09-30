@@ -16,7 +16,8 @@ use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk}
 use forgesync_store::reads::{ThreadSort, ThreadSummary};
 use tokio_util::sync::CancellationToken;
 
-use crate::exact_search::{cosine_similarity, score_embedding_page};
+use crate::exact_search::cosine_similarity;
+use crate::scoring::score_embedding_page;
 
 #[rstest::rstest]
 #[case::parallel(&[1.0, 0.0], 1.0)]

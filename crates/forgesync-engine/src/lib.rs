@@ -68,5 +68,6 @@ mod query;
 pub mod reference;
 pub mod refresh;
 pub mod runs;
+mod scoring;
 pub mod search;
 pub mod sync;

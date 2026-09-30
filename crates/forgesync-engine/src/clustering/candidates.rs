@@ -26,7 +26,7 @@ use crate::clustering::components::bounded_components;
 use crate::clustering::evidence::CandidateEvidence;
 use crate::clustering::proposals::{ClusterCandidate, format_clusters};
 use crate::error::EngineError;
-use crate::exact_search::stable_thread_id_cmp;
+use crate::scoring::stable_thread_id_cmp;
 
 /// Builds sparse candidate components from current discussion vectors and references.
 pub fn build_cluster_candidates(

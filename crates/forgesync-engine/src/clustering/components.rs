@@ -17,7 +17,7 @@ use forgesync_store::embeddings::EmbeddingSearchDocument;
 
 use super::ClusterOptions;
 use super::evidence::CandidateEdge;
-use crate::exact_search::stable_thread_id_cmp;
+use crate::scoring::stable_thread_id_cmp;
 
 /// Builds connected groups without exceeding the configured size.
 pub fn bounded_components(

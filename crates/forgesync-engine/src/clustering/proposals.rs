@@ -21,7 +21,7 @@ use forgesync_store::embeddings::EmbeddingSearchDocument;
 use forgesync_store::reads::ThreadSummary;
 
 use super::evidence::CandidateEdge;
-use crate::exact_search::stable_thread_id_cmp;
+use crate::scoring::stable_thread_id_cmp;
 
 /// Derived member projection awaiting reconciliation with durable local maintainer decisions.
 #[derive(Clone, Debug, PartialEq)]

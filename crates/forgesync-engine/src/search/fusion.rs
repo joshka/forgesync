@@ -19,8 +19,8 @@ use std::collections::HashMap;
 use forgesync_core::identity::ThreadId;
 use forgesync_store::reads::ThreadSummary;
 
-use crate::exact_search::{ScoredThread, stable_thread_id_cmp};
 use crate::inspect::ThreadSort;
+use crate::scoring::{ScoredThread, stable_thread_id_cmp};
 use crate::search::{SearchHit, SearchProvenance};
 
 /// Rank smoothing constant shared by both sources; a first-place hit contributes `1 / 61`.
