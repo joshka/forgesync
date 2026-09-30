@@ -18,11 +18,17 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Core representation suites now explain their tested boundaries and the separate responsibilities of
+provider, engine, and store tests. Vector serialization checks exact byte order, content
+serialization separates fallible steps, and observation setup names acquisition metadata once. Core
+tests pass with 57 unit cases, four fixture-catalog cases, and eight doc tests. The remaining
+cross-crate review stays open.
+
 Timestamp tests now separate typed source-parse failure from calendar validation during JSON
 deserialization. The latter checks data classification and validation wording instead of merely
 checking that some error occurred. Core validation passes with 57 unit tests, four fixture-catalog
-tests, and eight doc tests, alongside core all-target Clippy and nightly formatting. This closes
-the timestamp scenario finding; the broader core and cross-crate reviews remain open.
+tests, and eight doc tests, alongside core all-target Clippy and nightly formatting. This closes the
+timestamp scenario finding; the broader core and cross-crate reviews remain open.
 
 The full workspace tests with all features and the locked dependency graph passed on September 30,
 along with workspace Clippy, nightly formatting, and the CLI build without default features. These

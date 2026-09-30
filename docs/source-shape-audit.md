@@ -645,6 +645,14 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+The small core content, vector, coverage, and outcome suites retain nearby inline tests with module
+introductions explaining their boundaries and evidence limits. Content serialization now exposes
+each fallible step and consumes JSON without a redundant clone. Vector encoding checks exact
+little-endian bytes rather than length alone. Coverage imports its defining owner and names the
+value before applying freshness. Observation setup names timestamp and sequence once. Their
+round-trip assertions describe coherent value contracts; named rejection and outcome cases remain
+linear. Larger cross-crate suite review remains open.
+
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
 - Give every inspection candidate one disposition: fixed or retained with a concrete reason. Line
   counts trigger inspection, not mandatory extraction or repeated work on newly named helpers.

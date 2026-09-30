@@ -173,13 +173,25 @@ pub enum EmbeddingVectorError {
 
 #[cfg(test)]
 mod tests {
+    //! # Validated vector and archive encoding boundaries
+    //!
+    //! The round-trip case fixes the vector's dimensions and little-endian byte representation.
+    //! Named model-input cases distinguish empty, mismatched, zero-norm, and nonfinite vectors.
+    //! Named archive-input cases reject zero dimensions, truncated components, and trailing bytes.
+    //! Each rejection compares the specific typed error rather than accepting any failure.
+    //!
+    //! Inputs are local values with no model service or SQLite setup. Engine tests own request
+    //! retries and model-response handling; store tests own persisted vector compatibility.
+    //! This suite establishes the core value and codec contracts those boundaries depend on.
+    //! Small direct cases stay near the implementation and need no workflow fixture.
+
     use crate::embedding::{EmbeddingVector, EmbeddingVectorError};
 
     #[test]
     fn little_endian_vector_round_trips_with_explicit_dimensions() {
         let vector = EmbeddingVector::new(vec![0.5, -1.25, 3.0], Some(3)).expect("vector");
         let bytes = vector.to_little_endian();
-        assert_eq!(bytes.len(), 12);
+        assert_eq!(bytes, [0, 0, 0, 63, 0, 0, 160, 191, 0, 0, 64, 64]);
         assert_eq!(
             EmbeddingVector::from_little_endian(&bytes, 3).expect("decoded vector"),
             vector

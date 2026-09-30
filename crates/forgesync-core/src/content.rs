@@ -217,6 +217,20 @@ pub struct ReviewThread {
 
 #[cfg(test)]
 mod tests {
+    //! # Forward-compatible content representations
+    //!
+    //! These small cases exercise retained provider fields and unrecognized review states.
+    //! The provider object includes a nested integer larger than JavaScript's exact integer range,
+    //! so a JSON round-trip must preserve its value as well as unfamiliar field names.
+    //! Review-state round-tripping preserves the original unknown spelling for later
+    //! interpretation.
+    //!
+    //! Construction is explicit and requires neither a provider request nor an archive fixture.
+    //! These are representation contracts, not evidence that normalization maps every provider
+    //! state correctly. Provider normalization tests own that mapping; store tests own durable
+    //! retention. Keep these cases beside the values they describe while the suite remains
+    //! small.
+
     use serde_json::json;
 
     use crate::content::ReviewState;
@@ -231,21 +245,20 @@ mod tests {
         .expect("provider object");
 
         let encoded = serde_json::to_value(&data).expect("serialize provider data");
-        let decoded: ProviderData = serde_json::from_value(encoded.clone()).expect("deserialize");
-        assert_eq!(decoded, data);
         assert_eq!(
             encoded["nested"]["future_counter"],
             json!(9007199254740997_u64)
         );
         assert_eq!(encoded["new_graphql_flag"], json!(true));
+        let decoded: ProviderData = serde_json::from_value(encoded).expect("deserialize");
+        assert_eq!(decoded, data);
     }
 
     #[test]
     fn unknown_review_states_remain_representable() {
         let state = ReviewState::Other("FUTURE_STATE".to_owned());
-        let decoded: ReviewState =
-            serde_json::from_value(serde_json::to_value(&state).expect("serialize state"))
-                .expect("deserialize state");
+        let encoded = serde_json::to_value(&state).expect("serialize state");
+        let decoded: ReviewState = serde_json::from_value(encoded).expect("deserialize state");
         assert_eq!(decoded, state);
     }
 }

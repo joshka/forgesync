@@ -52,6 +52,20 @@ pub enum OperationOutcome {
 
 #[cfg(test)]
 mod tests {
+    //! # Terminal outcome JSON contracts
+    //!
+    //! Named cases cover complete, partial, deferred, failed, and interrupted operation outcomes.
+    //! Each case supplies the entire expected JSON value, including its status and associated data.
+    //! Deserializing that same value verifies preservation of the selected variant and its fields.
+    //! Partial counts, deferred reasons, failure details, and pending counts remain separate
+    //! concepts.
+    //!
+    //! These tests construct outcomes directly; they do not execute a workflow or derive an outcome
+    //! from job results. Engine suites own that policy, and CLI suites own the surrounding
+    //! envelope. Keep representation expectations here so changing an enum cannot silently
+    //! alter JSON shape. Named data cases make every variant visible without loops or branching
+    //! assertions.
+
     use serde_json::json;
 
     use crate::coverage::{DeferredReason, Failure, FailureKind};

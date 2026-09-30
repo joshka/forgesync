@@ -233,9 +233,22 @@ fn is_not_stale(stale: &bool) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! # Coverage completeness and freshness contracts
+    //!
+    //! Complete acquisition with zero members is distinguishable from missing acquisition evidence.
+    //! Marking complete evidence stale changes its freshness flag without replacing completeness.
+    //! Fixed observation timestamps and sequences make the acquisition metadata explicit.
+    //! Assertions inspect the serialized state consumed by local diagnostics and reports.
+    //!
+    //! These cases construct coverage values rather than acquire or store a collection.
+    //! Store integration suites own membership replacement, ordering, and generation acceptance.
+    //! Engine suites own the decision to refresh evidence; this suite owns the value
+    //! representation. Keep these two independent contracts beside the small implementation
+    //! they exercise.
+
     use serde_json::json;
 
-    use super::{Coverage, CoverageState, EvidenceFamily};
+    use crate::coverage::{Coverage, CoverageState, EvidenceFamily};
     use crate::identity::ObservationSequence;
     use crate::timestamp::UtcTimestamp;
 
@@ -272,8 +285,8 @@ mod tests {
                 sequence,
                 item_count: 2,
             },
-        )
-        .mark_stale();
+        );
+        let stale = stale.mark_stale();
 
         let stale_json = serde_json::to_value(stale).expect("serialize stale coverage");
         assert_eq!(stale_json["state"]["status"], json!("complete"));

@@ -44,12 +44,14 @@ fn malformed_source_time_retains_its_trimmed_spelling() {
 
 #[test]
 fn observation_round_trip_keeps_family_time_sequence_and_completeness() {
+    let observed_at = UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp");
+    let sequence = ObservationSequence::new(7).expect("positive sequence");
     let observation = Observation::new(
         EvidenceFamily::Comments,
         vec!["comment-a".to_owned(), "comment-b".to_owned()],
         SourceClock::Missing,
-        UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp"),
-        ObservationSequence::new(7).expect("positive sequence"),
+        observed_at,
+        sequence,
         CollectionCompleteness::Incomplete {
             reason: IncompleteReason::Pagination,
             received_items: 2,
@@ -60,10 +62,7 @@ fn observation_round_trip_keeps_family_time_sequence_and_completeness() {
     assert_eq!(value["family"], json!("comments"));
     assert_eq!(value["sequence"], json!(7));
     assert_eq!(value["completeness"]["status"], json!("incomplete"));
-    assert_eq!(
-        observation.observed_at(),
-        UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp")
-    );
+    assert_eq!(observation.observed_at(), observed_at);
 
     let decoded: Observation<Vec<String>> =
         serde_json::from_value(value).expect("deserialize observation");
