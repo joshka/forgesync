@@ -73,6 +73,14 @@ pub fn initial_issue_comment_url(
 }
 
 /// Builds the first repository thread page for the selected state scope.
+///
+/// Uses current repository owner/name at the configured REST base, selecting descending source
+/// update order and 100 items per page. `since` becomes a provider RFC 3339 lower bound; it neither
+/// reserves archive order nor establishes complete coverage. Continuations should use the returned
+/// provider link rather than rebuild this initial URL and lose pagination state.
+///
+/// This performs no network or archive operation. URL construction and timestamp formatting may
+/// fail; the latter is reported as invalid provider data to match the acquisition boundary.
 pub fn initial_thread_list_url(
     client: &GitHubClient,
     repository: &Repository,

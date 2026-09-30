@@ -26,8 +26,9 @@ ordering, replay validation, transaction ownership, and canonical-membership pub
 
 The latest focused checks pass 26 store observation/search cases, 17 engine sync cases, and three
 store documentation examples after reservation changes. The page-input change passes the same 26
-store cases and store/engine all-target Clippy; full workspace tests are running on that tree.
-Nightly formatting and changed Markdown checks pass.
+store cases and store/engine all-target Clippy; all local workspace tests, Clippy, the minimal CLI
+build, and strict public/private Rustdoc pass on that tree. Nightly formatting and changed Markdown
+checks pass.
 
 Parent observation cases compare the entire retained discussion after replay, tied conflict, and
 malformed-clock rejection. High-water and child publication cases compare exact coverage values.
@@ -37,10 +38,12 @@ directly; embedding retry, hybrid ranking, and keyword fallback have independent
 evidence.
 
 Strict workspace Rustdoc and the minimal CLI build pass on the child-input API tree. Rustdoc
-includes private items and denies warnings, missing public docs, and broken links. Workspace tests
-and workspace Clippy remain live; their final outcomes are pending. The refreshed syntax inventory
-finds no missing handwritten production function comments or module introductions below ten lines;
-these checks establish presence, not documentation quality.
+includes private items and denies warnings, missing public docs, and broken links. All 508 workspace
+test cases and workspace Clippy also pass on that tree. Provider helper docs now explain
+nested-connection completeness, selected head context, and initial URL scope; focused strict
+provider Rustdoc passes without executable changes. The refreshed syntax inventory finds no missing
+handwritten production function comments or module introductions below ten lines; these checks
+establish presence, not documentation quality.
 
 ## Bounded remaining work
 
@@ -65,9 +68,9 @@ replace a complete workspace run after the final source edit.
 | ------------------------------- | ---------------------------------------------------------------- |
 | Nightly formatting              | Pass on current page-input tree                                  |
 | Store/engine all-target Clippy  | Pass on current page-input tree                                  |
-| Workspace tests                 | Running on current page-input tree; outcome pending              |
+| Workspace tests                 | Pass on page-input tree                                          |
 | Minimal CLI build               | Pass on current page-input tree                                  |
-| Workspace Clippy                | Running on current page-input tree; outcome pending              |
+| Workspace Clippy                | Pass on page-input tree                                          |
 | Strict public/private Rustdoc   | Pass on current page-input tree                                  |
 | rumdl and changed Markdown lint | Pass for latest edited documentation; rerun after reconciliation |
 | Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit              |

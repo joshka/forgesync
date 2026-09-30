@@ -24,6 +24,15 @@ use crate::error::GitHubError;
 use crate::review_threads::wire::{GraphqlComment, GraphqlReviewThread};
 
 /// Converts a fully paged GraphQL thread into normalized review evidence.
+///
+/// The acquisition adapter has already checked `provider_id` and collected every nested comment
+/// page. `node.comments` is not used to infer completeness here; `comment_nodes` supplies the
+/// finished connection. Missing resolution/outdated flags, negative source line numbers, or an
+/// invalid comment reject the whole result rather than returning a normalized subset.
+///
+/// `thread` supplies parent identity and `head_sha` labels the caller's selected pull-request head.
+/// Conversion does not fetch or verify that head. Unknown thread fields and source `startLine`
+/// remain in provider extensions; archive publication and head freshness belong to engine/store.
 pub fn normalize_review_thread(
     thread: &ThreadId,
     head_sha: &CommitSha,
