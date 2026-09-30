@@ -21,6 +21,18 @@ isolated `work/tracing-colors` workspace passes: 31 CLI contract tests, 542 work
 29 suites, nightly formatting, workspace Clippy, the CLI-only build, Rustdoc, and Markdown lint.
 The next action is PR review and workspace cleanup after merge; no implementation work remains.
 
+## Default acquisition progress follow-up
+
+Human `sync` and `run retry` output now reports startup before credential discovery and elapsed
+waiting with the latest available counters every two seconds on stderr. Default output coalesces
+snapshots; verbose output includes every delivered event. JSON suppresses human progress, and
+engine results remain authoritative for final output and exit status.
+
+Validation passes: seven focused sync process cases, reporter lifecycle tests, workspace tests,
+workspace Clippy, nightly formatting, the CLI-only build, Rustdoc, and changed Markdown linting.
+The delayed credential-helper fixture proves elapsed waiting without contacting a provider.
+Next: review and merge this change, then remove its `work/sync-progress` jj workspace.
+
 ## Registry and trusted release follow-up
 
 The public `joshka/forgesync` repository and MIT OR Apache-2.0 licensing are configured. All seven
