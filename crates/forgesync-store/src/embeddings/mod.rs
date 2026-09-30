@@ -1,14 +1,24 @@
 //! # Persist embedding chunks and select compatible work
 //!
-//! `EmbeddingWrite` and `EmbeddingChunkInput` carry vectors generated for a document.
-//! `StoredEmbeddingChunk` is the local read form. `EmbeddingDocumentQuery`,
-//! `EmbeddingSearchDocument`, and `EmbeddingDocumentPage` select documents that need or can use
-//! embeddings.
+//! [`EmbeddingChunkInput`] declares one generated vector together with its service identity and
+//! deterministic chunk coordinates. Fenced persistence checks the stored document revision and
+//! returns [`EmbeddingWrite`], the accepted archive row identity. Each chunk commits separately;
+//! one accepted write does not establish a complete document embedding.
 //!
-//! Embedding data is derived from a document, model identity, and dimensions. Reads must keep
-//! incompatible vectors out of a search, while writes must associate chunks with the correct
-//! document version. The engine owns service calls and batching; this module owns their durable
-//! local result.
+//! [`StoredEmbeddingChunk`] is the decoded read form. [`Archive::embedding_chunks`] returns a
+//! service-scoped partial set for retry selection, which the engine compares with prepared inputs.
+//! Search instead supplies [`EmbeddingDocumentQuery`] to [`Archive::embedding_search_page`]. Its
+//! [`EmbeddingDocumentPage`] contains [`EmbeddingSearchDocument`] values only after current-source
+//! eligibility and whole-chunk-set validation; rejected raw candidates still advance its cursor.
+//!
+//! Document recipe/version/hash, endpoint/model, chunk count/hash, and vector dimensions establish
+//! different parts of compatibility. The reader in `read` checks complete archived sets; engine
+//! retrieval additionally checks query-vector dimensions and ranks similarity. Search reads are
+//! local projections across separate queries, not an atomic historical snapshot.
+//!
+//! The engine owns model requests, input splitting, batching, and retry policy. This module owns
+//! bound SQLite writes and decoded reads, performs no provider calls, and never infers successful
+//! acquisition from one chunk or one transport response.
 
 use std::num::NonZeroU32;
 

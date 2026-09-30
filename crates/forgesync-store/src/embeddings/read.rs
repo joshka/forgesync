@@ -16,11 +16,12 @@
 
 use std::collections::{HashMap, HashSet};
 
+use forgesync_core::document::DocumentRecipe;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use super::{
-    DocumentRecipe, EmbeddingDocumentPage, EmbeddingDocumentQuery, EmbeddingSearchDocument,
-    StoredEmbeddingChunk, complete_chunk_set, decode_embedding_chunk,
+    EmbeddingDocumentPage, EmbeddingDocumentQuery, EmbeddingSearchDocument, StoredEmbeddingChunk,
+    complete_chunk_set, decode_embedding_chunk,
 };
 use crate::archive::Archive;
 use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};

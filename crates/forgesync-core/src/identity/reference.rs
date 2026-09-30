@@ -14,7 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{RepositoryId, ThreadNumber};
+use crate::identity::threads::{RepositoryId, ThreadNumber};
 
 /// A parsed local thread reference after its repository scope is known.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

@@ -17,7 +17,9 @@ use std::num::NonZeroU64;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{GitHubHost, IdentityError, ProviderId};
+use crate::identity::IdentityError;
+use crate::identity::host::GitHubHost;
+use crate::identity::provider::ProviderId;
 
 /// Positive issue or pull request number scoped to one repository.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
