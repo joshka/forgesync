@@ -1,6 +1,6 @@
 //! REST resource families and their page-oriented acquisition results.
 //!
-//! The public fetch functions in `fetch` request repositories, issue and pull-request discussions,
+//! Public `fetch` operations request repositories, issue and pull-request discussions,
 //! comments, pull-request metadata, and reviews. `normalize` converts provider DTOs into checked
 //! `forgesync-core::content` values. [`RestThreadPage`], [`RestCommentPage`], and
 //! [`RestReviewPage`] return one page plus continuation context; [`ThreadListState`] selects the
@@ -57,13 +57,14 @@ pub enum ThreadListState {
 
 mod fetch;
 mod normalize;
+mod urls;
 mod wire;
 
 pub use fetch::{
     fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
-    fetch_repository, fetch_thread_page, fetch_thread_page_in_scope, issue_comment_list_url,
-    thread_list_url, thread_list_url_in_scope,
+    fetch_repository, fetch_thread_page, fetch_thread_page_in_scope,
 };
+pub use urls::{issue_comment_list_url, thread_list_url, thread_list_url_in_scope};
 
 #[cfg(test)]
 mod tests;

@@ -2112,3 +2112,22 @@ GitHub tests and both doctests pass. Clippy identified leftover imports after ex
 removed. Final-tree workspace Clippy and strict GitHub Rustdoc pass, as do formatting, rumdl, and
 changed-page Markdown linting. Provider acquisition/API contracts and broader convention review
 remain open; extraction alone does not close the crate audit.
+
+## Continued maintenance: REST URL and acquisition contracts
+
+Initial REST URL construction belongs to `resources::urls`; public URL builders remain available
+through the resource module. The URL leaf explains encoded display paths, source-state/update query
+scope, 100-item pages, and separation from provider continuation. Fetch operations retain their own
+normalization and cancellation story rather than mixing endpoint construction with acquisition.
+
+Repository fetching documents caller responsibility for pairing a domain host with its configured
+client. Scoped enumeration explains that a supplied continuation is used unchanged and must remain
+paired with its original scan; origin validation alone does not prove resource scope. Page success
+normalizes every item but establishes no durable complete-membership authority. Comment, metadata,
+and review docs explain their specific identity and source-data limits. The internal scope guard is
+named `require_thread_scope`, accurately describing repository equality rather than claiming to
+validate pull-request kind. All endpoint and acquisition behavior is preserved.
+
+The initial split passes all 20 GitHub tests, both doctests, and workspace Clippy. Final-tree
+focused checks, Clippy, and strict GitHub Rustdoc are running after the additional API contracts and
+guard rename. Broader provider and workspace convention reviews remain open.
