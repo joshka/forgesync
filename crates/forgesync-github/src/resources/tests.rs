@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{
+use crate::resources::{
     fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
     fetch_repository, fetch_thread_page,
 };
@@ -145,7 +145,12 @@ async fn thread_page_retains_enterprise_base_path_and_next_link() {
         .await
         .unwrap();
     assert_eq!(page.discussions.len(), 1);
-    assert_eq!(page.next_page.unwrap().query(), Some("page=2"));
+    let expected_next = Url::parse(&format!(
+        "{}/api/v3/repos/fixture-lab/archive-demo/issues?page=2",
+        server.uri()
+    ))
+    .expect("next-page URL");
+    assert_eq!(page.next_page, Some(expected_next));
 }
 
 #[tokio::test]

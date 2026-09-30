@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::fetch_review_thread_page;
+use crate::review_threads::fetch_review_thread_page;
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
 fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
@@ -125,7 +125,12 @@ async fn review_thread_pages_include_complete_nested_comments_and_resolution_sta
     assert!(!review_thread.is_outdated);
     assert_eq!(review_thread.head_sha, head);
     assert_eq!(review_thread.line, Some(42));
-    assert_eq!(review_thread.comments.len(), 2);
+    let comment_ids: Vec<_> = review_thread
+        .comments
+        .iter()
+        .map(|comment| comment.id.provider_id().as_str())
+        .collect();
+    assert_eq!(comment_ids, ["PRRC_fixture_1", "PRRC_fixture_2"]);
     assert_eq!(
         review_thread.comments[0]
             .review_id

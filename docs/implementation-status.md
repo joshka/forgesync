@@ -2933,3 +2933,13 @@ linear scenario.
 
 The complete TUI suite passes: 75 unit scenarios and one doctest. Nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Provider pagination identity assertions
+
+The enterprise thread-page scenario compares the complete resolved next URL, including origin and
+base path, rather than checking only its query string. Nested review-comment pagination compares
+both provider identities in order instead of only counting two records. These tests now establish
+the routing and membership contracts stated in their names. Resource imports point to their owners.
+
+The complete GitHub suite passes: 24 unit scenarios and two doctests. Nightly formatting, rumdl, and
+changed-page Markdown linting pass.
