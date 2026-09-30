@@ -2612,3 +2612,12 @@ explicit defining-module imports and an orientation identifying the policies its
 All three focused exact-scoring tests pass. Strict engine Rustdoc initially caught a public module
 link to an internal type; the reference now uses plain code text and the rerun passes. Nightly
 formatting, rumdl, and changed-page Markdown linting also pass.
+
+### Migration build dependency orientation
+
+The store build script now explains Cargo directory/file dependencies, SQLx embedding ownership,
+package-relative paths, and best-effort enumeration. Its documentation explicitly distinguishes
+rerun directives from SQL validation, database generation, and runtime archive lifecycle. No build
+script behavior changes.
+
+Store compilation, nightly formatting, rumdl, and changed-page Markdown linting pass.
