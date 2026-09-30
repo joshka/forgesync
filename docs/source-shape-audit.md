@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Batch-limit cases now verify retained chunk order in addition to batch counts. A separate multibyte
+case proves UTF-8 byte accounting with explicit retained text. The construction fixture documents
+synthetic hashes; batching validates neither hashes nor complete source membership. Its helper
+contract names nonzero-limit prerequisites and singleton behavior for oversized inputs rather than
+implying that grouping performs client validation. Refresh cluster accounting retains explicit
+transitions and named outcomes; its first-failure and successful-generation checks remain local.
+
 Chunk tests separate repeatability from named whitespace, multibyte-boundary, and empty-input
 expectations. Exact expected fragments replace generic predicates that made the reader reconstruct
 splitting behavior. Chunk helper contracts distinguish lookup-scoped recipe/service identity from

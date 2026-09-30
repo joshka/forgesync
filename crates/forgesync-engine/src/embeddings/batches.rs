@@ -43,6 +43,13 @@ impl EmbeddingBatch {
 }
 
 /// Groups pending inputs under both count and byte budgets, preserving selection order.
+///
+/// Byte accounting uses UTF-8 encoded length rather than character count. Empty input returns no
+/// batches, and every supplied task appears exactly once in its original order.
+/// The caller must supply nonzero limits and individually eligible inputs from selection.
+/// This grouping helper does not reject or split an oversized task: an input that exceeds the
+/// aggregate budget alone remains a singleton for the client's validation boundary to reject.
+/// No request is sent until the scheduler invokes [`EmbeddingBatch::request`].
 pub fn make_batches(
     tasks: Vec<EmbeddingTask>,
     max_inputs: usize,

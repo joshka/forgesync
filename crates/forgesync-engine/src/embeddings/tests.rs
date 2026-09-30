@@ -43,9 +43,33 @@ fn request_batches_obey_count_and_combined_byte_limits(
         .collect::<Vec<_>>();
 
     assert_eq!(counts, expected_counts);
+    let positions = batches
+        .iter()
+        .flat_map(|batch| batch.tasks.iter().map(|task| task.chunk.index))
+        .collect::<Vec<_>>();
+    assert_eq!(positions, [0, 1, 2, 3, 4]);
+}
+
+#[test]
+fn aggregate_limit_counts_utf8_bytes_rather_than_characters() {
+    let document = Arc::new(test_document());
+    let mut first = test_task(Arc::clone(&document), 0);
+    first.chunk.text = "🦀".to_owned();
+    let mut second = test_task(document, 1);
+    second.chunk.text = "🐙".to_owned();
+
+    let batches = make_batches(vec![first, second], 2, 4);
+
+    assert_eq!(batches.len(), 2);
+    assert_eq!(batches[0].tasks.len(), 1);
+    assert_eq!(batches[0].tasks[0].chunk.text, "🦀");
+    assert_eq!(batches[1].tasks.len(), 1);
+    assert_eq!(batches[1].tasks[0].chunk.text, "🐙");
 }
 
 /// Constructs one four-byte input with an explicit position in the five-chunk fixture.
+///
+/// Hashes are synthetic because batching does not validate hashes or complete chunk membership.
 fn test_task(document: Arc<forgesync_core::document::Document>, index: u32) -> EmbeddingTask {
     EmbeddingTask {
         document,
