@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Scan-completion integration now compares entire checkpoints before and after premature or superseded
+completion rejection. Separate result and optional-row expectations identify lookup failure versus
+missing state. Terminal-page acceptance stays with its preceding rejection as one linear state
+transition contract; superseded generation remains separate. Fixed timestamps and direct archive
+operations are deliberate here because this suite checks checkpoint state rather than live fencing.
+
 Archive lease integration now proves that stale guarded reservation leaves sequence one available to
 the current owner. A separate stale-release scenario proves false return and successor write
 authority. These controls distinguish stale-token rejection from an archive that rejects every

@@ -4,6 +4,12 @@
 //! Completion must reject a remaining page cursor without changing the active scan. Recording the
 //! terminal page then permits complete coverage. The test keeps each transition and assertion
 //! visible so the transaction boundary can be followed without a behavioral fixture.
+//!
+//! Rejected completion is compared with the entire preexisting checkpoint, not selected counters.
+//! One case then records an empty terminal page and verifies complete-empty acquisition.
+//! The other supersedes an old terminal generation and ensures it cannot finalize the new scan.
+//! UUID filenames isolate cases; fixed times and repository values avoid process-clock policy.
+//! Provider pagination and fenced workflow execution belong to engine integration tests.
 
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
@@ -38,6 +44,11 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
         )
         .await
         .expect("begin scan");
+    let before = archive
+        .repository_thread_scan(&repository.id)
+        .await
+        .expect("read initial scan");
+    let before = before.expect("initial scan exists");
 
     let premature = archive
         .finish_repository_thread_scan(
@@ -55,8 +66,9 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
     let active = archive
         .repository_thread_scan(&repository.id)
         .await
-        .expect("read scan")
-        .expect("active scan");
+        .expect("read scan");
+    let active = active.expect("active scan");
+    assert_eq!(active, before);
     assert_eq!(active.status, RepositoryThreadScanStatus::InProgress);
     assert_eq!(active.pages_completed, 0);
     assert_eq!(
@@ -81,8 +93,8 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
     let complete = archive
         .repository_thread_scan(&repository.id)
         .await
-        .expect("read scan")
-        .expect("complete scan");
+        .expect("read scan");
+    let complete = complete.expect("complete scan");
     assert_eq!(complete.status, RepositoryThreadScanStatus::Complete);
     assert_eq!(complete.pages_completed, 1);
     assert_eq!(complete.threads_seen, 0);
@@ -130,6 +142,11 @@ async fn superseded_generation_cannot_finalize_the_current_scan() {
         )
         .await
         .expect("supersede old scan");
+    let before = archive
+        .repository_thread_scan(&repository.id)
+        .await
+        .expect("read successor scan");
+    let before = before.expect("successor scan exists");
     let stale = archive
         .finish_repository_thread_scan(
             &repository.id,
@@ -146,8 +163,9 @@ async fn superseded_generation_cannot_finalize_the_current_scan() {
     let active = archive
         .repository_thread_scan(&repository.id)
         .await
-        .expect("read scan")
-        .expect("current scan");
+        .expect("read scan");
+    let active = active.expect("current scan");
+    assert_eq!(active, before);
     assert_eq!(active.sequence, current);
     assert_eq!(active.status, RepositoryThreadScanStatus::InProgress);
     assert_eq!(active.pages_completed, 0);
