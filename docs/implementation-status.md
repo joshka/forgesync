@@ -2423,3 +2423,14 @@ and hash but does not rerender or compare the earlier evidence snapshot. It also
 attempts, write-error precedence, and a possible release error after durable persistence. Strict
 engine Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged; broader review
 remains open.
+
+## Continued maintenance: document recipe rendering owner
+
+Private `documents::render` now owns pure recipe assembly, attribution, child ordering, filtering,
+and deduplication text. The public document module retains local reads, leased persistence, report
+construction, and its existing public rendering API. The split makes the workflow visible without
+mixing it with every text-section helper. Tests retain nearby public recipe scenarios and explicit
+owner imports. Rendered bytes and persistence behavior are unchanged.
+
+All three focused document scenarios pass. Workspace Clippy and strict engine Rustdoc are running on
+the completed split; broader conventions and test review remain open.

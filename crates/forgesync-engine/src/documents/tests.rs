@@ -22,7 +22,7 @@ use forgesync_store::observations::StagedItem;
 use forgesync_store::reads::{ThreadDetail, ThreadSummary};
 use serde_json::json;
 
-use super::build_document;
+use crate::documents::build_document;
 
 #[test]
 fn original_body_recipe_excludes_discussion_and_review_evidence() {
