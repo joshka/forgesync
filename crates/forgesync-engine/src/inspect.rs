@@ -1,11 +1,26 @@
 //! # Offline archive inspection requests
 //!
-//! Inspection types select thread state, sorting, and repository scope. The functions read archive
-//! status, repository lists, thread pages, and thread detail through store projections.
+//! [`ThreadFilters`] expresses repository, kind, source-state, ordering, and pagination intent.
+//! [`ThreadListRequest`] applies those filters to ordinary browsing. Search also uses the filters,
+//! but chooses its own retrieval policy and default ordering. [`ThreadStateFilter`] and
+//! [`ThreadSort`] are engine vocabulary rather than SQL or CLI argument representations.
 //!
-//! These operations stay local and read-only. The CLI and TUI can share them without sharing
-//! argument parsing or terminal code; an inspect call does not initialize or refresh the archive.
-//! Filters here express user intent while the store owns SQL implementation.
+//! [`archive_status`] and [`list_repositories`] expose local store projections. [`list_threads`]
+//! validates its page window, resolves display-name selectors to durable repository identities,
+//! and asks the store for a page. [`show_thread`] resolves one repository and discussion number
+//! before returning canonical content and selected child evidence. Missing local identities are
+//! errors rather than triggers for provider acquisition.
+//!
+//! Callers supply an already opened archive and retain responsibility for closing it. These
+//! operations do not create, migrate, refresh, discover credentials, or contact a provider. The
+//! store owns SQL, tie ordering, payload decoding, and coverage projection; engine adapters
+//! preserve typed failures while distinguishing a missing discussion from other store failures.
+//!
+//! Separate repository-resolution and projection reads are not one frozen database snapshot.
+//! Retained detail can contain stale or incomplete evidence, and status counts summarize the
+//! store's selected checks rather than proving freshness. Inspect coverage before relying on
+//! completeness. Internal query adapters are shared with search without becoming public inspection
+//! operations.
 
 use std::num::NonZeroU32;
 
@@ -56,7 +71,8 @@ pub struct ThreadFilters {
     pub kind: Option<ThreadKind>,
     /// Source open/closed state filter.
     pub state: ThreadStateFilter,
-    /// Sort order; defaults to newest source update first.
+    /// Optional ordering policy; ordinary listing defaults to newest source update first.
+    /// Search selects its own default when this is absent.
     pub sort: Option<ThreadSort>,
     /// Maximum result count, from 1 through 1000.
     pub limit: u32,
@@ -86,7 +102,9 @@ pub struct ThreadListRequest {
     pub filters: ThreadFilters,
 }
 
-/// Returns read-only local archive metadata and coverage counts.
+/// Returns local archive metadata and coverage counts without opening or changing the archive.
+///
+/// The report is a store projection, not a freshness check or an acquisition-completion proof.
 pub async fn archive_status(archive: &Archive) -> Result<ArchiveStatus, EngineError> {
     archive.archive_status().await.map_err(Into::into)
 }
@@ -96,7 +114,15 @@ pub async fn list_repositories(archive: &Archive) -> Result<Vec<Repository>, Eng
     archive.list_repositories().await.map_err(Into::into)
 }
 
-/// Lists local discussions without contacting GitHub or mutating the archive.
+/// Lists retained discussions using validated pagination and registered repository scope.
+///
+/// The limit must be 1 through 1000 and the offset must fit SQLite's signed integer range.
+/// Invalid pagination fails before repository lookup. Empty repository scope selects all
+/// registered repositories; an unknown selector fails rather than producing an empty page.
+/// Without an explicit sort, this operation uses newest source update order.
+///
+/// Repository resolution and the page read can observe separate database states. This operation
+/// neither contacts GitHub nor changes the archive; coverage accompanies the retained results.
 pub async fn list_threads(
     archive: &Archive,
     request: &ThreadListRequest,
@@ -134,7 +160,12 @@ pub(crate) fn store_sort(sort: ThreadSort) -> StoreThreadSort {
     }
 }
 
-/// Shows current local content and selected evidence for one explicit thread reference.
+/// Shows retained canonical content and selected evidence for a local discussion selector.
+///
+/// Resolves the repository's current display name to its durable identity before looking up the
+/// discussion number. Unknown repository and discussion targets have distinct engine errors.
+/// The returned coverage must be inspected for stale or incomplete child evidence; this read
+/// does not refresh the discussion or promise a single snapshot across its component queries.
 pub async fn show_thread(
     archive: &Archive,
     selector: &ThreadSelector,
@@ -158,7 +189,11 @@ pub async fn show_thread(
         })
 }
 
-/// Resolves selected repository names before constructing a local query.
+/// Resolves current local display names to distinct durable repository identities.
+///
+/// Preserves first-selection order and removes duplicate identities. Empty input remains empty
+/// for the store's all-repositories convention; any missing selector fails the whole resolution.
+/// Restricted visibility keeps this shared query adapter out of the public inspection API.
 pub(crate) async fn resolve_repositories(
     archive: &Archive,
     selectors: &[RepositorySelector],
@@ -176,7 +211,10 @@ pub(crate) async fn resolve_repositories(
     Ok(repositories)
 }
 
-/// Validates a bounded page window before it reaches SQLite.
+/// Validates the 1–1000 limit and signed-SQLite offset without changing either value.
+///
+/// Returns a nonzero limit for query construction. Restricted visibility keeps this adapter shared
+/// with search while leaving public callers at the request boundary.
 pub(crate) fn checked_page(limit: u32, offset: u64) -> Result<(NonZeroU32, u64), EngineError> {
     let limit = NonZeroU32::new(limit).filter(|value| value.get() <= 1000);
     let limit = limit.ok_or(EngineError::InvalidPageLimit)?;

@@ -2588,3 +2588,15 @@ and describe absence messages without implying retry targets or completed acquis
 
 Strict TUI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
 pass for this documentation-only change.
+
+### Engine inspection API contracts
+
+Inspection orientation now maps filters, requests, projections, and shared query adapters. Public
+list/show contracts describe pagination validation order, missing repository versus discussion
+errors, retained evidence, caller-owned archive lifetime, and separate-read consistency limits. The
+shared sort field now correctly distinguishes ordinary listing's update default from search's
+workflow-selected default. Internal resolution and pagination helpers document deduplication,
+empty-scope meaning, and their restricted public API boundary.
+
+Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass for this documentation-only change.
