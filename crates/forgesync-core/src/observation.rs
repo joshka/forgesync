@@ -22,6 +22,10 @@ use crate::identity::ObservationSequence;
 use crate::timestamp::UtcTimestamp;
 
 /// Provider source-clock value retained separately from local acquisition time.
+///
+/// Missing and invalid values remain distinct because archive ordering policy may use a missing
+/// clock with sequence fallback while rejecting an ambiguous malformed clock. This enum records
+/// provider evidence; it does not select the canonical observation or guarantee replacement.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", content = "value", rename_all = "snake_case")]
 pub enum SourceClock {
@@ -62,7 +66,11 @@ impl SourceClock {
     }
 }
 
-/// Completeness of one family collection result.
+/// Completeness claim for one independently acquired family scope.
+///
+/// An empty complete collection can establish that the scope has no members. An incomplete
+/// collection, even with zero received items, cannot establish deletion of earlier membership.
+/// The claim says what acquisition obtained, not whether archive ordering later accepts it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum CollectionCompleteness {
@@ -138,27 +146,42 @@ impl<T> Observation<T> {
         }
     }
 
-    /// Returns the independently covered family.
+    /// Returns the family whose acquisition scope and completeness this observation describes.
+    ///
+    /// The generic payload is not inspected to validate its family. Normalization and archive
+    /// boundaries must keep the concrete payload meaning aligned with this value.
     pub fn family(&self) -> EvidenceFamily {
         self.family
     }
 
-    /// Returns the normalized payload.
+    /// Borrows the normalized item or collection without consuming its acquisition context.
+    ///
+    /// Payload cardinality does not imply completeness; inspect [`Self::completeness`] before
+    /// interpreting absent members as source deletions.
     pub fn payload(&self) -> &T {
         &self.payload
     }
 
-    /// Returns the provider's source-clock state.
+    /// Borrows the provider revision clock, including missing or malformed source evidence.
+    ///
+    /// This is independent of [`Self::observed_at`]. Do not substitute acquisition time when the
+    /// provider omitted its clock; the archive ordering policy owns fallback interpretation.
     pub fn source_clock(&self) -> &SourceClock {
         &self.source_clock
     }
 
-    /// Returns local acquisition time.
+    /// Returns the local instant recorded for acquisition diagnostics.
+    ///
+    /// This instant neither proves provider revision order nor grants writer ownership. The
+    /// source clock and reserved sequence remain separate facts used by archive policy.
     pub fn observed_at(&self) -> UtcTimestamp {
         self.observed_at
     }
 
-    /// Returns the sequence reserved before acquisition.
+    /// Returns the archive-reserved ordering coordinate supplied by the caller.
+    ///
+    /// Construction does not prove that reservation happened. The coordinate is meaningful in
+    /// its originating archive; it is not a globally comparable provider revision or timestamp.
     pub fn sequence(&self) -> ObservationSequence {
         self.sequence
     }

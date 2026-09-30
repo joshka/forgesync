@@ -3149,3 +3149,14 @@ The architecture guide includes store clock ownership, health probe cleanup, and
 units alongside the SQL adapters. Store all-target/all-feature Clippy and strict private-item
 Rustdoc pass after the shared clock move (`/tmp/forgesync-store-clock-clippy.log` and
 `/tmp/forgesync-store-clock-doc.log`). Rumdl and changed-page Markdown linting pass.
+
+### Observation context accessor contracts
+
+Core observation docs explain how missing versus invalid clocks affect downstream interpretation,
+why empty complete and incomplete collections differ, and what each accessor does not establish.
+Payload/family alignment remains a boundary responsibility; acquisition time is diagnostic and
+sequence values are archive-local coordinates. These contracts put interpretation next to the values
+callers inspect instead of requiring reconstruction of store policy.
+
+The complete core suite passes: 28 unit tests, four catalog checks, and eight doctests. Nightly
+formatting, rumdl, and changed-page Markdown linting pass.
