@@ -6,6 +6,20 @@
 //!
 //! This error belongs at the adapter boundary. Engine-level reports can classify it, while the
 //! client keeps protocol details out of archive and search modules.
+//!
+//! Configuration/input failures reject local request preparation; transport/status failures
+//! describe an unsuccessful attempt; response/vector failures reject successful HTTP output before
+//! vectors escape the adapter. None of these variants contains credentials, input text, raw bodies,
+//! or a transport source chain. HTTP status retains only its numeric code.
+//!
+//! [`EmbeddingClientError::code`] is the structured reporting classification. Private retry policy
+//! permits network/timeout failures, 429, and server-error statuses, subject to the client's
+//! attempt and time budgets. It does not retry malformed output, invalid inputs, redirects, or
+//! cancellation. Retry eligibility is distinct from search's explicit keyword-fallback policy.
+//!
+//! `MissingApiKey` means the supplied key is empty, not that this library inspected environment.
+//! CLI credential resolution owns environment access. Domain vector failures collapse to one safe
+//! invalid-vector category; detailed numeric causes are not retained in this service error.
 
 use forgesync_core::embedding::EmbeddingVectorError;
 use thiserror::Error;
@@ -22,7 +36,7 @@ pub enum EmbeddingClientError {
     /// The JSON request could not be encoded.
     #[error("embedding request could not be encoded")]
     InvalidRequest,
-    /// The configured environment variable did not contain an API key.
+    /// The caller supplied no usable API key; the library performs no environment lookup.
     #[error("embedding API key is not set")]
     MissingApiKey,
     /// A request input is empty.
@@ -67,7 +81,10 @@ pub enum EmbeddingClientError {
 }
 
 impl EmbeddingClientError {
-    /// Stable machine-readable classification for CLI and run reports.
+    /// Returns the stable reporting category without private request/response details.
+    ///
+    /// All HTTP statuses share one category; the typed variant retains the numeric status.
+    /// This code is not a retry or fallback decision. Human display text is a separate contract.
     pub const fn code(self) -> &'static str {
         match self {
             Self::InvalidConfiguration => "embedding_config_invalid",
@@ -90,7 +107,11 @@ impl EmbeddingClientError {
         }
     }
 
-    /// Identifies service failures eligible for the bounded retry policy.
+    /// Classifies transient attempt failures for the adapter's bounded retry loop.
+    ///
+    /// Network/timeouts, 429, and statuses at least 500 are eligible. The caller still enforces
+    /// attempt/time budgets. Restricted visibility keeps this adapter policy off the public error
+    /// API even though the error type is re-exported for reporting.
     pub(super) fn retryable(self) -> bool {
         match self {
             Self::Network | Self::Timeout => true,
@@ -104,5 +125,33 @@ impl From<EmbeddingVectorError> for EmbeddingClientError {
     /// Maps domain vector-validation failures to the service's stable invalid-vector category.
     fn from(_: EmbeddingVectorError) -> Self {
         Self::InvalidVector
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Retry eligibility is separate from reporting and fallback.
+    //!
+    //! Named inputs establish the bounded loop's classification without making HTTP requests.
+    //! Client scenarios cover actual attempts and cancellation; these cases keep policy explicit.
+
+    use crate::embedding_client::EmbeddingClientError;
+
+    #[rstest::rstest]
+    #[case::network(EmbeddingClientError::Network)]
+    #[case::timeout(EmbeddingClientError::Timeout)]
+    #[case::rate_limit(EmbeddingClientError::ApiStatus(429))]
+    #[case::server_error(EmbeddingClientError::ApiStatus(500))]
+    fn transient_failure_is_retry_eligible(#[case] error: EmbeddingClientError) {
+        assert!(error.retryable());
+    }
+
+    #[rstest::rstest]
+    #[case::unauthorized(EmbeddingClientError::ApiStatus(401))]
+    #[case::cancelled(EmbeddingClientError::Cancelled)]
+    #[case::invalid_response(EmbeddingClientError::InvalidResponse)]
+    #[case::redirect(EmbeddingClientError::RedirectRejected)]
+    fn permanent_or_cancelled_failure_is_not_retried(#[case] error: EmbeddingClientError) {
+        assert!(!error.retryable());
     }
 }

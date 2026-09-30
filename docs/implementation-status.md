@@ -2467,3 +2467,14 @@ and pull-URL scenarios. Rejections now assert their exact typed classifications 
 All 12 focused reference-related tests, engine Clippy across targets/features, nightly formatting,
 and Markdown checks pass. Parser behavior is unchanged; broader conventions and test review remain
 open.
+
+## Continued maintenance: embedding error policy contracts
+
+Embedding error orientation now distinguishes preparation, attempts, response validation, safe
+classification, bounded retry, and search fallback. The key-missing variant no longer incorrectly
+claims the library reads environment. The restricted retry method is retained as an explicit API
+exception: it governs the adapter loop, while the publicly re-exported error owns reporting.
+
+Eight named linear rstest scenarios cover transient eligibility and nonretryable authorization,
+cancellation, output, and redirect failures. All eight cases, strict engine Rustdoc, nightly
+formatting, and Markdown checks pass. Retry behavior is unchanged; broader review remains open.
