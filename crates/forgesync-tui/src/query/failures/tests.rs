@@ -28,11 +28,34 @@ fn completed_runs_are_omitted_without_reordering_unfinished_runs() {
 
 #[test]
 fn detail_selection_is_bounded_to_twenty_unfinished_runs() {
-    let candidates = vec![sample_run_record(); 21];
+    let retained = sample_run_record();
+    let mut boundary = sample_run_record();
+    boundary.id = RunId::new(24).expect("boundary run identity");
+    let mut omitted = sample_run_record();
+    omitted.id = RunId::new(25).expect("omitted run identity");
+    let mut candidates = vec![retained.clone(); 19];
+    candidates.push(boundary.clone());
+    candidates.push(omitted);
+    let mut expected = vec![retained; 19];
+    expected.push(boundary);
 
     let selected: Vec<_> = unfinished_runs(candidates).collect();
 
-    assert_eq!(selected.len(), 20);
+    assert_eq!(selected, expected);
+}
+
+#[test]
+fn completed_runs_do_not_consume_the_detail_limit() {
+    let unfinished = sample_run_record();
+    let mut completed = sample_run_record();
+    completed.id = RunId::new(24).expect("completed run identity");
+    completed.status = RunStatus::Complete;
+    let mut candidates = vec![completed; 20];
+    candidates.push(unfinished.clone());
+
+    let selected: Vec<_> = unfinished_runs(candidates).collect();
+
+    assert_eq!(selected, vec![unfinished]);
 }
 
 #[test]

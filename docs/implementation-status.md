@@ -2911,3 +2911,14 @@ visible without conditional assertions or behavior helpers.
 
 All five focused repository-picker scenarios and nightly formatting pass. Rumdl normalization and
 changed-page Markdown linting pass.
+
+### Failure detail cutoff identity and ordering
+
+The bounded failure-selection test now identifies the last retained and first omitted runs and
+compares the complete result. A separate linear scenario places twenty completed records before an
+unfinished record, proving filtering precedes the detail bound. These assertions detect reversed
+selection or applying the bound before filtering, which a count-only test could miss. Repeated
+records are explicit construction fixtures; no scenario loops or behavior helpers are needed.
+
+All four focused failure-projection scenarios and nightly formatting pass. Rumdl and changed-page
+Markdown linting pass.
