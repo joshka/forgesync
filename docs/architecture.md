@@ -75,6 +75,23 @@ cluster, storage, GitHub transport, CLI command, and TUI rendering paths are gro
 The [maintainability plan](maintainability-plan.md) tracks the remaining large and mixed-purpose
 modules. Use the module path as the first navigation clue, then read the adjacent tests.
 
+## Local query boundaries
+
+CLI `command/thread_filters` owns the parsed repository, kind, state, ordering, and page choices
+shared by thread listing and search. `ThreadFilterArgs` converts that cohesive input into engine
+filters; query text and retrieval policy remain with the search command. Argument parsing supplies
+basic ranges, while the engine validates requests independently of Clap.
+
+Engine `inspect` owns public inspection vocabulary and local read operations. Its private `query`
+module adapts that vocabulary for inspection, search, and cluster browsing: registered-name
+resolution, bounded pagination, and store enum conversion. The module boundary hides these helpers
+without adding restricted visibility to each function. Store `reads` owns SQL and projection
+assembly. Repository resolution and projection reads are separate operations, not a frozen snapshot.
+
+Start at the command when changing flags, at the engine request when changing workflow policy, and
+at the store projection when changing selection or decoding. Nearby filter tests establish parsing
+and conversion; engine and store scenarios establish archive behavior.
+
 ## Child-family transaction phases
 
 Reservation, staging, and finalization share one ordering contract but own different effects.

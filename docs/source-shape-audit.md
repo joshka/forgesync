@@ -274,6 +274,13 @@ operation, and extension-object validation, rejected-value retention, replacemen
 and sorted field access gain concrete contracts. The rest of core and all other crate reviews remain
 open.
 
+The targeted conventions pass has since reviewed the previously short module introductions across
+CLI inspection/cluster commands, presentation views, engine inspection/refresh/clustering/error, and
+store coverage/finalization/build inputs. It corrected inaccurate effect and completeness claims
+rather than using line counts as completion evidence. Shared discussion filter arguments now have a
+CLI owner, and shared engine query adapters live in a private module with ordinary public functions.
+These findings are fixed; other visibility and item-depth candidates remain open.
+
 ### 8. Tests
 
 Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the
