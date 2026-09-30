@@ -2339,3 +2339,17 @@ constant would make classification harder to review. Type and code contracts avo
 rollback for every multi-step caller and distinguish stable codes from human display text. Strict
 store Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged; broader review
 remains open.
+
+## Continued maintenance: migration validation and reporting
+
+Migration orientation explains the embedded immutable catalog, history read versus checksum
+validation, caller-established baseline, explicit application, and result interval. The validator's
+incorrect claim to reject dirty records is corrected: the preceding current-version read owns that
+check. Opening and diagnostics documentation no longer imply that an old schema can always be
+opened.
+
+Failure contracts distinguish a successful operation report from a durable recovery log. Earlier
+completed migrations can survive a later failure, so retries inspect history rather than reusing an
+assumed baseline. Pool-level helpers retain crate visibility at the archive lifecycle boundary;
+public report types remain usable. Strict store Rustdoc, nightly formatting, and Markdown checks
+pass. Behavior is unchanged; broader review remains open.
