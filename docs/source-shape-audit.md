@@ -702,6 +702,11 @@ independent.
 
 ### Acceptance pass and stopping rules
 
+Observation rollback regressions now require the database error variant and the injected trigger
+diagnostic before checking retained membership and coverage. An unrelated failure can no longer
+stand in for the intended transactional abort. Observation fixture ownership and the remaining
+parent/child scenarios still belong to the open integration review.
+
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
 - Give every inspection candidate one disposition: fixed or retained with a concrete reason. Line
   counts trigger inspection, not mandatory extraction or repeated work on newly named helpers.

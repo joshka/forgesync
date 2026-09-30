@@ -7,6 +7,7 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_store::error::StoreError;
 use forgesync_store::families::ChildFamilyObservation;
 use serde_json::json;
 
@@ -100,8 +101,12 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         expected_pages: Some(1),
         head_sha: None,
     };
-    let result = archive.finish_child_family_observation(observation).await;
-    assert!(result.is_err());
+    let error = archive
+        .finish_child_family_observation(observation)
+        .await
+        .expect_err("coverage trigger aborts finalization");
+    assert!(matches!(&error, StoreError::Database(_)));
+    assert!(error.to_string().contains("forced coverage failure"));
 
     let members = archive
         .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
@@ -225,20 +230,20 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     .execute(&trigger_pool)
     .await
     .expect("install test trigger");
-    assert!(
-        archive
-            .finish_child_family_observation(ChildFamilyObservation {
-                thread: &thread_id,
-                family: EvidenceFamily::ReviewThreads,
-                sequence: next.sequence,
-                observed_at: timestamp("2026-09-20T10:00:04Z"),
-                completeness: &CollectionCompleteness::Complete,
-                expected_pages: Some(1),
-                head_sha: Some(&head),
-            })
-            .await
-            .is_err()
-    );
+    let error = archive
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            sequence: next.sequence,
+            observed_at: timestamp("2026-09-20T10:00:04Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: Some(&head),
+        })
+        .await
+        .expect_err("review-thread coverage trigger aborts finalization");
+    assert!(matches!(&error, StoreError::Database(_)));
+    assert!(error.to_string().contains("forced coverage failure"));
 
     assert_eq!(
         archive
