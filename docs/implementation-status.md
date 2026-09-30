@@ -3365,3 +3365,14 @@ shape. They use explicit bytes and assertions without network fixtures or scenar
 
 All 27 GitHub unit tests and two doctests pass, including the three decoding cases. All-target
 GitHub Clippy, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Incomplete collection coverage ownership
+
+Family dispatch points directly to the incomplete application operation. That operation constructs
+coverage from its own reserved observation time and sequence after validating the received count
+against durable staging. The caller supplies only terminal reason/count facts; it cannot pass an
+arbitrary separately assembled coverage state. Contracts explain preserved canonical membership,
+unchanged complete head context, and caller-owned transaction commit.
+
+The complete store unit, integration, and doctest suites and all-target store Clippy pass. Nightly
+formatting, rumdl, and changed-page Markdown linting pass.

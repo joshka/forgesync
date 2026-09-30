@@ -10,7 +10,7 @@
 //! from the caller's transaction; `finish` alone commits it after the entire application succeeds.
 
 use forgesync_core::coverage::CoverageState;
-use forgesync_core::observation::CollectionCompleteness;
+use forgesync_core::observation::{CollectionCompleteness, IncompleteReason};
 use sqlx::{Row, SqliteConnection};
 
 use crate::error::StoreError;
@@ -91,16 +91,7 @@ impl<'a> FamilyApplication<'a> {
             CollectionCompleteness::Incomplete {
                 reason,
                 received_items,
-            } => {
-                let state = CoverageState::Incomplete {
-                    observed_at: self.observation.observed_at,
-                    sequence: self.observation.sequence,
-                    reason: *reason,
-                    received_items: *received_items,
-                    failure: None,
-                };
-                self.incomplete(connection, state, *received_items).await
-            }
+            } => self.incomplete(connection, *reason, *received_items).await,
         }
     }
 
@@ -137,15 +128,26 @@ impl<'a> FamilyApplication<'a> {
     }
 
     /// Records partial coverage only when its received count agrees with durable staged pages.
+    ///
+    /// Coverage uses this reservation's observation time and sequence, never caller-assembled
+    /// coordinates. The supplied reason/count are terminal collection facts. Canonical membership
+    /// and complete head context remain unchanged; the caller still owns transaction commit.
     async fn incomplete(
         &self,
         connection: &mut SqliteConnection,
-        state: CoverageState,
+        reason: IncompleteReason,
         received: u64,
     ) -> Result<FamilyObservationResult, StoreError> {
         if received != self.staged_count {
             return Err(StoreError::InvalidCollectionCompleteness);
         }
+        let state = CoverageState::Incomplete {
+            observed_at: self.observation.observed_at,
+            sequence: self.observation.sequence,
+            reason,
+            received_items: received,
+            failure: None,
+        };
         self.coverage(connection, &state).await?;
         self.finish_generation(connection, "incomplete", received, self.staged_count)
             .await?;
