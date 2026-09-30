@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Archive lease integration now proves that stale guarded reservation leaves sequence one available to
+the current owner. A separate stale-release scenario proves false return and successor write
+authority. These controls distinguish stale-token rejection from an archive that rejects every
+write. Clock/path/cleanup helpers document their narrow setup roles; current time is deliberate
+because transaction fencing checks process-clock expiry. The small suite remains in one file.
+
 Lifecycle diagnostics now compare the acquired lease owner with the persisted owner and check its
 first fence and explicit expiry. Family failures compare the entire named family/count sequence,
 including zero buckets, rather than unexplained numeric positions. Unassigned failures and active
