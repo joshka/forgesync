@@ -26,6 +26,14 @@ for both crates across all targets; nightly formatting; and changed Markdown lin
 and publish the local fixes, then update the installed executable before resuming acquisition.
 Existing archives remain untouched.
 
+## Coverage connection follow-up
+
+Direct family coverage reads use the connection already acquired for thread identity lookup. They
+cannot exhaust the reader pool by acquiring another connection while retaining the first. A real
+on-disk single-reader regression covers the missing-coverage path. Validation passes with the lease
+fix above: 226 engine/store tests, seven doc tests, Clippy for both crates across all targets,
+nightly formatting, and changed Markdown linting. Next: review and publish the two local changes.
+
 ## Diagnostic colors follow-up
 
 Text diagnostics enable tracing's default ANSI colors and respect nonempty `NO_COLOR`. JSON logs
