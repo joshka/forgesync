@@ -8,6 +8,19 @@
 //! Diagnostics are observations of an already opened archive. They do not migrate, resume, or
 //! clear work. This separation lets the CLI explain what a repair command would affect before the
 //! user runs it.
+//!
+//! Schema inspection validates applied migration checksums before returning pending migrations.
+//! A successful result therefore has valid history; invalid history is an error rather than a
+//! diagnostic record with `history_valid = false`. Pending migrations are not applied here.
+//!
+//! Lease inspection compares the persisted expiry with the current process clock. `held` describes
+//! that read moment and grants no write capability: mutations still require a current fencing token
+//! inside their own transactions. Released or expired leases retain their diagnostic coordinates.
+//!
+//! Work counters and the three diagnostic sections use separate reads, so concurrent writers may
+//! advance between them. Totals are useful operator observations rather than a frozen accounting
+//! snapshot. Failures without a family are counted separately; the unresolved total includes every
+//! unresolved ledger entry, even one with a family label this binary does not recognize.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -43,6 +56,9 @@ pub struct SchemaDiagnostics {
     /// Migrations present in this binary but not applied to the archive.
     pub pending_migrations: Vec<PendingMigration>,
     /// Whether every applied migration checksum matches this binary.
+    ///
+    /// Successful diagnostics always report true. Invalid history returns an error before this
+    /// value is constructed; callers must handle that error rather than await a false flag.
     pub history_valid: bool,
 }
 
@@ -64,7 +80,10 @@ pub struct ArchiveLeaseStatus {
     pub fencing_token: u64,
     /// Lease expiry, including the last released or expired timestamp.
     pub expires_at: UtcTimestamp,
-    /// True only when an owner exists and expiry is in the future.
+    /// True only when an owner exists and expiry is in the future at inspection time.
+    ///
+    /// This is diagnostic state, not permission to write. Another owner may acquire the lease
+    /// after the query; mutations must independently validate their archive fencing token.
     pub held: bool,
 }
 
@@ -96,6 +115,18 @@ pub struct FamilyFailureCount {
 
 impl Archive {
     /// Reads archive diagnostics without acquiring a write lease or changing archive state.
+    ///
+    /// Schema, lease, and work sections are read in that order. Their separate queries can observe
+    /// different moments during concurrent writes. Inspect pending migrations to prepare an
+    /// explicit migration; inspect lease/work state to explain recovery without performing it
+    /// here.
+    ///
+    /// # Errors
+    ///
+    /// Invalid migration history stops inspection before lease/work queries. Invalid stored counts,
+    /// timestamps, out-of-range process time, and SQL failures return typed archive errors. No
+    /// failed or successful inspection repairs evidence, resolves a failure, or takes over a
+    /// writer lease.
     pub async fn diagnostics(&self) -> Result<ArchiveDiagnostics, StoreError> {
         Ok(ArchiveDiagnostics {
             schema: self.schema_diagnostics().await?,

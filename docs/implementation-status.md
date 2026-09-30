@@ -1730,3 +1730,20 @@ coverage. Two nearby cases make dated/undated ordering explicit. Store inspectio
 workspace Clippy pass. Document-write workspace doctests encountered the intermediate timeline
 extraction during compilation; that temporary import error is corrected. Final validation runs
 against the corrected combined tree. Store-operation review remains open.
+
+## Continued maintenance: diagnostic read contracts
+
+Diagnostic documentation now explains that schema inspection rejects invalid migration history
+before returning a record, so successful `history_valid` values are always true. Lease `held` is a
+momentary observation, not a fencing capability. Section/counter reads are independent rather than a
+frozen snapshot, and the unresolved total can include family labels this binary does not recognize.
+
+The public diagnostic operation documents read order, errors, and absence of repair effects. This
+change modifies documentation only; existing linear count queries and simple status mappings remain
+locally readable. Both new timeline ordering cases pass in the combined workspace run. Final
+combined workspace gates remain running. Cluster member-decision mutations are the next store review
+surface.
+
+The corrected combined document/timeline/diagnostic tree passes all workspace tests/doctests, the
+CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
+formatting, rumdl, and changed-page Markdown linting. Store-operation cleanup remains open.
