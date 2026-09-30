@@ -264,14 +264,26 @@ mod tests {
                 item_count: 0,
             },
         );
-        let missing = Coverage::new(EvidenceFamily::Reviews, CoverageState::Missing);
+        let missing = Coverage::new(EvidenceFamily::Comments, CoverageState::Missing);
 
         let complete_json = serde_json::to_value(complete).expect("serialize complete coverage");
         let missing_json = serde_json::to_value(missing).expect("serialize missing coverage");
-        assert_eq!(complete_json["state"]["status"], json!("complete"));
-        assert_eq!(complete_json["state"]["item_count"], json!(0));
-        assert_eq!(missing_json["state"]["status"], json!("missing"));
-        assert_ne!(complete_json, missing_json);
+        assert_eq!(
+            complete_json,
+            json!({
+                "family": "comments",
+                "state": {
+                    "status": "complete",
+                    "observed_at": "2026-09-20T10:00:00Z",
+                    "sequence": 3,
+                    "item_count": 0
+                }
+            })
+        );
+        assert_eq!(
+            missing_json,
+            json!({ "family": "comments", "state": { "status": "missing" } })
+        );
     }
 
     #[test]
@@ -289,7 +301,18 @@ mod tests {
         let stale = stale.mark_stale();
 
         let stale_json = serde_json::to_value(stale).expect("serialize stale coverage");
-        assert_eq!(stale_json["state"]["status"], json!("complete"));
-        assert_eq!(stale_json["stale"], json!(true));
+        assert_eq!(
+            stale_json,
+            json!({
+                "family": "comments",
+                "state": {
+                    "status": "complete",
+                    "observed_at": "2026-09-20T10:00:00Z",
+                    "sequence": 3,
+                    "item_count": 2
+                },
+                "stale": true
+            })
+        );
     }
 }

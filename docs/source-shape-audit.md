@@ -645,6 +645,11 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Coverage representation comparisons now hold the evidence family constant so only acquisition state
+differs. Whole-value JSON expectations check complete metadata and omission of the default freshness
+flag. The stale case checks that timestamp, sequence, and cardinality remain intact while the flag
+becomes present. This strengthens the existing two scenarios without adding a setup abstraction.
+
 The small core content, vector, coverage, and outcome suites retain nearby inline tests with module
 introductions explaining their boundaries and evidence limits. Content serialization now exposes
 each fallible step and consumes JSON without a redundant clone. Vector encoding checks exact
