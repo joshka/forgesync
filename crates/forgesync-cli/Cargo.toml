@@ -15,11 +15,11 @@ tui = ["dep:forgesync-tui"]
 [dependencies]
 clap.workspace = true
 etcetera.workspace = true
-forgesync-core = { version = "0.1.1", path = "../forgesync-core" }
-forgesync-engine = { version = "0.1.1", path = "../forgesync-engine" }
-forgesync-github = { version = "0.1.1", path = "../forgesync-github" }
-forgesync-store = { version = "0.1.1", path = "../forgesync-store" }
-forgesync-tui = { version = "0.1.1", path = "../forgesync-tui", optional = true }
+forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.2", path = "../forgesync-engine" }
+forgesync-github = { version = "0.1.2", path = "../forgesync-github" }
+forgesync-store = { version = "0.1.2", path = "../forgesync-store" }
+forgesync-tui = { version = "0.1.2", path = "../forgesync-tui", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
