@@ -36,9 +36,57 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     let first = thread_id(&repository.id, "thread-1", 1);
     let second = thread_id(&repository.id, "thread-2", 2);
     let third = thread_id(&repository.id, "thread-3", 3);
-    apply_thread(&archive, &first, 1).await;
-    apply_thread(&archive, &second, 2).await;
-    apply_thread(&archive, &third, 3).await;
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&first),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&second),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&third),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");
     let lease = archive
         .acquire_archive_lease(at, Duration::from_secs(3600))
@@ -48,16 +96,20 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     let first_run = archive
         .save_clusters_fenced(
             &lease,
-            &generation(
-                &repository.id,
-                true,
-                3,
-                3,
-                vec![
+            &ClusterGenerationInput {
+                repository: repository.id.clone(),
+                endpoint: "https://embeddings.example/v1".to_owned(),
+                model: "model-v1".to_owned(),
+                recipe: DocumentRecipe::OriginalBody,
+                complete_coverage: true,
+                eligible_threads: 3,
+                vector_threads: 3,
+                candidate_edges: 1,
+                clusters: vec![
                     cluster("first related", &first, &[(&first, 1.0), (&second, 0.82)]),
                     cluster("third", &third, &[(&third, 1.0)]),
                 ],
-            ),
+            },
             at,
         )
         .await
@@ -99,17 +151,21 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     let partial = archive
         .save_clusters_fenced(
             &lease,
-            &generation(
-                &repository.id,
-                false,
-                3,
-                2,
-                vec![cluster(
+            &ClusterGenerationInput {
+                repository: repository.id.clone(),
+                endpoint: "https://embeddings.example/v1".to_owned(),
+                model: "model-v1".to_owned(),
+                recipe: DocumentRecipe::OriginalBody,
+                complete_coverage: false,
+                eligible_threads: 3,
+                vector_threads: 2,
+                candidate_edges: 1,
+                clusters: vec![cluster(
                     "first refreshed",
                     &first,
                     &[(&first, 1.0), (&second, 0.82)],
                 )],
-            ),
+            },
             at,
         )
         .await
@@ -165,13 +221,17 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     let complete = archive
         .save_clusters_fenced(
             &lease,
-            &generation(
-                &repository.id,
-                true,
-                3,
-                3,
-                vec![cluster("first only", &first, &[(&first, 1.0)])],
-            ),
+            &ClusterGenerationInput {
+                repository: repository.id.clone(),
+                endpoint: "https://embeddings.example/v1".to_owned(),
+                model: "model-v1".to_owned(),
+                recipe: DocumentRecipe::OriginalBody,
+                complete_coverage: true,
+                eligible_threads: 3,
+                vector_threads: 3,
+                candidate_edges: 1,
+                clusters: vec![cluster("first only", &first, &[(&first, 1.0)])],
+            },
             at,
         )
         .await
@@ -212,8 +272,40 @@ async fn canonical_selection_rejects_a_thread_outside_the_cluster() {
         .expect("store repository");
     let first = thread_id(&repository.id, "thread-1", 1);
     let second = thread_id(&repository.id, "thread-2", 2);
-    apply_thread(&archive, &first, 1).await;
-    apply_thread(&archive, &second, 2).await;
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&first),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&second),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");
     let lease = archive
         .acquire_archive_lease(at, Duration::from_secs(3600))
@@ -223,13 +315,17 @@ async fn canonical_selection_rejects_a_thread_outside_the_cluster() {
     archive
         .save_clusters_fenced(
             &lease,
-            &generation(
-                &repository.id,
-                true,
-                1,
-                1,
-                vec![cluster("only", &first, &[(&first, 1.0)])],
-            ),
+            &ClusterGenerationInput {
+                repository: repository.id.clone(),
+                endpoint: "https://embeddings.example/v1".to_owned(),
+                model: "model-v1".to_owned(),
+                recipe: DocumentRecipe::OriginalBody,
+                complete_coverage: true,
+                eligible_threads: 1,
+                vector_threads: 1,
+                candidate_edges: 1,
+                clusters: vec![cluster("only", &first, &[(&first, 1.0)])],
+            },
             at,
         )
         .await
@@ -267,7 +363,23 @@ async fn complete_generation_rejects_missing_vector_coverage_without_storing_clu
         .await
         .expect("store repository");
     let first = thread_id(&repository.id, "thread-1", 1);
-    apply_thread(&archive, &first, 1).await;
+    let observed_at = timestamp("2026-09-20T10:00:00Z");
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve thread sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        discussion(&first),
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");
     let lease = archive
         .acquire_archive_lease(at, Duration::from_secs(3600))
@@ -307,26 +419,7 @@ async fn complete_generation_rejects_missing_vector_coverage_without_storing_clu
     remove_archive(&path);
 }
 
-fn generation(
-    repository: &RepositoryId,
-    complete_coverage: bool,
-    eligible_threads: u64,
-    vector_threads: u64,
-    clusters: Vec<ClusterInput>,
-) -> ClusterGenerationInput {
-    ClusterGenerationInput {
-        repository: repository.clone(),
-        endpoint: "https://embeddings.example/v1".to_owned(),
-        model: "model-v1".to_owned(),
-        recipe: DocumentRecipe::OriginalBody,
-        complete_coverage,
-        eligible_threads,
-        vector_threads,
-        candidate_edges: 1,
-        clusters,
-    }
-}
-
+/// Constructs proposed membership from supplied identities and scores without running analysis.
 fn cluster(title: &str, representative: &ThreadId, members: &[(&ThreadId, f64)]) -> ClusterInput {
     ClusterInput {
         representative: representative.clone(),
@@ -359,41 +452,25 @@ fn all_clusters(repository: &RepositoryId) -> ClusterListQuery<'_> {
     }
 }
 
-async fn apply_thread(archive: &Archive, thread: &ThreadId, number: u64) {
-    let updated_at = timestamp("2026-09-20T10:00:00Z");
-    let sequence = archive
-        .reserve_observation_sequence(updated_at)
-        .await
-        .expect("reserve observation sequence");
-    let discussion = Discussion {
+/// Constructs one fixed open issue without reserving a sequence or writing the archive.
+fn discussion(thread: &ThreadId) -> Discussion {
+    Discussion {
         id: thread.clone(),
         kind: ThreadKind::Issue,
         state: SourceState::Open,
-        title: format!("Thread {number}"),
-        body: Some(format!("Body for thread {number}")),
+        title: format!("Thread {}", thread.number().get()),
+        body: Some(format!("Body for thread {}", thread.number().get())),
         html_url: None,
         created_at: timestamp("2026-09-19T10:00:00Z"),
-        updated_at,
+        updated_at: timestamp("2026-09-20T10:00:00Z"),
         closed_at: None,
         labels: Vec::new(),
         assignees: Vec::new(),
         provider_data: ProviderData::new(),
-    };
-    let raw_clock = updated_at.format_rfc3339().expect("format source clock");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        discussion,
-        SourceClock::from_raw(Some(&raw_clock)),
-        updated_at,
-        sequence,
-        CollectionCompleteness::Complete,
-    );
-    archive
-        .apply_thread_observation(&observation)
-        .await
-        .expect("apply thread observation");
+    }
 }
 
+/// Constructs fixed repository metadata without registering it in the archive.
 fn repository() -> Repository {
     let id = RepositoryId::new(
         GitHubHost::parse("github.com").expect("host"),
@@ -410,6 +487,7 @@ fn repository() -> Repository {
     }
 }
 
+/// Checks explicit repository, provider identity, and display number for a fixture discussion.
 fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> ThreadId {
     ThreadId::new(
         repository.clone(),
@@ -418,6 +496,7 @@ fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> Threa
     )
 }
 
+/// Parses a fixed scenario timestamp without sampling the process clock.
 fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
 }

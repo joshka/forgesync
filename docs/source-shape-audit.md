@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Cluster persistence setup now shows every observation sequence reservation and application directly
+in its scenario. The remaining discussion fixture constructs values only and derives display text
+from the checked thread number rather than a duplicated argument. Generation values name coverage
+and counts instead of passing positional booleans through a five-argument helper. Construction
+helpers explain their supplied identities, scores, and fixed timestamps. This removes hidden archive
+execution; the expanded suite still needs its planned scenario/file organization pass.
+
 Cluster persistence now separates canonical nonmember rejection from false complete-vector coverage.
 The count mismatch uses an explicit generation value, compares `InvalidClusterGeneration`, and reads
 all lifecycles to prove that no cluster was stored. Canonical selection remains its own named case.
