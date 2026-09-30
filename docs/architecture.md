@@ -334,3 +334,12 @@ a completed scan's source boundary. The engine parent-thread job constructs repo
 sequence, source boundary, and publication time together. `Archive` owns validation and commit; the
 lease token remains separate from checkpoint data. Checkpoint reads still return the retained
 source-time boundary without acquiring provider data.
+
+### Offline CLI query scenarios
+
+The `offline_queries` process suite has shallow sibling modules for keyword search, advanced FTS,
+thread selection, argument validation, and human presentation. Each query scenario constructs its
+own archive and shows its command and assertions directly, including reported-state comparisons
+before and after execution. `fixture` owns the fixed repository/observation construction, unique
+paths, and closed-handle cleanup; it does not execute queries. Store and engine suites establish
+query mechanics, while these cases establish process output and validation boundaries.

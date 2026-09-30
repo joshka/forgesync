@@ -515,6 +515,15 @@ that conversion boundary; no extra wrapper would remove a caller decision. Archi
 similarly retains path and output beside `self`. These dispositions cover the inspected local read
 and run dispatch signatures rather than the remaining service-backed CLI preparations.
 
+### Offline CLI scenario locality
+
+The former offline test combined eight commands and validated archive status only after the entire
+sequence. Each command now has a named scenario with its own construction, visible process call,
+output assertions, and before/after reported-state comparison. Shallow sibling files group keyword,
+advanced FTS, thread selection, validation, and human presentation; the shared fixture file only
+constructs the known repository/observation and releases resources. This preserves existing output
+expectations while making failures and nonmutation evidence local to each selected command.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

@@ -90,6 +90,13 @@ caller-before-callee reading order. The signature audit records retained local r
 inputs with their process/selection roles. Seven cluster process cases and CLI all-target Clippy
 pass; broader service-backed preparation and cross-crate signature review remain open.
 
+The offline CLI suite now has ten named scenarios in shallow keyword, advanced FTS, thread,
+validation, and presentation modules, with one documented construction/cleanup fixture owner. The
+former eight-command scenario is removed. Each query or argument-rejection case compares reported
+archive status around its own command rather than only around the aggregate sequence. All ten
+process cases and all-target CLI Clippy pass; module docs and Markdown checks describe the split.
+This closes that mixed scenario finding while the remaining suite inventory stays open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
