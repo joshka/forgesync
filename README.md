@@ -14,13 +14,17 @@ Build and install the CLI from this checkout with Rust 1.98 or newer:
 cargo install --path crates/forgesync-cli --locked
 ```
 
-Create a new archive explicitly, then sync a repository:
+Create your normal archive explicitly, then sync a repository:
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive init
+forgesync archive init
 gh auth login
-forgesync --archive ./forgesync.sqlite sync rust-lang/rust --with comments,reviews,review-threads
+forgesync sync rust-lang/rust --with comments,reviews,review-threads
 ```
+
+Commands use one database in your user data directory. Set `[archive] path` in your user config to
+choose another location; `--archive PATH` overrides it for one invocation. See
+[archive configuration](docs/configuration.md#archive-and-config-locations).
 
 Forgesync reads `GITHUB_TOKEN` when set, or asks the GitHub CLI for a token. No credentials are
 needed for archive creation, local reads, or keyword search.
@@ -28,10 +32,10 @@ needed for archive creation, local reads, or keyword search.
 ## Search and inspect offline
 
 ```sh
-forgesync --archive ./forgesync.sqlite search "release notes"
-forgesync --archive ./forgesync.sqlite thread list --repo rust-lang/rust
-forgesync --archive ./forgesync.sqlite archive status
-forgesync --archive ./forgesync.sqlite tui
+forgesync search "release notes"
+forgesync thread list --repo rust-lang/rust
+forgesync archive status
+forgesync tui
 ```
 
 Read the [user manual](docs/user-manual.md) for the complete acquisition, search, triage, and

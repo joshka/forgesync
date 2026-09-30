@@ -49,6 +49,9 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   side-effect-free. Partial success remains a structured report.
 - Preserve the selected observation, checkpoint, partial collection, and failure-isolation
   invariants from docs/compatibility.md. Do not use last-write-wins without fixture evidence.
+- The CLI selects one configured/default archive, with `--archive` as an invocation override.
+  Libraries still receive an explicit opened archive. Default path selection never implies creation
+  or migration; only explicit `archive init` creates its parent directories.
 - Libraries return typed errors and never install a tracing subscriber or read process environment.
   The CLI owns config resolution, subscriber setup, exit codes, and JSON rendering.
 - Do not log credentials, headers, prompts, discussion bodies, or raw provider payloads.

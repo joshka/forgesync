@@ -4,13 +4,34 @@
 
 The selected Forgesync implementation and maintainability cleanup are **complete**. All eight
 implementation/review batches have fixed or retained dispositions, and all applicable local gates
-pass on the final source. The full workspace run passes 525 tests across 27 suites, with no failures
-or ignored cases. Hosted native execution remains separate release evidence.
+passed on the cleanup baseline. That workspace run passed 525 tests across 27 suites, with no
+failures or ignored cases. The configured-archive follow-up below has separate validation evidence.
+Hosted native execution remains separate release evidence.
 
 This file describes current status. The [source-shape audit](source-shape-audit.md) records review
 findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
+
+## Configured-archive follow-up
+
+The CLI now selects an invocation override, `[archive] path`, or one default user-data database.
+User configuration is discovered automatically; relative TOML paths are anchored to that file.
+Explicit initialization creates missing database parent directories. Reads and migration remain
+existing-file operations. TUI terminal/output validation precedes config loading, then interactive
+startup uses the same database resolution as other commands.
+
+The default workflow and migration from previously explicit paths are documented in the README,
+configuration guide, and user manual. The manual distinguishes SQLite lock waiting, provider and
+credential timeouts, and workflow writer leases; the archive-wide lease design is retained.
+
+CLI validation passes: 129 cases across six suites, including five new path-resolution and eight
+process-selection cases. Workspace Clippy and strict public/private Rustdoc pass. The native smoke
+script passes with automatic configuration and no archive flags. Formatting and Markdown checks
+pass. The full workspace regression run passes 538 tests across 27 suites, with no failures or
+ignored tests. The minimal CLI build passes with default features disabled; it ran after process
+tests completed to avoid replacing their executable. The cleanup validation record below certifies
+its earlier baseline, rather than this changed application source.
 
 ## Latest changes and evidence
 

@@ -26,17 +26,33 @@ use crate::{OutputMode, render_error, render_store_error, usage_error};
 
 /// Starts the interactive browser after checking terminal and archive prerequisites.
 pub async fn run_tui(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
+    if let Some(status) = validate_terminal(json) {
+        return status;
+    }
+    launch(path, verbose).await
+}
+
+/// Rejects incompatible output or noninteractive streams before configuration and archive access.
+/// Returns the rendered process status; a valid interactive invocation proceeds without effects.
+pub fn validate_terminal(json: OutputMode) -> Option<ExitCode> {
     if json.is_json() {
-        return usage_error("--json is not supported by the interactive tui command");
+        return Some(usage_error(
+            "--json is not supported by the interactive tui command",
+        ));
     }
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
-        return render_error(
+        return Some(render_error(
             OutputMode::Text,
             "tui",
             "tui_requires_terminal",
             "the tui command requires an interactive terminal",
-        );
+        ));
     }
+    None
+}
+
+/// Opens the selected archive and prepares host clients before transferring ownership to the TUI.
+async fn launch(path: &std::path::Path, verbose: u8) -> ExitCode {
     let archive = match Archive::open_read_write(path).await {
         Ok(archive) => archive,
         Err(error) => return render_store_error(OutputMode::Text, "tui", error),

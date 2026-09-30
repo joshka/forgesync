@@ -26,18 +26,21 @@ cargo install --path crates/forgesync-cli --locked --no-default-features
 
 ## Create an archive and sync
 
-Archive creation is explicit. Forgesync never creates or migrates an archive while opening it.
-Choose a new path for the Forgesync database; a Gitcrawl database is not a compatible archive.
+Archive creation is explicit. Forgesync never creates or migrates an archive while opening it. The
+normal database lives in your user data directory. Configure `[archive] path` to select an existing
+Forgesync database or a different new location. `--archive PATH` remains a one-invocation override.
+A Gitcrawl database is not a compatible archive. See
+[archive and config locations](configuration.md#archive-and-config-locations).
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive init
+forgesync archive init
 ```
 
 Authenticate with `gh auth login`, or set `GITHUB_TOKEN` in the process environment. Then acquire
 the selected discussion and review evidence:
 
 ```sh
-forgesync --archive ./forgesync.sqlite sync rust-lang/rust \
+forgesync sync rust-lang/rust \
   --with comments,reviews,review-threads
 ```
 
@@ -50,9 +53,9 @@ they are not prerequisites for the local keyword search workflow.
 Keyword search is local and does not read GitHub or embedding credentials:
 
 ```sh
-forgesync --archive ./forgesync.sqlite search "release notes" --repo rust-lang/rust
-forgesync --archive ./forgesync.sqlite thread list --repo rust-lang/rust --state open
-forgesync --archive ./forgesync.sqlite thread show rust-lang/rust#1
+forgesync search "release notes" --repo rust-lang/rust
+forgesync thread list --repo rust-lang/rust --state open
+forgesync thread show rust-lang/rust#1
 ```
 
 Search output includes each matching thread's current evidence coverage. `archive status` shows
@@ -67,11 +70,11 @@ remain committed if a later page or evidence family fails. Restarting a sync saf
 current requested scope; use the run ledger to inspect or explicitly retry recorded failures:
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive status
-forgesync --archive ./forgesync.sqlite archive doctor
-forgesync --archive ./forgesync.sqlite run list
-forgesync --archive ./forgesync.sqlite run show 12
-forgesync --archive ./forgesync.sqlite run retry 12 --family comments,reviews
+forgesync archive status
+forgesync archive doctor
+forgesync run list
+forgesync run show 12
+forgesync run retry 12 --family comments,reviews
 ```
 
 Use the run ID reported by your archive. Retry requires GitHub credentials and contacts GitHub.
@@ -84,8 +87,8 @@ Diagnostic logs are separate from command results. They go to stderr, so `--json
 valid JSON on stdout. Logging is quiet by default; increase verbosity for more detail:
 
 ```sh
-forgesync --archive ./forgesync.sqlite -v archive status
-forgesync --archive ./forgesync.sqlite -vv --log-format json sync rust-lang/rust
+forgesync -v archive status
+forgesync -vv --log-format json sync rust-lang/rust
 ```
 
 `-v` enables informational diagnostics, `-vv` enables debug diagnostics, and `-vvv` enables trace
@@ -111,15 +114,16 @@ model = "text-embedding-3-small"
 api_key_env = "OPENAI_API_KEY"
 ```
 
-Select a file with `--config PATH` or `FORGESYNC_CONFIG`. Embedding settings do not make model
-credentials a prerequisite for keyword workflows.
+Save these preferences in the automatically loaded user config, or select a file with
+`--config PATH` or `FORGESYNC_CONFIG`. Embedding settings do not make model credentials a
+prerequisite for keyword workflows.
 
 ## Terminal browser
 
 Launch the TUI against an existing archive:
 
 ```sh
-forgesync --archive ./forgesync.sqlite tui
+forgesync tui
 ```
 
 Browsing, local search, coverage, failures, and cluster inspection stay local. Sync, refresh, retry,

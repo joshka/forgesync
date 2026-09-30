@@ -702,6 +702,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "etcetera",
  "forgesync-core",
  "forgesync-engine",
  "forgesync-github",

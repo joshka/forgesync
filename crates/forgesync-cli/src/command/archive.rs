@@ -64,6 +64,9 @@ impl ArchiveCommand {
 
     /// Creates a new archive and reports its stored identity.
     async fn init(path: &Path, output: OutputMode) -> ExitCode {
+        if let Err(error) = create_parent_directory(path) {
+            return render_store_error(output, "archive init", error);
+        }
         let archive = match Archive::create(path).await {
             Ok(archive) => archive,
             Err(error) => return render_store_error(output, "archive init", error),
@@ -158,4 +161,19 @@ impl ArchiveCommand {
             exit_status,
         )
     }
+}
+
+/// Creates the database's parent directory only for explicit archive initialization.
+/// Opening and migration never create directories; a bare filename needs no directory creation.
+fn create_parent_directory(path: &Path) -> Result<(), forgesync_store::error::StoreError> {
+    let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(parent).map_err(|source| forgesync_store::error::StoreError::Io {
+        path: parent.to_path_buf(),
+        source,
+    })
 }

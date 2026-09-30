@@ -49,11 +49,15 @@ def main() -> int:
         raise SystemExit(f"unexpected version output: {version.stdout.strip()!r}")
 
     with tempfile.TemporaryDirectory(prefix="forgesync-smoke-") as temporary_directory:
-        archive = Path(temporary_directory) / "smoke.sqlite"
-        run("--archive", str(archive), "--json", "archive", "init")
+        config_directory = Path(temporary_directory) / "forgesync"
+        config_directory.mkdir()
+        (config_directory / "config.toml").write_text(
+            "[archive]\npath = 'smoke.sqlite'\n", encoding="utf-8"
+        )
+        environment["XDG_CONFIG_HOME"] = temporary_directory
+        environment["APPDATA"] = temporary_directory
+        run("--json", "archive", "init")
         doctor = run(
-            "--archive",
-            str(archive),
             "--json",
             "--log-format",
             "json",
@@ -85,7 +89,7 @@ def main() -> int:
             if checks.get(name) is not True:
                 raise SystemExit(f"archive doctor check failed or was missing: {name}")
 
-        search = run("--archive", str(archive), "--json", "search", "smoke")
+        search = run("--json", "search", "smoke")
         search_data = json.loads(search.stdout)["data"]
         if search_data["items"]:
             raise SystemExit("an empty archive unexpectedly returned search results")

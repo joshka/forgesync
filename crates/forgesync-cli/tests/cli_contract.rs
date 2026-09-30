@@ -20,13 +20,22 @@ use assert_cmd::Command;
 /// Distinguishes archive paths within this test process without sharing database state.
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 
-/// Builds a fresh process command for the workspace executable without running it.
+/// Builds a process command with automatic config isolated from the actual user settings.
+/// Scenarios may override child directory/config values; constructing this command creates no
+/// files.
 fn forgesync() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_forgesync"))
+    let config_root = std::env::temp_dir().join(format!("forgesync-config-{}", std::process::id()));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_forgesync"));
+    command.env_remove("FORGESYNC_CONFIG");
+    command.env("XDG_CONFIG_HOME", &config_root);
+    command.env("APPDATA", config_root);
+    command
 }
 
 #[path = "cli_contract/archive.rs"]
 mod archive;
+#[path = "cli_contract/archive_selection.rs"]
+mod archive_selection;
 #[path = "cli_contract/config.rs"]
 mod config;
 #[path = "cli_contract/process.rs"]

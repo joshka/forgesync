@@ -1,6 +1,6 @@
 //! # Load local application configuration
 //!
-//! `ForgesyncConfig` groups document and embedding-service settings. Nested config types
+//! `ForgesyncConfig` groups archive, document, and embedding-service settings. Nested config types
 //! supply defaults and validation for the parts of the app that need them; `ConfigError` reports
 //! malformed or unusable configuration.
 //!
@@ -8,10 +8,11 @@
 //! explicit values and never reach into the process environment, which makes their behavior
 //! repeatable for a given input.
 //!
-//! [`ForgesyncConfig::load`] chooses an explicit path first, then `FORGESYNC_CONFIG`, then built-in
-//! defaults. A selected file is required to exist and parse; missing files do not silently revert
-//! to defaults. Omitted TOML fields receive defaults, while unknown fields are rejected. Archive
-//! paths and GitHub credentials belong to command arguments and credential resolution, not here.
+//! [`ForgesyncConfig::load`] chooses an explicit path first, then `FORGESYNC_CONFIG`, then the
+//! user configuration, then built-in defaults if that automatic file is absent. Explicitly selected
+//! files must exist; malformed automatic files are errors too. Relative database paths are anchored
+//! to the config file. Omitted fields receive defaults and unknown fields are rejected. GitHub
+//! credentials remain with credential resolution.
 //!
 //! Loading and semantic validation are separate boundaries. [`EmbeddingServiceConfig::validate`]
 //! checks endpoint shape and resource budgets when a workflow needs embeddings; parsing a config
@@ -34,7 +35,11 @@ use url::Url;
 
 use crate::credentials::valid_environment_variable_name;
 
-/// Parsed document and embedding preferences with defaults for omitted fields.
+pub mod archive;
+
+use archive::{ArchiveConfig, default_config_path};
+
+/// Parsed archive, document, and embedding preferences with defaults for omitted fields.
 ///
 /// Deserialization rejects unknown settings but does not validate endpoint or budget semantics.
 /// Validate embedding settings only at the workflows that need them, so local archive inspection
@@ -42,6 +47,8 @@ use crate::credentials::valid_environment_variable_name;
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ForgesyncConfig {
+    /// Normal archive location, with per-invocation overrides resolved by the CLI.
+    pub archive: ArchiveConfig,
     /// Inputs used to create retrieval documents and embeddings.
     pub documents: DocumentsConfig,
     /// Independent OpenAI-compatible embedding service settings.
@@ -195,12 +202,14 @@ impl EmbeddingServiceConfig {
 }
 
 impl ForgesyncConfig {
-    /// Loads the explicit path, then `FORGESYNC_CONFIG`, or defaults when neither is supplied.
+    /// Loads an explicit file, `FORGESYNC_CONFIG`, or the automatically discovered user file.
     ///
     /// Explicit selection wins even if the environment points elsewhere. A selected path is read
-    /// as UTF-8 TOML with defaults for omitted fields and rejection of unknown fields. No implicit
-    /// config-directory search or file creation occurs. Semantic embedding validation is deferred
-    /// to the workflow; loading does not resolve credentials or initiate network requests.
+    /// as UTF-8 TOML with defaults for omitted fields and rejection of unknown fields. The
+    /// user config is optional only when automatically selected. No file creation occurs.
+    /// Relative archive paths are anchored to the file's directory. Embedding validation is
+    /// deferred to the workflow; loading does not resolve credentials or initiate network
+    /// requests.
     ///
     /// # Errors
     ///
@@ -210,20 +219,45 @@ impl ForgesyncConfig {
         let path = explicit_path
             .map(Path::to_path_buf)
             .or_else(config_path_from_environment);
-        let Some(path) = path else {
-            return Ok(Self::default());
-        };
-        let source = std::fs::read_to_string(&path).map_err(|source| ConfigError::Read {
-            path: path.clone(),
+        if let Some(path) = path {
+            return Self::load_file(&path);
+        }
+        let path = default_config_path()?;
+        match Self::load_file(&path) {
+            Err(ConfigError::Read { source, .. })
+                if source.kind() == std::io::ErrorKind::NotFound =>
+            {
+                Ok(Self::default())
+            }
+            result => result,
+        }
+    }
+
+    /// Parses one required file and anchors its database setting before returning preferences.
+    /// Missing, unreadable, and malformed files retain typed errors and their selected path.
+    fn load_file(path: &Path) -> Result<Self, ConfigError> {
+        let source = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
+            path: path.to_path_buf(),
             source,
         })?;
-        toml::from_str(&source).map_err(|source| ConfigError::Parse { path, source })
+        let mut config: Self = toml::from_str(&source).map_err(|source| ConfigError::Parse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        config.archive.relative_to_config(path)?;
+        Ok(config)
     }
 }
 
 /// Error reading or parsing the user configuration.
 #[derive(Debug, Error)]
 pub enum ConfigError {
+    /// No home directory could be discovered for automatic config/data selection.
+    #[error("could not locate the user's configuration/data directories")]
+    UserDirectories(#[source] etcetera::HomeDirError),
+    /// An explicitly supplied archive location was empty.
+    #[error("archive path must not be empty")]
+    EmptyArchivePath,
     /// The selected config file could not be read.
     #[error("could not read config file {path}")]
     Read {
@@ -251,6 +285,8 @@ impl ConfigError {
     /// Stable machine-readable CLI error classification.
     pub const fn code(&self) -> &'static str {
         match self {
+            Self::UserDirectories(_) => "config_directory_unavailable",
+            Self::EmptyArchivePath => "config_invalid",
             Self::Read { .. } => "config_read_failed",
             Self::Parse { .. } | Self::InvalidEmbeddings => "config_invalid",
         }

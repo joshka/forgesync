@@ -64,9 +64,11 @@ valid chunk groups. Raw candidates determine pagination even when every vector i
 GitHub transport `request` owns budgeted attempts and trusted redirect traversal; `client` owns
 construction and endpoint entry points. CLI `command/embedding_service` prepares configured clients
 without making provider requests, preserving configuration versus initialization failures.
-`command/interruption` scopes the Ctrl-C listener and lends its token to command workflows; engine
-operations retain ownership of interrupted reports and durable cleanup. CLI `reports/detail` and TUI
-`view/detail` build named presentation sections from loaded projections.
+`config/archive` resolves the invocation override, single configured database, and user-data
+default. Config-relative paths are anchored during loading; library APIs still receive an explicit
+opened archive. `command/interruption` scopes the Ctrl-C listener and lends its token to command
+workflows; engine operations retain ownership of interrupted reports and durable cleanup. CLI
+`reports/detail` and TUI `view/detail` build named presentation sections from loaded projections.
 
 CLI `command/progress` owns the bounded advisory channel and stderr task shared by sync and retry.
 It closes local delivery before draining and aborts the task when its command owner is dropped.

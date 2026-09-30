@@ -35,15 +35,31 @@ command to build without it. Native release packaging is described in
 
 ### Create an archive
 
-Choose a new database path:
+Initialize your normal database once:
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive init
+forgesync archive init
 ```
 
-Pass `--archive PATH` on every archive command. There is no implicit default archive. Global options
-may appear before or after the command. `archive init` refuses to overwrite an existing file; other
-commands require an existing archive and never create or migrate one automatically.
+Commands now select the same normal database automatically. Its default location is
+`~/.local/share/forgesync/archive.sqlite` on Linux/macOS, or `%APPDATA%\forgesync\archive.sqlite` on
+Windows. Unix `XDG_DATA_HOME` can change the base directory. `archive init` creates missing parent
+directories but refuses to overwrite an existing database. Other commands require an existing
+archive and never create or migrate one automatically.
+
+To select a different normal database, set `[archive] path` in the user config. Forgesync loads
+`~/.config/forgesync/config.toml` on Linux/macOS (respecting `XDG_CONFIG_HOME`) or
+`%APPDATA%\forgesync\config.toml` on Windows. For example:
+
+```toml
+[archive]
+path = "/absolute/path/to/forgesync.sqlite"
+```
+
+Relative TOML paths are relative to the config file; `~` and environment variables are not expanded.
+Use `--archive PATH` to override the normal database for one command. Global options may appear
+before or after the command. `archive status` reports the selected database path. If you already
+have a Forgesync database, configure its path and open it normally instead of initializing it again.
 
 Use a separate database from any Gitcrawl installation. Forgesync cannot open or import a Gitcrawl
 archive.
@@ -54,7 +70,7 @@ Authenticate with the GitHub CLI:
 
 ```sh
 gh auth login
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui
+forgesync sync ratatui/ratatui
 ```
 
 Alternatively, supply a GitHub token through `GITHUB_TOKEN`. The token must have access to the
@@ -67,9 +83,9 @@ The command prints a summary of acquired work. A partial or deferred outcome mea
 work remains, even if discussion data was stored successfully. Inspect the archive afterward:
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive status
-forgesync --archive ./forgesync.sqlite thread list --repo ratatui/ratatui
-forgesync --archive ./forgesync.sqlite search "terminal resize"
+forgesync archive status
+forgesync thread list --repo ratatui/ratatui
+forgesync search "terminal resize"
 ```
 
 These reads use the archived data and need no GitHub credentials or network connection.
@@ -81,8 +97,8 @@ These reads use the archived data and need no GitHub credentials or network conn
 Sync one or several repositories, or update all repositories already registered in the archive:
 
 ```sh
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui rust-lang/rust
-forgesync --archive ./forgesync.sqlite sync --all
+forgesync sync ratatui/ratatui rust-lang/rust
+forgesync sync --all
 ```
 
 Replace the example repositories with your own. `--all` selects the local registry; it does not
@@ -93,7 +109,7 @@ Basic sync acquires issue and pull-request discussion records. Request additiona
 explicitly:
 
 ```sh
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui \
+forgesync sync ratatui/ratatui \
   --with comments,reviews,review-threads
 ```
 
@@ -113,9 +129,9 @@ The default sync fetches open discussions and performs a closed-discussion sweep
 successful sweep position. Choose an explicit scope when needed:
 
 ```sh
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui --state open
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui --state closed
-forgesync --archive ./forgesync.sqlite sync ratatui/ratatui --state all
+forgesync sync ratatui/ratatui --state open
+forgesync sync ratatui/ratatui --state closed
+forgesync sync ratatui/ratatui --state all
 ```
 
 `open` fetches only open discussions. `closed` uses the successful closed-sweep watermark; it is not
@@ -131,7 +147,7 @@ pages or independent evidence families. Repeating acquisition does not duplicate
 `refresh` combines acquisition with optional analysis. Without analysis flags it performs sync:
 
 ```sh
-forgesync --archive ./forgesync.sqlite refresh ratatui/ratatui \
+forgesync refresh ratatui/ratatui \
   --with comments,reviews,review-threads
 ```
 
@@ -146,8 +162,8 @@ Default keyword search matches archived discussion titles and bodies. Quote a qu
 spaces so the shell passes it as one argument:
 
 ```sh
-forgesync --archive ./forgesync.sqlite search "terminal resize"
-forgesync --archive ./forgesync.sqlite search "terminal resize" \
+forgesync search "terminal resize"
+forgesync search "terminal resize" \
   --repo ratatui/ratatui --kind issue --state open
 ```
 
@@ -155,7 +171,7 @@ Ordinary keyword mode treats punctuation as separators rather than interpreting 
 explicit advanced FTS mode for phrases, boolean operators, or grouping:
 
 ```sh
-forgesync --archive ./forgesync.sqlite search '"terminal resize" OR viewport' \
+forgesync search '"terminal resize" OR viewport' \
   --mode advanced-fts
 ```
 
@@ -179,9 +195,9 @@ Thread listing defaults to newest source update first. Keyword search defaults t
 time ordering when reviewing recent activity:
 
 ```sh
-forgesync --archive ./forgesync.sqlite thread list --repo ratatui/ratatui \
+forgesync thread list --repo ratatui/ratatui \
   --kind pr --sort updated --limit 20 --offset 0
-forgesync --archive ./forgesync.sqlite thread list --repo ratatui/ratatui \
+forgesync thread list --repo ratatui/ratatui \
   --kind pr --sort updated --limit 20 --offset 20
 ```
 
@@ -193,8 +209,8 @@ exists. A concurrent sync can change the available rows between requests.
 Use a repository and positive discussion number, or a GitHub issue/pull-request URL:
 
 ```sh
-forgesync --archive ./forgesync.sqlite thread show 'ratatui/ratatui#1'
-forgesync --archive ./forgesync.sqlite thread show https://github.com/ratatui/ratatui/issues/1
+forgesync thread show 'ratatui/ratatui#1'
+forgesync thread show https://github.com/ratatui/ratatui/issues/1
 ```
 
 Replace `1` with a number returned by your archive. Showing a URL resolves it locally; it does not
@@ -211,8 +227,8 @@ An archive contains what you have acquired, rather than a live view of GitHub. C
 discussion content and the coverage of its evidence families:
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive status
-forgesync --archive ./forgesync.sqlite thread show 'ratatui/ratatui#1'
+forgesync archive status
+forgesync thread show 'ratatui/ratatui#1'
 ```
 
 | Coverage meaning | How to interpret it                                                 |
@@ -238,7 +254,7 @@ recorded failures as described below.
 Start from an interactive terminal:
 
 ```sh
-forgesync --archive ./forgesync.sqlite tui
+forgesync tui
 ```
 
 Use `Tab` to move between repositories, discussions, and detail. Select a repository with `Enter`,
@@ -272,7 +288,7 @@ Semantic search ranks discussions by stored embedding vectors instead of literal
 Hybrid search combines keyword and semantic ranks. Both need compatible stored vectors and a service
 capable of generating an embedding for your query.
 
-Save a configuration file such as `forgesync.toml`:
+Add these settings to your automatically loaded user config:
 
 ```toml
 [documents]
@@ -289,17 +305,18 @@ variable, not in TOML. The endpoint, model, and document recipe identify compati
 See [configuration](configuration.md) for alternate services, dimensions, request limits, and retry
 settings.
 
-Select the file with `--config ./forgesync.toml`, or set `FORGESYNC_CONFIG` to its path. The
-explicit option takes precedence. With neither, built-in defaults apply; no configuration file is
-discovered automatically. Unknown fields and invalid values are errors.
+An explicit `--config PATH` takes precedence over `FORGESYNC_CONFIG`, which takes precedence over
+the user config. Only an absent automatic file uses built-in defaults. Selected missing files,
+unknown fields, and invalid values are errors. See [configuration](configuration.md) for path
+details.
 
 ### Generate vectors, then query
 
 ```sh
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml embed ratatui/ratatui
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml \
+forgesync embed ratatui/ratatui
+forgesync \
   search "layout changes when the terminal gets smaller" --mode semantic
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml \
+forgesync \
   search "terminal resize" --mode hybrid --repo ratatui/ratatui
 ```
 
@@ -319,7 +336,7 @@ when compatible vectors already exist.
 To acquire evidence, generate vectors, and build groups together:
 
 ```sh
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml refresh ratatui/ratatui \
+forgesync refresh ratatui/ratatui \
   --with comments,reviews,review-threads --analyze embeddings,clusters
 ```
 
@@ -333,7 +350,7 @@ Semantic and hybrid queries normally report an error when retrieval cannot use t
 or service. `--keyword-fallback` permits keyword results for eligible retrieval failures:
 
 ```sh
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml \
+forgesync \
   search "terminal resize" --mode hybrid --keyword-fallback
 ```
 
@@ -349,9 +366,9 @@ Semantic/hybrid pagination retains at most 10,000 ranked results.
 Clusters group current open discussions using compatible vectors already stored in the archive:
 
 ```sh
-forgesync --archive ./forgesync.sqlite --config ./forgesync.toml cluster build ratatui/ratatui
-forgesync --archive ./forgesync.sqlite cluster list --repo ratatui/ratatui
-forgesync --archive ./forgesync.sqlite cluster show 12
+forgesync cluster build ratatui/ratatui
+forgesync cluster list --repo ratatui/ratatui
+forgesync cluster show 12
 ```
 
 Replace `12` with an archive-local cluster ID from the list. Building clusters uses the configured
@@ -372,12 +389,12 @@ longer qualify. Use `cluster list --include-retired` to inspect retired groups.
 Use IDs and members from your own cluster detail:
 
 ```sh
-forgesync --archive ./forgesync.sqlite cluster dismiss 12 --reason "Reviewed together"
-forgesync --archive ./forgesync.sqlite cluster restore 12
-forgesync --archive ./forgesync.sqlite cluster exclude 12 'ratatui/ratatui#1' \
+forgesync cluster dismiss 12 --reason "Reviewed together"
+forgesync cluster restore 12
+forgesync cluster exclude 12 'ratatui/ratatui#1' \
   --reason "Different underlying issue"
-forgesync --archive ./forgesync.sqlite cluster include 12 'ratatui/ratatui#1'
-forgesync --archive ./forgesync.sqlite cluster canonical 12 'ratatui/ratatui#2'
+forgesync cluster include 12 'ratatui/ratatui#1'
+forgesync cluster canonical 12 'ratatui/ratatui#2'
 ```
 
 Dismissal records a local triage choice. Exclusion marks a current member as excluded; it does not
@@ -390,9 +407,9 @@ selection operate on current members, rather than adding arbitrary discussions t
 ### Inspect partial, failed, or interrupted acquisition
 
 ```sh
-forgesync --archive ./forgesync.sqlite run list
-forgesync --archive ./forgesync.sqlite run show 12
-forgesync --archive ./forgesync.sqlite run retry 12 --family comments,reviews
+forgesync run list
+forgesync run show 12
+forgesync run retry 12 --family comments,reviews
 ```
 
 Use a run ID from `run list` or the operation report. `run show` displays jobs and the failure
@@ -412,11 +429,46 @@ and let that process finish or cancel it through its own CLI/TUI. A read of leas
 observation; a later write checks ownership again. Do not delete database files or edit lease rows
 to bypass an active writer.
 
+### Queries, retries, and timeouts during sync
+
+Forgesync uses SQLite WAL mode. Queries can normally read committed archive data while a sync
+process writes. GitHub requests happen outside SQL transactions; the database is not kept in a write
+transaction while waiting for the network. Multi-part detail and diagnostics can observe commits
+between their separate reads; they are not a frozen snapshot of the whole sync.
+
+There is still one archive-wide application writer lease. Another sync, retry, embedding operation,
+cluster build, or local cluster decision cannot take over that lease while its owner is active, even
+for a different repository. A held lease is an ownership conflict, not a request to wait until the
+whole active workflow finishes. Inspect its owner with `archive status`, then retry after the active
+action finishes. Plain queries do not acquire this workflow lease.
+
+Timeouts have different purposes:
+
+| Boundary          | Current behavior                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| SQLite lock wait  | Connections wait up to five seconds for SQLite lock contention; this is not a whole-query deadline |
+| GitHub request    | Default timeout is 30 seconds per request attempt; retries have a 120-second budget                |
+| Credential helper | GitHub CLI token discovery has a five-second subprocess timeout                                    |
+| Sync writer lease | Expires after 60 seconds without renewal; active sync renews every 20 seconds                      |
+
+Neither the SQLite lock wait nor the provider retry budget is a deadline for an entire sync across
+many pages or repositories. A slow or failed provider request can produce partial acquisition while
+earlier pages remain stored. It does not make local reads wait for the provider timeout. If a writer
+crashes, its unrenewed lease can expire, allowing a later workflow to acquire a new fence. Writes
+using an obsolete fence are rejected. Cancellation lets sync record its interrupted result and
+attempt lease release; lease expiry is recovery for an abandoned owner, not permission to interrupt
+an active one manually.
+
+Long read transactions can delay WAL checkpointing, and SQLite can still report busy errors. Retry a
+failed local read after contention subsides. Keep the active archive on a local filesystem; SQLite
+WAL is not designed for concurrent access through a network filesystem. This change keeps one
+database and the existing lease design; it does not introduce concurrent independent writers.
+
 ### Check health and migrate
 
 ```sh
-forgesync --archive ./forgesync.sqlite archive doctor
-forgesync --archive ./forgesync.sqlite archive migrate
+forgesync archive doctor
+forgesync archive migrate
 ```
 
 Doctor checks archive integrity, schema history, foreign keys, and SQLite capabilities including
@@ -437,7 +489,7 @@ command.
 
 | Symptom                      | Next action                                                     |
 | ---------------------------- | --------------------------------------------------------------- |
-| Archive path is missing      | Check `--archive`; use `archive init` only for a new archive    |
+| Archive path is missing      | Check `archive.path`/override; initialize only a new archive    |
 | Repository/thread not found  | Check the host/reference and acquire it with `sync`             |
 | Search returns no hits       | Check acquired scope, filters, and title/body text              |
 | Comments or reviews missing  | Sync with the corresponding `--with` families; inspect coverage |
@@ -453,8 +505,8 @@ command.
 ### Machine-readable results
 
 ```sh
-forgesync --archive ./forgesync.sqlite --json archive status
-forgesync --archive ./forgesync.sqlite --json search "terminal resize" > results.json
+forgesync --json archive status
+forgesync --json search "terminal resize" > results.json
 ```
 
 Application results use a JSON envelope with `schema_version` (currently `1`), `command`, and
@@ -476,8 +528,8 @@ created; do not assume every nonzero invocation emits JSON.
 Results go to stdout; diagnostics go to stderr. Increase verbosity or change log encoding:
 
 ```sh
-forgesync --archive ./forgesync.sqlite -v archive status
-forgesync --archive ./forgesync.sqlite -vv --log-format json sync ratatui/ratatui \
+forgesync -v archive status
+forgesync -vv --log-format json sync ratatui/ratatui \
   > result.txt 2> diagnostics.jsonl
 ```
 
@@ -487,8 +539,9 @@ and raw discussion payloads are not logged by Forgesync's diagnostics.
 
 ## Command reference
 
-Every command below requires `--archive PATH`. Use `forgesync COMMAND --help` or
-`forgesync COMMAND SUBCOMMAND --help` for exact flags in your installed build.
+Commands use the configured or default archive unless `--archive PATH` overrides it. Use
+`forgesync COMMAND --help` or `forgesync COMMAND SUBCOMMAND --help` for exact flags in your
+installed build.
 
 | Command                       | Purpose                                        | External service use                  |
 | ----------------------------- | ---------------------------------------------- | ------------------------------------- |

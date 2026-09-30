@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+etcetera.workspace = true
 forgesync-core = { path = "../forgesync-core" }
 forgesync-engine = { path = "../forgesync-engine" }
 forgesync-github = { path = "../forgesync-github" }

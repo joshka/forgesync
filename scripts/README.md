@@ -18,8 +18,10 @@ The script removes the configured Forgesync config path, GitHub token variables,
 `OPENAI_API_KEY` from the **child process** environment. It checks the version output, creates an
 archive in a temporary directory, verifies JSON startup diagnostics and the integrity, foreign-key,
 FTS5, and schema-history doctor checks, then runs keyword search against the empty archive. The
-temporary archive is removed on exit. The selected CLI commands stay local and require no provider
-access. A failed assertion or CLI command exits nonzero; success prints the checked version.
+child's automatic config directory is isolated too. A temporary config selects the database with a
+relative path, and init, doctor, and search run without archive flags. The config and archive are
+removed on exit. The selected CLI commands stay local and require no provider access. A failed
+assertion or CLI command exits nonzero; success prints the checked version.
 
 ## `package_binary.py`
 

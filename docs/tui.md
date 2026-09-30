@@ -7,12 +7,14 @@ use the same fenced engine APIs as their CLI commands. It never creates or migra
 Start it with an initialized archive from an interactive terminal:
 
 ```sh
-forgesync tui --archive PATH
+forgesync tui
 ```
 
-The CLI resolves GitHub credentials for registered repository hosts at startup. Browser queries,
-search, coverage, failures, and cluster inspection remain local. Sync, refresh, and retry actions
-contact GitHub. The TUI does not load embedding settings or perform embedding analysis.
+The TUI uses the configured/default database; `--archive PATH` can override it. The CLI loads
+archive configuration after terminal/output validation, then resolves GitHub credentials for
+registered repository hosts at startup. Browser queries, search, coverage, failures, and cluster
+inspection remain local. Sync, refresh, and retry actions contact GitHub. The TUI does not construct
+embedding clients or perform embedding analysis.
 
 The normal CLI build enables the `tui` feature. Builds made with `--no-default-features` omit the
 command. Interactive output is not compatible with `--json`.
@@ -57,3 +59,6 @@ show lease contention as an action failure.
 
 The layout stacks its panes on narrow terminals and uses side-by-side panes on wider terminals.
 Terminal state is restored after normal exit, I/O errors, and panics.
+
+For query/write overlap, lock waits, provider budgets, and abandoned writer recovery, see the
+[user manual](user-manual.md#queries-retries-and-timeouts-during-sync).

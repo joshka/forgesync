@@ -83,9 +83,14 @@ pub async fn seed_archive(path: &PathBuf) {
     archive.close().await;
 }
 
-/// Constructs the compiled process; callers supply all scenario arguments.
+/// Constructs the compiled process with user config isolated; callers supply scenario arguments.
 pub fn forgesync() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_forgesync"))
+    let config_root = std::env::temp_dir().join(format!("forgesync-config-{}", std::process::id()));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_forgesync"));
+    command.env_remove("FORGESYNC_CONFIG");
+    command.env("XDG_CONFIG_HOME", &config_root);
+    command.env("APPDATA", config_root);
+    command
 }
 
 /// Parses fixed fixture timestamps without consulting the process clock.

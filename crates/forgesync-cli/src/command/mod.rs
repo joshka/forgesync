@@ -48,8 +48,8 @@ use clap::{ArgAction, Parser, Subcommand};
 #[cfg(feature = "tui")]
 use tui::run_tui;
 
+use crate::OutputMode;
 use crate::config::ForgesyncConfig;
-use crate::{OutputMode, usage_error};
 
 /// Parsed global options and the selected command for one process invocation.
 ///
@@ -65,7 +65,7 @@ use crate::{OutputMode, usage_error};
     subcommand_required = true
 )]
 pub struct CliArgs {
-    /// Select the archive path for this invocation.
+    /// Override the configured archive path for this invocation.
     #[arg(long, global = true, value_name = "PATH")]
     pub archive: Option<PathBuf>,
 
@@ -135,12 +135,24 @@ pub enum Command {
 }
 
 impl CliArgs {
+    /// Checks process-only prerequisites before reading configuration or opening an archive.
+    /// Interactive terminal failures take precedence over unrelated configuration errors.
+    pub fn validate_process(&self) -> Option<ExitCode> {
+        #[cfg(feature = "tui")]
+        if matches!(self.command, Command::Tui) {
+            return tui::validate_terminal(OutputMode::from(self.json));
+        }
+        None
+    }
+
     /// Resolves process options and delegates the selected command to its owner.
     pub async fn dispatch(self, config: ForgesyncConfig) -> ExitCode {
-        let Some(path) = self.archive else {
-            return usage_error("--archive PATH is required for local archive commands");
-        };
         let output = OutputMode::from(self.json);
+        let path = match config.archive.resolve(self.archive.as_deref()) {
+            Ok(path) => path,
+            Err(error) => return crate::render_configuration_error(output, error),
+        };
+        tracing::info!(archive = %path.display(), "Selected archive");
 
         match self.command {
             Command::Archive { command } => command.run(&path, output).await,

@@ -56,8 +56,6 @@ use std::process::ExitCode;
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
 use command::CliArgs;
-#[cfg(feature = "tui")]
-use command::Command;
 use command::values::LogFormat;
 use config::ForgesyncConfig;
 use forgesync_engine::error::EngineError;
@@ -81,6 +79,9 @@ where
         Ok(args) => args,
         Err(error) => return render_argument_error(error),
     };
+    if let Some(status) = args.validate_process() {
+        return status;
+    }
     initialize_tracing(args.verbose, args.log_format);
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
@@ -185,11 +186,6 @@ fn initialize_json_tracing(
 
 /// Selects the configuration source needed by the chosen command.
 fn config_for_command(args: &CliArgs) -> Result<ForgesyncConfig, config::ConfigError> {
-    #[cfg(feature = "tui")]
-    if matches!(&args.command, Command::Tui) {
-        return Ok(ForgesyncConfig::default());
-    }
-
     ForgesyncConfig::load(args.config.as_deref())
 }
 

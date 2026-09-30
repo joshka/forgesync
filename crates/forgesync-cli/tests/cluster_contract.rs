@@ -131,7 +131,12 @@ fn invalid_threshold_is_rejected_before_archive_opening() {
 
 /// Constructs the built executable; each scenario states its own arguments and environment.
 fn forgesync() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_forgesync"))
+    let config_root = std::env::temp_dir().join(format!("forgesync-config-{}", std::process::id()));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_forgesync"));
+    command.env_remove("FORGESYNC_CONFIG");
+    command.env("XDG_CONFIG_HOME", &config_root);
+    command.env("APPDATA", config_root);
+    command
 }
 
 /// Supplies the registered repository for the offline build, with no discussions or vectors.
