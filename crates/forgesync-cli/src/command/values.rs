@@ -1,12 +1,22 @@
-//! # Translate CLI value choices into domain requests
+//! # CLI value vocabulary at the parsing boundary
 //!
-//! These enums are the user-facing vocabulary accepted by argument parsing: families, discussion
-//! kinds and states, sort orders, search modes, and refresh analysis choices. Conversion
-//! implementations map them to core or engine types.
+//! These enums define named choices accepted by Clap: evidence families, discussion kinds and
+//! states, ordering, search modes, acquisition scope, refresh analysis, color, and log encoding.
+//! Their variant comments describe the user's choice; command adapters convert those choices into
+//! core or engine request types without making those libraries depend on Clap.
 //!
-//! Keeping this mapping at the CLI boundary lets library APIs use domain language without
-//! depending on Clap. A new value should be documented here with the meaning users see, then
-//! converted once rather than repeatedly interpreted in command handlers.
+//! [`RunFamilyArg`] has a direct evidence-family conversion because each variant names a ledger
+//! scope. Other choices are interpreted by their command or presentation owner, where defaults and
+//! operation-specific restrictions are visible. A parsed value does not prove that the selected
+//! operation is valid for the archive, configured service, or available evidence.
+//!
+//! Query filters and acquisition scope are distinct vocabularies: a local state filter selects
+//! retained rows, while a sync state selects provider acquisition. Similarly, search mode chooses
+//! an execution policy as well as query interpretation. Semantic and hybrid modes can request a
+//! query embedding from the configured service even though discussion evidence is read locally.
+//!
+//! Pure variant-to-variant conversions stay exhaustive and inline so readers can inspect the whole
+//! vocabulary mapping. Behavioral work belongs with the selected command, not inside these enums.
 
 use clap::ValueEnum;
 use forgesync_core::coverage::EvidenceFamily;
@@ -72,7 +82,7 @@ pub enum ThreadSortArg {
     Created,
 }
 
-/// Search expression grammar selected for one local query.
+/// Search execution and expression interpretation selected for one query.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum SearchModeArg {
     /// Quote ordinary text tokens and treat punctuation as separators.

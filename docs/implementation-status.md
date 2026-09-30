@@ -2555,3 +2555,14 @@ claiming current source evidence or embeddings.
 
 Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
 pass for this documentation-only change.
+
+### CLI parsing and process boundaries
+
+The binary introduction explains OS-string argument forwarding, runtime ownership, and where process
+responsibilities belong. Argument-value orientation distinguishes local filters from provider
+acquisition scope and corrects the description of search mode: semantic and hybrid queries can
+request a query embedding while reading discussion evidence locally. Pure exhaustive value
+conversions remain inline, with behavioral interpretation in command owners.
+
+Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
+pass for this documentation-only change.
