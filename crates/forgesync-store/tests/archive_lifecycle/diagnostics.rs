@@ -10,6 +10,7 @@
 //! Provider acquisition, source membership, and engine retry are outside this lifecycle suite.
 //! Failure assertions name the store variant or retained diagnostic facts under examination.
 
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
 
@@ -114,18 +115,46 @@ async fn diagnostics_report_schema_lease_and_unresolved_family_work_read_only() 
         .acquire_archive_lease(now, std::time::Duration::from_secs(60))
         .await
         .expect("acquire archive lease");
+    let pool = read_only_pool(&path).await;
+    let owner: String =
+        sqlx::query_scalar("SELECT owner_id FROM archive_lease WHERE singleton = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("read acquired owner");
+    pool.close().await;
     let readonly = Archive::open_read_only(&path)
         .await
         .expect("open read-only archive while leased");
     let diagnostics = readonly.diagnostics().await.expect("read diagnostics");
     assert!(diagnostics.schema.history_valid);
     assert!(diagnostics.lease.held);
-    assert!(diagnostics.lease.owner_id.is_some());
+    assert_eq!(diagnostics.lease.owner_id, Some(owner));
+    assert_eq!(diagnostics.lease.fencing_token, 1);
+    assert_eq!(
+        diagnostics.lease.expires_at.unix_microseconds(),
+        now.unix_microseconds() + 60_000_000
+    );
     assert_eq!(diagnostics.work.failed_jobs, 1);
     assert_eq!(diagnostics.work.deferred_jobs, 1);
     assert_eq!(diagnostics.work.unresolved_failures, 2);
-    assert_eq!(diagnostics.work.failures_by_family[1].unresolved, 1);
-    assert_eq!(diagnostics.work.failures_by_family[3].unresolved, 1);
+    let family_counts = diagnostics
+        .work
+        .failures_by_family
+        .iter()
+        .map(|count| (count.family, count.unresolved))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        family_counts,
+        [
+            (EvidenceFamily::Threads, 0),
+            (EvidenceFamily::Comments, 1),
+            (EvidenceFamily::PullRequestMetadata, 0),
+            (EvidenceFamily::Reviews, 1),
+            (EvidenceFamily::ReviewThreads, 0),
+        ]
+    );
+    assert_eq!(diagnostics.work.unassigned_failures, 0);
+    assert_eq!(diagnostics.work.in_progress_runs, 0);
     assert!(readonly.doctor().await.expect("doctor").healthy);
     readonly.close().await;
     archive

@@ -645,6 +645,12 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Lifecycle diagnostics now compare the acquired lease owner with the persisted owner and check its
+first fence and explicit expiry. Family failures compare the entire named family/count sequence,
+including zero buckets, rather than unexplained numeric positions. Unassigned failures and active
+runs have explicit zero expectations for the supplied partial ledger. These assertions establish the
+projection's identity and accounting facts without exposing token internals as public API.
+
 Lifecycle integration now has shallow access, diagnostics, migration, and infrastructure modules.
 The suite root maps those contracts instead of serving as an import prelude. Each scenario imports
 its infrastructure owner directly; that owner contains only filename allocation, explicit raw-pool
