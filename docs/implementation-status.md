@@ -1504,3 +1504,21 @@ without default features, strict public/private Rustdoc, nightly formatting, wor
 changed Markdown linting. The public cluster page and decision entry points retain their existing
 API; only private generation representations moved. The cluster construction batch remains open for
 matching evidence representation and transaction write orchestration.
+
+## Continued maintenance: durable cluster matching evidence
+
+`MembershipOverlap` replaces the four-position tuple used for durable identity assignment. Its
+comparison names absolute overlap, proportional overlap, existing row identity, and generated
+position. Named candidate enumeration and greedy assignment keep traversal separate from ranking;
+exact cross multiplication preserves the existing fraction comparison without floating-point error.
+
+Six nearby linear scenarios establish strongest absolute overlap despite a lower proportional score,
+proportional ties, stable identity and generated-position ties, one-to-one assignment, and disjoint
+membership. Fixture constructors only construct explicit membership representations. Transactional
+write orchestration remains the final cluster construction surface.
+
+Final current-tree gates pass: all six matching cases, workspace Clippy, all workspace
+tests/doctests, the CLI build without default features, strict public/private Rustdoc, nightly
+formatting, workspace rumdl, and changed-page Markdown linting. Generation write orchestration
+remains the next concrete cluster surface; the matching rule and durable identity ordering are
+preserved.

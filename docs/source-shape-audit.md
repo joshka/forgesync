@@ -167,8 +167,9 @@ and caller-token isolation. CLI build preparation now belongs to the parsed argu
 canonical identity/policy conversion cases and archive-close-before-presentation ordering. Refresh
 traversal now has a stage owner and direct outcome-policy cases. Engine evidence preparation now has
 a repository-scoped snapshot and named generation projection. Store input preparation and durable
-identity matching now have named modules and local row contracts. Overlap-ranking representation and
-transactional write orchestration remain in this batch.
+identity matching now have named modules and local row contracts. Overlap ranking now uses named
+membership evidence with six direct assignment cases. Transactional write orchestration remains in
+this batch.
 
 Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clusters`, and store
 `clusters/generation`. Finish when preparation, analysis, and generation persistence have coherent

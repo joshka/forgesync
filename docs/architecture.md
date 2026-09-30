@@ -210,3 +210,9 @@ resolves source identities inside the active transaction into sorted `PreparedCl
 decisions share its discussion-row resolver. `generation_matching` loads existing active/excluded
 membership and assigns durable IDs by ordered overlap. Neither module commits or performs generation
 writes; `generation` retains the fenced transaction and its commit boundary.
+
+Durable matching uses `generation_matching::MembershipOverlap` to name shared count, union count,
+generated position, and existing row ID. Candidate enumeration, priority comparison, and greedy
+one-to-one assignment are separate local operations. Absolute overlap takes precedence over
+proportional overlap; exact fraction comparison and stable row/index tie breaks preserve repeatable
+identity reuse. Nearby static-membership cases cover assignment without SQL setup.
