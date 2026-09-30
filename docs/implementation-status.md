@@ -3218,3 +3218,11 @@ earlier writes were rolled back. Outcome tests import the defining module direct
 
 Strict core Rustdoc, all five outcome scenarios, nightly formatting, rumdl, and changed-page
 Markdown linting pass.
+
+### Reusable producer and accounting documentation rules
+
+The linked documentation guide records two recurring review findings: producer obligations must not
+be presented as runtime guarantees, and count contracts must identify their units/populations. It
+uses message safety, completeness, compatibility, retry classification, active runs, and unresolved
+ledger entries as concrete examples. These rules preserve future review context at the existing
+AGENTS-linked entry point. Rumdl and changed-page Markdown linting pass.

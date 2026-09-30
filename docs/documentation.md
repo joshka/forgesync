@@ -31,6 +31,17 @@ and derived deserialization often preserve supplied facts without validating the
 Document normalization and rejected-input behavior where they occur; explain equality/hash scope
 when readers might mistake a local number or display name for durable identity.
 
+Distinguish producer obligations from enforced guarantees. Calling a message safe or a record
+validated does not make public-field construction or deserialization redact credentials or verify
+relationships. Name the boundary that supplies safe text, truthful completeness, or compatibility
+metadata. Explain typed categories separately from retry policy; a failure label alone does not
+establish what recovery is allowed or whether earlier writes survived.
+
+For counts and summaries, name the unit and population: jobs, runs, ledger entries, source members,
+and committed work are different quantities. State whether counts can be added or reconciled and
+whether unknown categories contribute to totals. Do not describe every in-progress record as
+abandoned or every unresolved entry as retryable without evidence from the owning workflow.
+
 For assembled read projections, document whether related values share one database snapshot or come
 from separate reads that concurrent writers may advance between. Explain ordering and fallback
 selection where those determine visible identities. A diagnostic observation is not mutation
