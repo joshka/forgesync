@@ -1,11 +1,18 @@
-//! # Inspect run history and failed jobs
+//! # Inspect run history and retry unresolved work
 //!
-//! `RunCommand` owns list and show requests for the durable workflow ledger. Its run method opens
-//! an existing archive, asks the engine for run projections, and chooses human or JSON output.
+//! [`RunCommand`] groups three operations around the durable workflow ledger. List and show are
+//! local inspections: they open an existing archive read-only, request projections from
+//! `forgesync_engine::runs`, and close the archive before rendering text or JSON. Show validates
+//! its positive archive-local run ID before opening the archive.
 //!
-//! Run records explain attempts and partial failures; discussion coverage explains acquired source
-//! evidence. Keeping both concepts visible helps users decide whether to inspect, retry, or
-//! refresh.
+//! Retry crosses a different boundary. It delegates to the retry command's request owner, which
+//! prepares cancellation-aware acquisition for unresolved failures, optionally restricted to
+//! selected evidence families. Inspecting a run does not implicitly retry it or contact GitHub.
+//!
+//! Run records describe workflow attempts, jobs, and failures. They are distinct from discussion
+//! coverage, which describes acquired source evidence. A successful command result therefore does
+//! not imply that every discussion family is complete. Human summaries live in the run report
+//! modules; the engine owns ledger selection and retry policy rather than these CLI variants.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -16,7 +23,7 @@ use forgesync_core::identity::RunId;
 use forgesync_engine::runs::{list_runs, show_run};
 use forgesync_store::archive::Archive;
 
-use super::retry::RetryRequest;
+use crate::command::retry::RetryRequest;
 use crate::command::values::RunFamilyArg;
 use crate::reports::run_detail::run_detail_summary;
 use crate::reports::runs::run_list_summary;

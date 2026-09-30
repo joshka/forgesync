@@ -1,12 +1,19 @@
 //! # Inspect archived discussions
 //!
-//! `ThreadCommand` groups list and show operations over existing local content. Filter conversion
-//! maps CLI choices into engine inspection types; the engine and store own the actual read
-//! projection.
+//! [`ThreadCommand`] groups list and show operations over existing local content. List converts
+//! CLI repository, kind, state, ordering, and page choices into an engine inspection request.
+//! Show accepts a parsed discussion selector and asks the engine to resolve it against registered
+//! local repositories. Neither operation acquires content or resolves the selector through GitHub.
 //!
-//! These commands do not acquire content. A detail view includes canonical discussion data and
-//! family coverage so readers can see both what is known and which child evidence remains
-//! incomplete.
+//! Both operations open an existing archive read-only and close it before rendering the result or
+//! an engine error. Opening does not create or migrate the archive. The engine and store own
+//! filtering, identity resolution, ordering, and read projections; this module adapts arguments
+//! and chooses the output presentation.
+//!
+//! Detail results include canonical discussion data and family coverage. Retained child evidence
+//! can be incomplete or stale, so displaying a discussion is not a claim that all its evidence is
+//! current. The thread report module owns human-readable layouts, while JSON preserves the engine
+//! result through the shared CLI output boundary.
 
 use std::path::Path;
 use std::process::ExitCode;

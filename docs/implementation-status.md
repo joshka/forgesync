@@ -2522,3 +2522,12 @@ serving a child prelude. Embedding-stage sibling/status imports also name their 
 
 All eight focused refresh tests, engine Clippy across targets/features, nightly formatting, and
 Markdown checks pass. Workflow ordering and behavior are unchanged; broader review remains open.
+
+### Local inspection command boundaries
+
+Thread and run command orientations now describe request conversion, read-only archive lifetime,
+coverage versus workflow-ledger meaning, and report ownership. Run documentation includes its retry
+variant and identifies the acquisition boundary rather than describing every variant as a read. TUI
+startup documentation records terminal prerequisites, writable archive access, credential setup, and
+transfer of shutdown responsibility to the browser. Retry and GitHub setup imports name their
+defining command modules. Strict CLI Rustdoc passes with private items included.
