@@ -1,11 +1,23 @@
-//! # Render local discussion views
+//! # Present archived discussions and search results
 //!
-//! Thread report functions select human or JSON presentation for list pages, search hits, and
-//! detail. They consume engine and store projections so the formatting path stays free of provider
-//! calls and SQL.
+//! [`render_thread_page`], [`render_search_page`], and [`render_thread_detail`] adapt existing
+//! engine or store projections into the public CLI output DTOs. The shared renderer selects text
+//! or JSON and translates rendering failures into a process result. These adapters perform no
+//! archive reads, provider calls, ranking, or filtering of their own.
 //!
-//! Detail output includes source content and evidence coverage. Search output includes result
-//! provenance, helping users understand whether a hit came from text, vectors, or both.
+//! Page and search summaries belong to their output DTOs; the larger detail layout lives in the
+//! sibling detail report module. Search output retains the effective retrieval mode and provenance
+//! so users can interpret keyword, vector, or fused results. Detail retains source content and
+//! evidence coverage rather than treating every displayed child collection as complete.
+//!
+//! The remaining helpers provide shared display vocabulary for discussion kinds, source and review
+//! states, family coverage, repository identities, and timestamps. Unknown provider state strings
+//! are preserved. Coverage labels describe the state variant only: they do not include staleness,
+//! failure details, or acquisition provenance, which callers must present separately when needed.
+//!
+//! Repository diagnostics use stable host/provider identity rather than an owner/name selector;
+//! absent identity has an explicit fallback. Timestamp formatting likewise has a defensive display
+//! fallback. These human labels are presentation choices, not parsers or durable identity formats.
 
 use std::process::ExitCode;
 
@@ -45,7 +57,9 @@ pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     }
 }
 
-/// Returns the display name of a provider source state.
+/// Returns a familiar label or the retained unrecognized provider state.
+///
+/// The borrowed fallback preserves source vocabulary; it is not normalized or escaped here.
 pub fn source_state_name(state: &SourceState) -> &str {
     match state {
         SourceState::Open => "open",
@@ -54,7 +68,9 @@ pub fn source_state_name(state: &SourceState) -> &str {
     }
 }
 
-/// Returns the display name of a normalized review state.
+/// Returns a familiar review label or the retained unrecognized provider state.
+///
+/// Unknown values remain visible instead of being presented as a known review decision.
 pub fn review_state_name(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",
@@ -66,7 +82,9 @@ pub fn review_state_name(state: &ReviewState) -> &str {
     }
 }
 
-/// Formats an optional repository identity for diagnostic output.
+/// Formats stable host/provider coordinates, or an explicit missing-identity label.
+///
+/// This diagnostic representation is not an owner/name selector or a repository URL.
 pub fn repository_identity(repository: Option<&forgesync_core::identity::RepositoryId>) -> String {
     repository.map_or_else(
         || "unknown repository".to_owned(),
@@ -91,7 +109,9 @@ pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static
     }
 }
 
-/// Returns the display label of a family coverage state.
+/// Returns the coverage variant label without its associated evidence or failure details.
+///
+/// Staleness is a separate coverage property and must be displayed by the caller when relevant.
 pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     match state {
         CoverageState::Missing => "missing",
@@ -103,7 +123,10 @@ pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     }
 }
 
-/// Formats a validated UTC instant for human output.
+/// Formats a UTC instant as RFC 3339, falling back to `invalid timestamp` on format failure.
+///
+/// The fallback keeps a human report renderable; callers needing typed formatting failures should
+/// use the timestamp API directly.
 pub fn format_timestamp(timestamp: UtcTimestamp) -> String {
     timestamp
         .format_rfc3339()

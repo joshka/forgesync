@@ -2566,3 +2566,14 @@ conversions remain inline, with behavioral interpretation in command owners.
 
 Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
 pass for this documentation-only change.
+
+### Thread report presentation contracts
+
+Thread report orientation now identifies DTO adaptation, shared output rendering, and the separate
+page/search/detail layout owners. Display helper contracts explain retained unknown provider states,
+stable repository identity versus owner/name selectors, timestamp fallback behavior, and coverage
+labels that omit staleness and associated evidence. These functions format existing projections
+rather than loading, filtering, or certifying source completeness.
+
+Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
+pass for this documentation-only change.
