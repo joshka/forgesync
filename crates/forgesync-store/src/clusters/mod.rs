@@ -16,7 +16,8 @@
 //! `members` enriches selected member rows with discussion coverage and effective role coordinates.
 //! `member_decision` keeps durable inclusion, visible state, canonical cleanup, and audit labels
 //! consistent within an archive-owned transaction. Read projections remain distinct from write
-//! authority; later decisions validate their own fence and membership.
+//! authority; later decisions validate their own fence and membership. `canonical` requires active
+//! membership and records local selection without replacing the generated representative.
 
 use std::num::NonZeroU32;
 
@@ -194,6 +195,7 @@ pub struct ClusterPage {
     pub next_offset: Option<u64>,
 }
 
+mod canonical;
 mod decisions;
 mod generation;
 mod generation_apply;

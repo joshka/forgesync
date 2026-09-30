@@ -1812,3 +1812,16 @@ remaining cluster-level and canonical write coordination stays in the store-oper
 Final member-projection gates pass: all workspace tests/doctests including the three role cases, the
 CLI build without default features, strict public/private Rustdoc, workspace Clippy, formatting,
 rumdl, and changed-page Markdown linting. Store-operation review remains open.
+
+## Continued maintenance: canonical selection phases
+
+`CanonicalSelection` retains the resolved cluster/member and action time through active-membership
+validation, canonical update, and audit insertion. The archive method remains the owner of checked
+ID conversion, transaction/fence, current-member resolution, and commit. Each mutation phase now
+fits locally and carries its own effect/failure contract.
+
+Selection SQL is unchanged. Excluded membership rejection, missing-cluster checks, bind order,
+canonical event label, generated-representative preservation, and commit timing retain their prior
+behavior. Existing cluster integration scenarios cover successful local selection, durable
+decisions, and nonmember rejection. Workspace Clippy passes; focused scenarios and final gates are
+running. Remaining cluster-level dismissal coordination stays in the bounded store-operation batch.

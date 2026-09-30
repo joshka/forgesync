@@ -28,6 +28,7 @@ use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
+use crate::clusters::canonical::CanonicalSelection;
 use crate::clusters::generation_input::thread_row_id;
 use crate::clusters::member_decision::{MemberDecision, MemberDecisionWrite};
 use crate::error::StoreError;
@@ -208,37 +209,12 @@ impl Archive {
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let member_id = current_cluster_member_id(&mut transaction, cluster_id, thread).await?;
-        let state: String = sqlx::query_scalar(
-            "SELECT state FROM cluster_memberships WHERE cluster_id = ? AND thread_id = ?",
-        )
-        .bind(cluster_id)
-        .bind(member_id)
-        .fetch_one(&mut *transaction)
-        .await?;
-        if state != "active" {
-            return Err(StoreError::ClusterMemberMissing);
-        }
-        let result = sqlx::query(
-            "UPDATE clusters SET canonical_thread_id = ?, updated_at_us = ? WHERE id = ?",
-        )
-        .bind(member_id)
-        .bind(at.unix_microseconds())
-        .bind(cluster_id)
-        .execute(&mut *transaction)
-        .await?;
-        if result.rows_affected() != 1 {
-            return Err(StoreError::ClusterMissing);
-        }
-        insert_cluster_event(
-            &mut transaction,
+        let selection = CanonicalSelection {
             cluster_id,
-            None,
-            "canonical_set",
-            Some(member_id),
-            "",
+            member_id,
             at,
-        )
-        .await?;
+        };
+        selection.apply(&mut transaction).await?;
         transaction.commit().await?;
         Ok(())
     }
