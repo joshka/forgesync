@@ -158,12 +158,19 @@ impl Archive {
 /// commits that allocation, so later acquisition cannot reuse its ordering position. This type
 /// performs comparison and persistence on the same connection but never commits independently.
 struct ReservedGeneration<'a> {
+    /// Validated local parent row used in reservation and generation keys.
     thread: i64,
+    /// Persisted name of the selected child evidence family, excluding parent scans.
     family: &'static str,
+    /// Normalized source freshness used for ordering against the current reservation.
     clock: SourceClock,
+    /// SQL representation of that same clock, reused for both durable records.
     columns: SourceClockColumns,
+    /// Already allocated archive-local acquisition order, consumed even if this proposal loses.
     sequence: ObservationSequence,
+    /// Local acquisition start recorded independently of source freshness.
     started_at: UtcTimestamp,
+    /// Trimmed nonempty request description retained for recovery and inspection.
     scope: &'a str,
 }
 

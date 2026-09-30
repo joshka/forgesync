@@ -9,6 +9,9 @@
 //! `MembershipExpectation` distinguishes parent-reported counts from head-bound review evidence.
 //! `FamilyFreshness` evaluates those expectations against coverage and canonical rows without
 //! changing the archive. Membership reads decode payloads separately from the reuse decision.
+//! Reuse checks read coverage, head context, and membership count separately on one connection;
+//! they do not freeze an archive snapshot or authorize a later write. Acquisition and finalization
+//! still validate their own reservation and writer fence.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{CommitSha, ThreadId};
@@ -26,6 +29,12 @@ use crate::observations::StagedItem;
 
 impl Archive {
     /// Returns the canonical complete membership for one thread family.
+    ///
+    /// Results use provider-ID order, not source chronology. Provisional staging rows are excluded;
+    /// the last complete membership remains readable after an incomplete acquisition. An empty
+    /// result alone does not establish complete coverage: inspect coverage or reuse eligibility
+    /// separately. `T` must match the stored family's payload shape; decoding errors fail this
+    /// read.
     pub async fn child_family_members<T>(
         &self,
         thread: &ThreadId,
@@ -62,6 +71,13 @@ impl Archive {
 
     /// Returns whether the latest complete family snapshot matches the current parent clock and
     /// expected member count. An unknown count deliberately forces a refresh.
+    ///
+    /// A known count must agree with both complete coverage and canonical membership. Clock
+    /// identity compares normalized state, raw text, and timestamp columns; this does not
+    /// inspect member payload contents. With an unknown count, this returns `false` before
+    /// resolving the thread or normalizing the clock, after checking the supported family.
+    /// Separate reads can observe concurrent changes, so this is a reuse decision rather than a
+    /// frozen snapshot guarantee.
     pub async fn child_family_is_current(
         &self,
         thread: &ThreadId,
@@ -81,6 +97,11 @@ impl Archive {
     /// Returns whether head-bound pull-request evidence is complete for the same source clock and
     /// head. The stored count is checked against canonical membership because the parent issue row
     /// does not expose these family counts.
+    ///
+    /// Only reviews and review threads accept this head context. Eligibility checks stored
+    /// coverage, recorded head, and canonical member count through separate reads; it does not
+    /// validate every payload or reserve future write ownership. Missing coverage/head or a
+    /// mismatch returns `false`; invalid stored data or failed SQL returns an error.
     pub async fn pull_request_family_is_current_for_head(
         &self,
         thread: &ThreadId,
@@ -103,7 +124,7 @@ impl Archive {
         .await
     }
 
-    /// Checks whether staged child evidence still belongs to the current parent.
+    /// Checks canonical complete coverage against the caller's source and membership expectation.
     async fn child_family_is_current_inner(
         &self,
         thread: &ThreadId,
@@ -139,9 +160,13 @@ impl Archive {
 /// clock, complete coverage, a count that agrees with canonical membership, and (for review
 /// families) the expected pull-request head. No check here changes coverage or staged generations.
 struct FamilyFreshness<'a> {
+    /// Resolved local parent row used by coverage, head-context, and membership reads.
     thread: i64,
+    /// Persisted child-family name shared by all three eligibility checks.
     family: &'static str,
+    /// Normalized expected clock columns; equality includes malformed or unknown raw identity.
     source: crate::observation_sql::SourceClockColumns,
+    /// Independent parent count or pull-request head needed in addition to complete coverage.
     expectation: MembershipExpectation<'a>,
 }
 

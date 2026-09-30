@@ -134,10 +134,15 @@ impl Archive {
 /// and count accounting. Its methods borrow the archive operation's transaction and cannot commit
 /// separately. The payload remains provisional until complete collection finalization.
 struct PageWrite {
+    /// Validated parent row forming the first part of the generation key.
     thread: i64,
+    /// Selected child evidence family shared by reservation, staging, and finalization.
     family: &'static str,
+    /// Checked SQL representation of the reserved archive-local ordering token.
     sequence: i64,
+    /// Zero-based provider traversal page index, checked for a contiguous set at finalization.
     index: i64,
+    /// Exact serialized item array; replay compares this text rather than semantic JSON equality.
     payload: String,
 }
 

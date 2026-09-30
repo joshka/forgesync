@@ -49,6 +49,13 @@ from compatibility with a separately generated query vector. Private fields expl
 payload provenance, SQL ordering, and whole-document rejection after any invalid chunk. Runtime
 behavior is unchanged; strict store Rustdoc and nightly formatting validate this contract pass.
 
+Family reservation, staging, and reuse fields now explain generation keys, normalized source clocks,
+allocated ordering, exact serialized replay, and request provenance. Reuse contracts distinguish
+canonical membership from provisional pages, provider-ID ordering from chronology, and empty results
+from complete coverage. Unknown-count early return and separately read coverage/head/count checks
+are explicit; reuse eligibility does not authorize later writes. This documentation-only pass
+preserves transaction and fencing behavior; strict store Rustdoc and nightly formatting pass.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
