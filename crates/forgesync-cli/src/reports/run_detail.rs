@@ -83,7 +83,16 @@ fn failure_row(failure: &RunFailureRecord) -> String {
 
 #[cfg(test)]
 mod tests {
-    //! An empty attempt still identifies its parent policy and both ledger sections explicitly.
+    //! # Empty attempt detail remains visible
+    //!
+    //! The fixed run record supplies identity, timestamps, terminal status, and no parent.
+    //! Empty job and failure collections must still produce both ledger headings and an explicit
+    //! no-failures line. The test compares the complete summary in its intended reading order.
+    //!
+    //! A complete run status is supplied data, not inferred from empty collections or coverage.
+    //! No archive or retry operation runs here; store/engine suites establish real ledger content.
+    //! Fixed time avoids generated diagnostics obscuring changes to the detail projection.
+    //! The construction stays in this scenario because no shared fixture behavior is needed.
 
     use forgesync_core::identity::RunId;
     use forgesync_core::timestamp::UtcTimestamp;

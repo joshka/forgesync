@@ -151,7 +151,17 @@ pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
 
 #[cfg(test)]
 mod tests {
-    //! Small command DTOs retain their serialized field contract when ownership changes.
+    //! # Empty clusters and decision acknowledgment projections
+    //!
+    //! These cases construct an empty stored page and a command acknowledgment directly.
+    //! An empty page has explicit no-results wording; a decision retains local cluster ID and
+    //! action. Whole-value JSON comparison protects those acknowledgment fields from accidental
+    //! changes.
+    //!
+    //! This projection does not apply the decision or verify that the target exists.
+    //! Command process cases establish mutation/error dispatch; store tests establish persistence.
+    //! Static values isolate representation from graph construction and provider acquisition.
+    //! The two small contracts stay inline beside their presentation owner.
 
     #[test]
     fn empty_page_uses_the_existing_no_clusters_message() {

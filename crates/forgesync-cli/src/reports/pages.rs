@@ -114,7 +114,17 @@ fn coverage_line(coverage: &FamilyCoverageSummary) -> String {
 
 #[cfg(test)]
 mod tests {
-    //! Empty-page wording and the shared footer remain directly reviewable output contracts.
+    //! # Empty-page and coverage-footer presentation
+    //!
+    //! These cases build public page/coverage projections directly without archive queries.
+    //! Empty results retain the table header and coverage heading, distinguishing no matches
+    //! from a missing report. Footer output keeps complete, incomplete, and missing counts
+    //! separate.
+    //!
+    //! The continuation line follows coverage and uses the supplied engine offset unchanged.
+    //! Counts are fixture facts; formatting does not derive or validate source completeness.
+    //! Exact strings/lines establish ordering and wording rather than terminal layout dimensions.
+    //! Process cases separately cover query selection and output delivery.
 
     use forgesync_core::coverage::EvidenceFamily;
     use forgesync_store::reads::FamilyCoverageSummary;

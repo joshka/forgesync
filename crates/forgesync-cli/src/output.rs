@@ -300,6 +300,10 @@ mod tests {
     //! These direct examples establish optional data/error omission and always-present warnings.
     //! They serialize synthetic values without invoking commands or inferring exit status from
     //! the envelope. Command integration tests cover actual rendering and process behavior.
+    //!
+    //! Whole-value comparisons establish field names and omission rules for both outcomes.
+    //! The supplied command, code, and message are boundary facts; serialization neither validates
+    //! a domain operation nor sanitizes arbitrary text. No stream write or process runs here.
 
     use serde_json::json;
 
@@ -333,9 +337,14 @@ mod tests {
         let envelope = JsonEnvelope::success("archive status", json!({ "repositories": 2 }));
         let value = serde_json::to_value(envelope).expect("envelope should serialize");
 
-        assert_eq!(value["schema_version"], 1);
-        assert_eq!(value["data"]["repositories"], 2);
-        assert_eq!(value["warnings"], json!([]));
-        assert!(value.get("error").is_none());
+        assert_eq!(
+            value,
+            json!({
+                "schema_version": 1,
+                "command": "archive status",
+                "warnings": [],
+                "data": { "repositories": 2 }
+            })
+        );
     }
 }

@@ -151,6 +151,17 @@ impl ReviewThreadContext<'_> {
 
 #[cfg(test)]
 mod tests {
+    //! # Review-thread context wording
+    //!
+    //! Direct context values supply path, resolution, and outdated source facts.
+    //! Resolved and outdated are independent, so both must remain visible when present.
+    //! Missing path is described explicitly without inventing an outdated flag.
+    //!
+    //! These exact summaries protect source-fact presentation rather than event sorting.
+    //! Timeline acquisition and coverage are outside the projection and tested elsewhere.
+    //! The cases contain no archive, provider, or helper workflow; each names its expected text.
+    //! Keeping them inline lets a reader compare wording with the context implementation.
+
     use crate::reports::timeline::ReviewThreadContext;
 
     #[test]

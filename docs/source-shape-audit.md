@@ -610,6 +610,20 @@ claiming typed preservation; those assertions could not establish the intended b
 cancellation remains a separate no-source case. The reusable rule now distinguishes source-type
 contracts from presentation wording in the Rust conventions.
 
+### CLI unit-suite review disposition
+
+The CLI unit owners have now been inspected across configuration, credentials, global/filter
+parsing, sync/refresh/embedding preparation, cluster build, provider setup, progress lifetime,
+envelopes, and the page/run/detail/timeline/cluster/embedding/refresh report projections. Small
+inline report suites remain near implementation; their introductions now name fixture facts,
+observable contracts, and evidence limits. Success-envelope serialization compares the whole value
+as failure serialization already did. Progress docs distinguish empty-channel lifecycle checks from
+buffered-event rendering. Cluster build retains its pure parsed-value fixture below callers.
+
+Together with the preceding scenario and assertion fixes, this closes the inspected existing CLI
+unit-suite quality findings. It does not close cross-crate test review, the CLI signature inventory,
+or production documentation-depth acceptance. New tests remain subject to the linked conventions.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

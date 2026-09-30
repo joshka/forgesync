@@ -94,6 +94,17 @@ fn render_progress(command: &str, progress: &SyncProgress) {
 
 #[cfg(test)]
 mod tests {
+    //! # Progress task lifetime and output-policy selection
+    //!
+    //! Named output/verbosity cases verify when advisory delivery is absent.
+    //! The async cases create a real reporter task but no engine workflow or progress payloads.
+    //! Finishing must close the retained sender so an empty receiver can terminate.
+    //!
+    //! Dropping the owner must close delivery through task abortion; a bounded wait observes that
+    //! channel effect without reaching into task internals. These cases establish lifecycle rather
+    //! than buffered-event wording or engine outcome. Process/report suites cover those separately.
+    //! All test operations are explicit and use their own reporter/channel state.
+
     use std::time::Duration;
 
     use tokio::time::timeout;

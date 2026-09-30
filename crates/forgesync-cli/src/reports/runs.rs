@@ -88,7 +88,16 @@ pub fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    //! Small command DTOs retain their serialized field contract when ownership changes.
+    //! # Retry interruption acknowledgment shape
+    //!
+    //! This case serializes the small command DTO independently of retry planning and execution.
+    //! Its stable code and safe message remain explicit fields, without a run report or raw cause.
+    //! Whole-value comparison catches field renaming, omission, or additional serialized data.
+    //!
+    //! The message is synthetic safe text; serialization does not sanitize arbitrary input.
+    //! Process/workflow tests establish cancellation status and durable retry cleanup separately.
+    //! Keeping this single projection case inline makes its representation easy to review beside
+    //! the DTO without adding a fixture module or hiding a retry workflow.
 
     #[test]
     fn retry_interruption_json_retains_code_and_safe_message() {

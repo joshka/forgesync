@@ -67,7 +67,10 @@ that orients a reader arriving directly from search. Explain what the file conta
 types or operations are used, who calls them, and how they relate to neighboring modules. A small
 leaf may need roughly ten lines; a crate root or coordinating module may need several sections. Use
 the complexity of the mental model rather than a line quota to decide the depth. A one-line label
-seldom explains a module with multiple types, state transitions, or failure boundaries.
+seldom explains a module with multiple types, state transitions, or failure boundaries. Inline test
+modules need an orientation too: identify the contract, supplied fixture facts, and the limits of
+the assertions. Small suites should stay near their implementation when splitting would add
+navigation; proximity does not remove the need to explain what their evidence proves.
 
 Let documentation settle at the narrowest level that covers its readers. Crate roots explain
 boundaries and the route through the package. Coordinating modules explain workflows and how their

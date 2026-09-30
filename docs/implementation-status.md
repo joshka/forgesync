@@ -144,6 +144,13 @@ its separate no-source scenario, and Rust conventions record the distinction bet
 assertions and wording checks. All 76 CLI unit cases, CLI all-target Clippy, nightly formatting, and
 Markdown checks pass. Remaining unit/report owners are still under review.
 
+Inline CLI report suites now document their supplied facts, whole-value/string contracts, and
+evidence limits. Success envelope serialization compares the full shape, and progress module docs
+distinguish empty-channel lifecycle from event rendering. Small suites remain beside implementation.
+All 76 CLI unit cases and CLI all-target Clippy pass, with nightly formatting and Markdown checks.
+The existing CLI unit-suite review is disposed of; cross-crate suite quality, signatures, and
+production documentation-depth acceptance remain open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;
