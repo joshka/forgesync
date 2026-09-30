@@ -568,6 +568,13 @@ Global options are `--archive`, `--config`, `--json`, `--color auto|always|never
 `--log-format text|json`, and repeatable `-v`/`--verbose`. Help and version do not require an
 archive.
 
+Human `sync` and `run retry` commands show acquisition status on stderr by default, starting
+before credential discovery. Every two seconds they report elapsed time and the latest available
+job and item counts. Counts can remain unchanged during a long provider scan; the elapsed message
+means the command is still waiting, not that GitHub has responded. Use Ctrl-C to cancel, or `-v`
+to show every delivered progress event. `--json` suppresses these human status messages and keeps
+stdout reserved for the structured result.
+
 Forgesync's selected scope excludes GitHub write-back, Gitcrawl import, full revision history,
 source-code indexing, generated summaries, cloud/portable distribution, and deep pull-request file,
 commit, or check acquisition. The [compatibility ledger](compatibility.md) records those boundaries.

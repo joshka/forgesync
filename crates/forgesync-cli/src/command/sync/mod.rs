@@ -99,11 +99,11 @@ impl SyncArgs {
         cancellation: &CancellationToken,
     ) -> Result<SyncReport, SyncFailure> {
         let request = self.into_request();
+        let progress = ProgressReporter::start("sync", output, verbose);
         let selectors = selected_repositories(archive, &request).await?;
         let clients = github_clients_for_selectors(&selectors, verbose, cancellation)
             .await
             .map_err(SyncFailure::ClientSetup)?;
-        let progress = ProgressReporter::start("sync", output, verbose);
         let result =
             sync_repositories(archive, &clients, &request, cancellation, progress.sender()).await;
         progress.finish().await;

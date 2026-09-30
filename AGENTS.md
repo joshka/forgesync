@@ -57,6 +57,8 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
   or migration; only explicit `archive init` creates its parent directories.
 - Libraries return typed errors and never install a tracing subscriber or read process environment.
   The CLI owns config resolution, subscriber setup, exit codes, and JSON rendering.
+- Long-running acquisition commands show bounded human progress by default on stderr, including
+  during waits. Keep JSON stdout clean and distinguish elapsed waiting from confirmed provider work.
 - Do not log credentials, headers, prompts, discussion bodies, or raw provider payloads.
 
 ## Change and validation procedure

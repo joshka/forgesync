@@ -2,12 +2,15 @@
 //!
 //! [`ProgressReporter`] owns the bounded channel and terminal task shared by sync and retry.
 //! Commands hand the engine a sender, await acquisition, then finish reporting before rendering
-//! their final result. JSON and quiet commands do not install a reporter.
+//! their final result. JSON commands do not install a reporter. Human output includes a startup
+//! message and periodic snapshots; verbose output also prints every delivered event.
 //!
 //! Progress is advisory: the engine uses nonblocking sends, so a slow terminal cannot hold up
 //! archive work. Finishing closes this owner's sender and drains buffered events; dropping the
 //! owner aborts the terminal task if the command exits unexpectedly. No report or exit status is
 //! derived from progress events: the engine's terminal result remains authoritative.
+
+use std::time::Duration;
 
 use forgesync_engine::sync::SyncProgress;
 use tokio::sync::mpsc;
@@ -24,16 +27,17 @@ pub struct ProgressReporter {
 }
 
 impl ProgressReporter {
-    /// Starts bounded stderr reporting for verbose human output without changing result policy.
+    /// Starts bounded stderr reporting for human output without changing result policy.
     pub fn start(command: &'static str, output: OutputMode, verbose: u8) -> Self {
-        if verbose == 0 || output.is_json() {
+        if output.is_json() {
             return Self {
                 sender: None,
                 task: None,
             };
         }
+        eprintln!("forgesync: {command}: preparing acquisition (Ctrl-C to cancel)");
         let (sender, receiver) = mpsc::channel(4);
-        let task = tokio::spawn(report_progress(command, receiver));
+        let task = tokio::spawn(report_progress(command, receiver, verbose));
         Self {
             sender: Some(sender),
             task: Some(task),
@@ -68,10 +72,38 @@ impl Drop for ProgressReporter {
     }
 }
 
-/// Drains snapshots in arrival order using the command name when no repository is selected.
-async fn report_progress(command: &str, mut receiver: mpsc::Receiver<SyncProgress>) {
-    while let Some(progress) = receiver.recv().await {
-        render_progress(command, &progress);
+/// Coalesces default snapshots every two seconds, including while provider work is waiting.
+/// Verbose mode additionally renders each event. Closing delivery prints the final snapshot.
+async fn report_progress(command: &str, mut receiver: mpsc::Receiver<SyncProgress>, verbose: u8) {
+    let started = tokio::time::Instant::now();
+    let mut ticks =
+        tokio::time::interval_at(started + Duration::from_secs(2), Duration::from_secs(2));
+    ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut latest = None;
+    loop {
+        tokio::select! {
+            event = receiver.recv() => {
+                let Some(progress) = event else {
+                    if verbose == 0 && let Some(progress) = latest {
+                        render_progress(command, &progress);
+                    }
+                    break;
+                };
+                if verbose > 0 || latest.is_none() {
+                    render_progress(command, &progress);
+                }
+                latest = Some(progress);
+            }
+            _ = ticks.tick() => {
+                eprintln!(
+                    "forgesync: {command}: still running ({}s elapsed; waiting for acquisition to finish)",
+                    started.elapsed().as_secs()
+                );
+                if let Some(progress) = &latest {
+                    render_progress(command, progress);
+                }
+            }
+        }
     }
 }
 
@@ -113,8 +145,7 @@ mod tests {
     use crate::OutputMode;
 
     #[rstest::rstest]
-    #[case::quiet_text(OutputMode::Text, 0)]
-    #[case::quiet_json(OutputMode::Json, 0)]
+    #[case::default_json(OutputMode::Json, 0)]
     #[case::verbose_json(OutputMode::Json, 1)]
     fn suppressed_progress_has_no_delivery_channel(
         #[case] output: OutputMode,
@@ -126,7 +157,7 @@ mod tests {
 
     #[tokio::test]
     async fn finish_closes_the_owned_sender_before_waiting_for_the_receiver() {
-        let reporter = ProgressReporter::start("retry", OutputMode::Text, 1);
+        let reporter = ProgressReporter::start("retry", OutputMode::Text, 0);
         assert!(reporter.sender().is_some());
         timeout(Duration::from_secs(5), reporter.finish())
             .await
@@ -135,8 +166,8 @@ mod tests {
 
     #[tokio::test]
     async fn dropping_the_owner_aborts_the_receiver_task() {
-        let reporter = ProgressReporter::start("sync", OutputMode::Text, 1);
-        let sender = reporter.sender().expect("verbose human progress channel");
+        let reporter = ProgressReporter::start("sync", OutputMode::Text, 0);
+        let sender = reporter.sender().expect("human progress channel");
         drop(reporter);
         timeout(Duration::from_secs(5), sender.closed())
             .await

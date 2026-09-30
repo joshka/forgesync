@@ -74,6 +74,7 @@ impl RetryRequest {
         verbose: u8,
         cancellation: &CancellationToken,
     ) -> Result<RetryReport, RetryFailure> {
+        let progress = ProgressReporter::start("retry", output, verbose);
         let plan = plan_run_retry(archive, self.run_id, &self.families)
             .await
             .map_err(RetryFailure::Engine)?;
@@ -85,7 +86,6 @@ impl RetryRequest {
         let clients = github_clients_for_selectors(&repositories, verbose, cancellation)
             .await
             .map_err(RetryFailure::ClientSetup)?;
-        let progress = ProgressReporter::start("retry", output, verbose);
         let result = run_retry(archive, &clients, plan, cancellation, progress.sender()).await;
         progress.finish().await;
         result.map_err(RetryFailure::Engine)
