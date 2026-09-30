@@ -3208,3 +3208,13 @@ observation, document, embedding, and timestamp cleanup. Evidence is in
 `/tmp/forgesync-core-review-clippy.log` and `/tmp/forgesync-core-review-doc.log`. The audit records
 these concrete reviewed contracts while keeping the complete item-depth and suite-quality passes
 open. Markdown gates pass.
+
+### Failure classification and message producer contracts
+
+Core failure docs distinguish typed categories from recovery policy and explicitly place message
+safety with producers. Public fields and deserialization do not redact arbitrary text. Consumers use
+workflow/ledger context rather than diagnostic prose to decide retry, and a failure does not prove
+earlier writes were rolled back. Outcome tests import the defining module directly.
+
+Strict core Rustdoc, all five outcome scenarios, nightly formatting, rumdl, and changed-page
+Markdown linting pass.

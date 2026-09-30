@@ -37,7 +37,12 @@ pub enum EvidenceFamily {
     ReviewThreads,
 }
 
-/// Failure classification safe to keep in structured operation reports.
+/// Stable failure category retained in structured operation reports.
+///
+/// Classification supports presentation and workflow-specific recovery decisions; it is not a
+/// retry policy by itself. Authentication or permission failures may require changed credentials,
+/// while lease/archive failures require local recovery context. The engine interprets a category
+/// together with the selected operation and ledger evidence.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureKind {
@@ -59,12 +64,22 @@ pub enum FailureKind {
     InvalidData,
 }
 
-/// Safe, durable summary of a failed unit of work.
+/// Durable failure summary intended for terminal output and archive reporting.
+///
+/// Producers must supply a message safe for persistence and presentation. Public fields and Serde
+/// construction do not redact credentials, validate provider payloads, or sanitize arbitrary text.
+/// Provider adapters and workflow boundaries own that responsibility before constructing a value.
+///
+/// The category remains separate from the message: consumers choose recovery from typed policy
+/// and ledger context, never by parsing prose. Retaining a failure does not prove the work is
+/// automatically retryable or that previous successful writes were rolled back.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Failure {
     /// Stable machine-readable failure class.
     pub kind: FailureKind,
-    /// Human-readable summary without tokens or raw provider payloads.
+    /// Producer-supplied human-readable summary that must exclude credentials and raw payloads.
+    ///
+    /// This field performs no automatic redaction; construct it only from safe boundary errors.
     pub message: String,
 }
 

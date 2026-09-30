@@ -54,8 +54,8 @@ pub enum OperationOutcome {
 mod tests {
     use serde_json::json;
 
-    use super::OperationOutcome;
     use crate::coverage::{DeferredReason, Failure, FailureKind};
+    use crate::outcome::OperationOutcome;
 
     #[rstest::rstest]
     #[case::complete(OperationOutcome::Complete, json!({ "status": "complete" }))]
