@@ -1947,3 +1947,17 @@ unnecessary clone. Structured output, failure collections, wording, and exit pol
 Focused embedding-output cases and workspace Clippy are running. Human failure-priority coverage and
 final workspace gates remain to verify this change. The presentation inventory is now explicit in
 the source-shape audit; the subsequent conventions/documentation and test-review batches remain.
+
+## Continued maintenance: named TUI timeline wording
+
+Current-evidence event wording now belongs to private `view::timeline`, while detail assembly and
+scroll bounds remain in `view::detail`. Dispatch names creation, closure, comment, review, review
+thread, and review comment projections. Review-thread source path/resolution/outdated facts share
+one borrowed view; no behavioral boolean parameter is added. Named locals expose missing author,
+reviewer, review body, and path fallback policy.
+
+Wording, event order, body spelling, and review-comment omission of resolution remain unchanged. Two
+nearby linear cases protect resolved/outdated source-path and unresolved/current missing-path lines.
+Focused TUI tests and workspace Clippy are running. Full acceptance remains to run for the
+embedding-output and TUI timeline changes. CLI page, cluster, and run-detail projections are the
+remaining implementation targets in presentation cleanup.

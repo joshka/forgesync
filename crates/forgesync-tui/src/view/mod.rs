@@ -21,6 +21,7 @@ mod clusters;
 mod coverage;
 mod detail;
 mod failures;
+mod timeline;
 
 use browser::draw_browser;
 use clusters::{draw_cluster_detail, draw_clusters};

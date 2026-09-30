@@ -12,12 +12,13 @@
 //! Terminal rendering cases exercise compact and wide layouts; resize tests protect scroll bounds.
 
 use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_store::reads::{ThreadDetail, ThreadTimelineEvent};
+use forgesync_store::reads::ThreadDetail;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 
 use crate::app::App;
 use crate::view::family_name;
+use crate::view::timeline::timeline_line;
 
 /// Builds the ordered summary and timeline lines for one discussion.
 pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
@@ -122,48 +123,5 @@ impl DetailPresentation<'_> {
                 .map(|entry| timeline_line(&entry.event)),
         );
         lines
-    }
-}
-
-/// Formats one archive timeline event for the detail pane.
-fn timeline_line(event: &ThreadTimelineEvent) -> Line<'static> {
-    match event {
-        ThreadTimelineEvent::ThreadCreated { title, .. } => Line::from(format!("Created: {title}")),
-        ThreadTimelineEvent::ThreadClosed { .. } => Line::from("Discussion closed"),
-        ThreadTimelineEvent::Comment { comment } => Line::from(format!(
-            "Comment · {}: {}",
-            comment.author.as_deref().unwrap_or("unknown author"),
-            comment.body
-        )),
-        ThreadTimelineEvent::Review { review } => Line::from(format!(
-            "Review · {} · {}",
-            review
-                .reviewer
-                .as_ref()
-                .and_then(|reviewer| reviewer.login.as_deref())
-                .unwrap_or("unknown reviewer"),
-            review.body.as_deref().unwrap_or("(no review comment)")
-        )),
-        ThreadTimelineEvent::ReviewThread {
-            is_resolved,
-            is_outdated,
-            path,
-            ..
-        } => Line::from(format!(
-            "Review thread · {} · {} · {}",
-            if *is_resolved {
-                "resolved"
-            } else {
-                "unresolved"
-            },
-            if *is_outdated { "outdated" } else { "current" },
-            path.as_deref().unwrap_or("unknown path")
-        )),
-        ThreadTimelineEvent::ReviewThreadComment { comment, path, .. } => Line::from(format!(
-            "Review comment · {} · {}: {}",
-            path.as_deref().unwrap_or("unknown path"),
-            comment.author.as_deref().unwrap_or("unknown author"),
-            comment.body
-        )),
     }
 }

@@ -132,6 +132,16 @@ the dispatcher. Writer `progress` keeps producer and forwarding task together, d
 completion delivery, and aborts on unexpected drop. These owners keep runtime lifetime, read policy,
 and navigation state distinct without repeating shared service parameters in every read starter.
 
+The private `event_loop` module binds the live app, completion channel, runtime, task owner,
+archive, and clients for one terminal session. Its coordinator drains messages, draws, and polls
+input; operation completion dispatches panel refreshes before the next frame. The crate launcher
+retains terminal setup/restoration, awaited task shutdown, and archive closure.
+
+Presentation projections borrow loaded data. `view/coverage` assembles identity, evidence, health,
+and lease sections; `view/clusters` keeps detail selection with member-line formatting. Both CLI
+`reports/timeline` and TUI `view/timeline` name event wording and missing-data fallback separately
+from detail section assembly. They preserve store event order and start no acquisition or query.
+
 CLI command and report roots import only what they use; child code names its owning module rather
 than a parent alias. Workflow-specific output DTOs live with their report formatters. Refresh
 presentation selects stage formatters in request order, then renders each existing `RefreshStage`
