@@ -1975,3 +1975,16 @@ linear output cases protect empty-page wording and complete/incomplete/missing f
 continuation. Both focused cases and final-tree workspace Clippy pass, along with nightly
 formatting, rumdl, and changed-page Markdown linting. Full acceptance remains. Presentation's
 remaining implementation inventory is CLI cluster and run-detail projections.
+
+## Continued maintenance: CLI cluster projections
+
+Cluster page/detail coordinators delegate named list-row, detail-heading, and member-row
+projections. Lifecycle, role, and inclusion remain exhaustive label queries, keeping generation
+lifecycle separate from dismissal and member role separate from inclusion. Empty-page wording,
+pagination, dismissal reason, representative fallback, member totals, source title, and row order
+remain unchanged.
+
+The offline cluster contract and workspace Clippy pass. A nearby empty-page output case supplements
+the existing decision JSON case; focused cases pass. Full acceptance will include this change with
+CLI page and final run-detail presentation changes. A first attempted test target name was absent;
+validation uses the repository's actual `cluster_contract` target.

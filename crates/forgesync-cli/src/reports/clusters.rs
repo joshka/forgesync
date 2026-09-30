@@ -12,7 +12,10 @@
 //! format local evidence and decisions without sending GitHub write-back or recomputing clusters.
 
 use forgesync_engine::clustering::ClusterBuildReport;
-use forgesync_store::clusters::{ClusterDetail, ClusterPage};
+use forgesync_store::clusters::{
+    ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
+    ClusterPage, ClusterSummary,
+};
 use serde::Serialize;
 
 /// Recorded local maintainer action, separate from a generated cluster suggestion.
@@ -50,22 +53,7 @@ pub fn cluster_page_summary(page: &ClusterPage) -> String {
     }
     let mut lines = Vec::with_capacity(page.items.len() + 1);
     lines.push(format!("{} cluster(s)", page.items.len()));
-    for cluster in &page.items {
-        let lifecycle = match cluster.lifecycle {
-            forgesync_store::clusters::ClusterLifecycle::Active => "active",
-            forgesync_store::clusters::ClusterLifecycle::Retired => "retired",
-        };
-        let dismissed = if cluster.dismissed { ", dismissed" } else { "" };
-        lines.push(format!(
-            "#{} [{}{}] {} active / {} excluded: {}",
-            cluster.id,
-            lifecycle,
-            dismissed,
-            cluster.active_member_count,
-            cluster.excluded_member_count,
-            cluster.title
-        ));
-    }
+    lines.extend(page.items.iter().map(cluster_row));
     if let Some(offset) = page.next_offset {
         lines.push(format!("Next page: --offset {offset}"));
     }
@@ -74,48 +62,86 @@ pub fn cluster_page_summary(page: &ClusterPage) -> String {
 
 /// Formats a cluster and its member decisions without mutating them.
 pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
-    let cluster = &detail.cluster;
-    let lifecycle = match cluster.lifecycle {
-        forgesync_store::clusters::ClusterLifecycle::Active => "active",
-        forgesync_store::clusters::ClusterLifecycle::Retired => "retired",
-    };
+    let mut lines = vec![cluster_heading(&detail.cluster)];
+    if detail.cluster.dismissed {
+        lines.push(format!(
+            "Dismissed: {}",
+            detail
+                .cluster
+                .dismissal_reason
+                .as_deref()
+                .unwrap_or_default()
+        ));
+    }
+    lines.extend(detail.members.iter().map(member_row));
+    lines.join("\n")
+}
+
+/// Shows lifecycle, dismissal, and inclusion counts as distinct facts in one list row.
+fn cluster_row(cluster: &ClusterSummary) -> String {
+    let lifecycle = lifecycle_name(cluster.lifecycle);
+    let dismissed = if cluster.dismissed { ", dismissed" } else { "" };
+    format!(
+        "#{} [{}{}] {} active / {} excluded: {}",
+        cluster.id,
+        lifecycle,
+        dismissed,
+        cluster.active_member_count,
+        cluster.excluded_member_count,
+        cluster.title
+    )
+}
+
+/// Identifies the cluster and effective representative before its current member decisions.
+fn cluster_heading(cluster: &ClusterSummary) -> String {
+    let lifecycle = lifecycle_name(cluster.lifecycle);
     let representative = cluster.representative.as_ref().map_or_else(
         || "none".to_owned(),
         |thread| format!("#{}", thread.number().get()),
     );
-    let mut lines = vec![format!(
+    let members = cluster.active_member_count + cluster.excluded_member_count;
+    format!(
         "Cluster #{} [{}] {} — {} ({} members, representative {})",
-        cluster.id,
-        lifecycle,
-        cluster.repository.full_name,
-        cluster.title,
-        cluster.active_member_count + cluster.excluded_member_count,
-        representative
-    )];
-    if cluster.dismissed {
-        lines.push(format!(
-            "Dismissed: {}",
-            cluster.dismissal_reason.as_deref().unwrap_or_default()
-        ));
+        cluster.id, lifecycle, cluster.repository.full_name, cluster.title, members, representative
+    )
+}
+
+/// Presents membership role independently of its active/excluded/removed state.
+fn member_row(member: &ClusterMember) -> String {
+    let role = member_role_name(member.role);
+    let state = member_state_name(member.state);
+    let discussion = &member.summary.discussion;
+    format!(
+        "  #{} [{role}, {state}] {}",
+        discussion.id.number().get(),
+        discussion.title
+    )
+}
+
+/// Names generation lifecycle without conflating it with local dismissal.
+fn lifecycle_name(lifecycle: ClusterLifecycle) -> &'static str {
+    match lifecycle {
+        ClusterLifecycle::Active => "active",
+        ClusterLifecycle::Retired => "retired",
     }
-    for member in &detail.members {
-        let role = match member.role {
-            forgesync_store::clusters::ClusterMemberRole::Canonical => "canonical",
-            forgesync_store::clusters::ClusterMemberRole::Representative => "representative",
-            forgesync_store::clusters::ClusterMemberRole::Related => "related",
-        };
-        let state = match member.state {
-            forgesync_store::clusters::ClusterMemberState::Active => "active",
-            forgesync_store::clusters::ClusterMemberState::Excluded => "excluded",
-            forgesync_store::clusters::ClusterMemberState::Removed => "removed",
-        };
-        lines.push(format!(
-            "  #{} [{role}, {state}] {}",
-            member.summary.discussion.id.number().get(),
-            member.summary.discussion.title
-        ));
+}
+
+/// Distinguishes explicit canonical choice from generated representative and related roles.
+fn member_role_name(role: ClusterMemberRole) -> &'static str {
+    match role {
+        ClusterMemberRole::Canonical => "canonical",
+        ClusterMemberRole::Representative => "representative",
+        ClusterMemberRole::Related => "related",
     }
-    lines.join("\n")
+}
+
+/// Keeps inclusion-state labels independent of representative/canonical role.
+fn member_state_name(state: ClusterMemberState) -> &'static str {
+    match state {
+        ClusterMemberState::Active => "active",
+        ClusterMemberState::Excluded => "excluded",
+        ClusterMemberState::Removed => "removed",
+    }
 }
 
 /// Confirms the local maintainer action recorded for a cluster.
@@ -126,6 +152,18 @@ pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
 #[cfg(test)]
 mod tests {
     //! Small command DTOs retain their serialized field contract when ownership changes.
+
+    #[test]
+    fn empty_page_uses_the_existing_no_clusters_message() {
+        let page = forgesync_store::clusters::ClusterPage {
+            items: Vec::new(),
+            next_offset: None,
+        };
+        assert_eq!(
+            crate::reports::clusters::cluster_page_summary(&page),
+            "No clusters found"
+        );
+    }
 
     #[test]
     fn decision_json_retains_archive_identity_and_action() {
