@@ -241,7 +241,7 @@ fn refresh_uses_the_applied_repository_scope() {
 }
 
 #[test]
-fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
+fn dismissal_targets_the_selected_cluster() {
     let detail = sample_cluster_detail();
     let mut app = App {
         screen: Screen::Clusters,
@@ -249,6 +249,18 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
             items: vec![detail.cluster],
             ..Default::default()
         },
+        ..App::default()
+    };
+
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+
+    assert_eq!(actions, [QueryAction::DismissCluster { id: 17 }]);
+}
+
+#[test]
+fn retry_targets_the_selected_failed_run() {
+    let mut app = App {
+        screen: Screen::Failures,
         failure_list: crate::app::failures::FailureList {
             items: vec![crate::app::failures::RunFailureSummary {
                 id: 23,
@@ -259,15 +271,13 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
         },
         ..App::default()
     };
-    let dismiss = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
-    assert!(matches!(
-        dismiss.as_slice(),
-        [QueryAction::DismissCluster { id: 17 }]
-    ));
 
-    app.screen = Screen::Failures;
-    let retry = app.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
-    assert_eq!(retry, [QueryAction::Retry(RunId::new(23).expect("run ID"))]);
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
+
+    assert_eq!(
+        actions,
+        [QueryAction::Retry(RunId::new(23).expect("run ID"))]
+    );
 }
 
 #[test]

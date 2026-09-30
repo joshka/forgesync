@@ -2881,3 +2881,13 @@ merely because the cluster ID or action variant is correct.
 
 All 12 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Independent dismissal and retry scenarios
+
+The test that dismissed a cluster and then manually switched screens to retry a run is split into
+independent cases. Each initializes only its relevant panel, performs one key action, and compares
+the complete expected target. The tests no longer imply that retry depends on dismissal state or
+require readers to carry unrelated panel fixtures through the scenario.
+
+All 13 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
