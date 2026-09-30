@@ -1560,3 +1560,22 @@ ordering from their defining modules. The rank smoothing constant now lives besi
 its meaning documented. Keyword-first summary precedence, last duplicate source-rank behavior,
 source provenance order, score formula, stable ordering, and candidate truncation remain unchanged.
 Retrieval orchestration remains open in the search batch.
+
+Hybrid fusion passes workspace Clippy, all workspace tests/doctests, the CLI build without default
+features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting.
+
+## Continued maintenance: ranked search window
+
+`search::window::SearchWindow` owns validated presentation coordinates and the candidate prefix needed
+for ranked pagination. It includes skipped results and one continuation probe, preserving the
+10,000-result ranking budget. Retrieval consumes the same window for candidate acquisition and page
+construction. Keyword-only pagination remains at the store boundary.
+
+Four nearby linear boundary cases cover ordinary paging, the maximum prefix, exceeding the budget,
+and the shared invalid-offset classification. The latter exposed an incorrect initial test
+expectation: shared pagination validation rejects offsets above SQLite's signed range before ranked
+window validation. The implementation preserves that existing error precedence.
+
+Retrieval orchestration and the remaining six-batch work are still open. Current-tree gates pass: workspace Clippy, all workspace tests/doctests, the CLI build without
+default features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page
+Markdown linting.

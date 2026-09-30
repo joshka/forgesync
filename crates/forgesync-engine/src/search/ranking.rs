@@ -1,7 +1,7 @@
 //! # Combine candidate lists into search results
 //!
-//! Ranking helpers page scored candidates, fuse hybrid lists, and assign reciprocal-rank
-//! contributions. They also decide when a semantic failure permits a keyword fallback.
+//! Ranking helpers page scored candidates and decide when a semantic failure permits a keyword
+//! fallback. Hybrid source merging and reciprocal-rank contributions live in `fusion`.
 //!
 //! Candidate generation lives in `keyword` and `semantic`; this module owns the cross-mode
 //! ordering visible to users. The result keeps provenance so a caller can explain why a hit

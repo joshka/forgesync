@@ -27,7 +27,6 @@ use crate::inspect::{
     ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
 };
 
-const MAX_SEARCH_WINDOW: usize = 10_000;
 const EMBEDDING_READ_PAGE: u32 = 128;
 const EXACT_WORKER_LIMIT: usize = 2;
 
@@ -228,15 +227,9 @@ async fn retrieve_ranked(
 ) -> Result<SearchResultPage, EngineError> {
     let query = request.query.trim();
     let sort = request.filters.sort.unwrap_or(ThreadSort::Relevance);
-    let (limit, offset) = checked_page(request.filters.limit, request.filters.offset)?;
-    let window = usize::try_from(offset)
-        .ok()
-        .and_then(|offset| offset.checked_add(usize::try_from(limit.get()).ok()?))
-        .filter(|window| *window <= MAX_SEARCH_WINDOW)
-        .ok_or(EngineError::SearchWindowTooLarge)?;
-    let candidate_limit = window + 1;
+    let window = window::SearchWindow::new(request.filters.limit, request.filters.offset)?;
     let keyword_candidates = if request.mode == SearchMode::Hybrid {
-        Some(keyword_candidates(archive, request, candidate_limit).await?)
+        Some(keyword_candidates(archive, request, window.candidate_limit).await?)
     } else {
         None
     };
@@ -248,7 +241,7 @@ async fn retrieve_ranked(
                 request,
                 recipe,
                 client,
-                candidate_limit,
+                window.candidate_limit,
                 cancellation,
             )
             .await
@@ -273,13 +266,13 @@ async fn retrieve_ranked(
             request.mode,
             sort,
             semantic,
-            offset,
-            limit.get(),
+            window.offset,
+            window.limit,
             coverage,
         )),
         SearchMode::Hybrid => {
             let keyword = keyword_candidates.expect("hybrid mode loaded keyword candidates");
-            let fused = fuse_hybrid(keyword.items, semantic, sort, candidate_limit);
+            let fused = fuse_hybrid(keyword.items, semantic, sort, window.candidate_limit);
             Ok(result_page(ResultPageRequest {
                 query,
                 requested_mode: request.mode,
@@ -288,8 +281,8 @@ async fn retrieve_ranked(
                 sort,
                 fallback_reason: None,
                 candidates: fused,
-                offset,
-                limit: limit.get(),
+                offset: window.offset,
+                limit: window.limit,
                 coverage,
             }))
         }
@@ -358,6 +351,7 @@ mod fusion;
 mod keyword;
 mod ranking;
 mod semantic;
+mod window;
 
 use fusion::fuse_hybrid;
 use keyword::{keyword_candidates, keyword_expression, keyword_fallback_page, keyword_result_page};
