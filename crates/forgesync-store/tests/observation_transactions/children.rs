@@ -4,11 +4,16 @@
 //! that incomplete collection cannot replace prior complete membership. Coverage records the
 //! attempt even when its staged pages are not canonical.
 
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::identity::CommitSha;
+use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
+use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::observations::ObservationDisposition;
+use serde_json::json;
+
 use super::{
-    ChildFamilyObservation, CollectionCompleteness, CommitSha, CoverageState, EvidenceFamily,
-    IncompleteReason, ObservationDisposition, SourceClock, create_archive_with_repository,
-    discussion, incomplete, item, json, remove_archive, reserve, temporary_archive_path,
-    thread_observation, timestamp,
+    create_archive_with_repository, discussion, incomplete, item, remove_archive, reserve,
+    temporary_archive_path, thread_observation, timestamp,
 };
 
 #[tokio::test]

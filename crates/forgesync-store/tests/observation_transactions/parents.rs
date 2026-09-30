@@ -4,11 +4,17 @@
 //! state. They protect identity mapping and transactional application. Child resources are
 //! independent families; a parent write should not silently claim their coverage.
 
+use std::cmp::Ordering;
+
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_store::error::StoreError;
+use forgesync_store::observations::ObservationDisposition;
+use forgesync_store::ordering::compare_revision_observation_order;
+
 use super::{
-    CollectionCompleteness, CoverageState, EvidenceFamily, ObservationDisposition, Ordering,
-    SourceClock, StoreError, compare_revision_observation_order, create_archive_with_repository,
-    discussion, incomplete, read_current_thread_title, remove_archive, reserve,
-    temporary_archive_path, thread_observation,
+    create_archive_with_repository, discussion, incomplete, read_current_thread_title,
+    remove_archive, reserve, temporary_archive_path, thread_observation,
 };
 
 #[tokio::test]

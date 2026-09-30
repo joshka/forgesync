@@ -4,14 +4,13 @@
 //! The store decides which acquired evidence becomes canonical and keeps incomplete attempts
 //! visible. Child modules isolate each invariant while sharing the on-disk archive setup.
 
-use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::{
-    CommitSha, GitHubHost, ObservationSequence, ProviderId, RepositoryId, ThreadId, ThreadNumber,
+    GitHubHost, ObservationSequence, ProviderId, RepositoryId, ThreadId, ThreadNumber,
 };
 use forgesync_core::observation::{
     CollectionCompleteness, IncompleteReason, Observation, SourceClock,
@@ -19,13 +18,7 @@ use forgesync_core::observation::{
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
-use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
-use forgesync_store::observations::{ObservationDisposition, StagedItem};
-use forgesync_store::ordering::{
-    compare_observation_order, compare_revision_observation_order, observation_sequence_order_value,
-};
-use serde_json::json;
+use forgesync_store::observations::StagedItem;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);

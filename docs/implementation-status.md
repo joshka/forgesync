@@ -3024,3 +3024,13 @@ sequence, payload, and completeness inputs.
 
 All seven observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Direct observation test ownership imports
+
+Parent, child, ordering, and rollback suites import domain values and store APIs from their defining
+modules. The integration root no longer supplies a prelude of unrelated imported types. Explicit
+parent imports remain only for fixture helpers genuinely defined there, making their setup ownership
+visible without duplicating construction code across suites.
+
+All seven observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

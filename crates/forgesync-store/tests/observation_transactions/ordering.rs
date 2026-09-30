@@ -4,9 +4,12 @@
 //! fetches. They protect canonical selection from simple last-write-wins behavior. A new ordering
 //! rule should be backed by a fixture where the expected winner is explicit.
 
-use super::{
-    ObservationSequence, Ordering, SourceClock, compare_observation_order,
-    compare_revision_observation_order, observation_sequence_order_value,
+use std::cmp::Ordering;
+
+use forgesync_core::identity::ObservationSequence;
+use forgesync_core::observation::SourceClock;
+use forgesync_store::ordering::{
+    compare_observation_order, compare_revision_observation_order, observation_sequence_order_value,
 };
 
 #[test]
