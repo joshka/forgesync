@@ -1,7 +1,10 @@
 //! # Shared fixture catalog contract
 //!
 //! This integration suite loads selected reference fixtures into core domain values. It documents
-//! the shapes the implementation expects from provider and archive examples. Keep a case here when
+//! the shapes the implementation expects from provider and archive examples. Separate checks own
+//! payload hygiene, catalog references, scenario coverage, and truth-table coverage. Their loops
+//! intentionally validate every discovered file or declared entry rather than selecting a few
+//! fixed scenarios; adding a fixture automatically extends the checked set. Keep a case here when
 //! a fixture reveals a domain distinction that downstream normalization must preserve.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,10 +25,12 @@ const REQUIRED_INVARIANTS: &[&str] = &[
     "deterministic_cluster_scoring",
 ];
 
+/// Locates the workspace fixture catalog independently of the test process working directory.
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
 }
 
+/// Reads a catalog payload with its path included in setup failures.
 fn read_json(root: &Path, relative_path: &str) -> Value {
     let path = root.join(relative_path);
     let contents = fs::read_to_string(&path)
@@ -34,6 +39,7 @@ fn read_json(root: &Path, relative_path: &str) -> Value {
         .unwrap_or_else(|error| panic!("parse fixture {}: {error}", path.display()))
 }
 
+/// Enumerates all nested JSON payloads so newly added fixtures are checked automatically.
 fn collect_json_files(directory: &Path, files: &mut BTreeSet<PathBuf>) {
     let entries = fs::read_dir(directory)
         .unwrap_or_else(|error| panic!("read fixture directory {}: {error}", directory.display()));
@@ -52,6 +58,7 @@ fn collect_json_files(directory: &Path, files: &mut BTreeSet<PathBuf>) {
     }
 }
 
+/// Projects string entries from a catalog array; structural requirements are asserted by callers.
 fn strings_at<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a str> {
     value[key]
         .as_array()
@@ -61,7 +68,7 @@ fn strings_at<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a str> 
 }
 
 #[test]
-fn fixture_catalog_validates_every_json_file_and_reference() {
+fn every_fixture_is_valid_json_without_credential_fields() {
     let root = repository_root();
     let fixture_root = root.join("fixtures");
     let mut json_files = BTreeSet::new();
@@ -90,7 +97,14 @@ fn fixture_catalog_validates_every_json_file_and_reference() {
             path.display()
         );
     }
+}
 
+#[test]
+fn catalog_references_existing_provider_fixtures_without_traversal() {
+    let root = repository_root();
+    let fixture_root = root.join("fixtures");
+    let mut json_files = BTreeSet::new();
+    collect_json_files(&fixture_root, &mut json_files);
     let catalog = read_json(&root, "fixtures/scenarios/catalog.json");
     assert_eq!(catalog["format_version"].as_u64(), Some(1));
     assert_eq!(
@@ -126,7 +140,15 @@ fn fixture_catalog_validates_every_json_file_and_reference() {
             path.display()
         );
     }
+}
 
+#[test]
+fn named_scenarios_cover_the_declared_regression_invariants() {
+    let root = repository_root();
+    let catalog = read_json(&root, "fixtures/scenarios/catalog.json");
+    let referenced_files: BTreeSet<_> = strings_at(&catalog, "fixtures")
+        .map(|path| root.join(path))
+        .collect();
     let scenarios = catalog["scenarios"].as_array().expect("scenarios array");
     assert!(
         !scenarios.is_empty(),

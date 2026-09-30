@@ -2993,3 +2993,12 @@ including unit, integration, and documentation scenarios in all six crates. Evid
 `/tmp/forgesync-current-workspace-clippy.log`; later fixture edits still need the final lint pass.
 This establishes regression evidence, not completion of the outstanding catalog responsibility and
 workspace documentation/API review.
+
+### Separate fixture catalog contracts
+
+Core catalog validation is split into named payload-hygiene, reference-integrity, and scenario
+coverage tests. Each failure now identifies its responsibility. Exhaustive file/catalog loops remain
+because the input set grows with the repository; fixed cases would miss newly added fixtures. Helper
+contracts and the module introduction explain traversal and setup without hiding assertions.
+
+All four fixture-catalog checks, nightly formatting, rumdl, and changed-page Markdown linting pass.
