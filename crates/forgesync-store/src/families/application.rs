@@ -34,11 +34,21 @@ pub enum FamilyFinalization<'a> {
 
 /// Validated reservation scope and staged data, usable only inside its caller's transaction.
 pub struct FamilyApplication<'a> {
+    /// Terminal declaration whose family, completeness, and optional head control application.
     observation: ChildFamilyObservation<'a>,
+    /// Resolved SQLite parent key, kept separate from the domain thread identity in the
+    /// declaration.
     thread: i64,
+    /// Checked SQL representation of the declaration's archive-reserved acquisition sequence.
     sequence: i64,
+    /// Clock retained by the reserved generation, rather than a new caller-supplied revision.
     source_clock: SourceClockColumns,
+    /// Durable pages loaded for this exact reservation inside the caller's transaction.
     pages: Vec<StagedPage>,
+    /// Received entries across pages before provider-identity deduplication.
+    ///
+    /// Incomplete count validation uses this total; complete canonical membership may be smaller
+    /// when overlapping pages repeat an identity.
     staged_count: u64,
 }
 
@@ -246,10 +256,15 @@ impl<'a> FamilyApplication<'a> {
 
 /// Stored generation fields needed to recognize a replay or recover its source clock.
 struct Generation {
+    /// Persisted lifecycle label; only complete generations take the terminal replay path.
     status: String,
+    /// Stored terminal member count, checked before constructing a replay result.
     items: i64,
+    /// Missing, valid, or invalid source-clock label used with the following two columns.
     source_state: String,
+    /// Retained source spelling for an invalid clock; not a diagnostic timestamp.
     source_raw: String,
+    /// Provider revision microseconds for a valid clock, absent for missing/invalid clocks.
     source_us: Option<i64>,
 }
 

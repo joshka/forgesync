@@ -3540,3 +3540,14 @@ review.
 Strict all-feature workspace Rustdoc including private items passes on the current tree. Nightly
 formatting, rumdl, and changed-page Markdown linting pass. Runtime tests were not repeated for this
 documentation-only change.
+
+### Collection application field contracts
+
+Transaction-local collection fields now explain declaration versus SQL identity, checked sequence,
+reserved source clock, and loaded page ownership. Received staging count is explicitly measured
+before provider-identity deduplication, so complete canonical membership may contain fewer entries.
+Stored generation fields explain complete replay, checked terminal counts, and the coordinated
+source-clock columns. These contracts document the live invariants rather than repeating names.
+
+Strict private-item store Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting
+pass. Runtime behavior is unchanged; runtime tests were not repeated for these field comments.
