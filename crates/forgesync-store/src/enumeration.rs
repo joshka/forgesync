@@ -11,6 +11,12 @@
 //! The private `completion` module validates terminal state and performs the active-generation
 //! cursor guard and terminal write. Archive methods retain transaction and lease ownership.
 //! Completion requires a cleared next-page cursor; interruption preserves the last checkpoint.
+//!
+//! Page recording stores caller-reported progress after content application. It does not write
+//! discussion observations or inspect provider responses to prove counts or terminal pagination.
+//! The engine processes every page observation before advancing this cursor. Item writes and the
+//! checkpoint transaction are separate, so replay after failure must use observation ordering.
+//! Page recording itself increments counters on every call and is not an idempotent replay API.
 
 use forgesync_core::coverage::Failure;
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
@@ -49,9 +55,12 @@ pub struct RepositoryThreadScan {
     pub updated_at: UtcTimestamp,
     /// URL of the next page to request, or the first page when no page committed yet.
     pub next_page_url: Option<String>,
-    /// Number of pages whose content was committed before the checkpoint advanced.
+    /// Number of successfully recorded page checkpoints, including empty terminal pages.
     pub pages_completed: u64,
-    /// Number of discussion items committed by completed pages.
+    /// Caller-reported discussion count accumulated across recorded pages.
+    ///
+    /// Observation replay or ordering can skip a content replacement, so this is not a count of
+    /// newly inserted or changed discussions. Page publication does not verify this number.
     pub threads_seen: u64,
     /// Safe provider or archive failure that stopped acquisition, when known.
     pub failure: Option<Failure>,
@@ -137,7 +146,24 @@ impl Archive {
         Ok(())
     }
 
-    /// Commits one page checkpoint after all items on that page have been applied.
+    /// Records one page checkpoint after the caller has processed every observation on that page.
+    ///
+    /// `sequence` selects the active scan; `thread_count` increments its accumulated item count.
+    /// Every successful call increments the page count, even for an empty page. `next_page_url`
+    /// becomes the resume cursor; `None` records terminal pagination but does not finish the scan.
+    /// `updated_at` is the local progress time, independent of provider revision timestamps.
+    ///
+    /// This operation does not apply or verify discussion content, nor count newly changed threads.
+    /// Its own counters/cursor commit together, separately from earlier item writes. Repeating
+    /// a successful call increments the counters again; callers must not treat page publication
+    /// as idempotent. Use the fenced variant when the workflow holds an archive lease.
+    ///
+    /// # Errors
+    ///
+    /// Read-only archives, unknown repositories, missing/superseded/non-active scan generations,
+    /// invalid stored counts, integer overflow, and database failures are returned. A failed
+    /// checkpoint transaction leaves the previous counters and cursor intact, but cannot undo
+    /// discussion observations the caller committed earlier.
     pub async fn record_repository_thread_scan_page(
         &self,
         repository: &RepositoryId,
@@ -157,7 +183,13 @@ impl Archive {
         .await
     }
 
-    /// Commits a page only while the supplied archive lease remains current.
+    /// Records a page checkpoint while the supplied archive lease remains current.
+    ///
+    /// Counter, cursor, timestamp, and replay semantics match
+    /// [`Self::record_repository_thread_scan_page`]. The token is checked inside the checkpoint
+    /// transaction before writing, so possession of an expired or superseded token is insufficient.
+    /// Lease failure rolls back this checkpoint without rolling back earlier discussion writes.
+    /// This operation performs no provider I/O or content application.
     pub async fn record_repository_thread_scan_page_fenced(
         &self,
         repository: &RepositoryId,
@@ -178,7 +210,11 @@ impl Archive {
         .await
     }
 
-    /// Applies one page and advances its durable cursor atomically.
+    /// Advances caller-reported counters and cursor in one checkpoint transaction.
+    ///
+    /// Discussion writes have already happened outside this operation. A supplied fence is checked
+    /// in the same transaction as active-generation lookup and progress update; counters are
+    /// checked before SQL conversion and commit.
     async fn record_repository_thread_scan_page_inner(
         &self,
         repository: &RepositoryId,
@@ -253,7 +289,12 @@ impl Archive {
         .await
     }
 
-    /// Finishes a scan only while the supplied archive lease remains current.
+    /// Finishes a scan while the supplied archive lease remains current.
+    ///
+    /// Terminal-state and pending-cursor rules match [`Self::finish_repository_thread_scan`].
+    /// The fence check shares the terminal-write transaction. Failure preserves the current scan
+    /// state and page cursor; it does not undo observations already committed during enumeration.
+    /// Completion does not itself publish a closed-sweep watermark or prove child-family coverage.
     pub async fn finish_repository_thread_scan_fenced(
         &self,
         repository: &RepositoryId,

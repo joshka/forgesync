@@ -3446,3 +3446,19 @@ Four document identity cases pass, including an independently calculated fixed v
 All-target core Clippy, strict private-item Rustdoc, nightly formatting, rumdl, and changed-page
 Markdown checks pass. Core broad-signature candidates have explicit fixed/retained dispositions in
 the source-shape audit; this does not close other crates' signature review.
+
+### Scan page publication contract review
+
+Broad-signature inspection exposed an inaccurate checkpoint contract: page recording increments
+counters and advances a cursor; it does not apply discussion content. Module/item/helper contracts
+now separate caller-processed observations from the checkpoint transaction, explain non-idempotent
+counter increments, empty terminal pages, independent timestamps, and rollback limits. Fenced page
+and finish methods link their shared semantics and document in-transaction token checks.
+
+Scan counts are described as reported page observations, not newly changed discussion rows.
+Observation replay/order may skip replacement while page progress still counts the item. No runtime
+behavior changed. Signature representation review remains open rather than treating better docs as
+proof that the current broad APIs are optimal.
+
+Strict store Rustdoc including private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass. Runtime tests were not repeated for this documentation-only contract correction.
