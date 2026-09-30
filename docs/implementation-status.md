@@ -2287,3 +2287,16 @@ and explicit owner imports. Unsafe URL and undersized batch checks become indepe
 Behavior and setting defaults remain unchanged. All eight focused configuration-related CLI tests,
 workspace Clippy, strict CLI documentation, nightly formatting, and Markdown checks pass. Broader
 workspace conventions and test review remain open.
+
+## Continued maintenance: credential resolution owner
+
+GitHub credential discovery becomes `GitHubCredentialSettings::resolve_token`; the settings own the
+lookup policy and the caller supplies only host and cancellation. Provider setup constructs one
+settings value and invokes the method. Module and method contracts now explain environment
+precedence, empty versus malformed values, host scope, subprocess-only timeout/cancellation, and
+safe typed failures. Anonymous fallback remains explicit at the command boundary.
+
+The credential suite moves to a nearby leaf with direct owner imports and an explanation of its
+synthetic values and Unix subprocess probes. Lookup behavior is unchanged. All five focused
+credential tests, workspace Clippy, strict CLI documentation, nightly formatting, and Markdown
+checks pass. Broader review remains open.

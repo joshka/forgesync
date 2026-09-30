@@ -1,12 +1,26 @@
 //! # Resolve GitHub authentication for the CLI
 //!
-//! `GitHubCredentialSettings` controls how the process finds a token, and `resolve_github_token`
-//! returns the selected credential or a typed `CredentialError`. Acquisition commands use this
-//! before constructing provider clients.
+//! `GitHubCredentialSettings` controls how the process finds a token, and
+//! [`GitHubCredentialSettings::resolve_token`] returns the selected credential or a typed
+//! `CredentialError`. Acquisition commands use this before constructing provider clients.
 //!
 //! Credential lookup belongs here because it is a process concern. The GitHub adapter receives a
 //! token value but does not choose environment variables or print secrets; diagnostics should
 //! describe the missing source without exposing the credential.
+//!
+//! Lookup checks the configured environment variable, then `GITHUB_TOKEN`, then invokes the
+//! configured `gh` executable with `auth token --hostname` for the selected host. Whitespace-only
+//! environment values allow fallback; malformed nonempty values reject lookup instead of hiding a
+//! broken high-priority source. Returned values pass through the adapter's checked token type.
+//!
+//! Environment selection is synchronous and precedes subprocess cancellation/timeout checks. A
+//! token already available in environment can therefore be returned without starting a process,
+//! even when cancellation is set. Only the helper path uses the configured command timeout.
+//!
+//! The child receives no stdin, captures token stdout, discards stderr, and is killed on drop when
+//! lookup is cancelled or times out. Errors retain classifications rather than captured output.
+//! Callers decide whether unavailable discovery permits anonymous acquisition; this module does
+//! not silently convert malformed tokens or cancellation into anonymous requests.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -69,49 +83,69 @@ pub enum CredentialError {
     Cancelled,
 }
 
-/// Resolves a GitHub token from configured environment, `GITHUB_TOKEN`, then `gh`.
-pub async fn resolve_github_token(
-    settings: &GitHubCredentialSettings,
-    host: &GitHubHost,
-    cancellation: &CancellationToken,
-) -> Result<GitHubToken, CredentialError> {
-    if let Some(name) = settings.configured_token_environment_variable.as_deref()
-        && !valid_environment_variable_name(name)
-    {
-        return Err(CredentialError::InvalidEnvironmentVariable);
-    }
+impl GitHubCredentialSettings {
+    /// Resolves a checked token using environment precedence followed by host-aware `gh`.
+    ///
+    /// Validates the configured variable name before reading process environment. Empty/whitespace
+    /// values are ignored; malformed nonempty or non-Unicode values stop lookup. A selected token
+    /// is trimmed but not verified against GitHub. The host affects helper arguments, not
+    /// environment token selection: callers own choosing an environment credential appropriate
+    /// for that host.
+    ///
+    /// Environment success returns immediately. Cancellation and timeout govern only subprocess
+    /// discovery; a zero timeout rejects that path without spawning. No raw output is included in
+    /// typed errors, and command failure does not return a token from unsuccessful stdout.
+    ///
+    /// # Errors
+    ///
+    /// Returns variable-name or token validation errors for invalid configured inputs. Helper
+    /// spawn, exit, timeout, and cancellation have distinct variants; successful empty stdout
+    /// returns [`CredentialError::NoCredential`]. Anonymous fallback remains the caller's
+    /// policy.
+    pub async fn resolve_token(
+        &self,
+        host: &GitHubHost,
+        cancellation: &CancellationToken,
+    ) -> Result<GitHubToken, CredentialError> {
+        if let Some(name) = self.configured_token_environment_variable.as_deref()
+            && !valid_environment_variable_name(name)
+        {
+            return Err(CredentialError::InvalidEnvironmentVariable);
+        }
 
-    let configured = settings
-        .configured_token_environment_variable
-        .as_deref()
-        .and_then(std::env::var_os);
-    let github_token = std::env::var_os("GITHUB_TOKEN");
-    if let Some(token) = choose_environment_token(configured, github_token)? {
-        return Ok(token);
-    }
-    if settings.command_timeout.is_zero() {
-        return Err(CredentialError::TimedOut);
-    }
+        let configured = self
+            .configured_token_environment_variable
+            .as_deref()
+            .and_then(std::env::var_os);
+        let github_token = std::env::var_os("GITHUB_TOKEN");
+        if let Some(token) = choose_environment_token(configured, github_token)? {
+            return Ok(token);
+        }
+        if self.command_timeout.is_zero() {
+            return Err(CredentialError::TimedOut);
+        }
 
-    let arguments = [
-        OsString::from("auth"),
-        OsString::from("token"),
-        OsString::from("--hostname"),
-        OsString::from(host.as_str()),
-    ];
-    let output = run_credential_process(
-        &settings.gh_program,
-        &arguments,
-        settings.command_timeout,
-        cancellation,
-    )
-    .await?;
-    let token = std::str::from_utf8(&output.stdout).map_err(|_| CredentialError::InvalidToken)?;
-    let token = token.trim();
-    if token.is_empty() {
-        return Err(CredentialError::NoCredential);
+        let arguments = [
+            OsString::from("auth"),
+            OsString::from("token"),
+            OsString::from("--hostname"),
+            OsString::from(host.as_str()),
+        ];
+        let output = run_credential_process(
+            &self.gh_program,
+            &arguments,
+            self.command_timeout,
+            cancellation,
+        )
+        .await?;
+        let token =
+            std::str::from_utf8(&output.stdout).map_err(|_| CredentialError::InvalidToken)?;
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(CredentialError::NoCredential);
+        }
+        GitHubToken::new(token).map_err(|_| CredentialError::InvalidToken)
     }
-    GitHubToken::new(token).map_err(|_| CredentialError::InvalidToken)
 }
 
 /// Uses the configured token before `GITHUB_TOKEN`, ignoring empty values but rejecting a
@@ -181,81 +215,4 @@ async fn run_credential_process(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::ffi::OsString;
-    use std::path::Path;
-    use std::time::Duration;
-
-    use tokio_util::sync::CancellationToken;
-
-    use super::{
-        CredentialError, choose_environment_token, run_credential_process,
-        valid_environment_variable_name,
-    };
-
-    #[test]
-    fn configured_environment_token_precedes_github_token() {
-        let selected = choose_environment_token(
-            Some(OsString::from("configured-token")),
-            Some(OsString::from("github-token")),
-        )
-        .expect("valid tokens");
-
-        assert_eq!(selected.expect("token").expose(), "configured-token");
-    }
-
-    #[test]
-    fn empty_configured_environment_token_falls_back_to_github_token() {
-        let selected = choose_environment_token(
-            Some(OsString::from("  ")),
-            Some(OsString::from("github-token")),
-        )
-        .expect("valid token");
-
-        assert_eq!(selected.expect("token").expose(), "github-token");
-    }
-
-    #[test]
-    fn environment_variable_names_are_checked_before_lookup() {
-        assert!(valid_environment_variable_name("FORGESYNC_GITHUB_TOKEN"));
-        assert!(!valid_environment_variable_name("9TOKEN"));
-        assert!(!valid_environment_variable_name("TOKEN;echo"));
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn credential_subprocess_timeout_is_bounded() {
-        let result = run_credential_process(
-            Path::new("/bin/sleep"),
-            &[OsString::from("5")],
-            Duration::from_millis(30),
-            &CancellationToken::new(),
-        )
-        .await;
-
-        assert_eq!(result, Err(CredentialError::TimedOut));
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn credential_subprocess_cancellation_is_bounded() {
-        let cancellation = CancellationToken::new();
-        let child_cancellation = cancellation.clone();
-        let task = tokio::spawn(async move {
-            run_credential_process(
-                Path::new("/bin/sleep"),
-                &[OsString::from("5")],
-                Duration::from_secs(10),
-                &child_cancellation,
-            )
-            .await
-        });
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        cancellation.cancel();
-
-        assert_eq!(
-            task.await.expect("credential task"),
-            Err(CredentialError::Cancelled)
-        );
-    }
-}
+mod tests;

@@ -48,15 +48,10 @@ pub async fn github_clients_for_selectors(
     hosts.sort();
     hosts.dedup();
 
+    let settings = crate::credentials::GitHubCredentialSettings::default();
     let mut clients = HashMap::with_capacity(hosts.len());
     for host in hosts {
-        let token = match crate::credentials::resolve_github_token(
-            &crate::credentials::GitHubCredentialSettings::default(),
-            &host,
-            cancellation,
-        )
-        .await
-        {
+        let token = match settings.resolve_token(&host, cancellation).await {
             Ok(token) => Some(token),
             Err(
                 crate::credentials::CredentialError::NoCredential
