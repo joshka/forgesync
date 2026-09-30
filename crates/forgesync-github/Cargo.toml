@@ -3,6 +3,10 @@ name = "forgesync-github"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Typed GitHub acquisition and normalization for Forgesync"
 
 [dependencies]
 forgesync-core = { version = "0.1.0", path = "../forgesync-core" }

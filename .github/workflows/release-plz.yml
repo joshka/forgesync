@@ -1,0 +1,67 @@
+name: Release-plz
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
+    if: github.repository == 'joshka/forgesync' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish reviewed releases with crates.io OIDC
+        uses: release-plz/action@v0.5.139
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-pr:
+    needs: [checks, release]
+    if: github.repository == 'joshka/forgesync' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+    outputs:
+      pr: ${{ steps.release-plz.outputs.pr }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare versions and changelogs
+        id: release-plz
+        uses: release-plz/action@v0.5.139
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # GITHUB_TOKEN-created PRs do not trigger pull_request workflows. Run the same CI explicitly.
+  release-pr-checks:
+    needs: release-pr
+    if: needs.release-pr.outputs.pr != '' && needs.release-pr.outputs.pr != 'null'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ fromJSON(needs.release-pr.outputs.pr).head_branch }}

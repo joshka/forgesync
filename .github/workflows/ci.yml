@@ -3,6 +3,12 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or branch to validate
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -12,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - name: Set up rumdl
         uses: rvben/rumdl@v0
         with:
@@ -58,6 +67,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.x"

@@ -3,6 +3,10 @@ name = "forgesync-tui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Interactive terminal browsing and local triage for Forgesync"
 
 [dependencies]
 crossterm.workspace = true

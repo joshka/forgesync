@@ -13,6 +13,17 @@ findings and their dispositions; the [module map](architecture.md) explains the 
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
 
+## Registry and trusted release follow-up
+
+The public `joshka/forgesync` repository and MIT OR Apache-2.0 licensing are configured. All seven
+packages have descriptions, repository links, READMEs, and packaged license texts. The release-plz
+workflow uses GitHub OIDC in the main-only `crates-io` environment and validates generated release
+PRs through reusable CI. Release-plz configuration schema and workflow linting pass.
+
+Cargo workspace publication and per-crate trusted publisher setup are in progress. The next action
+is to verify published versions and registry settings, push the source and bootstrap tags, and
+confirm hosted workflow status.
+
 ## Product facade follow-up
 
 The `forgesync` package now owns the installable executable and module-oriented Rust facade. Its CLI

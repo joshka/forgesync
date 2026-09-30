@@ -1,23 +1,53 @@
 # Releasing
 
+Forgesync publishes seven crates at coordinated versions. The `forgesync` package is the installable
+product, with CLI and TUI enabled by default. The supporting libraries retain their own module and
+API ownership. The first release uses local `cargo publish --workspace --locked`; subsequent
+releases are prepared and published by release-plz.
+
+## Automated crate releases
+
+`.github/workflows/release-plz.yml` runs on `main`. It runs the reusable CI first, publishes a
+merged release PR, then prepares the next release PR. `release-plz.toml` sets
+`release_always = false`, so ordinary source pushes do not publish development versions. Review and
+merge the generated PR to approve its versions and changelogs. Supporting crates use
+package-qualified tags; the product uses `vMAJOR.MINOR.PATCH` and owns the GitHub release.
+
+Publishing uses crates.io trusted publishing. Every crate trusts the GitHub repository
+`joshka/forgesync`, workflow filename `release-plz.yml`, and environment `crates-io`. Only `main`
+can deploy to that environment. The publisher job grants `id-token: write`; release-plz exchanges
+its GitHub OIDC identity for a short-lived registry token. No `CARGO_REGISTRY_TOKEN` secret is
+required. See the
+[release-plz trusted publishing instructions](https://release-plz.dev/docs/github/quickstart) and
+[crates.io trusted publishing reference](https://crates.io/docs/trusted-publishing).
+
+The release PR job uses the built-in `GITHUB_TOKEN`. GitHub does not trigger PR workflows from that
+token, so the workflow explicitly calls the same reusable CI on the generated PR branch. This avoids
+storing a personal GitHub token merely to trigger checks. Repository Actions settings must allow
+GitHub Actions to create pull requests; the initial setup enables this setting.
+
+For future version corrections, use `release-plz set-version` rather than independently editing
+manifests, lockfiles, and changelogs. Keep the existing shared version and version group coherent.
+New crates need one manual first publication and a trusted publisher entry before CI can publish
+later versions. Changing the repository, workflow filename, or environment requires updating the
+trusted publisher entries on crates.io too.
+
+## Native binary assets
+
 The manual `.github/workflows/release.yml` workflow builds and smoke-tests native binaries on Linux,
 Intel and Apple Silicon macOS, and Windows. It packages each binary with a target-qualified asset
-name, generates SHA-256 checksums, and publishes the artifacts to an existing version tag. Builds
-use the repository's locked Rust dependencies and bundled SQLite, then run the same credential-free
-archive and FTS5 smoke checks used by CI.
+name and generates SHA-256 checksums. Builds use locked Rust dependencies and bundled SQLite, then
+run the same credential-free archive and FTS5 smoke checks used by CI.
 
-## Prepare a release
+1. Merge the release-plz PR and wait for the crate publisher to finish.
+1. Dispatch the **Release** workflow for the product's existing `vMAJOR.MINOR.PATCH` tag.
+1. Review the native build and smoke jobs, then confirm four platform archives and `checksums.txt`.
 
-1. Merge the intended source change and ensure the platform CI and workspace gates pass.
-1. Choose the version in `Cargo.toml` and keep the release tag equal to the CLI version.
-1. Create and push the matching `vMAJOR.MINOR.PATCH` tag.
-1. Dispatch the **Release** workflow for that existing tag.
-1. Review all native build and smoke jobs, then confirm the release includes four platform archives
-   and `checksums.txt`.
-
-The workflow uses `gh release create --verify-tag`, so it cannot create a missing version tag. It
-does not sign or notarize macOS binaries. Users who need notarization must use their own platform
-distribution process.
+The workflow uploads assets to the product release created by release-plz, replacing same-name
+assets when rerun. It can also create a release for an existing bootstrap tag. The workflow uses
+`--verify-tag` when creating a release and never creates a missing tag. Native asset publication
+remains an explicit dispatch: releases created with `GITHUB_TOKEN` do not trigger another workflow.
+It does not sign or notarize macOS binaries.
 
 ## Local package checks
 

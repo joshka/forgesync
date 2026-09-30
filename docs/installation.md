@@ -13,7 +13,7 @@ library; `archive doctor` checks the SQLite build, FTS5, and foreign-key enforce
 ## Install the product
 
 The package is named `forgesync`; its default features include both the CLI and interactive TUI.
-Once the workspace packages are published to crates.io, install with:
+Install from crates.io with:
 
 ```sh
 cargo install forgesync --locked

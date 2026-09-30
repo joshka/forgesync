@@ -1,0 +1,39 @@
+# Release only reviewed release PRs; routine pushes prepare the next version.
+[workspace]
+release_always = false
+git_release_enable = false
+pr_branch_prefix = "release-plz-"
+dependencies_update = false
+
+[[package]]
+name = "forgesync-core"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync-store"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync-github"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync-engine"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync-tui"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync-cli"
+version_group = "forgesync"
+
+[[package]]
+name = "forgesync"
+version_group = "forgesync"
+git_release_enable = true
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
+changelog_include = ["forgesync-core", "forgesync-store", "forgesync-github", "forgesync-engine", "forgesync-tui", "forgesync-cli"]
+
