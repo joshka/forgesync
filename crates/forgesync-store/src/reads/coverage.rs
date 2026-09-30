@@ -6,6 +6,20 @@
 //! Coverage is not inferred from child counts. Zero comments in a complete collection and zero
 //! stored comments after a failed collection mean different things; the explicit coverage row
 //! preserves that distinction for CLI and TUI readers.
+//!
+//! [`load_thread_coverage`] reads current pull-request metadata heads and recorded coverage/head
+//! context in separate queries. `StoredCoverage` keeps those facts distinct so projection can mark
+//! review evidence stale without overwriting the last complete collection. These reads are not a
+//! single snapshot, and stale marking is an inspection result rather than a persisted mutation.
+//!
+//! [`coverage_for_kind`] expands the applicable family catalog in fixed order, supplying missing
+//! states for absent rows. Issues omit pull-request-only families. Child evidence freshness uses
+//! parent source clocks, comment-count evidence, and current versus acquired review heads; a
+//! complete stored state can remain complete while being displayed as stale.
+//!
+//! List/detail, embedding eligibility, and aggregate reports use these helpers to interpret local
+//! evidence. They never infer complete membership from the presence of child rows and do not
+//! authorize replacement or reacquisition. Observation application owns durable coverage updates.
 
 use std::collections::HashMap;
 

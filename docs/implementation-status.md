@@ -2314,3 +2314,15 @@ The view root explains header/body/footer composition, specialized leaves, prese
 mutation, and separation from query dispatch and durable decisions. Movement variants and nearby
 triage test orientation gain specific contracts. Behavior remains unchanged. Strict TUI Rustdoc and
 nightly formatting pass; broader module and test review remains open.
+
+## Continued maintenance: local query and coverage contracts
+
+Read-query orientation now explains ordered offset pages versus frozen snapshots, separate aggregate
+and item coverage reads, sentinel removal, blank versus advanced FTS interpretation, shared SQL
+aliases, and display lookup versus durable identity. Method contracts describe limits, errors, and
+read consistency. The shared filter helper's inaccurate claim to add date predicates is corrected.
+
+Coverage orientation describes current and acquired head facts, fixed applicable-family expansion,
+missing rows, and stale inspection without rewriting complete membership. Query imports now name the
+coverage helper owner directly. Behavior is unchanged. Store Clippy, strict store Rustdoc, nightly
+formatting, and Markdown checks pass. Broader module/test review remains open.

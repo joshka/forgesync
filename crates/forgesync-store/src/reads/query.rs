@@ -7,6 +7,21 @@
 //! Pagination and counts belong here so the engine receives stable `ThreadPage` values rather than
 //! database cursors. The caller chooses filters; this module owns SQL parameter binding and row
 //! conversion.
+//!
+//! [`Archive::query_threads`] reads aggregate coverage first, then the ordered discussion rows,
+//! then per-thread coverage for the visible page. These reads do not share a snapshot: concurrent
+//! writers may advance between them. Stable ordering means deterministic tie rules for the rows
+//! observed, not a frozen result set across offset pages.
+//!
+//! [`ThreadQuery`] owns bound SQL construction and selects relevance only when an FTS expression
+//! is present; ordinary relevance requests use updated-time ordering. One extra row acts as a
+//! continuation sentinel and is removed before coverage hydration. A blank supplied expression
+//! returns an empty page with aggregate coverage rather than executing invalid FTS syntax.
+//!
+//! Repository scope and discussion-filter helpers are shared with other local read paths. They
+//! require the same `r`/`t` SQL aliases and bind external values rather than interpolating them.
+//! Repository display-name lookup is separate from stable repository identity used for scope.
+//! No read acquires a writer lease, refreshes providers, or changes completeness records.
 
 use forgesync_core::content::{Repository, ThreadKind};
 use forgesync_core::identity::{GitHubHost, RepositoryId};
@@ -14,10 +29,10 @@ use sqlx::{QueryBuilder, Row, Sqlite};
 
 use super::{
     StoredThreadSummary, ThreadPage, ThreadQuery, ThreadSort, ThreadStateFilter, ThreadSummary,
-    coverage_for_kind, load_thread_coverage,
 };
 use crate::archive::Archive;
 use crate::error::StoreError;
+use crate::reads::coverage::{coverage_for_kind, load_thread_coverage};
 
 impl Archive {
     /// Returns registered repositories in stable host, owner, and name order.
@@ -35,7 +50,11 @@ impl Archive {
             .collect()
     }
 
-    /// Finds a repository by its current host, owner, and name.
+    /// Finds a repository by stored host and case-insensitive current owner/name.
+    ///
+    /// Returns `None` when the display path is absent. This resolves a current display selector,
+    /// not historical rename aliases; stable scope uses the returned repository identity instead.
+    /// Database and persisted JSON decoding failures are propagated.
     pub async fn find_repository(
         &self,
         host: &GitHubHost,
@@ -55,7 +74,18 @@ impl Archive {
             .transpose()
     }
 
-    /// Returns a stable page of local discussions without modifying the archive.
+    /// Returns a deterministically ordered local page without modifying durable archive state.
+    ///
+    /// Reads aggregate coverage, discussion rows, and item coverage separately. Concurrent writers
+    /// can advance between those reads or between offset pages. A blank supplied FTS expression
+    /// returns no items or continuation while retaining aggregate coverage. A nonblank expression
+    /// is bound as FTS syntax; the engine owns literal-versus-advanced query interpretation.
+    ///
+    /// # Errors
+    ///
+    /// Propagates database, stored JSON, and integer conversion failures. FTS-related database
+    /// failures are classified as [`StoreError::InvalidSearchQuery`] by the local error predicate.
+    /// The nonzero query limit is trusted; upper page-size policy belongs to the engine.
     pub async fn query_threads(&self, query: &ThreadQuery) -> Result<ThreadPage, StoreError> {
         let coverage = self.coverage_summary(&query.repositories).await?;
         if query
@@ -219,7 +249,10 @@ pub fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories:
     statement.push(")");
 }
 
-/// Adds state, kind, and date predicates to a local discussion query.
+/// Adds kind and state predicates to a query using the `t` discussion alias.
+///
+/// Kind values are bound, and the closed state choices use fixed SQL fragments. Date filtering
+/// belongs to the owning query's construction rather than this shared helper.
 pub fn push_discussion_filters(
     statement: &mut QueryBuilder<Sqlite>,
     kind: Option<ThreadKind>,
