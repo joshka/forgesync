@@ -6,6 +6,21 @@
 //!
 //! A retry should be based on recorded failure scope and the current archive state. Querying is
 //! side-effect-free; starting a new run belongs to `lifecycle` and the engine coordinator.
+//!
+//! [`Archive::list_runs`] returns a bounded newest-first history, breaking equal start times by
+//! descending durable run identity. [`Archive::run_detail`] first finds the run, then loads jobs
+//! and failures in insertion-identity order. Resolved failures remain visible in historical detail;
+//! this is a record of execution, not an unresolved-only retry selection.
+//!
+//! Detail uses separate pool reads without one enclosing transaction. A writer can finish a job
+//! or resolve a failure between sections, so the assembled result is diagnostic current state
+//! rather than a frozen run snapshot. Repository payloads are joined from current registrations,
+//! while run scope and outcome retain their recorded JSON.
+//!
+//! Row decoders check domain IDs, timestamps, nonnegative counts, known status/family values, and
+//! JSON representations before returning typed records. Malformed persisted facts reject the read
+//! rather than silently removing the affected job or failure. Optional outcome/failure fields stay
+//! absent when SQL stores null; no workflow result is inferred from a missing payload.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;
@@ -19,7 +34,15 @@ use crate::runs::{
 };
 
 impl Archive {
-    /// Lists recent runs in stable newest-first order.
+    /// Lists at most `limit` runs by descending start time, then descending run identity.
+    ///
+    /// Includes active and terminal runs without filtering by outcome. This is a bounded history
+    /// read, not offset pagination or a frozen view across repeated calls.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::InvalidSyncCount`] for limits outside `1..=1000`. Database and checked
+    /// persisted-record decoding errors reject the read rather than returning a partial list.
     pub async fn list_runs(&self, limit: u32) -> Result<Vec<RunRecord>, StoreError> {
         if limit == 0 || limit > 1000 {
             return Err(StoreError::InvalidSyncCount);
@@ -33,7 +56,18 @@ impl Archive {
         rows.into_iter().map(decode_run).collect()
     }
 
-    /// Loads a run and its jobs, or returns `None` when the ID is unknown.
+    /// Loads a run, jobs, and historical failures, or returns `None` for an unknown run.
+    ///
+    /// Jobs and failures are ordered by ascending durable row identity. Failures include resolved
+    /// entries. Repository descriptions come from current registered payloads, not snapshots at
+    /// run creation. The run and child sections are separate reads, so a concurrent writer can
+    /// advance between them; use this for inspection rather than mutation authority.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::IntegerOutOfRange`] when the checked run identity exceeds SQLite's
+    /// signed range. Database or persisted-record decoding failures reject the whole projection;
+    /// no partial detail is returned.
     pub async fn run_detail(&self, run_id: RunId) -> Result<Option<RunDetail>, StoreError> {
         let row = sqlx::query(
             "SELECT id, parent_run_id, status, started_at_us, updated_at_us, finished_at_us, scope_json, outcome_json FROM runs WHERE id = ?",

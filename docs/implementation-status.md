@@ -2365,3 +2365,14 @@ Lifecycle orientation explains scope records, supplied counts, evidence authorit
 fencing, and completion rejection. No SQL, ordering, failure accounting, or public shape changes.
 Store Clippy, strict store Rustdoc, nightly formatting, and Markdown checks pass. The broader
 conventions and test review remain open.
+
+## Continued maintenance: run history read contracts
+
+Run query orientation explains newest-first history, stable identity ties, ordered child records,
+resolved failure inclusion, current repository payloads versus recorded scope/outcome, and separate
+read consistency. Method contracts distinguish absence from decoding failure and state limit/range
+requirements. Malformed persisted records reject projection rather than disappearing from results.
+
+The ledger remains diagnostic state rather than a snapshot or write authority. Strict store Rustdoc,
+nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
+open.
