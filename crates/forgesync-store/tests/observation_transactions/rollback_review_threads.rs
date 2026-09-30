@@ -18,7 +18,7 @@ use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -68,13 +68,13 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .await
         .expect("reserve first review-thread snapshot");
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::ReviewThreads,
-            first.sequence,
-            0,
-            &[item("old", json!({"resolution":"open"}))],
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            sequence: first.sequence,
+            page_index: 0,
+            items: &[item("old", json!({"resolution":"open"}))],
+        })
         .await
         .expect("stage initial review thread");
     archive
@@ -103,13 +103,13 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .await
         .expect("reserve replacement review-thread snapshot");
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::ReviewThreads,
-            next.sequence,
-            0,
-            &[item("new", json!({"resolution":"resolved"}))],
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            sequence: next.sequence,
+            page_index: 0,
+            items: &[item("new", json!({"resolution":"resolved"}))],
+        })
         .await
         .expect("stage replacement review thread");
 

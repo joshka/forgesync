@@ -3,6 +3,7 @@
 //! Comments, reviews, and review threads are acquired separately from their parent discussion.
 //! [`ChildFamilyRequest`] declares the scope and clocks before acquisition. Reservation returns
 //! the durable sequence used by every staged page and terminal observation for that attempt.
+//! [`ChildFamilyPage`] pairs that generation with one page index and its provisional members.
 //! `ChildFamilyObservation` identifies the parent, family, reserved sequence, acquisition time,
 //! completeness, and optional review head. The engine constructs it after provider acquisition
 //! reaches a terminal state.
@@ -85,6 +86,31 @@ struct StagedPage {
     index: i64,
     /// Provider identities and payloads awaiting family-specific decoding.
     items: Vec<StagedItem<serde_json::Value>>,
+}
+
+/// One provisional provider page belonging to a previously reserved child acquisition.
+///
+/// Pass this to
+/// [`Archive::stage_child_family_page`](crate::archive::Archive::stage_child_family_page)
+/// or its fenced counterpart after fetching the page outside a database transaction. The parent,
+/// family, and sequence must identify the accepted reservation. `page_index` follows provider
+/// traversal order, beginning at zero. Empty slices are valid staged pages; the terminal
+/// observation, not any individual page, declares whether traversal completed.
+///
+/// Staging serializes the items but does not publish canonical membership. Repeating the same page
+/// succeeds only with the same serialized payload. Finish with [`ChildFamilyObservation`] once
+/// acquisition is complete or interrupted; incomplete completion preserves prior complete members.
+pub struct ChildFamilyPage<'a, T> {
+    /// Existing parent whose reserved collection receives this page.
+    pub thread: &'a ThreadId,
+    /// Independently acquired family selected during reservation.
+    pub family: EvidenceFamily,
+    /// Accepted acquisition sequence, not a newly allocated page sequence.
+    pub sequence: ObservationSequence,
+    /// Zero-based traversal position, used to detect missing pages and conflicting replay.
+    pub page_index: u32,
+    /// Provider identities and normalized payloads retained provisionally for finalization.
+    pub items: &'a [StagedItem<T>],
 }
 
 /// Inputs that identify and classify one finished child-family collection.

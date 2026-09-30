@@ -15,7 +15,7 @@ use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -58,13 +58,13 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .await
         .expect("reserve first collection");
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            first.sequence,
-            0,
-            &[item("old", json!({"body":"old"}))],
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: first.sequence,
+            page_index: 0,
+            items: &[item("old", json!({"body":"old"}))],
+        })
         .await
         .expect("stage first collection");
     archive
@@ -91,13 +91,13 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .await
         .expect("reserve replacement collection");
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            next.sequence,
-            0,
-            &[item("new", json!({"body":"new"}))],
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: next.sequence,
+            page_index: 0,
+            items: &[item("new", json!({"body":"new"}))],
+        })
         .await
         .expect("stage replacement");
 

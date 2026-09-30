@@ -536,6 +536,13 @@ fields at the reservation boundary rather than passing positional acquisition co
 request performs no validation or I/O itself: archive reservation retains validation, ordering,
 transaction, and rejection behavior. Staging and finalization remain distinct lifecycle operations.
 
+Staging now accepts `families::ChildFamilyPage<T>`, naming the accepted generation, zero-based page
+index, and provisional member slice. Engine collectors and store cases construct those fields at the
+write boundary. The private `PageWrite` continues to own SQL replay validation and insertion; the
+public declaration owns no transaction and does not imply completeness. The lease remains separate
+authorization. This resolves the positional reservation and staging signature findings without
+combining provider traversal with archive persistence.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

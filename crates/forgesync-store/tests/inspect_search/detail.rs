@@ -20,7 +20,7 @@ use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadRefere
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use forgesync_store::observations::StagedItem;
 use forgesync_store::reads::{ThreadTimelineEntry, ThreadTimelineEvent};
 
@@ -84,16 +84,16 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         provider_data: ProviderData::new(),
     };
     archive
-        .stage_child_family_page(
-            &thread,
-            EvidenceFamily::Comments,
-            reservation.sequence,
-            0,
-            &[StagedItem {
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread,
+            family: EvidenceFamily::Comments,
+            sequence: reservation.sequence,
+            page_index: 0,
+            items: &[StagedItem {
                 id: comment_id.clone(),
                 payload: comment.clone(),
             }],
-        )
+        })
         .await
         .expect("stage current comment");
     archive

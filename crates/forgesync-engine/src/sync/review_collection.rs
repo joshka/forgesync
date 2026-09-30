@@ -35,7 +35,7 @@ use forgesync_github::error::GitHubError;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 use serde::Serialize;
@@ -283,11 +283,13 @@ impl ReviewCollection<'_> {
         self.target
             .archive
             .stage_child_family_page_fenced(
-                self.target.scope.thread,
-                self.target.family.evidence_family(),
-                self.sequence,
-                self.page_count,
-                items,
+                ChildFamilyPage {
+                    thread: self.target.scope.thread,
+                    family: self.target.family.evidence_family(),
+                    sequence: self.sequence,
+                    page_index: self.page_count,
+                    items,
+                },
                 self.target.context.lease,
             )
             .await?;

@@ -18,6 +18,12 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Child page staging now accepts `ChildFamilyPage<T>` with named parent, family, accepted sequence,
+page index, and provisional members. All engine and store callers use this declaration; transaction,
+replay, and membership behavior remain in the existing archive operation. The 26 focused store tests
+and store/engine all-target Clippy pass. Full workspace tests are running on this tree. Broader
+requirement reconciliation and final validation remain open.
+
 Child-family reservation now accepts a documented `ChildFamilyRequest` with named parent, family,
 source clock, acquisition start, and scope. Writer authorization remains separate. All engine and
 store call sites use the declaration; reservation retains its transaction and ordering behavior. The

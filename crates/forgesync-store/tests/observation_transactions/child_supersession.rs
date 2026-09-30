@@ -15,7 +15,7 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use forgesync_store::observations::ObservationDisposition;
 use serde_json::json;
 
@@ -65,13 +65,13 @@ async fn superseded_empty_generation_cannot_replace_membership() {
         item("comment-2", json!({"body":"two"})),
     ];
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            comments.sequence,
-            0,
-            &original_members,
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: comments.sequence,
+            page_index: 0,
+            items: &original_members,
+        })
         .await
         .expect("stage comments page");
     let complete = archive

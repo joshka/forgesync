@@ -16,7 +16,7 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -65,13 +65,13 @@ async fn partial_collection_preserves_prior_complete_membership() {
         item("comment-2", json!({"body":"two"})),
     ];
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            comments.sequence,
-            0,
-            &original_members,
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: comments.sequence,
+            page_index: 0,
+            items: &original_members,
+        })
         .await
         .expect("stage comments page");
     let complete = archive
@@ -105,13 +105,13 @@ async fn partial_collection_preserves_prior_complete_membership() {
         .expect("reserve partial comments");
     assert!(partial.reserved);
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            partial.sequence,
-            0,
-            &[item("comment-3", json!({"body":"partial"}))],
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: partial.sequence,
+            page_index: 0,
+            items: &[item("comment-3", json!({"body":"partial"}))],
+        })
         .await
         .expect("stage partial page");
     let partial_result = archive

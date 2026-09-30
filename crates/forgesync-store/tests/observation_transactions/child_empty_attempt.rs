@@ -14,7 +14,7 @@
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -63,13 +63,13 @@ async fn incomplete_empty_collection_preserves_prior_membership() {
         item("comment-2", json!({"body":"two"})),
     ];
     archive
-        .stage_child_family_page(
-            &thread_id,
-            EvidenceFamily::Comments,
-            comments.sequence,
-            0,
-            &original_members,
-        )
+        .stage_child_family_page(ChildFamilyPage {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: comments.sequence,
+            page_index: 0,
+            items: &original_members,
+        })
         .await
         .expect("stage comments page");
     let complete = archive

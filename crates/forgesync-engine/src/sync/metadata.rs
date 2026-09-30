@@ -18,7 +18,7 @@ use forgesync_github::resources::fetch_pull_request_metadata;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 
@@ -187,11 +187,13 @@ impl<'a> MetadataObservation<'a> {
         };
         self.archive
             .stage_child_family_page_fenced(
-                self.scope.thread,
-                EvidenceFamily::PullRequestMetadata,
-                self.sequence,
-                0,
-                &[item],
+                ChildFamilyPage {
+                    thread: self.scope.thread,
+                    family: EvidenceFamily::PullRequestMetadata,
+                    sequence: self.sequence,
+                    page_index: 0,
+                    items: &[item],
+                },
                 self.context.lease,
             )
             .await?;

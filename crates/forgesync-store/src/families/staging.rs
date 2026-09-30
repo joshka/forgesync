@@ -14,14 +14,12 @@
 
 use std::collections::BTreeMap;
 
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::identity::{ObservationSequence, ThreadId};
 use serde::Serialize;
 use sqlx::{Row, SqliteConnection};
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::families::StagedPage;
+use crate::families::{ChildFamilyPage, StagedPage};
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observation_sql::{
     evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
@@ -47,17 +45,12 @@ impl Archive {
     /// error does not expose provisional items as canonical membership.
     pub async fn stage_child_family_page<T>(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        sequence: ObservationSequence,
-        page_index: u32,
-        items: &[StagedItem<T>],
+        page: ChildFamilyPage<'_, T>,
     ) -> Result<(), StoreError>
     where
         T: Serialize,
     {
-        self.stage_child_family_page_inner(thread, family, sequence, page_index, items, None)
-            .await
+        self.stage_child_family_page_inner(page, None).await
     }
 
     /// Stages a page while verifying the caller still owns the archive writer fence.
@@ -71,33 +64,31 @@ impl Archive {
     /// Returns the unfenced operation's errors and stale or expired lease errors.
     pub async fn stage_child_family_page_fenced<T>(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        sequence: ObservationSequence,
-        page_index: u32,
-        items: &[StagedItem<T>],
+        page: ChildFamilyPage<'_, T>,
         token: &ArchiveLeaseToken,
     ) -> Result<(), StoreError>
     where
         T: Serialize,
     {
-        self.stage_child_family_page_inner(thread, family, sequence, page_index, items, Some(token))
-            .await
+        self.stage_child_family_page_inner(page, Some(token)).await
     }
 
     /// Stages one page without changing canonical complete membership.
     async fn stage_child_family_page_inner<T>(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        sequence: ObservationSequence,
-        page_index: u32,
-        items: &[StagedItem<T>],
+        page: ChildFamilyPage<'_, T>,
         token: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError>
     where
         T: Serialize,
     {
+        let ChildFamilyPage {
+            thread,
+            family,
+            sequence,
+            page_index,
+            items,
+        } = page;
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),
