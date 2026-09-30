@@ -1,17 +1,25 @@
-//! # Comment acquisition scenarios
+//! # Stale comment selection, partial retention, and successful retry
 //!
-//! These cases exercise paginated comment collection through the engine and store. They focus on
-//! completeness, failure scope, and canonical membership after interruption. A partial page set
-//! should remain recorded as an attempt without replacing a prior complete family.
+//! This dependent regression follows two issues across four visible acquisition phases. Initial
+//! sync establishes complete comments; parent-only refresh makes the second issue stale; a
+//! later-page failure retains canonical membership; retry replaces that membership and resolves the
+//! failure.
+//!
+//! Zero-request mock expectations prove that the fresh sibling is skipped during both refresh and
+//! retry. Each real request and sync operation stays next to its result; local detail reads
+//! identify canonical bodies and completeness independently of the provider's partially staged
+//! collection.
+//!
+//! The longer linear scenario stays together because each phase constrains the next selection and
+//! failure-ledger transition. Empty-membership semantics and injected ledger failure have separate
+//! owners. Fixtures configure responses and construct clients/references without executing sync.
 
-use forgesync_core::coverage::{CoverageState, FailureKind};
+use forgesync_core::coverage::CoverageState;
 use forgesync_core::outcome::OperationOutcome;
-use forgesync_engine::error::EngineError;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
 use serde_json::json;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -159,7 +167,13 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
     )
     .await
     .expect("durable sync report");
-    assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
+    assert!(matches!(
+        partial.outcome,
+        OperationOutcome::Partial {
+            failed_items: 1,
+            ..
+        }
+    ));
     assert_eq!(partial.failures.len(), 1);
     assert_eq!(partial.failures[0].thread_number, Some(12));
     let thread_11_detail = archive
@@ -182,10 +196,6 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
         .map(|item| item.payload.body)
         .collect();
     assert_eq!(comment_bodies_12, ["old second"]);
-    let thread_12_detail = archive
-        .thread_detail(&thread_reference(12))
-        .await
-        .expect("read current thread 12 detail");
     let failed_summary = thread_12_detail.summary;
     let incomplete = comment_coverage(&failed_summary);
     assert!(matches!(
@@ -264,225 +274,16 @@ async fn comments_keep_sibling_success_and_retry_only_stale_threads() {
         comment_bodies_12,
         ["first replacement", "second replacement"]
     );
-    let resolved_failure = archive
+    let earlier_run = archive
         .run_detail(partial.run.id)
         .await
-        .expect("load earlier run")
-        .expect("earlier run")
-        .failures
-        .remove(0);
+        .expect("load earlier run");
+    let earlier_run = earlier_run.expect("earlier run exists");
+    assert_eq!(earlier_run.failures.len(), 1);
+    let resolved_failure = &earlier_run.failures[0];
     assert_eq!(resolved_failure.retry_count, 1);
     assert!(resolved_failure.resolved_at.is_some());
     assert_eq!(resolved_failure.retry_run_id, Some(retried.run.id));
-
-    archive.close().await;
-    remove_archive(&archive_path);
-}
-
-#[tokio::test]
-async fn complete_empty_comments_replace_membership_but_incomplete_empty_does_not() {
-    let server = MockServer::start().await;
-    mount_repository(&server).await;
-    mount_open_issues(
-        &server,
-        vec![
-            issue_with_comment_count(91, 11, "first", "2026-09-20T09:30:00Z", 1),
-            issue_with_comment_count(92, 12, "second", "2026-09-20T09:30:00Z", 1),
-        ],
-    )
-    .await;
-    mount_comments(&server, 11, vec![comment(1101, "removed")]).await;
-    mount_comments(&server, 12, vec![comment(1201, "preserved")]).await;
-
-    let archive_path = temporary_archive_path();
-    let archive = Archive::create(&archive_path)
-        .await
-        .expect("create archive");
-    let selector = "owner/repo"
-        .parse::<RepositorySelector>()
-        .expect("selector");
-    let clients = clients_for(&server, &selector);
-    let request = SyncRequest {
-        repositories: vec![selector.clone()],
-        all: false,
-        scope: SyncThreadScope::Open,
-        include_comments: true,
-        include_reviews: false,
-        include_review_threads: false,
-        parent_run: None,
-    };
-    let initial = sync_repositories(
-        &archive,
-        &clients,
-        &request,
-        &CancellationToken::new(),
-        None,
-    )
-    .await
-    .expect("durable sync report");
-    assert_eq!(initial.outcome, OperationOutcome::Complete);
-
-    server.reset().await;
-    mount_repository(&server).await;
-    mount_open_issues(
-        &server,
-        vec![
-            issue_with_comment_count(91, 11, "first", "2026-09-21T10:00:00Z", 0),
-            issue_with_comment_count(92, 12, "second", "2026-09-21T10:00:00Z", 0),
-        ],
-    )
-    .await;
-    Mock::given(method("GET"))
-        .and(path("/api/v3/repos/owner/repo/issues/11/comments"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
-        .expect(1)
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/api/v3/repos/owner/repo/issues/12/comments"))
-        .respond_with(ResponseTemplate::new(404))
-        .expect(1)
-        .mount(&server)
-        .await;
-    let clients = clients_for(&server, &selector);
-    let request = SyncRequest {
-        repositories: vec![selector],
-        all: false,
-        scope: SyncThreadScope::Open,
-        include_comments: true,
-        include_reviews: false,
-        include_review_threads: false,
-        parent_run: None,
-    };
-    let partial = sync_repositories(
-        &archive,
-        &clients,
-        &request,
-        &CancellationToken::new(),
-        None,
-    )
-    .await
-    .expect("durable sync report");
-    assert!(matches!(partial.outcome, OperationOutcome::Partial { .. }));
-    let thread_11_detail = archive
-        .thread_detail(&thread_reference(11))
-        .await
-        .expect("read current thread 11 detail");
-    let comment_bodies_11: Vec<_> = thread_11_detail
-        .comments
-        .into_iter()
-        .map(|item| item.payload.body)
-        .collect();
-    assert!(comment_bodies_11.is_empty());
-    let thread_12_detail = archive
-        .thread_detail(&thread_reference(12))
-        .await
-        .expect("read current thread 12 detail");
-    let comment_bodies_12: Vec<_> = thread_12_detail
-        .comments
-        .into_iter()
-        .map(|item| item.payload.body)
-        .collect();
-    assert_eq!(comment_bodies_12, ["preserved"]);
-    let thread_11_detail = archive
-        .thread_detail(&thread_reference(11))
-        .await
-        .expect("read current thread 11 detail");
-    assert!(matches!(
-        comment_coverage(&thread_11_detail.summary).state(),
-        CoverageState::Complete { item_count: 0, .. }
-    ));
-    let thread_12_detail = archive
-        .thread_detail(&thread_reference(12))
-        .await
-        .expect("read current thread 12 detail");
-    assert!(matches!(
-        comment_coverage(&thread_12_detail.summary).state(),
-        CoverageState::Incomplete {
-            received_items: 0,
-            ..
-        }
-    ));
-
-    archive.close().await;
-    remove_archive(&archive_path);
-}
-
-#[tokio::test]
-async fn comment_failure_ledger_error_retains_the_provider_failure() {
-    let server = MockServer::start().await;
-    mount_repository(&server).await;
-    mount_open_issues(
-        &server,
-        vec![issue_with_comment_count(
-            91,
-            11,
-            "first",
-            "2026-09-20T09:30:00Z",
-            1,
-        )],
-    )
-    .await;
-    Mock::given(method("GET"))
-        .and(path("/api/v3/repos/owner/repo/issues/11/comments"))
-        .respond_with(ResponseTemplate::new(404))
-        .mount(&server)
-        .await;
-
-    let archive_path = temporary_archive_path();
-    let archive = Archive::create(&archive_path)
-        .await
-        .expect("create archive");
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(
-            SqliteConnectOptions::new()
-                .filename(&archive_path)
-                .foreign_keys(true),
-        )
-        .await
-        .expect("open archive for ledger trigger");
-    sqlx::query(
-        "CREATE TRIGGER reject_comment_failure BEFORE INSERT ON failures WHEN NEW.family = 'comments' BEGIN SELECT RAISE(ABORT, 'comment ledger unavailable'); END",
-    )
-    .execute(&pool)
-    .await
-    .expect("install failure trigger");
-    pool.close().await;
-
-    let selector = "owner/repo"
-        .parse::<RepositorySelector>()
-        .expect("selector");
-    let clients = clients_for(&server, &selector);
-    let error = sync_repositories(
-        &archive,
-        &clients,
-        &SyncRequest {
-            repositories: vec![selector],
-            all: false,
-            scope: SyncThreadScope::Open,
-            include_comments: true,
-            include_reviews: false,
-            include_review_threads: false,
-            parent_run: None,
-        },
-        &CancellationToken::new(),
-        None,
-    )
-    .await
-    .expect_err("failure ledger trigger should abort the report");
-    match error {
-        EngineError::FailureLedger { original, source } => {
-            assert_eq!(original.kind, FailureKind::ProviderResponse);
-            assert!(original.message.contains("HTTP 404"));
-            assert!(source.to_string().contains("comment ledger unavailable"));
-            assert_eq!(
-                EngineError::FailureLedger { original, source }.code(),
-                "failure_ledger_write_failed"
-            );
-        }
-        other => panic!("expected preserved provider failure, got {other}"),
-    }
 
     archive.close().await;
     remove_archive(&archive_path);

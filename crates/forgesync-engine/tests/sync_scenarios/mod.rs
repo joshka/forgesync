@@ -15,7 +15,9 @@
 //! Read the affected scenario to see family selection, failure setup, and canonical-state
 //! assertions. Document-only response setup stays alongside document materialization scenarios.
 
-mod comments;
+mod comments_empty;
+mod comments_ledger;
+mod comments_retry;
 mod documents;
 mod embeddings;
 mod enumeration;

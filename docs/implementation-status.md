@@ -18,6 +18,14 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Comment sync now separates retry, empty-membership isolation, and failure-ledger abort into shallow
+owners. Empty-membership checks establish the original values and compare full retained members.
+Ledger assertions downcast the typed error source and require the injected database failure while
+checking the original provider failure separately. Retry retrieval has individual failure boundaries
+and exact failed-item counts. All 15 focused sync cases and engine all-target Clippy pass; the
+remaining sync grouping finding is enumeration's independent replay, closed-sweep, and fence-cleanup
+contracts. Broader acceptance and final workspace gates remain open.
+
 Sync scenarios now show current-detail and archive-status reads directly. Checked fixture references
 replace bounded all-thread search; the archive fixture performs no reads or writes. Review failure
 compares full retained comment/review membership, head-change compares complete retained reviews,

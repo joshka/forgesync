@@ -327,6 +327,11 @@ writes and do not run engine workflows. Document-only response setup stays in `d
 regressions have sibling owners for failure isolation, head freshness, membership replacement, and
 partial-collection isolation, keeping each complete scenario local without deeper module nesting.
 
+Comment sync regressions have sibling owners for stale retry, empty-membership isolation, and
+failure-ledger abort. The retry case retains its dependent acquisition phases together. Empty
+membership compares two issues in one run to show sibling failure isolation; the ledger case targets
+preservation of both provider and database failure causes.
+
 Cluster integration under `tests/clustering_workflow` has shallow complete, partial, and namespace
 scenario owners. Its fixture module constructs identities and source/document values only, plus path
 allocation and cleanup. Scenarios explicitly reserve observations, apply source evidence, persist

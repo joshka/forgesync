@@ -701,10 +701,19 @@ baseline, and head-change scenarios compare full retained reviews. Partial revie
 checks the original member identity before preservation; comment retry checks exact replacement
 bodies instead of only their count. All 15 sync cases pass after these assertion changes.
 
-Engine sync assertion and module-cohesion acceptance remain open. The comments owner now contains
-three independent contracts across 489 lines and should become shallow retry, empty-membership, and
-ledger-failure scenarios. Remaining observation assertion acceptance and broad documentation/API
-acceptance are separate review work.
+Comment sync has shallow retry, empty-membership, and failure-ledger owners. Retry remains a longer
+linear four-phase contract because initial membership, parent freshness, incomplete collection, and
+failure resolution constrain one another. Earlier-run retrieval, optional presence, and failure-row
+selection have separate failure boundaries. Complete-empty versus failed-empty acquisition stays in
+one two-issue scenario to prove sibling isolation, with explicit original membership and full
+retained-member comparisons. The ledger regression checks the engine code, downcasts the error
+source to `StoreError`, requires its database variant and injected trigger diagnostic, and
+separately asserts the retained provider failure. Its raw pool cannot create an archive.
+
+Engine sync assertion and module-cohesion acceptance remain open. The enumeration owner still
+combines interrupted replay, closed-sweep watermark recovery, and failed-run fence cleanup; these
+independent contracts need shallow owners and targeted assertion review. Remaining observation
+assertion acceptance and broad documentation/API acceptance are separate review work.
 
 ### Store lifecycle and cluster-suite dispositions
 
