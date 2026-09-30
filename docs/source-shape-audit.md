@@ -723,8 +723,14 @@ preservation, repository lookup, query validation, detail, FTS, and migration ow
 values and query settings; archive mutations and reads remain visible. Scope coverage and status
 compare the entire ordered family summary, including every missing/incomplete/complete count, rather
 than unnamed vector indices. Malformed syntax has an indexed thread as a precondition: an empty FTS
-index can return no rows without exercising SQLite expression validation. Detail, FTS, and migration
-assertion acceptance remain under review.
+index can return no rows without exercising SQLite expression validation. Detail compares complete
+comment identity/payload and chronological event values, identifies both issue-applicable coverage
+families, and rejects PR-only evidence. FTS replacement remains one coherent before/after contract
+with queries separated from assertions; its name no longer implies a rollback test. Migration
+retains visible linear schema teardown because that setup explains the backfill boundary, replaces
+eight repeated bookkeeping deletes with one bounded statement, and reports the controlled fixture's
+historical-schema limits. These inspected search cases have concrete dispositions; observation
+assertion acceptance and engine client/workflow review remain open.
 
 ### Acceptance pass and stopping rules
 

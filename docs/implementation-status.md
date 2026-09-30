@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Store detail now compares complete comment membership and exact timeline events, names issue
+coverage families, and verifies absence of PR-only collections. FTS replacement separates its query
+from the empty-result assertion and no longer claims rollback coverage. Search migration explains
+its controlled schema simulation and uses one bounded bookkeeping deletion. All ten focused search
+cases pass after these changes; store all-target Clippy passes with warnings denied. Broader review
+and final gates remain open.
+
 Store search integration now separates pagination, filtering, scope coverage, status, read-only
 preservation, repository lookup, and malformed-query rejection. Coverage assertions name every
 family and count. Query validation supplies indexed content so SQLite evaluates its malformed

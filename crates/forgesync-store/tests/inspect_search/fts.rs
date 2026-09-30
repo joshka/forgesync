@@ -1,8 +1,17 @@
 //! # Full-text index cases
 //!
-//! These cases exercise the archive full-text search representation and update behavior. Search
-//! documents are derived from discussion evidence, and index state must follow committed document
-//! changes. Ranking policy belongs in the engine; this suite protects store retrieval.
+//! This regression acquires a discussion containing a distinctive body term, proves that it can be
+//! retrieved, then publishes newer parent evidence with a replacement title and no body. The old
+//! term must disappear while the new title resolves to the same discussion identity.
+//!
+//! Both acquisitions reserve their own sequence and apply their complete observation visibly.
+//! Keyword request construction is pure; queries and their failure boundaries stay in the scenario.
+//! The dependent before/after steps remain together because a replacement assertion needs proof
+//! that the original indexed term existed.
+//!
+//! This checks the committed FTS representation after parent replacement. Transactional rollback
+//! has dedicated observation regressions; no injected write failure occurs here. Engine relevance
+//! policy, provider acquisition, and schema backfill have separate owners.
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::EvidenceFamily;
@@ -14,7 +23,7 @@ use crate::fixture::{
 };
 
 #[tokio::test]
-async fn fts_index_tracks_updates_and_removed_text_transactionally() {
+async fn fts_index_replaces_removed_body_with_current_title() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let repository = repository("example", "search", "repo-search");
@@ -80,14 +89,11 @@ async fn fts_index_tracks_updates_and_removed_text_transactionally() {
         .apply_thread_observation(&observation)
         .await
         .expect("apply thread observation");
-    assert!(
-        archive
-            .query_threads(&keyword_query("\"obsolete\""))
-            .await
-            .expect("query keyword page")
-            .items
-            .is_empty()
-    );
+    let obsolete = archive
+        .query_threads(&keyword_query("\"obsolete\""))
+        .await
+        .expect("query removed body term");
+    assert!(obsolete.items.is_empty());
     let replacement = archive
         .query_threads(&keyword_query("\"replacement\""))
         .await

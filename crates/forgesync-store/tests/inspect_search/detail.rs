@@ -1,8 +1,18 @@
 //! # Thread detail projection cases
 //!
-//! These cases assemble canonical discussion content, timeline, and family coverage from stored
-//! rows. They protect the meaning of an offline detail view. Zero child rows and incomplete
-//! coverage must remain distinguishable in the projection.
+//! The scenario publishes one issue and a complete one-comment collection through public archive
+//! operations, then reads them by repository and thread number. Its assertions connect normalized
+//! membership to the current chronological timeline and issue-applicable family coverage.
+//!
+//! Comment identity, payload, event time, and event order are compared explicitly.
+//! Pull-request-only collections must remain absent for this issue; the coverage catalog includes
+//! only the parent and comments. Complete membership is supplied by finalization rather than
+//! inferred from row count.
+//!
+//! Construction fixtures supply source values without performing acquisition. Reservation, staging,
+//! publication, detail retrieval, closure, and cleanup remain visible in this linear scenario.
+//! Partial membership and rollback belong to observation transaction suites. This case establishes
+//! current detail projection, not full source revision history or provider normalization.
 
 use forgesync_core::content::{Comment, SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
@@ -12,7 +22,7 @@ use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
 use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::observations::StagedItem;
-use forgesync_store::reads::ThreadTimelineEvent;
+use forgesync_store::reads::{ThreadTimelineEntry, ThreadTimelineEvent};
 
 use crate::fixture::{
     discussion, remove_archive, repository, temporary_archive_path, thread_id, timestamp,
@@ -80,7 +90,7 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
             reservation.sequence,
             0,
             &[StagedItem {
-                id: comment_id,
+                id: comment_id.clone(),
                 payload: comment.clone(),
             }],
         )
@@ -107,20 +117,39 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         .await
         .expect("read thread detail");
     assert_eq!(detail.summary.discussion.title, "Detailed issue");
-    assert_eq!(detail.comments.len(), 1);
-    assert_eq!(detail.comments[0].payload, comment);
+    assert_eq!(
+        detail.comments,
+        vec![StagedItem {
+            id: comment_id,
+            payload: comment.clone(),
+        }]
+    );
+    assert!(detail.pull_request_metadata.is_empty());
+    assert!(detail.reviews.is_empty());
+    assert!(detail.review_threads.is_empty());
     assert_eq!(detail.summary.coverage.len(), 2);
-    assert_eq!(detail.timeline.len(), 2);
+    let parent_coverage = &detail.summary.coverage[0];
+    let comment_coverage = &detail.summary.coverage[1];
+    assert_eq!(parent_coverage.family(), EvidenceFamily::Threads);
+    assert_eq!(comment_coverage.family(), EvidenceFamily::Comments);
+    assert_eq!(
+        detail.timeline,
+        vec![
+            ThreadTimelineEntry {
+                occurred_at: Some(detail.summary.discussion.created_at),
+                event: ThreadTimelineEvent::ThreadCreated {
+                    thread: thread.clone(),
+                    title: "Detailed issue".to_owned(),
+                },
+            },
+            ThreadTimelineEntry {
+                occurred_at: Some(comment.created_at),
+                event: ThreadTimelineEvent::Comment { comment },
+            },
+        ]
+    );
     assert!(matches!(
-        detail.timeline[0].event,
-        ThreadTimelineEvent::ThreadCreated { .. }
-    ));
-    assert!(matches!(
-        detail.timeline[1].event,
-        ThreadTimelineEvent::Comment { .. }
-    ));
-    assert!(matches!(
-        detail.summary.coverage[1].state(),
+        comment_coverage.state(),
         CoverageState::Complete { item_count: 1, .. }
     ));
 

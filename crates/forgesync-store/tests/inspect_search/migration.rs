@@ -1,8 +1,18 @@
 //! # Migration-sensitive read cases
 //!
-//! These cases read archives across supported schema states and explicit migration operations.
-//! They protect the distinction between inspection and mutation. A schema change should preserve
-//! meaningful existing data and make pending migration visible.
+//! This regression seeds a current archive with one searchable discussion, closes it, and removes
+//! the search index and subsequent schema owners through a raw connection that cannot create a
+//! file. It resets migration bookkeeping to version two so explicit migration must rebuild the
+//! missing index from retained parent content.
+//!
+//! The controlled fixture targets search backfill and lifecycle rejection; it is not a complete
+//! archived database from an old release. The schema teardown is intentionally visible and linear,
+//! keeping the simulated boundary next to the migration operation that consumes it.
+//!
+//! Read-only opening must first report the exact unsupported schema transition. Migration reports
+//! the applied version sequence, then a fresh read-only archive resolves the retained body term to
+//! its original discussion identity and title. General lifecycle and corrupt-history cases live in
+//! the archive lifecycle suite; this scenario owns preservation of searchable content.
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::EvidenceFamily;
@@ -133,38 +143,12 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .execute(&pool)
         .await
         .expect("drop v8 documents");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 3")
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version BETWEEN ? AND ?")
+        .bind(3_i64)
+        .bind(10_i64)
         .execute(&pool)
         .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 4")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 5")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 6")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 7")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 8")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 9")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 10")
-        .execute(&pool)
-        .await
-        .expect("mark archive at schema v2");
+        .expect("retain migration bookkeeping through schema v2");
     pool.close().await;
 
     assert!(matches!(
