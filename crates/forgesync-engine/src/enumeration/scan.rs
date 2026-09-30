@@ -31,6 +31,17 @@ use crate::error::EngineError;
 /// coordinates. An optional fence applies to the store writes; this executor does not acquire it.
 /// Crate-only visibility prevents this coordination seam from becoming a second public acquisition
 /// API alongside the request-preparing enumeration coordinator.
+///
+/// The loop keeps requested URL, visited URLs, and next cursor together so cycle rejection and
+/// terminal-page detection can be read in traversal order. Persistence owns all write variants;
+/// this executor owns only the provider/page sequence.
+///
+/// Parent observations commit individually. A failed page application can therefore leave some
+/// discussions from that page durable, while its cursor is not advanced. Replayed acquisition is
+/// governed by store observation ordering, not an assumption that the whole page rolled back.
+/// Provider/cancellation outcomes and application failures attempt terminal reporting; failures
+/// beginning a scan, recording its cursor, or finishing/reporting can return an error after prior
+/// durable work. Only recorded terminal-page completion permits complete scan coverage.
 pub(crate) async fn enumerate_repository_thread_pages(
     archive: &Archive,
     client: &GitHubClient,

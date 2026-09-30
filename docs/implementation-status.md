@@ -3268,3 +3268,11 @@ preserving bound parameters, malformed-data errors, and freshness interpretation
 
 All 13 read/search and observation integration scenarios, nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Scan traversal length disposition and failure contract
+
+The refreshed syntax inventory leaves two production bodies above fifty lines: constant store error
+classification and repository traversal. Both receive concrete retained dispositions in the audit.
+Traversal docs explain individual parent commits, unadvanced cursor after page failure, replay
+ordering, and failures that may return after durable progress. Persistence remains the mutation
+owner; traversal retains the local page/cycle sequence.

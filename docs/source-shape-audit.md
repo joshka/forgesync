@@ -330,6 +330,15 @@ observation and search suites also use direct owner imports, documented setup ef
 identity/version assertions. Ordering contracts have separate named scenarios. This evidence does
 not close the remaining suite-quality pass.
 
+The refreshed production function inventory has two bodies above fifty lines: store error-code
+mapping and repository page traversal. The error mapping is exhaustive constant classification,
+retained together for local review. Traversal keeps requested URL, cycle detection, provider page,
+application, cursor advance, and terminal detection in execution order; `ScanPersistence` already
+owns durable mutations. Further extraction would scatter the two live cursor facts across another
+owner without reducing policy. Its function contract now explains individual parent commits and
+which failures can leave durable work. These dispositions cover the two length candidates, not all
+match-arm, broad-signature, or documentation-depth candidates.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
