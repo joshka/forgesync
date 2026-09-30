@@ -1655,3 +1655,12 @@ Both enumeration integration scenarios pass. Store completion now passes all wor
 tests/doctests, the CLI build without default features, strict public/private Rustdoc, workspace
 Clippy, and formatting. Further checkpoint-rejection cases and the acquisition acceptance review
 remain open.
+
+## Continued maintenance: checkpoint completion integration
+
+A direct store scenario exercises premature completion before the initial cursor has cleared. It
+checks that rejection leaves the active status, page count, and cursor unchanged, then records an
+empty terminal page and completes successfully with one page and zero threads. Every transition is
+visible in the scenario; no provider fixture or behavioral helper establishes the state implicitly.
+The integration case, workspace Clippy, nightly formatting, rumdl, and changed-page Markdown linting
+pass. Superseded-generation coverage and acquisition acceptance remain open.
