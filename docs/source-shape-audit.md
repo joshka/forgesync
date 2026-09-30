@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Lifecycle integration now has shallow access, diagnostics, migration, and infrastructure modules.
+The suite root maps those contracts instead of serving as an import prelude. Each scenario imports
+its infrastructure owner directly; that owner contains only filename allocation, explicit raw-pool
+capabilities, and cleanup. Archive operations and assertions remain in the scenario files. Module
+introductions identify SQL fixture arrangement and the provider/workflow evidence outside scope.
+Diagnostic fixture assertion depth remains part of the ongoing integration review.
+
 Archive lifecycle scenarios now separate identity/access-mode reopening, healthy diagnostics with
 temporary probes, and no-op current-schema migration. Missing-archive open and migration each have
 their own direct noncreation assertion. Raw inspection and corruption pools document their test-only
