@@ -42,7 +42,7 @@ mod rollback;
 /// Creates an on-disk archive and registers the synthetic repository.
 ///
 /// The returned thread identity is not persisted until a scenario applies its observation.
-async fn create_archive_with_repository(path: &PathBuf) -> (Archive, RepositoryId, ThreadId) {
+async fn create_archive_with_repository(path: &PathBuf) -> (Archive, ThreadId) {
     let archive = Archive::create(path).await.expect("create archive");
     let repository_id = RepositoryId::new(
         GitHubHost::parse("github.com").expect("host"),
@@ -62,7 +62,7 @@ async fn create_archive_with_repository(path: &PathBuf) -> (Archive, RepositoryI
         .await
         .expect("insert repository");
     let thread_id = thread_id(&repository_id);
-    (archive, repository_id, thread_id)
+    (archive, thread_id)
 }
 
 /// Constructs issue 101 under the supplied repository without writing a parent row.
@@ -76,15 +76,9 @@ fn thread_id(repository_id: &RepositoryId) -> ThreadId {
 
 /// Builds an open issue payload with caller-selected title and provider update time.
 ///
-/// Repository identity is checked against the thread; other content stays constant so scenarios
+/// Repository identity comes from the thread itself; other content stays constant so scenarios
 /// can isolate source ordering and completeness changes.
-fn discussion(
-    repository_id: &RepositoryId,
-    thread_id: &ThreadId,
-    updated_at: &str,
-    title: &str,
-) -> Discussion {
-    assert_eq!(thread_id.repository(), repository_id);
+fn discussion(thread_id: &ThreadId, updated_at: &str, title: &str) -> Discussion {
     Discussion {
         id: thread_id.clone(),
         kind: ThreadKind::Issue,

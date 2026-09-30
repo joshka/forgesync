@@ -3013,3 +3013,14 @@ model, and vector values remain explicit scenario inputs rather than a hidden ge
 
 The clustering-workflow integration scenario, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Remove redundant observation fixture identity
+
+Observation setup returns the archive and thread identity without also exposing the repository
+identity already contained in that thread. Discussion construction accepts the thread directly; it
+no longer needs a redundant repository argument or an incidental assertion to keep both aligned.
+This removes a live fact from each parent/child/rollback scenario while preserving explicit clocks,
+sequence, payload, and completeness inputs.
+
+All seven observation-transaction scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

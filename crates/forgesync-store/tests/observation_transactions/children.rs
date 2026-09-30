@@ -14,11 +14,11 @@ use super::{
 #[tokio::test]
 async fn child_families_stage_pages_and_only_complete_results_replace_membership() {
     let path = temporary_archive_path();
-    let (archive, repository_id, thread_id) = create_archive_with_repository(&path).await;
+    let (archive, thread_id) = create_archive_with_repository(&path).await;
     let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
     archive
         .apply_thread_observation(&thread_observation(
-            discussion(&repository_id, &thread_id, "2026-09-20T10:00:00Z", "thread"),
+            discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
             "2026-09-20T10:00:00Z",
             "2026-09-20T10:00:00Z",
             thread_sequence,

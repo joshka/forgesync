@@ -13,11 +13,11 @@ use super::{
 #[tokio::test]
 async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
     let path = temporary_archive_path();
-    let (archive, repository_id, thread_id) = create_archive_with_repository(&path).await;
+    let (archive, thread_id) = create_archive_with_repository(&path).await;
     let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
     archive
         .apply_thread_observation(&thread_observation(
-            discussion(&repository_id, &thread_id, "2026-09-20T10:00:00Z", "thread"),
+            discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
             "2026-09-20T10:00:00Z",
             "2026-09-20T10:00:00Z",
             thread_sequence,
@@ -144,11 +144,11 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
 #[tokio::test]
 async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_context() {
     let path = temporary_archive_path();
-    let (archive, repository_id, thread_id) = create_archive_with_repository(&path).await;
+    let (archive, thread_id) = create_archive_with_repository(&path).await;
     let thread_sequence = reserve(&archive, "2026-09-20T10:00:00Z").await;
     archive
         .apply_thread_observation(&thread_observation(
-            discussion(&repository_id, &thread_id, "2026-09-20T10:00:00Z", "thread"),
+            discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
             "2026-09-20T10:00:00Z",
             "2026-09-20T10:00:00Z",
             thread_sequence,
