@@ -2901,3 +2901,13 @@ scenarios merely because one action was emitted.
 
 All 13 focused app-transition scenarios pass. Nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Complete repository scope transitions
+
+Picker refresh tests compare the complete typed scope after insertion, empty results, failure, and
+rename. The failure scenario previously checked only the first entry and could miss an accidental
+additional repository. Direct owner imports and explicit expected selectors keep scope policy
+visible without conditional assertions or behavior helpers.
+
+All five focused repository-picker scenarios and nightly formatting pass. Rumdl normalization and
+changed-page Markdown linting pass.

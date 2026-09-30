@@ -11,10 +11,11 @@
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
 use forgesync_core::provider_data::ProviderData;
+use forgesync_engine::reference::RepositorySelector;
 use rstest::{fixture, rstest};
 
-use super::RepositoryPicker;
 use crate::app::App;
+use crate::app::repositories::RepositoryPicker;
 
 /// A picker with one applied repository, independent of the synthetic all-repositories row.
 #[fixture]
@@ -61,8 +62,10 @@ fn inserted_repository_does_not_retarget_the_applied_writer_scope(
         ..App::default()
     };
     let scope = app.repository_scope();
-    assert_eq!(scope.len(), 1);
-    assert_eq!(scope[0].as_url(), "https://github.com/owner/selected");
+    let expected = "owner/selected"
+        .parse::<RepositorySelector>()
+        .expect("selected repository");
+    assert_eq!(scope, vec![expected]);
 }
 
 #[rstest]
@@ -76,8 +79,10 @@ fn empty_refresh_does_not_broaden_the_applied_writer_scope(mut selected_picker: 
         ..App::default()
     };
     let scope = app.repository_scope();
-    assert_eq!(scope.len(), 1);
-    assert_eq!(scope[0].as_url(), "https://github.com/owner/selected");
+    let expected = "owner/selected"
+        .parse::<RepositorySelector>()
+        .expect("selected repository");
+    assert_eq!(scope, vec![expected]);
 }
 
 #[rstest]
@@ -107,10 +112,10 @@ fn failed_refresh_retains_rows_and_the_applied_scope(mut selected_picker: Reposi
         repository_picker: selected_picker,
         ..App::default()
     };
-    assert_eq!(
-        app.repository_scope()[0].as_url(),
-        "https://github.com/owner/selected"
-    );
+    let expected = "owner/selected"
+        .parse::<RepositorySelector>()
+        .expect("selected repository");
+    assert_eq!(app.repository_scope(), vec![expected]);
 }
 
 #[rstest]
@@ -128,6 +133,8 @@ fn renamed_repository_updates_the_applied_scope_by_provider_identity(
         ..App::default()
     };
     let scope = app.repository_scope();
-    assert_eq!(scope.len(), 1);
-    assert_eq!(scope[0].as_url(), "https://github.com/owner/renamed");
+    let expected = "owner/renamed"
+        .parse::<RepositorySelector>()
+        .expect("renamed repository");
+    assert_eq!(scope, vec![expected]);
 }
