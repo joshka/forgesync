@@ -7,6 +7,23 @@
 //! A document is derived from acquired evidence. It can be rebuilt when the source changes or the
 //! recipe changes, without refetching GitHub. Keeping text assembly here makes search input
 //! reviewable independently of vector service calls and SQL persistence.
+//!
+//! [`build_document`] is the pure rendering boundary. Both recipes include trimmed title/body
+//! and nonempty labels. The enriched recipe adds only complete, nonstale child evidence, with
+//! pull-request review families omitted for issues. Stable source timestamps/IDs determine child
+//! order, and recognized bot authors are omitted from comment/review text.
+//!
+//! [`build_thread_document`] obtains a local detail projection and renders it without writing.
+//! [`materialize_thread_document`] additionally claims a bounded writer lease, persists the derived
+//! document, and attempts release after the write. Rendering happens before lease acquisition;
+//! the store validates document identity/recipe/hash, but does not rerender or compare source rows
+//! with the earlier detail. The workflow must avoid concurrent source changes if it requires that
+//! rendered input to remain current through persistence.
+//!
+//! [`DocumentBuildReport`] retains both the rendered input and the store's write/invalidation
+//! result. Materialization does not call an embedding service or acquire provider evidence.
+//! Document hashing and recipe identity belong to core; store owns document validation and
+//! vector invalidation. Normalized deduplication text is derived separately from readable text.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -34,7 +51,15 @@ pub struct DocumentBuildReport {
     pub write: DocumentWrite,
 }
 
-/// Builds one deterministic retrieval document from current normalized thread evidence.
+/// Renders the selected recipe from the supplied local detail without I/O.
+///
+/// Preserves readable source text after boundary trimming and deterministic child ordering.
+/// Enriched child sections require explicit complete, nonstale coverage; missing or stale families
+/// are omitted rather than inferred from loaded rows. The supplied detail is trusted as a
+/// projection, and construction does not recheck archive currentness or provider parentage.
+///
+/// Produces recipe identity, content hash, normalized deduplication text, and the discussion update
+/// clock through [`Document::new`]. It performs no embedding or persistence.
 pub fn build_document(detail: &ThreadDetail, recipe: DocumentRecipe) -> Document {
     let discussion = &detail.summary.discussion;
     let title = discussion.title.trim().to_owned();
@@ -93,7 +118,11 @@ fn has_current_complete_evidence(detail: &ThreadDetail, family: EvidenceFamily) 
         })
 }
 
-/// Builds the selected recipe from one locally archived discussion.
+/// Loads local thread detail and renders the selected recipe without mutation.
+///
+/// No provider or embedding request runs. Detail assembly follows the local inspection boundary's
+/// consistency contract; the result is not a reservation against later source changes.
+/// Repository/thread lookup and store decoding errors are propagated from [`show_thread`].
 pub async fn build_thread_document(
     archive: &Archive,
     reference: &ThreadSelector,
@@ -103,7 +132,19 @@ pub async fn build_thread_document(
     Ok(build_document(&detail, recipe))
 }
 
-/// Builds and stores one document under the archive writer lease.
+/// Renders local evidence, then persists the document under a newly acquired writer lease.
+///
+/// The read/render phase precedes a 60-second lease claim. Store persistence rechecks current
+/// source identity and hash; the lease alone does not prove that rendered input is still current.
+/// Release is attempted after either write success or failure. A write error takes precedence over
+/// a simultaneous release error; after successful persistence, release failure is returned even
+/// though the document write is already durable. No heartbeat or embedding request is started.
+///
+/// # Errors
+///
+/// Propagates local lookup, clock, lease, persistence, and release failures. A successful report
+/// includes the store's write and vector-invalidation result. An error after persistence must not
+/// be interpreted as proof that no document was written.
 pub async fn materialize_thread_document(
     archive: &Archive,
     reference: &ThreadSelector,
@@ -160,7 +201,7 @@ fn append_comments(sections: &mut Vec<String>, comments: &[StagedItem<Comment>])
     }
 }
 
-/// Adds review evidence without duplicating equivalent submitted text.
+/// Adds ordered non-bot review state and text to readable document sections.
 fn append_reviews(sections: &mut Vec<String>, reviews: &[StagedItem<Review>]) {
     let mut ordered = reviews.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
@@ -262,7 +303,7 @@ fn is_bot(user: &Option<&Value>) -> bool {
         .is_some_and(|kind| kind.eq_ignore_ascii_case("bot"))
 }
 
-/// Normalizes repeated review text before comparing document sections.
+/// Produces lowercase whitespace-normalized deduplication text without altering readable sections.
 fn normalize_for_deduplication(text: &str) -> String {
     text.replace('\0', " ")
         .split_whitespace()

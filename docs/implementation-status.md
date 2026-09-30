@@ -2410,3 +2410,16 @@ private implementation's misleading always-fenced description is corrected; its 
 The checked conversion import names its actual observation-module owner. Strict store Rustdoc,
 nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
 open.
+
+## Continued maintenance: document rendering and persistence contracts
+
+Document orientation now distinguishes pure recipe rendering, local detail reads, and leased
+materialization. Contracts describe complete/nonstale child evidence, deterministic ordering, bot
+omission, deduplication text, and hash ownership. Review helper descriptions no longer claim to
+deduplicate sections when they only append ordered text.
+
+Materialization documents the read-before-lease consistency limit: store validates supplied recipe
+and hash but does not rerender or compare the earlier evidence snapshot. It also explains release
+attempts, write-error precedence, and a possible release error after durable persistence. Strict
+engine Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged; broader review
+remains open.
