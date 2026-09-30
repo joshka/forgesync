@@ -5,7 +5,21 @@
 //! reconstructing one from displayed text.
 //!
 //! The engine and store own the decision effect. This module owns the user's interaction path and
-//! the state transition after an operation returns.
+//! immediate selection transitions and the action submitted for asynchronous execution. Reply
+//! handlers elsewhere in `app` apply results after checking their request generation.
+//!
+//! Failure input selects loaded ledger rows and requests retry by checked durable run identity.
+//! Cluster-list input selects loaded summaries, opens details, and requests dismissal or restore
+//! based on the displayed decision state. Cluster-detail input selects members and requests the
+//! specific canonical/exclude/include decision offered by that key.
+//!
+//! Decision keys return typed actions without optimistically rewriting durable state. The displayed
+//! summary can change before execution; engine/store operations enforce their own identity and
+//! write fences. Empty selections return no action. Navigation stays within loaded rows and does
+//! not infer identifiers from titles or rendered text.
+//!
+//! Shared screen switching, search editing, Escape, and quit behavior remain in the parent input
+//! module. Rendering is separate from both submission and result application.
 
 use crossterm::event::KeyCode;
 use forgesync_core::identity::RunId;
@@ -175,6 +189,11 @@ impl App {
 #[cfg(test)]
 mod tests {
     //! Named maintainer requests preserve the loaded cluster and member target.
+    //!
+    //! These linear cases inspect returned actions before query execution. They ensure that
+    //! dismissal restoration and member decisions use durable identities from the displayed
+    //! detail instead of inferring a target from cursor text. Store/engine suites cover applying
+    //! those decisions; this boundary proves input intent without optimistic durable mutation.
 
     use crossterm::event::KeyCode;
 

@@ -2300,3 +2300,17 @@ The credential suite moves to a nearby leaf with direct owner imports and an exp
 synthetic values and Unix subprocess probes. Lookup behavior is unchanged. All five focused
 credential tests, workspace Clippy, strict CLI documentation, nightly formatting, and Markdown
 checks pass. Broader review remains open.
+
+## Continued maintenance: terminal input and frame contracts
+
+Input module orientation now explains key precedence, draft versus applied search, action submission
+versus asynchronous completion, applied repository scope, and writer cancellation before quit.
+Browser orientation explains pane-specific movement, explicit page requests, stable scope selection,
+and stale detail invalidation. Triage orientation corrects the claim to apply completed operations:
+it submits typed intent while reply handlers apply results, and store/engine enforce write
+authority.
+
+The view root explains header/body/footer composition, specialized leaves, presentation-state
+mutation, and separation from query dispatch and durable decisions. Movement variants and nearby
+triage test orientation gain specific contracts. Behavior remains unchanged. Strict TUI Rustdoc and
+nightly formatting pass; broader module and test review remains open.

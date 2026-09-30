@@ -4,7 +4,22 @@
 //! browser or triage handler. Shared navigation and exit behavior stays at this level.
 //!
 //! `browser` owns thread navigation; `triage` owns cluster and decision interactions. A handler
-//! may request asynchronous work through app/query state, but drawing remains in `view`.
+//! returns [`QueryAction`] values for the event loop to dispatch, while drawing remains in `view`.
+//!
+//! [`App::handle_key`] has explicit precedence: Control-C, active search editing, global screen
+//! and workflow keys, Escape, then the active screen's handler. While editing a search draft,
+//! ordinary character keys belong to that draft rather than global commands. Submission trims
+//! the draft and requests the first page; cancellation preserves the previously applied query.
+//!
+//! Local transitions happen synchronously, but handlers do not await archive or provider work.
+//! Returned actions describe intent; query scheduling and generation-tagged replies determine
+//! completion. Repository-scoped actions use the applied repository identity, which can differ
+//! from the currently highlighted picker row.
+//!
+//! Quitting while a writer is active requests cancellation and keeps the terminal open until
+//! work reports completion. With no active writer it sets the quit flag. This boundary does not
+//! release archive leases or close transport itself; workflow and event-loop owners perform that
+//! cleanup. Coverage has no screen-specific keys beyond these shared controls.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_engine::reference::RepositorySelector;

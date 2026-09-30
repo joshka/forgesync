@@ -1,11 +1,23 @@
 //! # Handle archive browser navigation
 //!
 //! These `App` methods move through repository and thread lists, open details, change focus, and
-//! request related coverage or failure data. They interpret keys according to the browser's
+//! request thread pages and selected details. They interpret keys according to the browser's
 //! current selection.
 //!
 //! The methods update state or start a query; they do not draw widgets. Keeping browser input
 //! beside its navigation semantics makes it easier to see what each key means on each screen.
+//!
+//! `Movement` expresses a step, ten-position page, or endpoint movement. Each focused pane applies
+//! that intent to its own bounds: repository highlight, thread selection, or detail scroll. Moving
+//! a list does not fetch a new page; explicit next/previous-page keys use local page coordinates.
+//!
+//! Enter interprets focus rather than merely opening the highlighted row. Applying a repository
+//! changes the stable browser scope and requests its first page; selecting a thread begins a
+//! generation-tagged detail request. Navigation invalidates stale detail through the owning pane
+//! state instead of leaving another thread's content visible as the current selection.
+//!
+//! These methods produce actions but perform no archive or network I/O. The event loop dispatches
+//! them, query owners retrieve data, and reply handlers decide whether the result is still current.
 
 use crossterm::event::KeyCode;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
@@ -16,9 +28,13 @@ use crate::query::requests::QueryAction;
 /// A navigation intent interpreted against the active pane's own bounds.
 #[derive(Clone, Copy)]
 enum Movement {
+    /// Signed one-position movement, bounded by the focused pane.
     Step(i8),
+    /// Signed ten-position movement within the loaded pane.
     Page(i8),
+    /// First position of the focused pane.
     Start,
+    /// Last available position of the focused pane.
     End,
 }
 

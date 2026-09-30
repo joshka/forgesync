@@ -7,6 +7,19 @@
 //! View functions format already loaded data. They should not start queries or change durable
 //! decisions. This keeps a frame deterministic for a given app state and lets input and data
 //! loading remain independently understandable.
+//!
+//! [`draw`] reserves header and footer rows around the active screen body. Browser and cluster
+//! renderers choose compact or split layouts based on available width; specialized leaves project
+//! loaded detail, timeline, coverage, and failure values into readable sections. Shared helpers
+//! provide panel borders and selection styles rather than owning acquisition or navigation policy.
+//!
+//! The mutable app borrow supports Ratatui's widget selection/render state. Rendering may update
+//! that presentation state, but does not apply repository scope, initiate queries, or persist local
+//! decisions. Pending, empty, failed, and ready data are interpreted from the app's existing state.
+//! The footer reflects available controls and current status; it does not authorize an operation.
+//!
+//! The event loop owns frame timing and terminal lifecycle. Input produces actions, query workers
+//! acquire results, and app reply handlers update loaded state before another frame is drawn.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
