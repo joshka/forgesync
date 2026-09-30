@@ -104,28 +104,23 @@ async fn diagnostics_report_schema_lease_and_unresolved_family_work_read_only() 
     .fetch_one(&pool)
     .await
     .expect("insert run fixture");
-    for (family, status) in [("comments", "failed"), ("reviews", "deferred")] {
-        let job_id: i64 = sqlx::query_scalar(
-            "INSERT INTO jobs (run_id, repository_id, family, scope_key, status, started_at_us, updated_at_us) VALUES (?, ?, ?, 'open', ?, 1000, 1000) RETURNING id",
-        )
-        .bind(run_id)
-        .bind(repository_id)
-        .bind(family)
-        .bind(status)
-        .fetch_one(&pool)
-        .await
-        .expect("insert job fixture");
-        sqlx::query(
-            "INSERT INTO failures (run_id, job_id, repository_id, family, target_key, scope_key, failure_json, created_at_us) VALUES (?, ?, ?, ?, 'owner/repo', 'open', '{\"kind\":\"network\",\"message\":\"fixture failure\"}', 1000)",
-        )
-        .bind(run_id)
-        .bind(job_id)
-        .bind(repository_id)
-        .bind(family)
-        .execute(&pool)
-        .await
-        .expect("insert failure fixture");
-    }
+    sqlx::query(
+        "INSERT INTO jobs (run_id, repository_id, family, scope_key, status, started_at_us, updated_at_us) VALUES (?, ?, 'comments', 'open', 'failed', 1000, 1000), (?, ?, 'reviews', 'open', 'deferred', 1000, 1000)",
+    )
+    .bind(run_id)
+    .bind(repository_id)
+    .bind(run_id)
+    .bind(repository_id)
+    .execute(&pool)
+    .await
+    .expect("insert failed comments and deferred reviews jobs");
+    sqlx::query(
+        "INSERT INTO failures (run_id, job_id, repository_id, family, target_key, scope_key, failure_json, created_at_us) SELECT run_id, id, repository_id, family, 'owner/repo', 'open', '{\"kind\":\"network\",\"message\":\"fixture failure\"}', 1000 FROM jobs WHERE run_id = ?",
+    )
+    .bind(run_id)
+    .execute(&pool)
+    .await
+    .expect("attach unresolved failure evidence to both jobs");
     pool.close().await;
 
     let archive = Archive::open_read_write(&path)

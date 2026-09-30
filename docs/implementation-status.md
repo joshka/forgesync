@@ -2952,3 +2952,13 @@ provider identity, so second-page content cannot be silently paired with the wro
 
 The complete GitHub suite passes: 24 unit scenarios and two doctests. Nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Explicit diagnostic ledger fixture
+
+The read-only diagnostic integration scenario now inserts its failed-comments and deferred-reviews
+jobs as explicit rows and attaches evidence to that run. The fixture no longer requires readers to
+execute a loop mentally to recover the two intended cases. The workspace Clippy gate passes on the
+preceding accumulated cleanup tree; this fixture change receives its own focused validation.
+
+All six archive-lifecycle integration scenarios pass. Nightly formatting, rumdl, and changed-page
+Markdown linting pass.
