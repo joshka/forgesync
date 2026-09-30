@@ -2687,3 +2687,13 @@ boundaries rather than exposing internal connections or converting private helpe
 
 Store Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
 and changed-page Markdown linting pass.
+
+### Observation application import locality
+
+Parent observation application and SQL row conversion now import their dependencies through the
+defining observation modules. The shared application helper also correctly documents optional lease
+fencing rather than implying that the unfenced public entry point is fenced. No ordering, payload
+mapping, or transaction behavior changes.
+
+Store Clippy across all targets/features, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

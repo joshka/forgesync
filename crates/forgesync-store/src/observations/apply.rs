@@ -18,16 +18,16 @@ use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClo
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
-use super::thread_rows::{
-    StoredThreadObservation, ThreadPayloadUpdate, load_thread_observation, update_thread_payload,
-};
-use super::{
-    ObservationDisposition, SourceClockColumns, ThreadObservationResult, normalize_source_clock,
-    repository_row_id, source_clock_columns, sqlite_integer, to_sql_sequence, write_coverage,
-};
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::observations::thread_rows::{
+    StoredThreadObservation, ThreadPayloadUpdate, load_thread_observation, update_thread_payload,
+};
+use crate::observations::{
+    ObservationDisposition, SourceClockColumns, ThreadObservationResult, normalize_source_clock,
+    repository_row_id, source_clock_columns, sqlite_integer, to_sql_sequence, write_coverage,
+};
 use crate::ordering::compare_observation_order;
 
 impl Archive {
@@ -49,7 +49,7 @@ impl Archive {
             .await
     }
 
-    /// Keeps canonical content, evidence clocks, and coverage in one fenced transaction.
+    /// Keeps canonical content, evidence clocks, and coverage in one optionally fenced transaction.
     async fn apply_thread_observation_inner(
         &self,
         observation: &Observation<Discussion>,

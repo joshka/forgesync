@@ -19,9 +19,11 @@ use forgesync_core::observation::SourceClock;
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::{Row, SqliteConnection};
 
-use super::apply::IncomingThread;
-use super::{SourceClockColumns, checked_sequence, source_clock_from_columns, to_sql_sequence};
 use crate::error::StoreError;
+use crate::observations::apply::IncomingThread;
+use crate::observations::{
+    SourceClockColumns, checked_sequence, source_clock_from_columns, to_sql_sequence,
+};
 
 /// Current canonical row positions loaded before deciding whether an observation can replace it.
 ///
