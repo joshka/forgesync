@@ -19,8 +19,41 @@ use crate::clustering::ClusterOptions;
 use crate::clustering::candidates::build_cluster_candidates;
 use crate::clustering::test_documents::document;
 
-#[test]
-fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
+#[rstest::rstest]
+#[case::shared_title("Memory crash after eviction", 1)]
+#[case::unrelated_title("Unrelated clipboard outage", 0)]
+fn moderate_similarity_requires_title_support(#[case] title: &str, #[case] expected_edges: usize) {
+    let docs = vec![
+        document(
+            1,
+            ThreadKind::Issue,
+            "Cache eviction memory crash",
+            None,
+            &[1.0, 0.0],
+        ),
+        document(2, ThreadKind::Issue, title, None, &[0.85, 0.5267827]),
+    ];
+    let options = ClusterOptions {
+        threshold: 0.80,
+        min_cluster_size: 2,
+        ..ClusterOptions::default()
+    };
+
+    let (clusters, edges) =
+        build_cluster_candidates(docs, "example/repo", options, &CancellationToken::new())
+            .expect("build title policy graph");
+
+    assert_eq!(edges, expected_edges);
+    assert_eq!(clusters.len(), expected_edges);
+}
+
+#[rstest::rstest]
+#[case::below_cross_kind_threshold(&[0.92, -0.39191836], 0)]
+#[case::above_cross_kind_threshold(&[0.95, 0.3122499], 1)]
+fn cross_kind_similarity_requires_its_own_threshold(
+    #[case] vector: &[f32],
+    #[case] expected_edges: usize,
+) {
     let docs = vec![
         document(
             1,
@@ -31,61 +64,25 @@ fn cluster_graph_applies_weak_title_and_cross_kind_safeguards() {
         ),
         document(
             2,
-            ThreadKind::Issue,
-            "Memory crash after eviction",
-            None,
-            &[0.85, 0.5267827],
-        ),
-        document(
-            3,
-            ThreadKind::Issue,
-            "Unrelated clipboard outage",
-            None,
-            &[0.0, 1.0],
-        ),
-        document(
-            4,
             ThreadKind::PullRequest,
             "Cache eviction memory crash",
             None,
-            &[0.92, -0.39191836],
-        ),
-        document(
-            5,
-            ThreadKind::PullRequest,
-            "Cache eviction memory crash",
-            None,
-            &[0.95, 0.3122499],
+            vector,
         ),
     ];
-    let (clusters, edge_count) = build_cluster_candidates(
-        docs,
-        "example/repo",
-        ClusterOptions {
-            threshold: 0.80,
-            cross_kind_threshold: 0.93,
-            fanout: 16,
-            max_cluster_size: 40,
-            min_cluster_size: 1,
-        },
-        &CancellationToken::new(),
-    )
-    .expect("build graph");
-    assert_eq!(edge_count, 3);
-    assert_eq!(
-        clusters
-            .iter()
-            .map(|cluster| cluster.members.len())
-            .collect::<Vec<_>>(),
-        [3, 1, 1]
-    );
-    assert_eq!(clusters[0].representative.number().get(), 1);
-    let members = clusters[0]
-        .members
-        .iter()
-        .map(|member| member.summary.discussion.id.number().get())
-        .collect::<Vec<_>>();
-    assert_eq!(members, [1, 2, 5]);
+    let options = ClusterOptions {
+        threshold: 0.80,
+        cross_kind_threshold: 0.93,
+        min_cluster_size: 2,
+        ..ClusterOptions::default()
+    };
+
+    let (clusters, edges) =
+        build_cluster_candidates(docs, "example/repo", options, &CancellationToken::new())
+            .expect("build kind policy graph");
+
+    assert_eq!(edges, expected_edges);
+    assert_eq!(clusters.len(), expected_edges);
 }
 
 #[test]

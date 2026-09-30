@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+The combined title/kind graph fixture has now been replaced by independent two-document cases.
+Moderate same-kind similarity explicitly accepts shared title support and rejects unrelated titles.
+Cross-kind cases hold titles constant and compare vectors below and above their separate threshold.
+Every case invokes graph construction directly with explicit options and compares selected edges and
+minimum-size-filtered proposals. This supersedes the earlier combined-fixture membership assertion;
+reference membership remains explicit in its separate graph scenario.
+
 Candidate graph assertions now name intended discussion members alongside component sizes and
 representatives, preventing unrelated substitutions from satisfying grouping expectations. Imports
 name the defining clustering owners. Arithmetic-suite orientation distinguishes exact axis results,
