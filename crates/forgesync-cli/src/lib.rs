@@ -79,11 +79,7 @@ where
 {
     let args = match CliArgs::try_parse_from(arguments) {
         Ok(args) => args,
-        Err(error) => {
-            let code = error.exit_code();
-            let _ = error.print();
-            return ExitCode::from(u8::try_from(code).unwrap_or(2));
-        }
+        Err(error) => return render_argument_error(error),
     };
     initialize_tracing(args.verbose, args.log_format);
     tracing::info!(
@@ -119,6 +115,16 @@ where
         }
     };
     runtime.block_on(args.dispatch(config))
+}
+
+/// Writes Clap's help or usage diagnostic to its selected stream and preserves its exit status.
+///
+/// Help/version requests may return success through this path. Printing failure is ignored, as
+/// argument interpretation already selected the status; an unrepresentable code falls back to 2.
+fn render_argument_error(error: clap::Error) -> ExitCode {
+    let code = error.exit_code();
+    let _ = error.print();
+    ExitCode::from(u8::try_from(code).unwrap_or(2))
 }
 
 /// Installs process-owned diagnostics at the requested verbosity and encoding.
@@ -265,7 +271,5 @@ fn render_error_with_status(
 fn usage_error(message: &str) -> ExitCode {
     let mut command = CliArgs::command();
     let error = command.error(ErrorKind::MissingRequiredArgument, message.to_owned());
-    let code = error.exit_code();
-    let _ = error.print();
-    ExitCode::from(u8::try_from(code).unwrap_or(2))
+    render_argument_error(error)
 }

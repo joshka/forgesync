@@ -3276,3 +3276,12 @@ classification and repository traversal. Both receive concrete retained disposit
 Traversal docs explain individual parent commits, unadvanced cursor after page failure, replay
 ordering, and failures that may return after durable progress. Persistence remains the mutation
 owner; traversal retains the local page/cycle sequence.
+
+### Shared argument diagnostic presentation
+
+CLI parse dispatch points to a named argument-error presenter directly below the entry point. Usage
+errors reuse the same stream/status handling. Its contract covers successful help/version outcomes,
+printing failure, and the usage-code fallback; the dispatcher no longer hides that process policy in
+a match arm.
+
+All 14 CLI contract scenarios, nightly formatting, rumdl, and changed-page Markdown linting pass.
