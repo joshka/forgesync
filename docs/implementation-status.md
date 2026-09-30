@@ -3170,3 +3170,13 @@ owner and compare complete-empty state directly.
 
 All seven focused observation scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Named document hash inputs
+
+Document hash regression tests distinguish provider-timestamp changes from retrieval-input changes.
+Recipe and rendered-text changes are separate named parameterized scenarios with one comparison
+each. The construction fixture states that text is supplied directly rather than rendered from the
+recipe, keeping the hash contract independent of engine materialization assumptions.
+
+All three focused document-hash scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

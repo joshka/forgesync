@@ -164,10 +164,16 @@ fn add_field(hasher: &mut Sha256, value: &[u8]) {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use crate::document::{Document, DocumentRecipe};
     use crate::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
     use crate::timestamp::UtcTimestamp;
 
+    /// Constructs a fixed discussion identity and title with scenario-selected recipe, time, and
+    /// text.
+    ///
+    /// It renders no recipe sections; supplied text is the direct hash input under examination.
     fn document(recipe: DocumentRecipe, source_updated_at: &str, text: &str) -> Document {
         let repository = RepositoryId::new(
             GitHubHost::parse("github.com").expect("host"),
@@ -188,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn content_identity_ignores_source_retrieval_time() {
+    fn content_identity_ignores_provider_timestamp_changes() {
         let first = document(
             DocumentRecipe::OriginalBody,
             "2026-09-20T09:30:00Z",
@@ -205,25 +211,20 @@ mod tests {
         assert_eq!(first.content_hash, first.expected_content_hash());
     }
 
-    #[test]
-    fn recipe_and_relevant_text_changes_invalidate_content_identity() {
+    #[rstest]
+    #[case::recipe(DocumentRecipe::DiscussionEnriched, "# Title\n\nBody")]
+    #[case::text(DocumentRecipe::OriginalBody, "# Title\n\nEdited body")]
+    fn changed_retrieval_inputs_invalidate_content_identity(
+        #[case] recipe: DocumentRecipe,
+        #[case] text: &str,
+    ) {
         let original = document(
             DocumentRecipe::OriginalBody,
             "2026-09-20T09:30:00Z",
             "# Title\n\nBody",
         );
-        let enriched = document(
-            DocumentRecipe::DiscussionEnriched,
-            "2026-09-20T09:30:00Z",
-            "# Title\n\nBody",
-        );
-        let changed = document(
-            DocumentRecipe::OriginalBody,
-            "2026-09-20T09:30:00Z",
-            "# Title\n\nEdited body",
-        );
+        let changed = document(recipe, "2026-09-20T09:30:00Z", text);
 
-        assert_ne!(original.content_hash, enriched.content_hash);
         assert_ne!(original.content_hash, changed.content_hash);
     }
 }
