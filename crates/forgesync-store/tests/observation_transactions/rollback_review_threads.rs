@@ -1,7 +1,9 @@
 //! # Atomic review-thread membership and head context
 //!
 //! A coverage-update trigger aborts a proposed review-thread snapshot.
-//! Canonical membership and eligibility for the original head must survive that failed transaction.
+//! A replacement proposes a different head, so canonical membership and original-head eligibility
+//! must survive while the failed new head stays ineligible. Exact coverage coordinates must remain
+//! those of the original complete snapshot.
 //! Archive creation, repository registration, reservation, and observation writes are explicit.
 //! Construction fixtures provide checked identities and payloads without executing transitions.
 //!
@@ -10,7 +12,8 @@
 //! Assertions describe this invariant rather than provider traversal or workflow scheduling.
 //! Scenario cleanup follows closure of archive and raw inspection handles.
 
-use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::content::{Discussion, ThreadKind};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
@@ -37,9 +40,13 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
         .await
         .expect("reserve observation sequence");
+    let parent = Discussion {
+        kind: ThreadKind::PullRequest,
+        ..discussion(&thread_id, "2026-09-20T10:00:00Z", "thread")
+    };
     archive
         .apply_thread_observation(&thread_observation(
-            discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
+            parent,
             "2026-09-20T10:00:00Z",
             "2026-09-20T10:00:00Z",
             thread_sequence,
@@ -83,6 +90,8 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .await
         .expect("commit initial review-thread snapshot");
 
+    let replacement_head = CommitSha::new("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        .expect("replacement review-thread head SHA");
     let next = archive
         .reserve_child_family_observation(
             &thread_id,
@@ -119,31 +128,50 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
             observed_at: timestamp("2026-09-20T10:00:04Z"),
             completeness: &CollectionCompleteness::Complete,
             expected_pages: Some(1),
-            head_sha: Some(&head),
+            head_sha: Some(&replacement_head),
         })
         .await
         .expect_err("review-thread coverage trigger aborts finalization");
     assert!(matches!(&error, StoreError::Database(_)));
     assert!(error.to_string().contains("forced coverage failure"));
 
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::ReviewThreads)
+        .await
+        .expect("old membership remains after failed transaction");
+    assert_eq!(members, vec![item("old", json!({"resolution":"open"}))]);
+    let coverage = archive
+        .family_coverage(&thread_id, EvidenceFamily::ReviewThreads)
+        .await
+        .expect("read preserved review-thread coverage");
     assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::ReviewThreads)
-            .await
-            .expect("old membership remains after failed transaction"),
-        vec![item("old", json!({"resolution":"open"}))]
+        coverage.state(),
+        &CoverageState::Complete {
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            sequence: first.sequence,
+            item_count: 1,
+        }
     );
-    assert!(
-        archive
-            .pull_request_family_is_current_for_head(
-                &thread_id,
-                EvidenceFamily::ReviewThreads,
-                &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-                &head,
-            )
-            .await
-            .expect("old complete coverage and head context remain")
-    );
+    let original_is_current = archive
+        .pull_request_family_is_current_for_head(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &head,
+        )
+        .await
+        .expect("read original snapshot head eligibility");
+    let replacement_is_current = archive
+        .pull_request_family_is_current_for_head(
+            &thread_id,
+            EvidenceFamily::ReviewThreads,
+            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &replacement_head,
+        )
+        .await
+        .expect("read failed replacement head eligibility");
+    assert!(original_is_current);
+    assert!(!replacement_is_current);
 
     trigger_pool.close().await;
     archive.close().await;

@@ -1,14 +1,17 @@
-//! # Partial collection preserves prior complete membership
+//! # Partial publication records new coverage without replacing membership
 //!
-//! This case reserves, stages, and finishes the selected comment generations directly.
-//! A complete two-member baseline establishes the canonical state before replacement attempts.
-//! Payload construction supplies exact identities and JSON without performing archive operations.
-//! Source time, acquisition time, and sequence remain explicit and independently controlled.
+//! A complete two-comment baseline is followed by a new generation with one received replacement.
+//! Finalization reports that one received item, but incomplete pagination cannot authorize
+//! replacing either prior canonical member. The local read compares both original identities and
+//! payloads.
 //!
-//! The archive is on disk and each transition is visible in execution order.
-//! Assertions compare retained membership and the relevant publication outcome or coverage.
-//! Provider pagination, lease scheduling, and engine retries are separate integration concerns.
-//! The scenario closes its archive before removing the database and fixed sidecars.
+//! Coverage describes the newer incomplete attempt independently of retained complete membership:
+//! its acquisition time, sequence, reason, received count, and absence of failure are checked
+//! exactly. Source and acquisition clocks are explicit rather than inferred from stored row counts.
+//!
+//! All archive operations remain in this linear before/after case. Fixtures only build values;
+//! provider traversal and engine retry selection belong to other integration suites. Cleanup
+//! follows explicit archive closure.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
@@ -84,13 +87,11 @@ async fn partial_collection_preserves_prior_complete_membership() {
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("read comments"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read comments");
+    assert_eq!(members, original_members);
 
     let partial = archive
         .reserve_child_family_observation(
@@ -126,26 +127,25 @@ async fn partial_collection_preserves_prior_complete_membership() {
         .await
         .expect("record incomplete collection");
     assert_eq!(partial_result.item_count, 1);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("previous complete membership remains"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("previous complete membership remains");
+    assert_eq!(members, original_members);
     let coverage = archive
         .family_coverage(&thread_id, EvidenceFamily::Comments)
         .await
         .expect("read incomplete coverage");
-    assert!(matches!(
+    assert_eq!(
         coverage.state(),
-        CoverageState::Incomplete {
-            sequence,
+        &CoverageState::Incomplete {
+            observed_at: timestamp("2026-09-20T10:00:04Z"),
+            sequence: partial.sequence,
             reason: IncompleteReason::Pagination,
             received_items: 1,
-            ..
-        } if *sequence == partial.sequence
-    ));
+            failure: None,
+        }
+    );
 
     archive.close().await;
     remove_archive(&path);

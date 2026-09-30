@@ -18,6 +18,12 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Child observation assertions now compare complete coverage and retained membership values.
+Review-thread rollback uses distinct old and replacement heads to detect leaked head context;
+snapshot checks include a different-head negative control and explicit pull request parents. All 16
+observation integration cases pass. Parent assertion review, API/docs reconciliation, and final
+workspace gates remain open.
+
 Embedding integration now separates missing-chunk retry, hybrid retrieval, and explicit keyword
 fallback into shallow owners. Retry compares every retained chunk value; search assertions identify
 provenance and exact service call counts from independent complete-vector baselines. The service

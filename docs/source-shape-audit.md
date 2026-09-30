@@ -798,6 +798,14 @@ completion remain explicit. Store uses the existing workspace-selected rstest ve
 dependency. Remaining observation assertion acceptance is independent of these resolved grouping
 findings.
 
+Child assertion review now compares complete coverage values and separates membership reads from
+assertions. Partial and incomplete-empty acquisitions retain the earlier complete membership;
+complete-empty publication records zero members at the winning sequence. Review-thread rollback uses
+different old and replacement heads, proving both retained old context and rejected new context.
+Snapshot head checks also include a different-head negative control, with explicit pull request
+parents. These child cases pass all 16 observation integration tests. Parent integrity and
+high-water assertion review, cross-crate reconciliation, and final gates remain open.
+
 Search integration has shallow pagination, filtering, scope coverage, status counts, read-only
 preservation, repository lookup, query validation, detail, FTS, and migration owners. Fixtures build
 values and query settings; archive mutations and reads remain visible. Scope coverage and status

@@ -1,14 +1,16 @@
-//! # Superseded empty generation cannot replace membership
+//! # Only the current empty generation can erase canonical comments
 //!
-//! This case reserves, stages, and finishes the selected comment generations directly.
-//! A complete two-member baseline establishes the canonical state before replacement attempts.
-//! Payload construction supplies exact identities and JSON without performing archive operations.
-//! Source time, acquisition time, and sequence remain explicit and independently controlled.
+//! A complete two-member collection establishes the baseline. Two later generations reserve the
+//! same source clock; the second reservation supersedes the first through acquisition ordering.
+//! Completing the older generation with zero pages must be skipped and retain both old members.
 //!
-//! The archive is on disk and each transition is visible in execution order.
-//! Assertions compare retained membership and the relevant publication outcome or coverage.
-//! Provider pagination, lease scheduling, and engine retries are separate integration concerns.
-//! The scenario closes its archive before removing the database and fixed sidecars.
+//! The newer generation then completes empty and is allowed to replace membership. The resulting
+//! coverage names its exact acquisition time and sequence with zero complete items, distinguishing
+//! legitimate emptiness from missing or incomplete evidence.
+//!
+//! These dependent transitions remain together because the current-versus-superseded distinction
+//! requires both reservations. Every archive operation and read is explicit; fixtures construct
+//! only source values and staged members. Closure precedes database cleanup.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
@@ -85,13 +87,11 @@ async fn superseded_empty_generation_cannot_replace_membership() {
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("read comments"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read comments");
+    assert_eq!(members, original_members);
 
     let stale_comments = archive
         .reserve_child_family_observation(
@@ -126,13 +126,11 @@ async fn superseded_empty_generation_cannot_replace_membership() {
         .await
         .expect("superseded generation is skipped");
     assert_eq!(stale_result.disposition, ObservationDisposition::Skipped);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("stale empty generation leaves membership intact"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("stale empty generation leaves membership intact");
+    assert_eq!(members, original_members);
     archive
         .finish_child_family_observation(ChildFamilyObservation {
             thread: &thread_id,
@@ -145,21 +143,23 @@ async fn superseded_empty_generation_cannot_replace_membership() {
         })
         .await
         .expect("replace with complete empty collection");
-    assert!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("empty comments")
-            .is_empty()
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("empty comments");
+    assert!(members.is_empty());
     let coverage = archive
         .family_coverage(&thread_id, EvidenceFamily::Comments)
         .await
         .expect("read complete empty coverage");
-    assert!(matches!(
+    assert_eq!(
         coverage.state(),
-        CoverageState::Complete { item_count: 0, .. }
-    ));
+        &CoverageState::Complete {
+            observed_at: timestamp("2026-09-20T10:00:08Z"),
+            sequence: empty_comments.sequence,
+            item_count: 0,
+        }
+    );
 
     archive.close().await;
     remove_archive(&path);

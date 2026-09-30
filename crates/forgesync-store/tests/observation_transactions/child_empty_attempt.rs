@@ -1,17 +1,18 @@
-//! # Incomplete empty collection preserves prior membership
+//! # Incomplete empty acquisition cannot erase a complete collection
 //!
-//! This case reserves, stages, and finishes the selected comment generations directly.
-//! A complete two-member baseline establishes the canonical state before replacement attempts.
-//! Payload construction supplies exact identities and JSON without performing archive operations.
-//! Source time, acquisition time, and sequence remain explicit and independently controlled.
+//! Two canonical comments are published first. A later generation finishes without any staged page
+//! and declares incomplete pagination with zero received items. Lack of received data is not proof
+//! that the provider's complete collection is empty, so both original members must survive.
 //!
-//! The archive is on disk and each transition is visible in execution order.
-//! Assertions compare retained membership and the relevant publication outcome or coverage.
-//! Provider pagination, lease scheduling, and engine retries are separate integration concerns.
-//! The scenario closes its archive before removing the database and fixed sidecars.
+//! Membership and coverage are asserted separately: retained identities/payloads coexist with the
+//! newer incomplete attempt's exact time, sequence, reason, zero count, and absent failure.
+//! Complete empty replacement is exercised in the supersession sibling, not implied here.
+//!
+//! Reservation and publication are visible next to the public reads and expectations. Construction
+//! fixtures perform no archive work, and on-disk resources are removed only after closure.
 
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::coverage::{CoverageState, EvidenceFamily};
+use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::families::ChildFamilyObservation;
 use serde_json::json;
@@ -84,13 +85,11 @@ async fn incomplete_empty_collection_preserves_prior_membership() {
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("read comments"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read comments");
+    assert_eq!(members, original_members);
 
     let incomplete_empty = archive
         .reserve_child_family_observation(
@@ -114,12 +113,25 @@ async fn incomplete_empty_collection_preserves_prior_membership() {
         })
         .await
         .expect("record incomplete empty collection");
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("incomplete empty leaves prior membership intact");
+    assert_eq!(members, original_members);
+
+    let coverage = archive
+        .family_coverage(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read incomplete empty coverage");
     assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("incomplete empty leaves prior membership intact"),
-        original_members
+        coverage.state(),
+        &CoverageState::Incomplete {
+            observed_at: timestamp("2026-09-20T10:00:04.6Z"),
+            sequence: incomplete_empty.sequence,
+            reason: IncompleteReason::Pagination,
+            received_items: 0,
+            failure: None,
+        }
     );
 
     archive.close().await;

@@ -1,14 +1,16 @@
-//! # Replaying a staged page preserves complete membership
+//! # Staged-page replay does not duplicate canonical membership
 //!
-//! This case reserves, stages, and finishes the selected comment generations directly.
-//! A complete two-member baseline establishes the canonical state before replacement attempts.
-//! Payload construction supplies exact identities and JSON without performing archive operations.
-//! Source time, acquisition time, and sequence remain explicit and independently controlled.
+//! One reserved comment generation receives the identical page twice before it is finalized.
+//! The repeated page has the same provider identities and payloads, so complete publication must
+//! retain exactly the two supplied members rather than append duplicate rows.
 //!
-//! The archive is on disk and each transition is visible in execution order.
-//! Assertions compare retained membership and the relevant publication outcome or coverage.
-//! Provider pagination, lease scheduling, and engine retries are separate integration concerns.
-//! The scenario closes its archive before removing the database and fixed sidecars.
+//! The page replay occurs before the first canonical collection exists. This case therefore checks
+//! staging idempotence and final membership, not preservation across two completed generations.
+//! Reservation, both stage writes, finalization, and the membership read remain explicit.
+//!
+//! Pure fixtures construct parent evidence and JSON members; they perform no acquisition or writes.
+//! Partial collections and superseded generations have sibling scenarios. Archive closure precedes
+//! removal of the on-disk database and its sidecars.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
@@ -94,13 +96,11 @@ async fn replaying_a_staged_page_preserves_complete_membership() {
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
-    assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("read comments"),
-        original_members
-    );
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read comments");
+    assert_eq!(members, original_members);
 
     archive.close().await;
     remove_archive(&path);

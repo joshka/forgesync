@@ -143,7 +143,9 @@ pub async fn read_current_thread_title(path: &PathBuf) -> String {
 
 /// Opens an existing database for scenario-specific trigger installation or corruption setup.
 ///
-/// It does not create or migrate an archive; callers close it before exercising archive writes.
+/// It does not create or migrate an archive. Scenarios may retain the pool to remove an injected
+/// trigger after an archive write, but never hold a SQL transaction across that write. Close the
+/// pool before deleting the database and its sidecars.
 pub async fn writable_pool(path: &PathBuf) -> sqlx::SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)

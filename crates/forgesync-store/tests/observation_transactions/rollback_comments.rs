@@ -133,10 +133,14 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .family_coverage(&thread_id, EvidenceFamily::Comments)
         .await
         .expect("old coverage survives rollback");
-    assert!(matches!(
+    assert_eq!(
         coverage.state(),
-        CoverageState::Complete { sequence, item_count: 1, .. } if *sequence == first.sequence
-    ));
+        &CoverageState::Complete {
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            sequence: first.sequence,
+            item_count: 1,
+        }
+    );
 
     sqlx::query("DROP TRIGGER reject_comment_coverage")
         .execute(&trigger_pool)
@@ -155,12 +159,23 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         })
         .await
         .expect("retry the still-staged generation");
+    let members = archive
+        .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read replacement membership");
+    assert_eq!(members, vec![item("new", json!({"body":"new"}))]);
+
+    let published = archive
+        .family_coverage(&thread_id, EvidenceFamily::Comments)
+        .await
+        .expect("read coverage after staged retry");
     assert_eq!(
-        archive
-            .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
-            .await
-            .expect("read replacement membership"),
-        vec![item("new", json!({"body":"new"}))]
+        published.state(),
+        &CoverageState::Complete {
+            observed_at: timestamp("2026-09-20T10:00:04Z"),
+            sequence: next.sequence,
+            item_count: 1,
+        }
     );
 
     archive.close().await;
