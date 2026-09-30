@@ -2600,3 +2600,15 @@ empty-scope meaning, and their restricted public API boundary.
 
 Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass for this documentation-only change.
+
+### Exact scoring contracts and test locality
+
+Exact vector search now documents dimension rejection, positive best-chunk scoring, cancellation
+checks, caller-owned model/freshness eligibility, and bounded page merging without deduplication.
+Ordering comments correctly distinguish relevance scores from explicit source timestamp sorts.
+Scored-thread fields have contracts. The larger inline test suite moves to a nearby file with
+explicit defining-module imports and an orientation identifying the policies its scenarios cover.
+
+All three focused exact-scoring tests pass. Strict engine Rustdoc initially caught a public module
+link to an internal type; the reference now uses plain code text and the rerun passes. Nightly
+formatting, rumdl, and changed-page Markdown linting also pass.
