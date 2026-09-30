@@ -2891,3 +2891,13 @@ require readers to carry unrelated panel fixtures through the scenario.
 
 All 13 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Complete browser query assertions
+
+Search submission now asserts the submitted text, repository scope, and first-page offset in the
+emitted action. Repository selection asserts the complete browsing action instead of destructuring
+only some fields with a branch. A wrong search payload or retained query can no longer pass these
+scenarios merely because one action was emitted.
+
+All 13 focused app-transition scenarios pass. Nightly formatting, rumdl, and changed-page Markdown
+linting pass.

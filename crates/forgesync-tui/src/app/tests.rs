@@ -83,7 +83,14 @@ fn search_keys_build_a_local_query_until_enter() {
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     assert_eq!(app.search_query.as_deref(), Some("tui search"));
-    assert_eq!(actions.len(), 1);
+    assert_eq!(
+        actions,
+        [QueryAction::Threads {
+            query: Some("tui search".to_owned()),
+            repositories: Vec::new(),
+            offset: 0,
+        }]
+    );
 }
 
 #[test]
@@ -119,18 +126,17 @@ fn repository_picker_applies_the_highlighted_repository() {
         Some("owner/repo")
     );
     assert!(matches!(app.screen, Screen::Browser));
-    let [
-        QueryAction::Threads {
-            repositories,
+    let repository = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("repository selector");
+    assert_eq!(
+        actions,
+        [QueryAction::Threads {
+            query: None,
+            repositories: vec![repository],
             offset: 0,
-            ..
-        },
-    ] = actions.as_slice()
-    else {
-        panic!("expected a repository-scoped thread query");
-    };
-    assert_eq!(repositories.len(), 1);
-    assert_eq!(repositories[0].as_url(), "https://github.com/owner/repo");
+        }]
+    );
 }
 
 #[test]
