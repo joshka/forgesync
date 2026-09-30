@@ -167,9 +167,10 @@ pub async fn thread_row_id(
 ///
 /// Parent and child application call this on their existing transaction connection after deciding
 /// which observation may advance coverage. It accepts only complete/incomplete states and stores
-/// their serialized detail alongside independently supplied source/acquisition coordinates.
-/// Callers must keep those coordinates consistent with the state; this SQL adapter does not redo
-/// ordering, fence, or membership validation. It neither commits nor replaces child members.
+/// their serialized detail alongside source-clock columns supplied by the application owner.
+/// Acquisition time and sequence come from the state itself, keeping indexed columns and JSON
+/// consistent. This adapter does not redo ordering, fence, or membership validation. It neither
+/// commits nor replaces child members.
 /// State, serialization, integer-conversion, and database failures propagate to the transaction
 /// owner so coverage and the owner's other writes can roll back together.
 pub async fn write_coverage(
@@ -177,16 +178,23 @@ pub async fn write_coverage(
     thread_row_id: i64,
     family: EvidenceFamily,
     clock: &SourceClockColumns,
-    observed_at: UtcTimestamp,
-    sequence: ObservationSequence,
     state: &CoverageState,
 ) -> Result<(), StoreError> {
-    let status = match state {
-        CoverageState::Complete { .. } => "complete",
-        CoverageState::Incomplete { .. } => "incomplete",
+    let (status, observed_at, sequence) = match state {
+        CoverageState::Complete {
+            observed_at,
+            sequence,
+            ..
+        } => ("complete", *observed_at, *sequence),
+        CoverageState::Incomplete {
+            observed_at,
+            sequence,
+            ..
+        } => ("incomplete", *observed_at, *sequence),
         _ => return Err(StoreError::InvalidCoverageState),
     };
     let state_json = serde_json::to_string(state)?;
+    let sequence = to_sql_sequence(sequence)?;
     sqlx::query(
         "INSERT INTO family_coverage (thread_id, family, status, source_clock_state, source_clock_raw, source_clock_us, observed_at_us, sequence, state_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET status = excluded.status, source_clock_state = excluded.source_clock_state, source_clock_raw = excluded.source_clock_raw, source_clock_us = excluded.source_clock_us, observed_at_us = excluded.observed_at_us, sequence = excluded.sequence, state_json = excluded.state_json",
     )
@@ -197,7 +205,7 @@ pub async fn write_coverage(
     .bind(&clock.raw)
     .bind(clock.unix_microseconds)
     .bind(observed_at.unix_microseconds())
-    .bind(to_sql_sequence(sequence)?)
+    .bind(sequence)
     .bind(state_json)
     .execute(&mut *connection)
     .await?;

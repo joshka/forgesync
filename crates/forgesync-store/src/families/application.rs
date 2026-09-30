@@ -202,8 +202,6 @@ impl<'a> FamilyApplication<'a> {
             self.thread,
             self.observation.family,
             &self.source_clock,
-            self.observation.observed_at,
-            self.observation.sequence,
             state,
         )
         .await

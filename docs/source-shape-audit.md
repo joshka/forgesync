@@ -60,8 +60,8 @@ instead of behavioral boolean parameters.
 The thread SQL projection and update input live with their column mappings in a private module,
 using ordinary public items within that implementation boundary. Their docs explain independent
 content/evidence positions and the optional evidence advance. Observation children import external
-dependencies directly. The source clock columns retain deliberate crate visibility within the public
-observation module, with their SQL shape invariant documented.
+dependencies directly. Source clock columns are ordinary public items inside the private
+`observation_sql` owner, with their SQL shape invariant documented.
 
 Terminal repository state now has a `RepositoryPicker` owner. Highlight and applied scope are
 separate, and the applied repository is retained across reordered or empty refreshes. This fixes an
@@ -600,6 +600,24 @@ missing-clock, malformed-clock, acquisition-priority, legacy-fallback, and signe
 malformed pair asserts the typed error and both preserved spellings instead of display wording.
 Construction helpers are documented and perform no archive work. All ten ordering-filtered cases
 pass; broader store signature and documentation acceptance remain open.
+
+### Store coverage and ledger contracts
+
+Coverage persistence derives acquisition time and sequence from `CoverageState` rather than taking
+duplicate caller arguments. Indexed columns and serialized detail now have one coordinate source;
+source-clock columns remain independent provider freshness. Both parent and child writers use this
+narrower adapter. Evidence-only parent updates convert sequence before the SQL operation, giving
+conversion and persistence separate failure boundaries and readable binding chains.
+
+Run creation/finalization and job completion retain explicit fence, target, time, and declared
+scope/outcome inputs. Existing `SyncJobStart` and `SyncJobCompletion` already capture related job
+facts. Their operation docs now identify parent foreign-key validation, retained caller JSON,
+in-progress target requirements, transaction rollback, and the distinction between ledger outcomes
+and canonical coverage. Audit insertion retains its SQL column inputs on the borrowed transaction;
+its contract documents caller validation and shared state/event commit. These reviewed helpers do
+not need another generic write context. The focused strict store documentation check passes for the
+contract additions. All 16 observation integration cases pass after coordinate derivation;
+all-target store Clippy passes.
 
 ### Offline CLI scenario locality
 

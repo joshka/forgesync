@@ -14,6 +14,13 @@ current instructions.
 
 ## Latest changes and evidence
 
+Coverage persistence now derives acquisition time and sequence from the typed state rather than
+duplicate arguments. Parent evidence updates separate sequence conversion from SQL execution. All 16
+observation integration cases pass; store all-target Clippy passes. Run/job and audit write
+contracts now explain caller validation, transaction ownership, and ledger/coverage limits; their
+focused strict Rustdoc check passes. Ordering scenarios have a shallow sibling owner and typed error
+assertions; all ten ordering-filtered cases and store Clippy pass for that slice.
+
 Terminal dispatch now uses `QueryDispatch` for one session's borrowed scheduling resources. Its
 methods receive action and app rather than seven positional arguments. All 75 TUI unit cases, its
 documentation example, all-target Clippy, and strict private-item Rustdoc pass. The workspace

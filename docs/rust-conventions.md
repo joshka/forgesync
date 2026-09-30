@@ -44,6 +44,10 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
   and each rule can be understood independently. Keep short field projections inline.
 - Break long functions into named phases only when the name lets a reader forget earlier details.
   Keep a linear story together when extraction would add navigation without reducing context.
+- Derive repeated facts from the value that owns them instead of accepting another copy as an
+  argument. For example, persist acquisition coordinates from the typed coverage state so indexed
+  columns and serialized state cannot disagree. A narrower signature should remove a consistency
+  obligation, not merely move the same loose fields into a bag.
 - Aim for functions and methods that fit on one screen, usually around 25 lines. Inspect functions
   beyond 30–50 lines for separate responsibilities, live state, repeated decisions, and hidden
   transitions. A longer, genuinely linear sequence of meaningful steps can stay together. The

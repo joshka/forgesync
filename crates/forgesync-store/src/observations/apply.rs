@@ -304,9 +304,18 @@ impl CanonicalSelection {
         connection: &mut SqliteConnection,
         incoming: &IncomingThread<'_>,
     ) -> Result<(), StoreError> {
-        sqlx::query("UPDATE threads SET evidence_clock_state = ?, evidence_clock_raw = ?, evidence_clock_us = ?, evidence_sequence = ? WHERE id = ?")
-            .bind(incoming.columns.state).bind(&incoming.columns.raw).bind(incoming.columns.unix_microseconds)
-            .bind(to_sql_sequence(incoming.observation.sequence())?).bind(self.id).execute(&mut *connection).await?;
+        let sequence = to_sql_sequence(incoming.observation.sequence())?;
+        let query = sqlx::query(
+            "UPDATE threads SET evidence_clock_state = ?, evidence_clock_raw = ?, evidence_clock_us = ?, evidence_sequence = ? WHERE id = ?",
+        );
+        query
+            .bind(incoming.columns.state)
+            .bind(&incoming.columns.raw)
+            .bind(incoming.columns.unix_microseconds)
+            .bind(sequence)
+            .bind(self.id)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -328,8 +337,6 @@ impl CanonicalSelection {
             self.id,
             EvidenceFamily::Threads,
             &incoming.columns,
-            observation.observed_at(),
-            observation.sequence(),
             &state,
         )
         .await
