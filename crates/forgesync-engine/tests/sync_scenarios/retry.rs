@@ -14,11 +14,11 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{
-    clients_for, comment, mount_comments, mount_open_issues, mount_pull_request_metadata,
-    mount_pull_reviews, mount_repository, pull_request_issue, remove_archive,
-    temporary_archive_path,
+use super::fixture_archive::{remove_archive, temporary_archive_path};
+use super::fixture_issues::{
+    clients_for, comment, mount_comments, mount_open_issues, mount_repository,
 };
+use super::fixture_reviews::{mount_pull_request_metadata, mount_pull_reviews, pull_request_issue};
 
 #[tokio::test]
 async fn retry_selects_one_family_and_leaves_other_failures_unresolved() {

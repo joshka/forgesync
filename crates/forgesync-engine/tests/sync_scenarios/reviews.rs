@@ -15,12 +15,16 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{
-    clients_for, comment, comment_bodies, comment_coverage, mount_comments,
-    mount_graphql_review_threads, mount_open_issues, mount_pull_request_metadata,
-    mount_pull_reviews, mount_repository, pull_request_issue, pull_review, remove_archive,
-    review_coverage, review_members, review_thread, review_thread_coverage, review_thread_members,
-    review_thread_page, temporary_archive_path, thread_summary,
+use super::fixture_archive::{
+    comment_bodies, comment_coverage, remove_archive, review_coverage, review_members,
+    review_thread_coverage, review_thread_members, temporary_archive_path, thread_summary,
+};
+use super::fixture_issues::{
+    clients_for, comment, mount_comments, mount_open_issues, mount_repository,
+};
+use super::fixture_reviews::{
+    mount_graphql_review_threads, mount_pull_request_metadata, mount_pull_reviews,
+    pull_request_issue, pull_review, review_thread, review_thread_page,
 };
 
 #[tokio::test]

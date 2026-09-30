@@ -16,10 +16,12 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{
-    clients_for, comment, comment_bodies, comment_coverage, issue_with_comment_count,
-    mount_comments, mount_open_issues, mount_repository, remove_archive, temporary_archive_path,
-    thread_summary,
+use super::fixture_archive::{
+    comment_bodies, comment_coverage, remove_archive, temporary_archive_path, thread_summary,
+};
+use super::fixture_issues::{
+    clients_for, comment, issue_with_comment_count, mount_comments, mount_open_issues,
+    mount_repository,
 };
 
 #[tokio::test]

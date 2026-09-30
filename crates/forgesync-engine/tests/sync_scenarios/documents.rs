@@ -9,10 +9,15 @@ use forgesync_engine::documents::{build_thread_document, materialize_thread_docu
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::{SyncRequest, SyncThreadScope, sync_repositories};
 use forgesync_store::archive::Archive;
+use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use wiremock::MockServer;
 
-use super::{clients_for, mount_document_source, remove_archive, temporary_archive_path};
+use super::fixture_archive::{remove_archive, temporary_archive_path};
+use super::fixture_issues::{
+    clients_for, comment, issue_with_comment_count, mount_comments, mount_open_issues,
+    mount_repository,
+};
 
 #[tokio::test]
 async fn document_materialization_tracks_content_but_ignores_source_timestamps() {
@@ -176,4 +181,23 @@ async fn document_materialization_tracks_content_but_ignores_source_timestamps()
 
     archive.close().await;
     remove_archive(&archive_path);
+}
+
+/// Mounts the fixed original-body discussion and one comment with explicit source clocks.
+///
+/// Setup configures provider responses only; the scenario performs acquisition before
+/// materialization.
+async fn mount_document_source(
+    server: &MockServer,
+    issue_updated_at: &str,
+    comment_updated_at: &str,
+    comment_body: &str,
+) {
+    mount_repository(server).await;
+    let mut issue = issue_with_comment_count(91, 11, "Document target", issue_updated_at, 1);
+    issue["body"] = json!("Original discussion body");
+    mount_open_issues(server, vec![issue]).await;
+    let mut comment = comment(1101, comment_body);
+    comment["updated_at"] = json!(comment_updated_at);
+    mount_comments(server, 11, vec![comment]).await;
 }

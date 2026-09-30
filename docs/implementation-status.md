@@ -3325,3 +3325,19 @@ previous entry's acquisition-helper candidate and records the general rule in Ru
 
 All 15 sync workflow scenarios and focused warning-denying Clippy pass. Nightly formatting, rumdl,
 and linting of all three changed guidance/status pages pass.
+
+### Sync fixture module ownership and contracts
+
+The shared sync scenario parent is now a documented module map. Three sibling fixture modules own
+REST discussion responses/client routing, pull-request head/review responses, and local archive
+projections/lifetime. Scenarios import each fixture's actual owner. The document-only response setup
+lives beside materialization scenarios instead of widening shared setup.
+
+Every shared helper has a contract distinguishing payload construction, mock installation, local
+reads, and cleanup. Coverage selectors do not assert completeness, canonical reads exclude staged
+partial members, thread lookup assumes the single fixture repository, and enumeration counts are
+explicitly bounded. Observed provider booleans remain source facts rather than workflow selectors.
+The three fixture owners contain 128, 135, and 189 lines including these explanations.
+
+All 15 sync workflow scenarios and focused warning-denying Clippy pass after the moves. Nightly
+formatting, rumdl, and linting of both changed Markdown pages pass.

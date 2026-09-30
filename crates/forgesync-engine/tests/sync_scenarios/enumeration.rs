@@ -22,9 +22,8 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{
-    clients_for, issue, mount_repository, remove_archive, temporary_archive_path, thread_count,
-};
+use super::fixture_archive::{remove_archive, temporary_archive_path, thread_count};
+use super::fixture_issues::{clients_for, issue, mount_repository};
 
 #[tokio::test]
 async fn interrupted_page_replay_keeps_committed_threads_without_duplicates() {

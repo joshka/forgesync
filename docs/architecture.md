@@ -315,3 +315,11 @@ archive-wide counts and status (`reads::summary`). Summary accumulation validate
 labels/counts while preserving explicit missing/incomplete/complete buckets. Aggregate status uses
 separate read queries; it provides diagnostics rather than a transactionally frozen snapshot of
 concurrent writers.
+
+## Engine workflow scenario fixtures
+
+The sync integration suite keeps real acquisition requests and operations in each scenario. Shared
+setup under `tests/sync_scenarios` has three sibling owners: `fixture_issues` for REST discussion
+responses and local clients, `fixture_reviews` for pull-request head/review responses, and
+`fixture_archive` for local projections and archive lifetime. These modules construct or inspect
+fixture state; they do not run engine workflows. Document-only response setup stays in `documents`.

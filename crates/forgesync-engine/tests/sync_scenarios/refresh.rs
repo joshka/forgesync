@@ -16,9 +16,8 @@ use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 use wiremock::MockServer;
 
-use super::{
-    clients_for, mount_open_issues, mount_repository, remove_archive, temporary_archive_path,
-};
+use super::fixture_archive::{remove_archive, temporary_archive_path};
+use super::fixture_issues::{clients_for, mount_open_issues, mount_repository};
 
 #[tokio::test]
 async fn refresh_syncs_without_constructing_a_model_service() {

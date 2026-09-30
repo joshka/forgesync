@@ -22,9 +22,11 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
-use super::{
-    clients_for, current_timestamp, issue_with_comment_count, mount_open_issues, mount_repository,
-    remove_archive, temporary_archive_path, thread_summary,
+use super::fixture_archive::{
+    current_timestamp, remove_archive, temporary_archive_path, thread_summary,
+};
+use super::fixture_issues::{
+    clients_for, issue_with_comment_count, mount_open_issues, mount_repository,
 };
 
 #[tokio::test]
