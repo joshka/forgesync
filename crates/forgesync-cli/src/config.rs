@@ -1,12 +1,27 @@
 //! # Load local application configuration
 //!
-//! `ForgesyncConfig` groups archive, document, and embedding-service settings. Nested config types
+//! `ForgesyncConfig` groups document and embedding-service settings. Nested config types
 //! supply defaults and validation for the parts of the app that need them; `ConfigError` reports
 //! malformed or unusable configuration.
 //!
 //! The CLI resolves config before constructing requests. Store and engine libraries receive
 //! explicit values and never reach into the process environment, which makes their behavior
 //! repeatable for a given input.
+//!
+//! [`ForgesyncConfig::load`] chooses an explicit path first, then `FORGESYNC_CONFIG`, then built-in
+//! defaults. A selected file is required to exist and parse; missing files do not silently revert
+//! to defaults. Omitted TOML fields receive defaults, while unknown fields are rejected. Archive
+//! paths and GitHub credentials belong to command arguments and credential resolution, not here.
+//!
+//! Loading and semantic validation are separate boundaries. [`EmbeddingServiceConfig::validate`]
+//! checks endpoint shape and resource budgets when a workflow needs embeddings; parsing a config
+//! does not contact a service or prove model support. [`EmbeddingServiceConfig::client_config`]
+//! converts validated settings after the command resolves the API key from its named environment
+//! variable. Neither defaults nor validation reads the secret or creates an HTTP client.
+//!
+//! [`DocumentsConfig`] selects rendering inputs without initiating provider acquisition. Embedding
+//! chunk/batch limits govern UTF-8 bytes and request concurrency, not token counts or service
+//! capacity. The engine client owns request execution and repeats its own boundary validation.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -19,7 +34,11 @@ use url::Url;
 
 use crate::credentials::valid_environment_variable_name;
 
-/// User configuration for Forgesync operations.
+/// Parsed document and embedding preferences with defaults for omitted fields.
+///
+/// Deserialization rejects unknown settings but does not validate endpoint or budget semantics.
+/// Validate embedding settings only at the workflows that need them, so local archive inspection
+/// does not require a usable remote service configuration.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ForgesyncConfig {
@@ -98,7 +117,17 @@ impl Default for EmbeddingServiceConfig {
 }
 
 impl EmbeddingServiceConfig {
-    /// Validates endpoint and resource bounds before an embedding operation starts.
+    /// Checks endpoint shape, key-reference spelling, and bounded embedding resources.
+    ///
+    /// Requires HTTPS except for HTTP to a literal loopback IP or `localhost`. Credentials, query,
+    /// and fragment in the URL are rejected; no DNS lookup or endpoint/model capability check runs.
+    /// Dimensions, chunk/batch sizes, concurrency, timeout, retry budget, and attempts must fit the
+    /// supported nonzero ranges. This reads no environment variable and changes no settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidEmbeddings`] for any invalid setting. Successful validation
+    /// does not prove credential validity, connectivity, or provider acceptance of the request.
     pub fn validate(&self) -> Result<(), ConfigError> {
         let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
         let secure = endpoint.scheme() == "https";
@@ -136,7 +165,16 @@ impl EmbeddingServiceConfig {
         Ok(())
     }
 
-    /// Creates the HTTP client settings after the application resolves the secret key.
+    /// Converts validated preferences into engine client settings using a resolved API key.
+    ///
+    /// Trims the model name and converts timeout/budget seconds into durations. The supplied key
+    /// is moved into the result without reading environment or checking it with a service. This
+    /// constructs settings only; the engine client validates its own boundary and creates
+    /// transport.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidEmbeddings`] when validation or endpoint parsing fails.
     pub fn client_config(&self, api_key: String) -> Result<EmbeddingClientConfig, ConfigError> {
         self.validate()?;
         let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
@@ -157,7 +195,17 @@ impl EmbeddingServiceConfig {
 }
 
 impl ForgesyncConfig {
-    /// Loads explicit or `FORGESYNC_CONFIG` TOML, or returns defaults when neither is set.
+    /// Loads the explicit path, then `FORGESYNC_CONFIG`, or defaults when neither is supplied.
+    ///
+    /// Explicit selection wins even if the environment points elsewhere. A selected path is read
+    /// as UTF-8 TOML with defaults for omitted fields and rejection of unknown fields. No implicit
+    /// config-directory search or file creation occurs. Semantic embedding validation is deferred
+    /// to the workflow; loading does not resolve credentials or initiate network requests.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Read`] for a selected file that cannot be read as text, including a
+    /// missing file, or [`ConfigError::Parse`] for malformed TOML or incompatible settings.
     pub fn load(explicit_path: Option<&Path>) -> Result<Self, ConfigError> {
         let path = explicit_path
             .map(Path::to_path_buf)
@@ -226,64 +274,4 @@ fn is_loopback_host(host: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use forgesync_core::document::DocumentRecipe;
-
-    use super::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
-
-    #[test]
-    fn config_defaults_to_discussion_enriched_documents() {
-        assert_eq!(
-            ForgesyncConfig::default().documents,
-            DocumentsConfig {
-                recipe: DocumentRecipe::DiscussionEnriched
-            }
-        );
-    }
-
-    #[test]
-    fn config_accepts_both_explicit_document_recipes() {
-        let original: ForgesyncConfig = toml::from_str("[documents]\nrecipe = 'original_body'\n")
-            .expect("parse original-body config");
-        let enriched: ForgesyncConfig =
-            toml::from_str("[documents]\nrecipe = 'discussion_enriched'\n")
-                .expect("parse discussion-enriched config");
-
-        assert_eq!(original.documents.recipe, DocumentRecipe::OriginalBody);
-        assert_eq!(
-            enriched.documents.recipe,
-            DocumentRecipe::DiscussionEnriched
-        );
-    }
-
-    #[test]
-    fn config_rejects_unknown_recipe_values() {
-        assert!(
-            toml::from_str::<ForgesyncConfig>("[documents]\nrecipe = 'include_everything'\n")
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn embedding_service_defaults_are_bounded_and_independent() {
-        let config = EmbeddingServiceConfig::default();
-        config.validate().expect("default embedding settings");
-        assert_eq!(config.endpoint, "https://api.openai.com/v1");
-        assert_eq!(config.api_key_env, "OPENAI_API_KEY");
-        assert_eq!(config.concurrency, 4);
-    }
-
-    #[test]
-    fn embedding_service_config_rejects_unsafe_urls_and_invalid_budgets() {
-        let config = EmbeddingServiceConfig {
-            endpoint: "http://example.com/v1".to_owned(),
-            ..EmbeddingServiceConfig::default()
-        };
-        assert!(config.validate().is_err());
-        let config = EmbeddingServiceConfig {
-            max_batch_input_bytes: EmbeddingServiceConfig::default().max_input_bytes - 1,
-            ..EmbeddingServiceConfig::default()
-        };
-        assert!(config.validate().is_err());
-    }
-}
+mod tests;

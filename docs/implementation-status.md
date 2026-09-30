@@ -2273,3 +2273,17 @@ Its caller's validated window retains the same raw coordinates, so query trimmin
 mode, ranks, page slicing, and coverage remain unchanged. All 89 engine tests and three doctests,
 workspace Clippy, strict engine documentation, nightly formatting, and Markdown checks pass.
 Remaining workspace conventions and test review stay open.
+
+## Continued maintenance: configuration boundaries
+
+CLI configuration documentation now explains explicit-path/environment/default precedence, missing
+selected-file failure, defaulted versus unknown TOML fields, and deferred service validation. It
+corrects the module's inaccurate claim to own archive settings and describes document recipe,
+credential handoff, byte budgets, URL constraints, and client construction at their actual owners.
+Validation proves shape and bounds, not connectivity, provider capability, or credential acceptance.
+
+The focused configuration suite moves to the nearby `config/tests.rs` leaf with its own orientation
+and explicit owner imports. Unsafe URL and undersized batch checks become independent scenarios.
+Behavior and setting defaults remain unchanged. All eight focused configuration-related CLI tests,
+workspace Clippy, strict CLI documentation, nightly formatting, and Markdown checks pass. Broader
+workspace conventions and test review remain open.
