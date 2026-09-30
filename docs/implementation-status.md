@@ -5,8 +5,8 @@
 The selected Forgesync implementation and maintainability cleanup are **complete**. All eight
 implementation/review batches have fixed or retained dispositions, and all applicable local gates
 passed on the cleanup baseline. That workspace run passed 525 tests across 27 suites, with no
-failures or ignored cases. The follow-ups below have separate validation evidence. Hosted native
-execution remains separate release evidence.
+failures or ignored cases. The follow-ups below have separate validation evidence, including the
+initial registry release and hosted native execution.
 
 This file describes current status. The [source-shape audit](source-shape-audit.md) records review
 findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
@@ -29,8 +29,12 @@ its binary includes terminal browsing and passes the credential-free offline smo
 Hosted Rust gates and all four platform smoke jobs pass in the release workflow. The publisher
 correctly skips a non-release-PR commit, and release-plz reports no version changes after bootstrap.
 Its empty PR output is `{}`, so the reusable PR check now depends on an actual returned branch
-rather than a nonempty JSON string. The next action is to confirm that the corrected hosted workflow
-skips PR checks when no release PR exists.
+rather than a nonempty JSON string. The corrected
+[release workflow](https://github.com/joshka/forgesync/actions/runs/36762278832) passes and skips PR
+checks when no release PR exists. The corresponding
+[CI run](https://github.com/joshka/forgesync/actions/runs/36762278056) also passes. Future OIDC
+uploads occur when a reviewed release PR is merged; bootstrap publication used local Cargo
+credentials.
 
 ## Product facade follow-up
 
@@ -41,9 +45,12 @@ owners. CI and release builds target the product, and workspace path dependencie
 version requirements so publication can preserve the same graph. The registry follow-up above
 records subsequent publication.
 
-Validation is in progress: product process tests, workspace gates, library-only and CLI-only feature
-builds, and a local installation check. The next action is to complete these gates and record their
-results.
+Validation passes: 539 workspace tests across 29 suites, with no failures or ignored cases;
+workspace Clippy; strict public/private Rustdoc; nightly formatting; and Markdown checks. The
+product-focused run passes 47 process tests plus its facade example. Library-only checking excludes
+CLI and TUI dependencies; the CLI-only build omits browsing. A temporary local default-feature
+installation exposes browsing and passes the credential-free smoke script. The registry follow-up
+above records subsequent publication and hosted validation.
 
 ## Configured-archive follow-up
 
@@ -91,11 +98,12 @@ helpers now explain their contracts.
 
 ## Remaining work
 
-No work remains in this maintainability cleanup. The source-shape audit records explicit retained
-exceptions rather than future cleanup tasks. Before a release, collect the configured hosted native
-matrix results; this local cleanup does not certify Linux, Intel macOS, or Windows execution.
+No work remains in this maintainability cleanup or the initial registry release setup. The
+source-shape audit records explicit retained exceptions rather than future cleanup tasks. The
+registry follow-up records hosted validation; the cleanup baseline below records its earlier local
+acceptance scope.
 
-## Final validation record
+## Cleanup baseline validation record
 
 Final acceptance was completed on 2026-09-30 after the last Rust edit. Source, manifests, lockfile,
 toolchain, and formatter configuration remained unchanged through acceptance. The 374-file source
