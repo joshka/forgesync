@@ -146,6 +146,7 @@ mod evidence;
 mod lease;
 mod proposals;
 mod references;
+mod snapshot;
 
 pub use build::{build_clusters, list_clusters};
 pub use decisions::{

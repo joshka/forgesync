@@ -165,8 +165,9 @@ Implemented: `ClusterBuildLease` owns renewal, cooperative interruption, and rel
 nearby lease cases and generation integration establish error preservation, release, child cleanup,
 and caller-token isolation. CLI build preparation now belongs to the parsed arguments, with
 canonical identity/policy conversion cases and archive-close-before-presentation ordering. Refresh
-traversal now has a stage owner and direct outcome-policy cases. Engine evidence preparation and
-generation persistence remain in this batch.
+traversal now has a stage owner and direct outcome-policy cases. Engine evidence preparation now has
+a repository-scoped snapshot and named generation projection. Transactional store generation
+application and durable identity matching remain in this batch.
 
 Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clusters`, and store
 `clusters/generation`. Finish when preparation, analysis, and generation persistence have coherent

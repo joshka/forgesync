@@ -5,34 +5,32 @@
 //! caller can explain the outcome.
 //!
 //! `list_clusters` reads stored results rather than recomputing similarities. Candidate
-//! construction lives below in `candidates`; generation persistence belongs to the store. This
-//! separation makes the analysis choice and the durable write visible at different entry points.
+//! construction lives below in `candidates`; `snapshot` resolves current vector evidence and
+//! independent source/vector coverage counts. Generation persistence belongs to the store.
+//! The coordinator keeps snapshot loading, bounded graph work, and generation application in
+//! reading order, while `lease` retains renewal and cooperative cleanup across those phases.
 
 use std::sync::{Arc, OnceLock};
 
-use forgesync_core::document::DocumentRecipe;
-use forgesync_core::identity::RepositoryId;
 use forgesync_store::archive::Archive;
 use forgesync_store::clusters::{
     ClusterGenerationInput, ClusterInput, ClusterListQuery as StoreClusterListQuery,
     ClusterMemberInput, ClusterPage,
 };
-use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocument};
+use forgesync_store::embeddings::EmbeddingSearchDocument;
 use forgesync_store::leases::ArchiveLeaseToken;
-use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::candidates::build_cluster_candidates;
 use super::lease::ClusterBuildLease;
 use super::proposals::ClusterCandidate;
+use super::snapshot::ClusterSnapshot;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
 use crate::documents::now_utc;
 use crate::error::EngineError;
 use crate::inspect::{checked_page, resolve_repositories};
 
-/// Archive page size used by eligible-thread counting and compatible-vector traversal.
-const CLUSTER_PAGE_SIZE: u32 = 500;
 /// Process-wide bound on simultaneous CPU-heavy graph builds.
 const CLUSTER_WORKER_LIMIT: usize = 1;
 
@@ -43,7 +41,23 @@ static CLUSTER_WORKER_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 ///
 /// The archive lease fences the vector snapshot and generation write from concurrent archive
 /// mutations. Incomplete vector coverage produces a partial run, which cannot retire unseen
-/// clusters.
+/// clusters. This operation reads stored vectors and does not contact GitHub or a model service.
+/// Endpoint, model, and recipe must identify the vectors already materialized in the archive.
+///
+/// # Persistence and cancellation
+///
+/// A writer lease spans evidence loading and generation application. The store commits the
+/// generation transaction; earlier source observations and vectors are not rewritten. Cancellation
+/// is checked during paging and candidate analysis, then again before saving. Interruption or lease
+/// renewal failure signals a child token and waits for the build before releasing the fence.
+///
+/// # Errors
+///
+/// Invalid graph options or service identity fail before acquiring the lease. A nonempty open
+/// discussion scope without compatible vectors returns [`EngineError::ClusterVectorsUnavailable`].
+/// Inconsistent coverage, archive reads/writes, worker failure, and cancellation retain typed
+/// errors. Partial vector coverage is a successful report with `complete_coverage` false, rather
+/// than an error; such a generation cannot retire unseen clusters.
 pub async fn build_clusters(
     archive: &Archive,
     request: &ClusterBuildRequest,
@@ -89,39 +103,13 @@ async fn execute_cluster_build(
     lease: &ArchiveLeaseToken,
     cancellation: &CancellationToken,
 ) -> Result<ClusterBuildReport, EngineError> {
-    let endpoint = request.endpoint.trim();
-    let model = request.model.trim();
-    let repositories =
-        resolve_repositories(archive, std::slice::from_ref(&request.repository)).await?;
-    let repository = repositories
-        .first()
-        .cloned()
-        .ok_or(EngineError::InvalidClusterInput)?;
-    let eligible_threads = count_open_threads(archive, &repositories, cancellation).await?;
-    let documents = load_cluster_vectors(
-        archive,
-        &repositories,
-        endpoint,
-        model,
-        request.recipe,
-        cancellation,
-    )
-    .await?;
-    let vector_threads = u64::try_from(documents.len())
-        .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?;
-    if documents.len() > usize::try_from(eligible_threads).unwrap_or(usize::MAX) {
-        return Err(EngineError::InvalidClusterInput);
-    }
-    if eligible_threads > 0 && documents.is_empty() {
-        return Err(EngineError::ClusterVectorsUnavailable);
-    }
-    let complete_coverage = vector_threads == eligible_threads;
-    let repository_full_name = documents
-        .first()
-        .map(|document| document.summary.repository.full_name.clone())
-        .unwrap_or_default();
+    let snapshot = ClusterSnapshot::load(archive, request, cancellation).await?;
+    let repository_full_name = snapshot.repository_full_name();
+    let eligible_threads = snapshot.eligible_threads;
+    let vector_threads = snapshot.vector_threads;
+    let complete_coverage = snapshot.complete_coverage();
     let (candidates, candidate_edges) = build_cluster_candidates_bounded(
-        documents,
+        snapshot.documents,
         repository_full_name,
         request.options,
         cancellation,
@@ -132,25 +120,11 @@ async fn execute_cluster_build(
     }
     let candidate_edges = u64::try_from(candidate_edges)
         .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?;
-    let clusters = candidates
-        .into_iter()
-        .map(|cluster| ClusterInput {
-            representative: cluster.representative,
-            title: cluster.title,
-            members: cluster
-                .members
-                .into_iter()
-                .map(|member| ClusterMemberInput {
-                    thread: member.summary.discussion.id,
-                    score_to_representative: member.score_to_representative,
-                })
-                .collect(),
-        })
-        .collect();
+    let clusters = candidates.into_iter().map(cluster_input).collect();
     let input = ClusterGenerationInput {
-        repository,
-        endpoint: endpoint.to_owned(),
-        model: model.to_owned(),
+        repository: snapshot.repository,
+        endpoint: request.endpoint.trim().to_owned(),
+        model: request.model.trim().to_owned(),
         recipe: request.recipe,
         complete_coverage,
         eligible_threads,
@@ -169,78 +143,20 @@ async fn execute_cluster_build(
     })
 }
 
-/// Measures eligible open discussions for cluster coverage reporting.
-async fn count_open_threads(
-    archive: &Archive,
-    repositories: &[RepositoryId],
-    cancellation: &CancellationToken,
-) -> Result<u64, EngineError> {
-    let mut offset = 0_u64;
-    let mut total = 0_u64;
-    loop {
-        if cancellation.is_cancelled() {
-            return Err(EngineError::ClusteringCancelled);
-        }
-        let page = archive
-            .query_threads(&ThreadQuery {
-                repositories: repositories.to_vec(),
-                kind: None,
-                state: ThreadStateFilter::Open,
-                match_expression: None,
-                updated_since: None,
-                sort: ThreadSort::Created,
-                limit: std::num::NonZeroU32::new(CLUSTER_PAGE_SIZE)
-                    .expect("cluster page size is non-zero"),
-                offset,
-            })
-            .await?;
-        total = total
-            .checked_add(
-                u64::try_from(page.items.len())
-                    .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?,
-            )
-            .ok_or(forgesync_store::error::StoreError::IntegerOutOfRange)?;
-        let Some(next_offset) = page.next_offset else {
-            return Ok(total);
-        };
-        offset = next_offset;
-    }
-}
-
-/// Loads current compatible vectors before graph construction.
-async fn load_cluster_vectors(
-    archive: &Archive,
-    repositories: &[RepositoryId],
-    endpoint: &str,
-    model: &str,
-    recipe: DocumentRecipe,
-    cancellation: &CancellationToken,
-) -> Result<Vec<EmbeddingSearchDocument>, EngineError> {
-    let limit =
-        std::num::NonZeroU32::new(CLUSTER_PAGE_SIZE).expect("cluster page size is non-zero");
-    let mut after_document_id = None;
-    let mut documents = Vec::new();
-    loop {
-        if cancellation.is_cancelled() {
-            return Err(EngineError::ClusteringCancelled);
-        }
-        let page = archive
-            .embedding_search_page(&EmbeddingDocumentQuery {
-                repositories,
-                kind: None,
-                state: ThreadStateFilter::Open,
-                endpoint,
-                model,
-                recipe,
-                after_document_id,
-                limit,
-            })
-            .await?;
-        documents.extend(page.items);
-        let Some(next_document_id) = page.next_document_id else {
-            return Ok(documents);
-        };
-        after_document_id = Some(next_document_id);
+/// Converts one analyzed proposal into the store's generation input without changing member order.
+fn cluster_input(cluster: ClusterCandidate) -> ClusterInput {
+    let members = cluster
+        .members
+        .into_iter()
+        .map(|member| ClusterMemberInput {
+            thread: member.summary.discussion.id,
+            score_to_representative: member.score_to_representative,
+        })
+        .collect();
+    ClusterInput {
+        representative: cluster.representative,
+        title: cluster.title,
+        members,
     }
 }
 

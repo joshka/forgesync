@@ -197,3 +197,10 @@ repository traversal. It owns attempted outcomes, first-diagnostic retention, an
 accounting. Repository failures remain isolated; cancellation stops further attempts without
 removing earlier generations. Aggregate status follows the retained first failure and successful
 coverage evidence, with nearby tests documenting that policy independently of archive setup.
+
+Cluster `snapshot::ClusterSnapshot` owns resolved repository identity, eligible open-thread count,
+compatible-vector count, and ordered document/vector evidence. It rejects unavailable or
+inconsistent evidence before graph analysis. Thread counts use offset pages; vector reads retain the
+store's raw cursor and one fixed build request identity. The generation coordinator consumes that
+snapshot under its existing lease and projects candidate membership through a named store-input
+conversion.

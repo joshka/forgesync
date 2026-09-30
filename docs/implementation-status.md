@@ -1462,3 +1462,27 @@ Final current-tree gates pass: the eight accounting cases, workspace Clippy with
 all workspace tests/doctests, the CLI build without default features, strict public/private Rustdoc,
 nightly formatting, workspace rumdl, and all changed Markdown pages. Engine evidence preparation and
 store generation application are the next concrete cluster surfaces.
+
+## Continued maintenance: cluster vector snapshot preparation
+
+`ClusterSnapshot` now owns repository resolution, eligible open-thread counting, compatible-vector
+traversal, and coverage validation. It retains source and vector counts independently so incomplete
+coverage remains a useful generation without permission to retire unseen clusters. Vector paging
+uses the existing build request for endpoint/model/recipe identity instead of six scalar parameters.
+Read queries are named before archive calls, and page count conversion is separate from checked
+accumulation.
+
+The generation coordinator now follows evidence loading, bounded analysis, store-input projection,
+and fenced persistence. A named candidate conversion keeps nested membership construction out of the
+workflow. Expanded build docs explain local-only inputs, lease/cancellation ordering, unavailable
+vectors, partial coverage, and transaction ownership. Existing generation integration passes for
+complete coverage, partial coverage, unavailable vectors, and retirement behavior.
+
+Engine evidence preparation is implemented. The remaining cluster construction surface is the
+store's transactional generation application, row preparation, and durable identity matching.
+
+Final current-tree gates pass: generation integration, workspace Clippy, all workspace
+tests/doctests, the CLI build without default features, strict public/private Rustdoc, nightly
+formatting, workspace rumdl, and changed-page Markdown linting. The snapshot and coordinator
+introductions now describe their separate read/analysis/write roles. Store generation application
+and identity matching remain the final implementation surface of the cluster construction batch.
