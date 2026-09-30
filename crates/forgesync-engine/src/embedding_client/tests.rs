@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{EmbeddingClient, EmbeddingClientConfig, EmbeddingClientError, validate_response};
+use super::{EmbeddingClient, EmbeddingClientConfig, EmbeddingClientError};
 use crate::embedding_client::EmbeddingResponse;
 
 fn config(endpoint: &str) -> EmbeddingClientConfig {
@@ -90,7 +90,7 @@ async fn compatible_embedding_request_orders_responses_by_index() {
 fn malformed_indices_and_vectors_are_rejected(#[case] response: serde_json::Value) {
     let response = serde_json::from_value::<EmbeddingResponse>(response).expect("typed fixture");
 
-    let result = validate_response(response, 2, Some(2), "fixture-model");
+    let result = response.validate(2, Some(2), "fixture-model");
 
     assert!(result.is_err());
 }

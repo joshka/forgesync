@@ -20,10 +20,11 @@ pub use error::EmbeddingClientError;
 use forgesync_core::embedding::EmbeddingVector;
 use reqwest::Url;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue, USER_AGENT};
-use response::{EmbeddingResponse, validate_response};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
+
+use crate::embedding_client::response::EmbeddingResponse;
 
 const MAX_RESPONSE_BODY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_BATCH_INPUTS: usize = 2048;
@@ -250,7 +251,7 @@ impl EmbeddingClient {
         let bytes = read_bounded_body(response, cancellation).await?;
         let response: EmbeddingResponse =
             serde_json::from_slice(&bytes).map_err(|_| EmbeddingClientError::InvalidResponse)?;
-        validate_response(response, inputs.len(), self.dimensions, &self.model)
+        response.validate(inputs.len(), self.dimensions, &self.model)
     }
 
     /// Rejects empty or oversized inputs before consuming a request slot.

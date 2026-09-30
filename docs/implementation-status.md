@@ -2478,3 +2478,15 @@ exception: it governs the adapter loop, while the publicly re-exported error own
 Eight named linear rstest scenarios cover transient eligibility and nonretryable authorization,
 cancellation, output, and redirect failures. All eight cases, strict engine Rustdoc, nightly
 formatting, and Markdown checks pass. Retry behavior is unchanged; broader review remains open.
+
+## Continued maintenance: embedding response validation owner
+
+Decoded service response validation becomes a consuming method on `EmbeddingResponse`. Transport and
+tests invoke the owner directly rather than importing a behavioral helper through the parent.
+Envelope/item fields and module contracts explain optional model echo, exact indexes, accepted
+reordering, request-order restoration, numeric conversion, and batch-wide dimensions. The former doc
+claim to reject reordered vectors is corrected. No partial validated batch escapes failure.
+
+All 16 focused embedding-client tests, engine Clippy across targets/features, strict engine Rustdoc,
+nightly formatting, and Markdown checks pass. Request/response behavior remains unchanged; broader
+review remains open.
