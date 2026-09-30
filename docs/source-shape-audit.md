@@ -84,38 +84,36 @@ same-cluster refresh can retain its cache. Typed query messages document that as
 in their own module. App state is reduced to panel coordination and shared status rather than each
 panel's internal mutation protocol.
 
-Remaining review surfaces:
+## Current acceptance position
 
-- Broader function and state review beyond the selected traversal and diagnostic slices.
-- Review additional store operations beyond the reservation, staging, and freshness slices.
-- Restricted visibility and imports routed through remaining parent module aliases. Engine-root
-  passthrough exports are removed; child-family freshness now imports from the actual owners.
-- Deeper module and item documentation contracts across all crates. All six crate introductions now
-  have expanded entry guidance and have been reviewed in rendered Rustdoc.
-- Hosted behavior of the refreshed CI actions. Local workflow syntax validation passes.
-- Hosted Linux, Intel macOS, and Windows validation; local checks cannot establish those results.
-
-Retain simple domain mappings and linear SQL binding maps when splitting them increases navigation.
-Review exceptions on their actual contracts rather than using line counts as proof of completion.
+The eight implementation/review batches below have concrete fixed or retained dispositions. Terminal
+`pane_block` still accepts a behavioral focus boolean rather than an explicit presentation choice,
+two private `ThreadSelection` variants need outcome contracts, and four existing test construction
+helpers need fixture comments. After those changes, refresh the workspace gates and reconcile this
+record once more. Historical scoped results below identify what they checked; they do not replace
+final-tree acceptance.
 
 ## Completion checklist
 
-These requirements preserve the full maintainer request. A passing compiler or a selected slice is
-not evidence for every row. Keep this checklist open until its scope has actually been reviewed.
+| Requirement                                           | Review disposition                                                                                                                       | Acceptance still needed                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Meaningful small modules; broad shallow navigation    | Workflow/state/transaction owners implemented; sync root split; no module file at 500 lines                                              | Final gates                                                               |
+| Command/state ownership and top-down reading          | Unified CLI command tree; named dispatch and local phase owners; retained linear transaction/scan exceptions                             | Final gates                                                               |
+| Related-input types; no behavioral boolean parameters | Child request/page declarations, typed embedding/member policy, query dispatch and sync attribution; one rendering flag remains          | Replace `pane_block` flag                                                 |
+| Explicit imports and deliberate visibility            | No wildcard imports; direct defining-owner imports; documented capability-boundary exceptions                                            | Final gates                                                               |
+| Useful docs on every application function             | No missing handwritten production comments; targeted constructor, effect, error, cleanup, ordering, and partial-state contracts reviewed | Strict private Rustdoc passes on current source; refresh after final edit |
+| Module/item orientation and examples                  | Module map, six crate introductions, engine examples, private representation/field contracts, and documented Python scripts              | Document two selection variants and four fixture helpers; refresh gates   |
+| Linear nearby tests and clear fixtures                | Cross-crate local/protocol/integration dispositions below; construction/resource helpers distinguished from hidden scenario execution    | Complete final workspace run                                              |
+| Current dependencies and tools                        | Direct/transitive freshness and upstream tool/action evidence checked 2026-09-29                                                         | No further source work identified                                         |
+| Reusable guidance                                     | AGENTS links documentation, Rust conventions, and architecture; recurring findings recorded there                                        | Keep records consistent with final edit                                   |
+| Formatting and local gates                            | Nightly format, workspace Clippy, minimal CLI build, and strict private Rustdoc pass on current source                                   | Workspace tests running; rerun affected gates after rendering change      |
 
-| Requirement                                              | Current evidence                                                                  | Remaining work                                                                                   |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Meaningful small modules, broad shallow navigation       | Six crate module maps and selected vertical slices                                | Inspect current long functions and multi-effect match arms throughout the workspace              |
-| Command/state ownership and top-down reading             | Unified CLI command tree; workflow and transaction owners                         | Review remaining CLI and engine orchestration, TUI result application, and presentation branches |
-| Domain types for related inputs; no behavioral bools     | Embedding policy and family membership expectations                               | Review every remaining bool parameter and broad signature for an intentional contract            |
-| Explicit local imports and deliberate visibility         | No `use super::*`; changed workflow imports name owners                           | Remove remaining parent import preludes and document public-boundary exceptions                  |
-| Every application function documented                    | All handwritten production methods have comments, including local trait contracts | Assess comment depth across all items; presence alone does not establish a useful contract       |
-| All modules and items teach their role and relationships | Expanded roots, workflow modules, examples, and API contracts                     | Review remaining private type/constant docs, field contracts, module maps, and rendered pages    |
-| Linear nearby tests with clear scenarios                 | Split suites and direct keyboard/cluster setup                                    | Inspect remaining scenario branches and fixture burden; preserve meaningful data-driven cases    |
-| Current dependencies and tools                           | Full direct/transitive aggressive audit reports no outdated dependencies          | CI actions refreshed against upstream; native tools checked and nightly refreshed                |
-| Reusable guidance recorded                               | Linked documentation and Rust conventions guides                                  | Record any additional recurring findings at the owning guide                                     |
-| Formatting and local gates                               | Previous follow-up passed every local gate                                        | Rerun focused and workspace gates for each subsequent implementation batch                       |
-| Hosted platform evidence                                 | Native smoke/package matrix is configured                                         | Obtain current Linux, Intel macOS, and Windows execution results                                 |
+Hosted Linux, Intel macOS, and Windows execution is separate release evidence. Native workflows are
+configured and their syntax validated; local cleanup checks cannot certify hosted results. No remote
+publication or hosted execution is part of this cleanup acceptance.
+
+Retain simple domain mappings and linear SQL binding maps when splitting them increases navigation.
+Review exceptions on their actual contracts rather than using line counts as proof of completion.
 
 The syntax inventory distinguishes production functions from tests and trait implementations. It
 measures actual function bodies, excluding braces in strings. The initial continuation found 38
@@ -143,12 +141,12 @@ Python setup, and zipped artifact transfer:
 [download-artifact](https://github.com/actions/download-artifact/blob/v8/README.md).
 Actionlint passes both workflow files. Hosted execution remains separate evidence.
 
-## Bounded remaining implementation work
+## Implemented batches and review record
 
-The remaining cleanup is eight batches followed by one acceptance pass. This replaces the earlier
-open-ended follow-up targets; the requirements in the completion checklist remain the acceptance
-criteria. Completed CLI embedding/refresh preparation, deterministic chunk construction, and
-embedding document selection are evidence for this inventory, not new future tasks.
+The bounded cleanup consists of eight batches followed by one acceptance pass. This replaces the
+earlier open-ended follow-up targets; the requirements in the completion checklist remain the
+acceptance criteria. Completed CLI embedding/refresh preparation, deterministic chunk construction,
+and embedding document selection are evidence for this inventory, not new future tasks.
 
 ### 1. Embedding execution — implemented
 
@@ -246,45 +244,27 @@ stay together rather than splitting each field into a helper.
 Implementation inventory is addressed; focused scenarios and all local workspace gates pass. Broader
 fixture/snapshot adequacy and documentation-depth review remains in batches 7 and 8.
 
-### 7. Workspace conventions and documentation
+### 7. Workspace conventions and documentation — reviewed
 
-Make one complete pass over the existing six crates' modules, items, function signatures, imports,
-and visibility. Review documentation depth, remaining parent import preludes, behavioral boolean
-parameters, broad signatures, and representation placement. Finish with each finding fixed or an
-explicit justified exception, usable module introductions, item contracts at their owning level, and
-an accurate module map. Record recurring rules in the linked guides. Documentation presence alone
-does not satisfy this pass.
+The cross-crate pass covers module/item roles, function contracts, defining-owner imports,
+visibility, related inputs, and representation boundaries. Dispositions below identify the changed
+owners and retained signatures. Recurring rules live in the linked guides rather than depending on
+conversation history. Documentation presence alone is not the quality criterion.
 
-The fresh initial inventory covers 204 production module files across six crates (core 15, store 49,
-CLI 35, TUI 32, engine 59, GitHub 14). It finds no missing handwritten production function comments,
-but 48 introductions are under ten lines and still need content review. These are review signals,
-not proof of documentation quality. Restricted visibility and crate-internal coverage/query preludes
-remain explicit review targets; do not expose SQL resources or implementation types just to replace
-`pub(crate)` mechanically.
+The final syntax inventory covers 364 Rust files including tests, examples, and build scripts. It
+finds no missing handwritten production function comments and no file at 500 lines. Introductions
+below ten lines are focused test owners: they identify their contract, fixture facts, and evidence
+limits. These small suites need no application-type tutorial or padding to satisfy a line quota.
+Production module introductions, checked constructors, read projections, acquisition/transaction
+boundaries, timeout/lease budgets, and error categories have concrete contracts at their owners.
 
-The refreshed inventory after the ownership splits covers 210 production module files (core 15,
-store 50, CLI 35, TUI 32, engine 59, GitHub 19). There are 44 introductions below ten lines and no
-missing handwritten production function comments under the syntax inventory's exclusions. These
-counts remain inspection signals: test/example exclusions and documentation presence do not prove
-contract depth. Core identity/value, GitHub wire/acquisition, store checkpoint/health/lease, and
-keyword/ranking contracts have received targeted review; the complete pass remains open.
-
-The first core review covered coverage and provider extensions: stale marking became a named
-operation, and extension-object validation, rejected-value retention, replacement/null semantics,
-and sorted field access gained concrete contracts. Subsequent dispositions below record additional
-reviewed surfaces; the complete item-depth review remains open. Observation accessors now explain
-source/acquisition context and archive-local sequence meaning. Document hashing, vector validation,
-and timestamp precision have explicit named regression scenarios; vector contracts distinguish shape
-validation from model compatibility. Core Clippy and strict private-item Rustdoc pass after these
-changes.
-
-The targeted conventions pass has since reviewed the previously short module introductions across
-CLI inspection/cluster commands, presentation views, engine inspection/refresh/clustering/error, and
-store coverage/finalization/build inputs. It corrected inaccurate effect and completeness claims
-rather than using line counts as completion evidence. Shared discussion filter arguments now have a
-CLI owner, and shared engine query adapters live in a private module with ordinary public functions.
-These findings are fixed. Visibility dispositions are recorded below; remaining item-depth
-candidates still require review.
+Core contracts distinguish checked shape from record existence and domain identity from display
+selectors. GitHub contracts separate transport safeguards from decoded completeness and normalized
+source context. Store contracts distinguish authority, ordering, canonical membership, independent
+reads, and ledger outcomes. Engine contracts explain requests, state ownership, bounded workers,
+partial success, cancellation, and cleanup. CLI/TUI contracts explain process/presentation policy
+without presenting local caches as write authority. Crate/example introductions teach entry paths;
+private field/type docs explain the representations those paths use.
 
 Engine restricted-visibility review now leaves two deliberate seams: the enumeration scan context
 and executor bridge, and embedding-client retry classification. Enumeration shares already reserved
@@ -311,36 +291,27 @@ opening/migration or fenced archive writes. Their source contracts and linked co
 these exceptions. The complete store test suite passes after the ownership moves, including
 integration and documentation scenarios.
 
-### 8. Tests
+### 8. Tests — reviewed
 
-Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the
-code, and weak assertions. Finish with straightforward named scenarios, construction fixtures whose
-setup is clear, appropriate nearby/separate suites, and focused rendering snapshots where they
-establish observable behavior. Retain genuine complete-catalog/property checks with their purpose
-explained. Do not rewrite every assertion simply to introduce rstest or insta.
+The local, protocol, process, and workflow suite dispositions below cover scenario branches, loops,
+assertion strength, construction fixtures, and code proximity. Larger suites have shallow sibling
+owners; small suites remain beside implementation. Parameterized cases select explicit data, not
+hidden workflow execution. Real before/after regressions remain linear when their phases depend on
+one another.
 
-The cross-crate loop inventory now leaves fixed SQLite sidecar cleanup in store, engine, and CLI
-integration fixtures, plus the core fixture-catalog traversal. Sidecar loops are resource cleanup,
-not scenario selection; inspected store/engine helpers document that exception. Catalog loops verify
-all dynamically discovered payloads and declared references, so fixed parameterized cases would
-weaken coverage. Catalog payload hygiene, reference integrity, and scenario invariant coverage now
-have separate named tests; all four catalog checks pass. TUI scope/action/cutoff assertions and task
-cleanup have received targeted review, and the complete TUI and GitHub suites pass. Store
-observation and search suites also use direct owner imports, documented setup effects, and stronger
-identity/version assertions. Ordering contracts have separate named scenarios. This evidence does
-not close the remaining suite-quality pass. CLI process fixtures and sync scenario imports have
-since received direct-owner cleanup. The sync suites also show real acquisition requests and
-operations directly at all 24 former helper call sites, eliminating positional family-selection
-flags and hidden workflow execution.
+Retained loops perform fixed SQLite sidecar cleanup or dynamically discovered fixture-catalog
+validation, not scenario selection. Construction helpers build payloads/clients or release
+resources; engine acquisition, archive mutation, and the tested operation remain visible at the
+assertion site. Complete catalog traversal would lose coverage if replaced with a fixed list of
+scenarios.
 
-The refreshed production function inventory has two bodies above fifty lines: store error-code
-mapping and repository page traversal. The error mapping is exhaustive constant classification,
-retained together for local review. Traversal keeps requested URL, cycle detection, provider page,
-application, cursor advance, and terminal detection in execution order; `ScanPersistence` already
-owns durable mutations. Further extraction would scatter the two live cursor facts across another
-owner without reducing policy. Its function contract now explains individual parent commits and
-which failures can leave durable work. These dispositions cover the two length candidates, not all
-match-arm, broad-signature, or documentation-depth candidates.
+Three production bodies remain above fifty lines: exhaustive store error-code classification,
+repository page traversal, and family reservation. Classification is one constant table; traversal
+keeps its two cursor facts and fetch/apply/advance order together while `ScanPersistence` owns
+writes; reservation keeps validation/allocation/comparison/commit visible while `ReservedGeneration`
+owns persistence. The last deliberately commits sequence allocation even when its proposal loses.
+The inventory also reports `documents/test_detail.rs::sample_detail`; it is a cfg-test construction
+fixture, not application execution. These are explained exceptions, not unresolved length findings.
 
 ### Remaining engine match-arm dispositions
 
@@ -400,8 +371,8 @@ Every remaining store arm in the refreshed multiline inventory has a local dispo
 - Run failures optionally call the named repository-row lookup before inserting the scoped failure.
   Keep the optional identity lookup at the transaction owner; no additional effect is hidden there.
 
-This closes the inspected store match-arm findings. Broad signatures, item contract depth, and test
-scenario adequacy remain separate acceptance items.
+This closes the inspected store match-arm findings. The signature and scenario dispositions follow
+below.
 
 ### CLI, TUI, and GitHub match-arm dispositions
 
@@ -442,8 +413,8 @@ close the independent broad-signature, documentation-depth, or full test-quality
 - The conservative syntax inventory also flags `ProviderData::insert` because it counts `self`. Its
   two actual inputs are a field name and JSON value; retain the normal map operation.
 
-This disposes of the core broad-signature candidates. The remaining crates and documentation-depth
-review still require their own evidence.
+This disposes of the core broad-signature candidates. Documentation-depth review still require their
+own evidence.
 
 ### Refresh embedding ownership and signatures
 
@@ -457,7 +428,7 @@ in a second context would duplicate the private execution owner without reducing
 coordinator's `refresh` entry likewise accepts independently prepared services and a validated
 request rather than inventing an application-wide context. Private execution fields now distinguish
 request selection from deduplicated order, sync-only progress, stage failures, and document
-failures. These dispositions cover those two entry signatures, not all refresh or engine signatures.
+failures. The other engine signature dispositions follow below.
 
 ### CLI cluster dispatch signature review
 
@@ -488,7 +459,7 @@ Credential tests use direct environment values, avoiding process-global mutation
 remain Unix-specific direct invocations with explicit timeout/cancellation; they establish returned
 categories, not descendant cleanup or provider authentication. Portable variable spelling now uses
 three named rstest cases instead of one assertion bundle. This disposes of the inspected credential,
-root-renderer, and progress-start signatures; other CLI candidates remain open.
+root-renderer, and progress-start signatures; the other CLI dispositions follow below.
 
 ### CLI local decision execution
 
@@ -599,7 +570,7 @@ Ordering tests have a nearby shallow sibling file with independent source, equiv
 missing-clock, malformed-clock, acquisition-priority, legacy-fallback, and signed-key cases. The
 malformed pair asserts the typed error and both preserved spellings instead of display wording.
 Construction helpers are documented and perform no archive work. All ten ordering-filtered cases
-pass; broader store signature and documentation acceptance remain open.
+pass; subsequent store dispositions complete the signature review.
 
 ### Store coverage and ledger contracts
 
@@ -638,7 +609,7 @@ index/count/hash/vector in `EmbeddingChunkInput`, with authorization and persist
 Their expanded operation contracts distinguish partial retry sets from semantic complete sets,
 stored-document identity from source-family freshness, and per-chunk commit from whole-acquisition
 success. These dispositions cover the inspected scan, lease, document, and public vector signatures;
-remaining SQL adapter and engine inventory reconciliation is separate.
+the subsequent adapter and engine dispositions complete that inventory.
 
 ### Store generation adapter contracts
 
@@ -727,7 +698,7 @@ Local decision functions retain archive, cluster ID, member selector, and option
 caller choices. `ClusterMemberAction` already couples exclusion with its reason, avoiding behavioral
 flags; its match arms only delegate to the corresponding fenced store method. Store decision owners
 perform relational validation and mutation. This closes the inspected clustering broad-signature
-candidates; sync and remaining cross-crate acceptance are still separate.
+candidates; the sync dispositions follow below.
 
 ### Engine sync attribution review
 
@@ -755,7 +726,7 @@ checkpoint authority is documented together with their provider filter.
 The root is 162 lines, coordinator 194, and scope approximately 150, without deeper folders or
 additional workflow state. This closes the identified sync root layout finding. The split passes
 engine all-target Clippy and all seventeen focused workflow cases after the final scope-declaration
-change. Final workspace/private Rustdoc acceptance remains open.
+change. Strict workspace/private Rustdoc also passes on the final-import source.
 
 ### Engine enumeration and remaining signature dispositions
 
@@ -779,7 +750,28 @@ would unnecessarily expose transport configuration. Scoring and bounded merging 
 query/page, sort, limit, and cancellation facts; `SemanticRanking` already owns repeated workflow
 ordering and accumulation. Rendering's attributed-body helper retains author, time, body, and output
 buffer as a small pure formatting operation. The remaining broad signatures do not conceal an
-additional repeated owner. Final contract-quality and test acceptance reconciliation remains open.
+additional repeated owner. The final checklist records whole-workspace acceptance separately.
+
+### Final store read and import dispositions
+
+The final broad-signature read pass retains `EmbeddingCandidates::page` with independent hydrated
+summaries, decoded chunk groups, and the original raw-candidate limit. That owner already carries
+cursor order. `Archive::thread_page` similarly receives query policy, selected rows, and separately
+read coverage; another result bag would conceal their independent read phases. Repository lookup
+retains checked host and current owner/name as display-selector facts, not a stable archive ID.
+Timeline projection accepts its independently selected parent and child families without inferring
+completeness. Failure resolution already takes its named scope plus separate fence and action time.
+
+These read/ledger contracts describe snapshot limits, cursor advancement, zero-row mutations, and
+caller completion obligations. Generation, family, ordering, coverage, and scan adapters have their
+own preceding dispositions. Private SQL keys and bound columns remain linear at their actual owner.
+
+The remaining store embedding reader now imports `DocumentRecipe` directly from core; core identity
+leaves import sibling checked types from their defining modules. Named parent imports that remain
+refer to values actually defined there, direct sibling modules, or intentionally primary public API
+types. Test imports name their tested owner or explicit construction/resource fixtures. No wildcard
+prelude remains. The embedding module introduction distinguishes one chunk declaration, accepted
+write identity, partial retry reads, and whole-set search reads.
 
 ### Offline CLI scenario locality
 
@@ -823,7 +815,7 @@ an explicit empty archive fixture and a truthful zero-work name. Its lease-confl
 visible current-clock construction because the competing process checks expiry itself. Process help
 now reflects the selected TUI feature, the noninteractive TUI case is feature-gated, and version
 output matches exact package metadata. This closes the inspected CLI process-scenario quality
-findings; CLI unit suites and the remaining cross-crate suite review are separate work.
+findings; combined CLI unit evidence follows below.
 
 ### CLI configuration and parsing unit scenarios
 
@@ -837,7 +829,8 @@ Retain coordinated global-option and explicit-filter assertions together: each i
 value and its complete conversion, without running another workflow. Sync/refresh parsing cases
 retain a local `let`/`else` variant check because the test must establish the selected enum before
 inspecting its payload; this is a typed assertion rather than scenario control flow. This review
-covers configuration, global parsing, and shared filters; other CLI unit owners remain open.
+covers configuration, global parsing, and shared filters; the combined CLI disposition follows
+below.
 
 ### Prepared acquisition unit scenarios
 
@@ -852,7 +845,7 @@ Refresh cases retain coherent request preparation assertions and now distinguish
 order from engine execution order. Typed cause preservation checks the exact `InvalidSyncScope`
 variant rather than any engine error plus display wording. Sync conversion cases document empty
 all-repository scope and independent family flags. This disposes of the inspected embedding,
-refresh, and sync preparation suite findings, not every CLI unit or cross-crate suite.
+refresh, and sync preparation suite findings; the combined CLI disposition follows below.
 
 ### CLI embedding and refresh report suites
 
@@ -866,7 +859,7 @@ stage status; the fixture does not infer outcome policy from diagnostics.
 Refresh summary tests keep whole rendered strings because ordering, omission, counts, and suffixes
 are the observable contract of one projection. Their module now distinguishes report-selected order
 from engine scheduling and remaining work from missing stage details. These dispositions close the
-inspected embedding and refresh-summary unit suites; other report owners remain open.
+inspected embedding and refresh-summary unit suites; the combined report disposition follows below.
 
 ### Provider setup cause assertions
 
@@ -887,8 +880,8 @@ as failure serialization already did. Progress docs distinguish empty-channel li
 buffered-event rendering. Cluster build retains its pure parsed-value fixture below callers.
 
 Together with the preceding scenario and assertion fixes, this closes the inspected existing CLI
-unit-suite quality findings. It does not close cross-crate test review, the CLI signature inventory,
-or production documentation-depth acceptance. New tests remain subject to the linked conventions.
+unit-suite quality findings. The separate signature and documentation dispositions identify their
+reviewed contracts. New tests remain subject to the linked conventions.
 
 ### Core identity scenario locality
 
@@ -898,7 +891,7 @@ rejection, full SHA normalization, repository JSON round-trip, and host deserial
 independent cases instead of one broad assertion bundle. The round-trip consumes its encoded value
 without an unnecessary clone. JSON rejection checks data classification and identity-validation
 wording; it does not claim that serde preserves the original typed cause. Imports name the defining
-identity module. Other core suites remain under review.
+identity module. The combined core suite disposition follows below.
 
 ### Core timestamp boundary scenarios
 
@@ -907,7 +900,7 @@ Parsing compares the typed timestamp error; JSON rejection checks serde's data c
 the validation message, without claiming preservation of a typed cause. The offset-equivalence
 round-trip stays together because its assertions describe one instant's normalized representation.
 Archive range and precision retain named boundary cases with fixed times rather than clock fixtures.
-Other core suites remain under review.
+The combined core suite disposition follows below.
 
 ### Core and engine local-suite dispositions
 
@@ -929,8 +922,8 @@ Graph title/kind thresholds have their own shallow suite, including high-confide
 acceptance without title overlap. Reference membership is explicit. Proposal cases supply retained
 edges directly, while scheduler and cluster lease tests inspect real resource cleanup and error
 precedence. Sync/refresh accounting and recorded selection use direct named values and transitions.
-Cosine tests distinguish exact axis results from tolerance-based arithmetic. These dispositions do
-not close workflow integration review.
+Cosine tests distinguish exact axis results from tolerance-based arithmetic. Workflow integration
+evidence follows below.
 
 ### Engine embedding-client suite dispositions
 
@@ -1008,9 +1001,8 @@ client construction performs no archive operations. Scenario files are 170–180
 is 79 lines. All 17 sync integration cases pass.
 
 The identified engine local, protocol, and workflow test findings now have concrete fixed/retained
-dispositions. These scoped results do not establish the final cross-crate acceptance gates.
-Remaining test acceptance covers store observation assertions and reconciliation of the broader test
-inventory; production documentation/API acceptance remains independent.
+dispositions. These scoped results do not establish the final cross-crate acceptance gates. Store
+observation assertion dispositions follow below; final-tree acceptance remains separate.
 
 ### Store lifecycle and cluster-suite dispositions
 
@@ -1041,10 +1033,8 @@ retained membership, and read-only audit events. Its construction helpers supply
 all fenced mutations and cleanup remain visible. Splitting this coherent before/after regression
 would duplicate its transitions without improving understanding of restoration.
 
-Remaining test-quality acceptance covers store observation assertions and cross-crate
-reconciliation. Completed local, lifecycle, cluster, search, and engine workflow findings have
-dispositions here and are removed from the remaining inventory. Broad API/convention and production
-documentation-depth acceptance remain independent.
+Local, lifecycle, cluster, search, and engine workflow findings have fixed or retained dispositions.
+Observation assertion evidence follows below; final-tree acceptance is recorded in the checklist.
 
 ### Store observation and search-suite dispositions
 
@@ -1072,8 +1062,8 @@ complete-empty publication records zero members at the winning sequence. Review-
 different old and replacement heads, proving both retained old context and rejected new context.
 Snapshot head checks also include a different-head negative control, with explicit pull request
 parents. All 16 observation integration tests pass. Parent integrity and high-water assertions now
-compare full retained discussions and exact coverage records. Cross-crate reconciliation and final
-gates remain open.
+compare full retained discussions and exact coverage records. Final-tree acceptance remains
+separate.
 
 Search integration has shallow pagination, filtering, scope coverage, status counts, read-only
 preservation, repository lookup, query validation, detail, FTS, and migration owners. Fixtures build
@@ -1087,7 +1077,7 @@ with queries separated from assertions; its name no longer implies a rollback te
 retains visible linear schema teardown because that setup explains the backfill boundary, replaces
 eight repeated bookkeeping deletes with one bounded statement, and reports the controlled fixture's
 historical-schema limits. These inspected search cases have concrete dispositions; observation
-assertion acceptance and final cross-crate reconciliation remain open.
+assertion evidence follows above; final-tree acceptance remains separate.
 
 ### Acceptance pass and stopping rules
 

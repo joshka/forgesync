@@ -3,9 +3,10 @@
 ## Current position
 
 The selected Forgesync implementation is in place. The maintainability cleanup remains
-**in progress**: six workflow/presentation batches are implemented, while the cross-crate API,
-documentation, and test acceptance review is not yet closed. A passing selected suite or a complete
-comment inventory does not establish completion of that review.
+**in progress**. All eight implementation/review batches have fixed or retained dispositions except
+one rendering helper that still takes a behavioral focus boolean and two private selection variants
+that need explicit contracts. Workspace acceptance is running on the current source and must be
+refreshed after these final edits.
 
 This file describes current status. The [source-shape audit](source-shape-audit.md) records review
 findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
@@ -14,96 +15,35 @@ current instructions.
 
 ## Latest changes and evidence
 
-The unused seven-argument scoped enumeration API is removed. Public discovery now prepares its
-all-state scan directly; fenced sync continues through its existing private reserved-context
-executor. Both enumeration integration cases and engine all-target Clippy pass. The audit now
-includes retained refresh, retry, response-validation, and scoring signature decisions.
+Sync API, run coordination, and shared acquisition state now have shallow sibling owners. The root
+is 162 lines; collectors import state from its defining module. Failure recording belongs to the
+thread scope, progress publication to the run context, and current job totals to the work summary.
+All seventeen sync integration cases and engine Clippy pass after these changes.
 
-Sync failure recording now belongs to the selected thread scope. Progress publication belongs to the
-run context and derives current job totals from the work summary. All seventeen focused workflow
-cases and engine all-target Clippy pass. Sync API definitions, private acquisition state, and run
-coordination now have three shallow sibling owners, with direct defining-module imports and named
-scope declarations. The root is 162 lines; the split passes Clippy and all seventeen focused
-workflow cases after its final declaration change.
+Public discovery no longer exposes an unused seven-argument scoped API. Fenced sync keeps its
+private reserved-context executor. Both enumeration cases and engine Clippy pass. Chunk reuse
+derives count from selected inputs and keeps unmatched chunks directly; eleven local cases, durable
+retry, and engine Clippy pass.
 
-Clustering contract review now documents deterministic grouping preconditions, retained edges,
-worker permit lifetime, and cancellation separately from the writer lease. The audit records the
-existing snapshot/evidence/projection owners and retained signature choices. These are comment-only
-changes; strict Rustdoc will run with final workspace acceptance.
+Store coverage derives indexed coordinates from typed state. Generation contracts distinguish
+membership removal from local decision transfer, and SQL binding chains separate conversions,
+execution, and missing-row checks. All eighty store cases and store Clippy pass. Child reservation,
+provisional page, and terminal declarations retain separate ordering/completeness meanings.
 
-Chunk reuse now takes its count from each selected input and retains unmatched chunks directly. New
-linear cases isolate count, position, hash, and dimension compatibility. All eleven chunk unit
-cases, durable embedding retry, and engine all-target Clippy pass. Retrieval and embedding signature
-dispositions are recorded in the source-shape audit.
-
-Family application/reuse and local cluster decisions now keep long SQL receivers separate from their
-binding chains. Generation loading separates database execution from missing-row validation. Nightly
-formatting, all 80 store unit/integration/documentation cases, and all-target store Clippy pass
-after these changes.
-
-Generation row adapters now explain stable identity, complete-only removal, local decision
-retention, and transaction rollback. `remove_other_memberships` replaces a misleading movement name:
-it removes membership in other clusters without transferring decisions. Cluster unit and
-generation/restoration integration cases and store all-target Clippy pass after the rename.
-
-Scan-start and vector archive methods now explain reserved versus allocated order, cursor origin
-validation, partial chunk reads, exact service identity, and independent chunk commits. The audit
-records retained scan/lease/document/vector signatures and their existing owners. These comment-only
-changes pass nightly formatting; strict documentation validation will run with the final gates.
-
-Coverage persistence now derives acquisition time and sequence from the typed state rather than
-duplicate arguments. Parent evidence updates separate sequence conversion from SQL execution. All 16
-observation integration cases pass; store all-target Clippy passes. Run/job and audit write
-contracts now explain caller validation, transaction ownership, and ledger/coverage limits; their
-focused strict Rustdoc check passes. Ordering scenarios have a shallow sibling owner and typed error
-assertions; all ten ordering-filtered cases and store Clippy pass for that slice.
-
-Terminal dispatch now uses `QueryDispatch` for one session's borrowed scheduling resources. Its
-methods receive action and app rather than seven positional arguments. All 75 TUI unit cases, its
-documentation example, all-target Clippy, and strict private-item Rustdoc pass. The workspace
-results below cover the preceding child-input API tree; they must be refreshed after this executable
-change.
-
-Child acquisition now has three explicit declarations in `forgesync_store::families`:
-
-- `ChildFamilyRequest` names reservation scope and independent source/acquisition clocks.
-- `ChildFamilyPage<T>` names one provisional page within an accepted generation.
-- `ChildFamilyObservation` declares terminal completeness and optional review-head context.
-
-Reservation and staging accept their declarations plus separate writer authorization when fenced.
-Engine collectors and store scenarios construct named fields at each boundary. The archive retains
-ordering, replay validation, transaction ownership, and canonical-membership publication.
-
-The latest focused checks pass 26 store observation/search cases, 17 engine sync cases, and three
-store documentation examples after reservation changes. The page-input change passes the same 26
-store cases and store/engine all-target Clippy; all local workspace tests, Clippy, the minimal CLI
-build, and strict public/private Rustdoc pass on that tree. Nightly formatting and changed Markdown
-checks pass.
-
-Parent observation cases compare the entire retained discussion after replay, tied conflict, and
-malformed-clock rejection. High-water and child publication cases compare exact coverage values.
-Review-thread rollback uses distinct old and replacement heads, with a negative control that detects
-leaked head context. Engine integration scenarios expose acquisition and archive operations
-directly; embedding retry, hybrid ranking, and keyword fallback have independent owners and precise
-evidence.
-
-Strict workspace Rustdoc and the minimal CLI build pass on the child-input API tree. Rustdoc
-includes private items and denies warnings, missing public docs, and broken links. All 508 workspace
-test cases and workspace Clippy also pass on that tree. Provider helper docs now explain
-nested-connection completeness, selected head context, and initial URL scope; focused strict
-provider Rustdoc passes without executable changes. The refreshed syntax inventory finds no missing
-handwritten production function comments or module introductions below ten lines; these checks
-establish presence, not documentation quality.
+The final import pass removes parent-prelude borrowing in store embedding reads and core identity
+leaves. Embedding docs distinguish one accepted chunk from complete retrieval evidence. Nightly
+formatting, workspace Clippy, the minimal CLI build, and strict public/private Rustdoc pass on this
+source tree; workspace tests are still running. These are acceptance candidates until the remaining
+rendering flag is replaced and applicable gates are refreshed.
 
 ## Bounded remaining work
 
-1. Close the existing cross-crate review inventory. Review unresolved signatures, item/module
-   contracts, dispatch, imports, visibility, and scenario clarity. Fix a finding or record a
-   concrete reason to retain it; do not turn inspection thresholds into mandatory abstractions.
-1. Reconcile the audit, module map, guidance, and completion checklist with the actual code. Remove
-   completed findings from the remaining inventory. This status consolidation removes contradictory
-   historical next-step notes; broader reconciliation is still open.
-1. Run all applicable local gates on the final tree and fix failures attributable to the cleanup.
+1. Replace `pane_block`'s focus boolean with an explicit presentation choice after the running
+   workspace tests finish. Document the two private `ThreadSelection` outcomes and four existing
+   construction helpers in TUI rendering/provider transport tests. Preserve the current
+   active/inactive border colors and observation selection behavior.
+1. Finish reconciling superseded scoped next-step notes in the audit and update the final checklist.
+1. Refresh all applicable local gates after that last source edit and record their terminal results.
 
 Stop when each existing requirement has evidence or an explained exception and local gates pass. New
 aesthetic opportunities do not expand this cleanup. Preserve source/acquisition ordering, partial
@@ -114,17 +54,16 @@ membership, checkpoints, cancellation, fencing, and error isolation throughout t
 Evidence must identify the tree and scope it actually checked. Current focused evidence does not
 replace a complete workspace run after the final source edit.
 
-| Gate                            | Current state                                                    |
-| ------------------------------- | ---------------------------------------------------------------- |
-| Nightly formatting              | Pass on current page-input tree                                  |
-| Store/engine all-target Clippy  | Pass on current page-input tree                                  |
-| Workspace tests                 | Pass on page-input tree                                          |
-| Minimal CLI build               | Pass on current page-input tree                                  |
-| Workspace Clippy                | Pass on page-input tree                                          |
-| Strict public/private Rustdoc   | Pass on current page-input tree                                  |
-| rumdl and changed Markdown lint | Pass for latest edited documentation; rerun after reconciliation |
-| Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit              |
-| Hosted native matrix            | Not run as part of this cleanup                                  |
+| Gate                            | Current state                                               |
+| ------------------------------- | ----------------------------------------------------------- |
+| Nightly formatting              | Pass on final-import source; refresh after rendering change |
+| Workspace Clippy                | Pass on final-import source; refresh after rendering change |
+| Workspace tests                 | Running on final-import source; not yet acceptance evidence |
+| Minimal CLI build               | Pass on final-import source                                 |
+| Strict public/private Rustdoc   | Pass on final-import source; refresh after rendering change |
+| rumdl and changed Markdown lint | Rerun after final record reconciliation                     |
+| Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit         |
+| Hosted native matrix            | Separate release evidence; not run in this cleanup          |
 
 The final local gates are:
 
