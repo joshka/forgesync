@@ -7,6 +7,8 @@
 //! Scope rejection occurs at parsing. The lease case creates a real current-time lease before
 //! invoking a second process, then releases it explicitly during cleanup. Its wall-clock setup is
 //! necessary because the competing process validates expiry using its own clock.
+//! A Unix helper fixture returns deliberately malformed, credential-free output. Sync must report
+//! its typed setup error before any provider request, proving subprocess I/O on the CLI runtime.
 //! Engine/provider/store suites cover pagination, partial failures, and durable observation rules.
 //! These process cases own selection, reported counts, and the visible writer-conflict diagnostic.
 
@@ -92,5 +94,45 @@ async fn another_process_cannot_start_a_mutating_sync_while_the_archive_is_lease
         .await
         .expect("release archive lease");
     archive.close().await;
+    remove_archive(&path);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn sync_runs_credential_helper_on_the_process_runtime_without_provider_calls() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    archive.close().await;
+    let helper_directory = path.with_extension("helper");
+    std::fs::create_dir(&helper_directory).expect("create isolated helper directory");
+    let helper = helper_directory.join("gh");
+    std::fs::write(&helper, "#!/bin/sh\nprintf 'invalid token'\n").expect("write harmless helper");
+    std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o700))
+        .expect("make helper executable");
+
+    let output = forgesync()
+        .env_remove("GITHUB_TOKEN")
+        .env("PATH", &helper_directory)
+        .args(["sync", "ratatui/ratatui", "--archive"])
+        .arg(&path)
+        .arg("--json")
+        .timeout(Duration::from_secs(30))
+        .output()
+        .expect("run sync with isolated credential helper");
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "stderr: {} stdout: {}",
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let error: serde_json::Value = serde_json::from_slice(&output.stdout).expect("error JSON");
+    assert_eq!(error["error"]["code"], "github_credential_invalid");
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("panicked"));
+
+    std::fs::remove_dir_all(helper_directory).expect("remove helper fixture");
     remove_archive(&path);
 }

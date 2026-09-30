@@ -117,6 +117,9 @@ Review changes to parsing, traits, MSRV, and feature resolution separately from 
 
 ## Tests
 
+- Exercise process-owned runtime capabilities with the production runtime builder. Async test
+  runtimes enable drivers automatically and cannot prove that the executable enables signal,
+  subprocess, or network I/O support.
 - Write test bodies as setup, one operation, and direct expectations. Name the behavior so the
   failure identifies the contract.
 - Keep focused unit tests beside the implementation. Move a large local test module into a nearby

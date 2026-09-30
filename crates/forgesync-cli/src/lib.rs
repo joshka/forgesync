@@ -93,15 +93,23 @@ where
         Err(error) => return render_configuration_error(OutputMode::from(args.json), error),
     };
 
-    let runtime = match tokio::runtime::Builder::new_multi_thread()
-        .enable_time()
-        .build()
-    {
+    let runtime = match command_runtime() {
         Ok(runtime) => runtime,
         Err(error) => return render_runtime_error(OutputMode::from(args.json), error),
     };
     runtime.block_on(args.dispatch(config))
 }
+
+/// Builds the process runtime for timers, provider I/O, credential subprocesses, and Ctrl-C.
+fn command_runtime() -> std::io::Result<tokio::runtime::Runtime> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+}
+
+#[cfg(test)]
+#[path = "runtime_tests.rs"]
+mod runtime_tests;
 
 /// Presents rejected configuration before any command archive or provider operation begins.
 ///
