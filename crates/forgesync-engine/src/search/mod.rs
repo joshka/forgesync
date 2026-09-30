@@ -5,16 +5,15 @@
 //! combined evidence. `search_threads` and `retrieve_threads` are the engine entry points.
 //!
 //! `keyword` supplies text candidates, `semantic` scores compatible vectors, and `ranking`
-//! combines and pages results. Search reads archived discussions and stored document vectors.
-//! Keyword search stays offline; semantic and hybrid search send query text to the configured
-//! embedding service. They never refresh source discussions or persist new document vectors.
-//! Mode and fallback policy remain explicit so callers can explain availability and network use.
+//! pages results and classifies fallback, while `fusion` owns combined source ranks and provenance.
+//! Search reads archived discussions and stored document vectors. Keyword search stays offline;
+//! semantic and hybrid search send query text to the configured embedding service. They never
+//! refresh source discussions or persist new document vectors. Mode and fallback policy remain
+//! explicit so callers can explain availability and network use.
 
-use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::identity::ThreadId;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadQuery, ThreadSummary};
@@ -24,7 +23,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
-use crate::exact_search::{ScoredThread, stable_thread_id_cmp};
 use crate::inspect::{
     ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
 };
@@ -32,7 +30,6 @@ use crate::inspect::{
 const MAX_SEARCH_WINDOW: usize = 10_000;
 const EMBEDDING_READ_PAGE: u32 = 128;
 const EXACT_WORKER_LIMIT: usize = 2;
-const RRF_CONSTANT: f64 = 60.0;
 
 static EXACT_SEARCH_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
@@ -357,18 +354,20 @@ struct ResultPageRequest<'a> {
     coverage: Vec<FamilyCoverageSummary>,
 }
 
+mod fusion;
 mod keyword;
 mod ranking;
 mod semantic;
 
+use fusion::fuse_hybrid;
 use keyword::{keyword_candidates, keyword_expression, keyword_fallback_page, keyword_result_page};
-use ranking::{fallback_allowed, fuse_hybrid, result_page};
+use ranking::{fallback_allowed, result_page};
 use semantic::{semantic_candidates, semantic_result_page};
 
 #[cfg(test)]
 mod tests {
     use super::keyword::keyword_expression;
-    use super::ranking::reciprocal_rank_score;
+    use crate::search::fusion::reciprocal_rank_score;
 
     #[test]
     fn ordinary_text_becomes_quoted_terms_instead_of_fts_syntax() {

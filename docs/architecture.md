@@ -222,3 +222,9 @@ coverage policy, seen cluster rows, and membership accounting. It orders cluster
 complete-scope retirement, and run finalization. `generation_rows` keeps the underlying SQL bind
 maps linear. `Archive::save_clusters_fenced` retains transaction creation, fencing, and the single
 commit; helpers never commit. Result conversion follows commit under the existing outcome contract.
+
+Search `fusion::HybridRanking` merges candidates by durable discussion identity, retaining the first
+summary and each source's rank evidence. `SemanticEvidence` binds semantic rank to its cosine
+explanation. `FusionEntry` projects reciprocal-rank scores and keyword-then-semantic provenance;
+explicit ordering adds the requested sort and stable identity tie break before truncation.
+Pagination and fallback classification remain in `ranking`, separate from source fusion.

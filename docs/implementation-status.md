@@ -1547,3 +1547,16 @@ engine generation contracts, the CLI build without default features, strict publ
 nightly formatting, workspace rumdl, and changed-page Markdown linting. The first two bounded
 implementation batches are implemented. Six implementation batches and final acceptance remain;
 search ranking/retrieval is next.
+
+## Continued maintenance: hybrid search rank fusion
+
+Hybrid fusion now has a private module and local owners for the identity union and per-discussion
+evidence. Semantic rank and cosine score are one value instead of independently optional fields.
+Source merging, hit projection, requested ordering, stable ties, and truncation are named operations
+rather than one long function with an inline type and substantial projection closure.
+
+Ranking imports its actual result/error owners; fusion imports domain identity, summary, and
+ordering from their defining modules. The rank smoothing constant now lives beside its formula with
+its meaning documented. Keyword-first summary precedence, last duplicate source-rank behavior,
+source provenance order, score formula, stable ordering, and candidate truncation remain unchanged.
+Retrieval orchestration remains open in the search batch.

@@ -177,7 +177,11 @@ Review CLI `command/cluster/build`, engine `clustering/build` and `refresh/clust
 owners and the writer lease/transaction boundaries remain explicit. Preserve deterministic proposal
 ordering, decision application, and existing generation fencing.
 
-### 3. Search
+### 3. Search — in progress
+
+Implemented: hybrid fusion has named identity-union and per-discussion evidence owners, coupled
+semantic evidence, explicit projection/order operations, and local formula documentation. Ranked
+retrieval orchestration remains the next search surface.
 
 Review engine `search/mod.rs` retrieval orchestration and `search/ranking.rs` hybrid fusion. Finish
 when traversal, filtering, fallback, and score policy can be understood independently without
