@@ -1,11 +1,21 @@
-//! # Run explicit local cluster decisions
+//! # Record explicit local cluster decisions
 //!
-//! Dismiss, restore, exclude, include, and canonical-selection handlers parse the user's target
-//! and reason, invoke engine decision operations, and present the result. Each action changes
-//! local triage state for a stored cluster.
+//! Dismiss, restore, exclude, include, and canonical-selection handlers adapt parsed CLI targets
+//! into engine decision operations. Their cluster ID refers to an existing archive record; member
+//! selectors are resolved against local data by the engine. Optional reasons become an empty
+//! reason when omitted. These handlers neither acquire source evidence nor construct candidates.
 //!
-//! These handlers do not construct cluster candidates. Their input is an existing cluster
-//! identity, and their output should make the recorded choice clear in both human and JSON modes.
+//! Each operation opens the existing archive for writes, invokes its named engine action, and
+//! closes the handle before presenting the result. The engine and store own target validation,
+//! write authority, transactions, and durable decision semantics. No handler writes to GitHub.
+//!
+//! The shared rendering helper awaits the operation and emits a small decision acknowledgment
+//! containing the cluster ID and action name. It does not reload cluster detail or make an
+//! optimistic state change. Store failures keep store diagnostic codes; other engine failures keep
+//! engine codes. A rendering failure after a successful operation does not undo its durable write.
+//!
+//! Keeping these adapters separate from generation makes maintainer authorship explicit: analysis
+//! proposes groups, while these entry points record the user's choice about a stored group.
 
 use std::path::Path;
 use std::process::ExitCode;

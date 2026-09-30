@@ -1,10 +1,18 @@
 //! # List and show stored clusters
 //!
-//! Read handlers open the archive and ask the engine for persisted cluster pages or detail. They
-//! format the projection without rebuilding analysis or changing decisions.
+//! [`run_list`] translates CLI filters into an engine cluster-list request. [`run_show`] requests
+//! one persisted cluster by its archive-local ID. A list page is a navigation summary; detail
+//! exposes members and their current local triage state. Neither operation rebuilds candidates,
+//! changes decisions, prepares credentials, or contacts a provider.
 //!
-//! List and show are separate entry points because a page is a navigation summary while detail
-//! includes members and current triage state. Both should remain usable offline.
+//! Both handlers open an existing archive read-only, obtain an engine projection, and close the
+//! handle before rendering either data or a typed failure. Opening does not create or migrate the
+//! database. The engine and store own selection and identity checks; these handlers own only the
+//! argument-to-request boundary and process presentation.
+//!
+//! Retired-cluster inclusion is an explicit list choice. Persisted results describe the stored
+//! generation and decisions, rather than certifying that source evidence or embeddings are current.
+//! Human layouts come from the cluster report module, while JSON uses the shared output envelope.
 
 use std::path::Path;
 use std::process::ExitCode;

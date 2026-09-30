@@ -1,12 +1,23 @@
 //! # Cluster commands and their arguments
 //!
-//! `ClusterCommand` selects build, list, show, and local triage actions. Build and list argument
-//! types carry the user scope and output choices before they become engine requests.
+//! [`ClusterCommand`] selects derived analysis, stored-result inspection, or an explicit local
+//! maintainer decision. [`ClusterBuildArgs`] carries analysis scope and thresholds;
+//! [`ClusterListArgs`] carries repository and pagination choices. Clap validates argument syntax
+//! and selected numeric ranges; the engine validates the resulting operation against archive data.
 //!
-//! `build` runs derived analysis, `read` presents stored generations, and `decisions` records
-//! maintainer actions. These are separate because proposing a cluster and accepting or dismissing
-//! it have different authorship and persistence. The store records decisions locally; no command
-//! writes back to GitHub.
+//! The private `build` module adapts settings into an engine generation request. It uses stored
+//! discussion documents and vectors rather than asking an embedding service to generate vectors.
+//! The `read` module presents persisted pages and detail without rebuilding analysis. The
+//! `decisions` module records dismissal, restoration, membership, and canonical choices.
+//!
+//! Generated proposals and maintainer decisions have different authorship and persistence rules.
+//! The engine and store own those rules, including how subsequent generations retain local choices;
+//! this command tree owns argument adaptation, cancellation setup, output selection, and shell
+//! results. All these operations stay local and none writes back to GitHub.
+//!
+//! Dispatch keeps each operation visible by name. Build alone consumes embedding configuration
+//! and the document recipe; inspection and decisions operate on existing archive records. The
+//! report modules own human-readable layouts and decision output DTOs.
 
 use std::path::Path;
 use std::process::ExitCode;

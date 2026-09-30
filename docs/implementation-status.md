@@ -2543,3 +2543,15 @@ probes use temporary storage rather than changing durable archive data.
 
 Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
 pass for this documentation-only change.
+
+### Cluster command orientation
+
+Cluster command modules now distinguish generated proposals, stored-result inspection, and
+maintainer-authored decisions. Their introductions explain argument types, engine/store validation,
+archive access, cancellation setup, and report ownership. Decision docs describe acknowledgments
+rather than implying that commands reload detail, and explain that output failure does not undo a
+committed local action. Read docs scope persisted results to stored generation data rather than
+claiming current source evidence or embeddings.
+
+Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
+pass for this documentation-only change.
