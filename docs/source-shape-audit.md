@@ -645,6 +645,13 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Archive lifecycle scenarios now separate identity/access-mode reopening, healthy diagnostics with
+temporary probes, and no-op current-schema migration. Missing-archive open and migration each have
+their own direct noncreation assertion. Raw inspection and corruption pools document their test-only
+capabilities and disabled creation; the suite explains deliberate current-clock lease reporting and
+fixed SQL ledger facts. Remaining lifecycle file grouping and diagnostic fixture locality stay in
+the integration review rather than being treated as closed by this scenario split.
+
 Store's local scan-completion, summary accumulation, timeline ordering, member-role, and lease
 conversion suites now explain their checked-value boundaries and integration evidence limits. Their
 existing direct cases retain specific error variants and explicit inputs. Timeline inverse

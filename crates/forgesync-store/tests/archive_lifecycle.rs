@@ -3,6 +3,13 @@
 //! These cases cover explicit create, open, and migration behavior against an on-disk SQLite
 //! archive. Opening must not silently create or migrate. This suite tests user-visible lifecycle
 //! rules at the store boundary, including file and schema effects.
+//!
+//! Reopening, healthy diagnostics, and current-schema migration have independent scenarios.
+//! Invalid history is arranged through raw SQLite connections, then checked through real archive
+//! opening; inspection verifies that rejected opening leaves the damaged history unchanged.
+//! Fixed SQL facts supply failed/deferred work for diagnostic projections without running sync.
+//! The lease diagnostic uses current time because held-state reporting compares against the clock.
+//! Unique filenames isolate concurrent cases; cleanup removes closed databases and sidecars.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -12,10 +19,11 @@ use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
+/// Allocates distinct database filenames for concurrent cases within this process.
 static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 
 #[tokio::test]
-async fn create_open_status_migrate_and_doctor_use_explicit_lifecycle() {
+async fn reopening_preserves_archive_identity_and_access_mode() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let archive_id = archive.info().archive_id.clone();
@@ -36,6 +44,26 @@ async fn create_open_status_migrate_and_doctor_use_explicit_lifecycle() {
     assert_eq!(archive.info().archive_id, archive_id);
     assert_eq!(archive.info().schema_version, schema_version);
 
+    archive.close().await;
+
+    let archive = Archive::open_read_write(&path)
+        .await
+        .expect("open archive read-write");
+    assert!(!archive.is_read_only());
+    archive.close().await;
+
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn healthy_diagnostics_leave_no_persistent_probe_tables() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    archive.close().await;
+    let archive = Archive::open_read_only(&path)
+        .await
+        .expect("open read-only archive");
+
     let doctor = archive.doctor().await.expect("read archive diagnostics");
     assert!(doctor.healthy, "doctor report: {doctor:?}");
     assert_eq!(doctor.checks.len(), 4);
@@ -52,17 +80,6 @@ async fn create_open_status_migrate_and_doctor_use_explicit_lifecycle() {
     assert_eq!(before_status.diagnostics.work.deferred_jobs, 0);
     archive.close().await;
 
-    let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.previous_schema_version, schema_version);
-    assert_eq!(migration.schema_version, schema_version);
-    assert!(migration.applied_migrations.is_empty());
-
-    let archive = Archive::open_read_write(&path)
-        .await
-        .expect("open archive read-write");
-    assert!(!archive.is_read_only());
-    archive.close().await;
-
     let pool = read_only_pool(&path).await;
     let persisted_tables: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE '__forgesync_%'",
@@ -72,6 +89,21 @@ async fn create_open_status_migrate_and_doctor_use_explicit_lifecycle() {
     .expect("inspect tables");
     assert_eq!(persisted_tables, 0, "doctor probes must remain temporary");
     pool.close().await;
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn current_schema_migration_applies_no_changes() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let schema_version = archive.info().schema_version;
+    archive.close().await;
+
+    let migration = Archive::migrate(&path).await.expect("migrate archive");
+    assert_eq!(migration.previous_schema_version, schema_version);
+    assert_eq!(migration.schema_version, schema_version);
+    assert!(migration.applied_migrations.is_empty());
+
     remove_archive(&path);
 }
 
@@ -167,6 +199,13 @@ async fn opening_a_missing_archive_does_not_create_a_file() {
         Archive::open_read_only(&path).await,
         Err(StoreError::MissingArchive(_))
     ));
+    assert!(!path.exists());
+}
+
+#[tokio::test]
+async fn migrating_a_missing_archive_does_not_create_a_file() {
+    let path = temporary_archive_path();
+
     assert!(matches!(
         Archive::migrate(&path).await,
         Err(StoreError::MissingArchive(_))
@@ -272,6 +311,7 @@ async fn migration_checksum_mismatch_is_rejected() {
     remove_archive(&path);
 }
 
+/// Opens an existing database for raw inspection without creation or migration.
 async fn read_only_pool(path: &PathBuf) -> sqlx::SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)
@@ -286,6 +326,9 @@ async fn read_only_pool(path: &PathBuf) -> sqlx::SqlitePool {
         .expect("open read-only inspection pool")
 }
 
+/// Opens an existing database for explicit fixture corruption, bypassing archive validation.
+///
+/// Only tests use this pool to arrange invalid ledger states; creation remains disabled.
 async fn writable_pool(path: &PathBuf) -> sqlx::SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)
