@@ -6,7 +6,8 @@
 //! complete or partial.
 //!
 //! `query` owns filtered list SQL, `detail` assembles a thread, and `coverage` reads evidence
-//! state; `summary` aggregates family coverage and archive totals. These are projections over the
+//! state; `summary` aggregates family coverage and archive totals. `timeline` owns source-time
+//! event ordering and payload projection. These are projections over the
 //! archive, not provider fetches. Engine inspection and search can use them without opening a
 //! network client or understanding SQL row layouts.
 
@@ -16,16 +17,12 @@ use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread, ThreadKind,
 };
 use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
-use forgesync_core::identity::{
-    CommitSha, RepositoryId, ReviewThreadId, ThreadId, ThreadReference,
-};
+use forgesync_core::identity::{CommitSha, RepositoryId, ReviewThreadId, ThreadId};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 
-use crate::archive::{Archive, ArchiveInfo};
+use crate::archive::ArchiveInfo;
 use crate::diagnostics::ArchiveDiagnostics;
-use crate::error::StoreError;
 use crate::observations::StagedItem;
 
 /// Source-state filter for a local discussion query.
@@ -236,6 +233,7 @@ mod coverage;
 mod detail;
 mod query;
 mod summary;
+mod timeline;
 
 pub(crate) use coverage::{coverage_for_kind, load_thread_coverage};
 pub(crate) use query::{push_discussion_filters, push_repository_scope};

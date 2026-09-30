@@ -5,16 +5,24 @@
 //! and document building.
 //!
 //! This module translates rows and ordering into a coherent view. Consumers should use the
-//! projection rather than issue separate SQL reads that might disagree about canonical
-//! observations or omit an incomplete family.
+//! projection to retain selected membership, coverage, and the established timeline ordering.
+//! `timeline` owns event projection; this module owns row decoding and evidence assembly.
+//!
+//! These queries run as separate archive reads rather than a single frozen read transaction.
+//! Concurrent writers can advance evidence between reads. The result is an inspection view, not
+//! proof that every included family was acquired at the same time; its coverage remains explicit.
 
+use forgesync_core::content::{Comment, Discussion, Review, ReviewThread};
+use forgesync_core::identity::ThreadReference;
+use serde::de::DeserializeOwned;
 use sqlx::Row;
 
-use super::{
-    Archive, Comment, DeserializeOwned, Discussion, Review, ReviewThread, StagedItem, StoreError,
-    ThreadDetail, ThreadReference, ThreadSummary, ThreadTimelineEntry, ThreadTimelineEvent,
-    UtcTimestamp, coverage_for_kind, load_thread_coverage,
-};
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::observations::StagedItem;
+use crate::reads::coverage::{coverage_for_kind, load_thread_coverage};
+use crate::reads::timeline::thread_timeline;
+use crate::reads::{ThreadDetail, ThreadSummary};
 
 impl Archive {
     /// Returns current thread details and typed selected evidence for a resolved reference.
@@ -51,8 +59,7 @@ impl Archive {
             load_family_members(&self.reader, row_id, "reviews").await?;
         let review_threads: Vec<StagedItem<ReviewThread>> =
             load_family_members(&self.reader, row_id, "review_threads").await?;
-        let timeline =
-            build_thread_timeline(&summary.discussion, &comments, &reviews, &review_threads);
+        let timeline = thread_timeline(&summary.discussion, &comments, &reviews, &review_threads);
 
         Ok(ThreadDetail {
             summary,
@@ -62,117 +69,6 @@ impl Archive {
             review_threads,
             timeline,
         })
-    }
-}
-
-/// Combines selected family evidence into one stable discussion timeline.
-fn build_thread_timeline(
-    discussion: &Discussion,
-    comments: &[StagedItem<Comment>],
-    reviews: &[StagedItem<Review>],
-    review_threads: &[StagedItem<ReviewThread>],
-) -> Vec<ThreadTimelineEntry> {
-    let mut entries = vec![ThreadTimelineEntry {
-        occurred_at: Some(discussion.created_at),
-        event: ThreadTimelineEvent::ThreadCreated {
-            thread: discussion.id.clone(),
-            title: discussion.title.clone(),
-        },
-    }];
-    if let Some(closed_at) = discussion.closed_at {
-        entries.push(ThreadTimelineEntry {
-            occurred_at: Some(closed_at),
-            event: ThreadTimelineEvent::ThreadClosed {
-                thread: discussion.id.clone(),
-            },
-        });
-    }
-    entries.extend(comments.iter().map(|item| ThreadTimelineEntry {
-        occurred_at: Some(item.payload.created_at),
-        event: ThreadTimelineEvent::Comment {
-            comment: item.payload.clone(),
-        },
-    }));
-    entries.extend(reviews.iter().map(|item| ThreadTimelineEntry {
-        occurred_at: item.payload.submitted_at,
-        event: ThreadTimelineEvent::Review {
-            review: item.payload.clone(),
-        },
-    }));
-    for item in review_threads {
-        let review_thread = &item.payload;
-        let review_thread_id = review_thread.id.clone();
-        entries.push(ThreadTimelineEntry {
-            occurred_at: None,
-            event: ThreadTimelineEvent::ReviewThread {
-                id: review_thread_id.clone(),
-                head_sha: review_thread.head_sha.clone(),
-                is_resolved: review_thread.is_resolved,
-                is_outdated: review_thread.is_outdated,
-                path: review_thread.path.clone(),
-            },
-        });
-        entries.extend(
-            review_thread
-                .comments
-                .iter()
-                .map(|comment| ThreadTimelineEntry {
-                    occurred_at: Some(comment.created_at),
-                    event: ThreadTimelineEvent::ReviewThreadComment {
-                        review_thread_id: review_thread_id.clone(),
-                        head_sha: review_thread.head_sha.clone(),
-                        is_resolved: review_thread.is_resolved,
-                        is_outdated: review_thread.is_outdated,
-                        path: review_thread.path.clone(),
-                        comment: comment.clone(),
-                    },
-                }),
-        );
-    }
-    entries.sort_by(|left, right| {
-        compare_timeline_time(left.occurred_at, right.occurred_at)
-            .then_with(|| timeline_event_key(&left.event).cmp(&timeline_event_key(&right.event)))
-    });
-    entries
-}
-
-/// Orders timeline events by source time when available.
-fn compare_timeline_time(
-    left: Option<UtcTimestamp>,
-    right: Option<UtcTimestamp>,
-) -> std::cmp::Ordering {
-    match (left, right) {
-        (Some(left), Some(right)) => left.cmp(&right),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (None, None) => std::cmp::Ordering::Equal,
-    }
-}
-
-/// Breaks equal timeline timestamps with a stable event identity.
-fn timeline_event_key(event: &ThreadTimelineEvent) -> (u8, String) {
-    match event {
-        ThreadTimelineEvent::ThreadCreated { thread, .. }
-        | ThreadTimelineEvent::ThreadClosed { thread } => {
-            (0, thread.provider_id().as_str().to_owned())
-        }
-        ThreadTimelineEvent::Comment { comment } => {
-            (1, comment.id.provider_id().as_str().to_owned())
-        }
-        ThreadTimelineEvent::Review { review } => (2, review.id.provider_id().as_str().to_owned()),
-        ThreadTimelineEvent::ReviewThread { id, .. } => (3, id.provider_id().as_str().to_owned()),
-        ThreadTimelineEvent::ReviewThreadComment {
-            review_thread_id,
-            comment,
-            ..
-        } => (
-            4,
-            format!(
-                "{}:{}",
-                review_thread_id.provider_id().as_str(),
-                comment.id.provider_id().as_str()
-            ),
-        ),
     }
 }
 

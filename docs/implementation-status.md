@@ -1716,3 +1716,17 @@ open.
 Aggregate coverage final gates pass: all workspace tests/doctests, the CLI build without default
 features, strict public/private Rustdoc, workspace Clippy, formatting, rumdl, and changed-page
 Markdown linting.
+
+## Continued maintenance: discussion timeline projection
+
+Timeline projection now lives in `reads::timeline` rather than the archive detail assembler. Named
+entry constructors keep event payload and timestamp semantics together. Review-thread state remains
+undated; its comments retain source creation times. The coordinator appends selected evidence and
+applies a named comparator, preserving known-time-first ordering and stable event identity keys.
+
+Detail assembly imports actual dependency owners, and obsolete parent aliases are removed. Its
+existing integration case checks creation/comment timeline order with selected membership and
+coverage. Two nearby cases make dated/undated ordering explicit. Store inspection integration and
+workspace Clippy pass. Document-write workspace doctests encountered the intermediate timeline
+extraction during compilation; that temporary import error is corrected. Final validation runs
+against the corrected combined tree. Store-operation review remains open.
