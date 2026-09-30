@@ -6,13 +6,30 @@
 //!
 //! A stage status is an account of attempted work. It should not imply that unrequested stages
 //! ran, or that a successful earlier stage is undone by a later failure.
+//!
+//! `remaining_stages` projects selected noncomplete stages in sync/embedding/cluster order. It
+//! derives from optional stage records, not the report's existing remaining list. The coordinator
+//! assigns that list before calling `refresh_outcome`, which trusts it as its accounting input.
+//!
+//! Outcome units here are selected stages, not threads, documents, requests, or clusters. An
+//! empty remaining list yields complete; any interrupted remaining stage gives interruption
+//! precedence. Otherwise partial failure counts every remaining stage and separately reports the
+//! deferred subset. Those counts overlap; they must not be summed as disjoint work categories.
+//!
+//! Primary failure selection retains the earliest supplied failure while individual stages retain
+//! their own reports. Cancellation classification recognizes the workflow's operation-cancelled
+//! code; it does not inspect arbitrary message text. These helpers only project supplied records:
+//! no provider calls, ledger mutation, retry scheduling, or completeness validation occurs here.
 
-use super::{
-    EngineError, OperationOutcome, RefreshReport, RefreshStageFailure, RefreshStageKind,
-    RefreshStageStatus,
-};
+use forgesync_core::outcome::OperationOutcome;
 
-/// Converts an engine error into a safe, stable stage failure.
+use crate::error::EngineError;
+use crate::refresh::{RefreshReport, RefreshStageFailure, RefreshStageKind, RefreshStageStatus};
+
+/// Copies the engine classification and display summary into a stage diagnostic.
+///
+/// Relies on the typed engine error's safe display contract; this projection does not redact
+/// arbitrary text or retain the source chain. It does not determine stage status.
 pub fn stage_failure(error: &EngineError) -> RefreshStageFailure {
     RefreshStageFailure {
         code: error.code(),
@@ -67,6 +84,11 @@ pub fn remaining_stages(report: &RefreshReport) -> Vec<RefreshStageKind> {
 
 /// Reduces stage results to the process outcome, giving interruption precedence over other
 /// partial results when unfinished work was cancelled.
+///
+/// Requires `remaining` to have been refreshed from the stage records. Counts are stage units:
+/// partial `failed_items` includes every remaining stage and `deferred_items` is its deferred
+/// subset. These are overlapping counts rather than independent populations. This projection
+/// trusts the report and does not independently reconcile an inconsistent remaining list.
 pub fn refresh_outcome(report: &RefreshReport) -> OperationOutcome {
     if report.remaining.is_empty() {
         return OperationOutcome::Complete;

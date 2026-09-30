@@ -2501,3 +2501,15 @@ actual response and client owners rather than a parent dependency prelude.
 
 All 16 focused embedding-client tests, engine Clippy across targets/features, nightly formatting,
 and Markdown checks pass. Production behavior is unchanged; broader review remains open.
+
+## Continued maintenance: refresh status accounting contracts
+
+Refresh status orientation now explains selected-stage order, remaining-list preparation,
+interruption precedence, primary failure retention, and safe typed display dependence. Outcome
+counts are stage units; partial failure counts all remaining stages while deferred counts its
+subset, so readers must not sum them as disjoint populations. Projection trusts coordinator-prepared
+records and performs no acquisition, scheduling, or completeness validation.
+
+Core outcome and engine error imports name their defining modules rather than a parent dependency
+prelude. Strict engine Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged;
+broader review remains open.
