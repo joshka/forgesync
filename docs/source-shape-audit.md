@@ -700,47 +700,33 @@ and workflow suites. Completed local, lifecycle, and cluster findings are remove
 remaining inventory. Broad API/convention and production documentation-depth acceptance remain
 independent.
 
+### Store observation and search-suite dispositions
+
+Observation integration has shallow high-water, integrity, ordering, comment rollback, and
+review-thread rollback owners. Replay and tied-conflict rejection are independent scenarios with
+retained-title assertions. Malformed-clock rejection also checks that the original title survives.
+Fixed revision-sequence comparisons live in ordering tests without unrelated database setup.
+High-water transitions remain one linear contract because earlier acquisitions constrain later
+selection. Rollback assertions require the database error and injected trigger diagnostic before
+checking retained membership, coverage, and staged retry where exercised.
+
+Child publication has independent replay, partial, incomplete-empty, head-snapshot, and supersession
+suites. Review and review-thread snapshots use named rstest inputs with identical visible public
+operations. Each replacement scenario supplies its complete baseline without unrelated family
+writes. Construction fixtures own payload values; creation, registration, reservation, staging, and
+completion remain explicit. Store uses the existing workspace-selected rstest version as a test-only
+dependency. Remaining observation assertion acceptance is independent of these resolved grouping
+findings.
+
+Search integration has shallow pagination, filtering, scope coverage, status counts, read-only
+preservation, repository lookup, query validation, detail, FTS, and migration owners. Fixtures build
+values and query settings; archive mutations and reads remain visible. Scope coverage and status
+compare the entire ordered family summary, including every missing/incomplete/complete count, rather
+than unnamed vector indices. Malformed syntax has an indexed thread as a precondition: an empty FTS
+index can return no rows without exercising SQLite expression validation. Detail, FTS, and migration
+assertion acceptance remain under review.
+
 ### Acceptance pass and stopping rules
-
-Store search scenarios now show all seven observation reservations/applications and each keyword
-query directly. The shallow fixture owner constructs content, identities, and query settings only;
-scenario imports name it directly instead of importing a parent prelude. Request defaults remain a
-pure `ThreadQuery` constructor, while actual reads and their failures stay visible at the caller.
-The suite root maps detail, list/search, FTS, migration, and construction responsibilities. Mixed
-list/status scenarios and deeper result assertions remain under review.
-
-Parent high-water hydration, parent integrity, comment rollback, and review-thread rollback now have
-shallow invariant owners with direct fixture imports. High-water transitions remain together because
-each step constrains later evidence selection. Integrity holds replay/conflict cases nearby without
-mixing arithmetic precedence. Rollback suites document trigger placement, retained state, and staged
-retry where exercised. This closes the identified parent/rollback grouping finding while preserving
-visible archive operations and construction-only payload fixtures.
-
-Child-family publication now has shallow independent replay, partial, incomplete-empty,
-head-snapshot, and supersession suites. Review and review-thread snapshots use named rstest inputs
-with the same explicit public operations. Replacement cases construct their own complete membership
-baseline; unrelated review operations no longer intervene before comment assertions. Each scenario
-shows reservation, staging, and completion without behavior helpers. File sizes range from 98 to 166
-lines. Store adds the existing workspace-selected rstest version as a test-only dependency. Parent
-file grouping and remaining assertion acceptance are still open.
-
-Parent replay and tied-conflict rejection now have independent scenarios with retained-title
-assertions. Malformed-clock rejection additionally checks that the original title survives.
-Revision-sequence precedence moved to the ordering suite as a direct fixed-value test, eliminating
-unrelated database setup from arithmetic evidence. Parent high-water hydration remains one linear
-dependent transition contract. Parent file grouping and child-family separation remain under review.
-
-Observation integration fixtures now have a shallow defining owner with direct scenario imports. The
-root maps parent, ordering, child, rollback, and fixture responsibilities without an import prelude.
-Archive creation, repository registration, and all ten sequence reservations now appear directly in
-scenarios. Fixtures construct values and supply raw inspection/pool/cleanup capabilities; they no
-longer create an archive, register source content, or reserve acquisitions. Parent/child scenario
-separation and assertion depth stay under review.
-
-Observation rollback regressions now require the database error variant and the injected trigger
-diagnostic before checking retained membership and coverage. An unrelated failure can no longer
-stand in for the intended transactional abort. Observation fixture ownership and the remaining
-parent/child scenarios still belong to the open integration review.
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
 - Give every inspection candidate one disposition: fixed or retained with a concrete reason. Line

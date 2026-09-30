@@ -1,23 +1,28 @@
-//! # List and search query cases
+//! # Repository scoped search paginates by updated time
 //!
-//! These cases cover repository scope, filters, ordering, and pagination in local reads. They keep
-//! SQL behavior aligned with the typed query model. A caller should receive a stable page rather
-//! than reconstructing filter semantics from raw rows.
+//! Two repositories and three explicit observations distinguish scope, kind, state, and timestamps.
+//! One issue and one pull request belong to the selected repository; another issue belongs
+//! elsewhere. Each sequence reservation and application is visible rather than hidden in a behavior
+//! fixture. This scenario isolates the named read contract from independent lookup and query
+//! validation.
+//!
+//! Payload helpers construct values without archive writes or expected-result calculations.
+//! Reads operate on the on-disk archive after complete parent evidence has been committed.
+//! Engine policy and CLI rendering remain outside this store projection contract.
+//! Cleanup follows explicit archive closure.
 
 use std::num::NonZeroU32;
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
-use forgesync_core::identity::GitHubHost;
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 
 use crate::fixture::{discussion, remove_archive, repository, temporary_archive_path, thread_id};
 
 #[tokio::test]
-async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
+async fn repository_scoped_search_paginates_by_updated_time() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let first_repository = repository("example", "first", "repo-first");
@@ -110,17 +115,6 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
         .await
         .expect("apply thread observation");
 
-    let found_repository = archive
-        .find_repository(
-            &GitHubHost::parse("github.com").expect("host"),
-            "EXAMPLE",
-            "FIRST",
-        )
-        .await
-        .expect("repository lookup")
-        .expect("case-insensitive repository lookup");
-    assert_eq!(found_repository.id, first_repository.id);
-
     let query = ThreadQuery {
         repositories: vec![first_repository.id.clone()],
         kind: None,
@@ -160,87 +154,6 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
     assert_eq!(next_page.items[0].discussion.id.number().get(), 1);
     assert_eq!(next_page.next_offset, None);
 
-    let closed = archive
-        .query_threads(&ThreadQuery {
-            repositories: vec![first_repository.id.clone()],
-            kind: Some(ThreadKind::PullRequest),
-            state: ThreadStateFilter::Closed,
-            match_expression: None,
-            updated_since: None,
-            sort: ThreadSort::Created,
-            limit: NonZeroU32::new(10).expect("positive limit"),
-            offset: 0,
-        })
-        .await
-        .expect("filter closed pull requests");
-    assert_eq!(closed.items.len(), 1);
-    assert_eq!(closed.items[0].discussion.id.number().get(), 2);
-
-    let unmatched = archive
-        .query_threads(&ThreadQuery {
-            repositories: vec![first_repository.id.clone()],
-            kind: None,
-            state: ThreadStateFilter::All,
-            match_expression: Some("\"never-matches\"".to_owned()),
-            updated_since: None,
-            sort: ThreadSort::Relevance,
-            limit: NonZeroU32::new(10).expect("positive limit"),
-            offset: 0,
-        })
-        .await
-        .expect("empty search is successful");
-    assert!(unmatched.items.is_empty());
-    assert_eq!(unmatched.coverage[0].applicable_threads, 2);
-    assert_eq!(unmatched.coverage[0].complete, 2);
-    assert_eq!(unmatched.coverage[1].missing, 2);
-    assert_eq!(unmatched.coverage[2].applicable_threads, 1);
-    assert_eq!(unmatched.coverage[2].missing, 1);
-
-    let status = archive.archive_status().await.expect("read archive status");
-    assert_eq!(status.repositories, 2);
-    assert_eq!(status.threads, 3);
-    assert_eq!(status.issues, 2);
-    assert_eq!(status.pull_requests, 1);
-    assert_eq!(status.coverage[2].applicable_threads, 1);
-
-    let malformed_query = archive
-        .query_threads(&ThreadQuery {
-            match_expression: Some("NEAR(".to_owned()),
-            ..query
-        })
-        .await;
-    assert!(matches!(
-        malformed_query,
-        Err(StoreError::InvalidSearchQuery)
-    ));
-
     archive.close().await;
-    let read_only = Archive::open_read_only(&path)
-        .await
-        .expect("open archive read-only");
-    assert!(read_only.is_read_only());
-    let before = read_only
-        .archive_status()
-        .await
-        .expect("status before query");
-    read_only
-        .query_threads(&ThreadQuery {
-            repositories: vec![first_repository.id],
-            kind: None,
-            state: ThreadStateFilter::All,
-            match_expression: Some("\"needle\"".to_owned()),
-            updated_since: None,
-            sort: ThreadSort::Relevance,
-            limit: NonZeroU32::new(10).expect("positive limit"),
-            offset: 0,
-        })
-        .await
-        .expect("query through a read-only archive");
-    let after = read_only
-        .archive_status()
-        .await
-        .expect("status after query");
-    assert_eq!(before, after);
-    read_only.close().await;
     remove_archive(&path);
 }

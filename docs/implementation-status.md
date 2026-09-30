@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Store search integration now separates pagination, filtering, scope coverage, status, read-only
+preservation, repository lookup, and malformed-query rejection. Coverage assertions name every
+family and count. Query validation supplies indexed content so SQLite evaluates its malformed
+expression. The strengthened focused run passes all ten cases, and store all-target Clippy passes
+with warnings denied. Observation grouping and current search dispositions are consolidated in the
+audit; remaining assertion review and final workspace acceptance remain open.
+
 Recent test-quality work separates engine scoring, recipe rendering, chunking, batching, and graph
 threshold scenarios. Store lifecycle and cluster persistence now have shallow scenario owners with
 construction-only fixtures; lease and checkpoint rejection assertions verify preserved state.

@@ -2,7 +2,8 @@
 //!
 //! Local detail, filtered lists, full-text indexing, and migration-sensitive reads have separate
 //! owners. `detail` assembles canonical content, timeline, and family coverage.
-//! `list_search` exercises scope, filters, ordering, pagination, and summary counts.
+//! The `list_*` suites separate pagination, filters, and scope coverage.
+//! Repository lookup, query validation, read-only search, and status counts have named owners.
 //! `fts` checks that committed source updates replace searchable text.
 //! `migration` checks explicit backfill and supported schema behavior.
 //!
@@ -16,7 +17,20 @@ mod detail;
 mod fixture;
 #[path = "inspect_search/fts.rs"]
 mod fts;
-#[path = "inspect_search/list_search.rs"]
-mod list_search;
 #[path = "inspect_search/migration.rs"]
 mod migration;
+
+#[path = "inspect_search/list_coverage.rs"]
+mod list_coverage;
+#[path = "inspect_search/list_filters.rs"]
+mod list_filters;
+#[path = "inspect_search/list_pagination.rs"]
+mod list_pagination;
+#[path = "inspect_search/query_validation.rs"]
+mod query_validation;
+#[path = "inspect_search/read_only_search.rs"]
+mod read_only_search;
+#[path = "inspect_search/repository_lookup.rs"]
+mod repository_lookup;
+#[path = "inspect_search/status_counts.rs"]
+mod status_counts;
