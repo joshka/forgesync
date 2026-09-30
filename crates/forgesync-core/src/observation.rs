@@ -197,28 +197,36 @@ impl<T> Observation<T> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
-    use super::{CollectionCompleteness, Observation, SourceClock};
     use crate::coverage::EvidenceFamily;
     use crate::identity::ObservationSequence;
-    use crate::observation::IncompleteReason;
+    use crate::observation::{CollectionCompleteness, IncompleteReason, Observation, SourceClock};
     use crate::timestamp::UtcTimestamp;
 
+    #[rstest]
+    #[case::absent(None)]
+    #[case::empty(Some(""))]
+    #[case::whitespace(Some("  "))]
+    fn absent_source_text_has_no_provider_clock(#[case] raw: Option<&str>) {
+        assert_eq!(SourceClock::from_raw(raw), SourceClock::Missing);
+    }
+
     #[test]
-    fn source_clock_keeps_missing_valid_and_invalid_states_distinct() {
-        assert_eq!(SourceClock::from_raw(None), SourceClock::Missing);
-        assert_eq!(SourceClock::from_raw(Some("  ")), SourceClock::Missing);
-        assert_eq!(
-            SourceClock::from_raw(Some("2026-09-20T11:00:00+01:00")),
-            SourceClock::Valid(
-                UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp")
-            )
-        );
-        assert_eq!(
-            SourceClock::from_raw(Some(" not-a-time ")),
-            SourceClock::Invalid("not-a-time".to_owned())
-        );
+    fn offset_source_time_normalizes_to_the_same_utc_instant() {
+        let expected = UtcTimestamp::parse("2026-09-20T10:00:00Z").expect("valid timestamp");
+
+        let clock = SourceClock::from_raw(Some("2026-09-20T11:00:00+01:00"));
+
+        assert_eq!(clock, SourceClock::Valid(expected));
+    }
+
+    #[test]
+    fn malformed_source_time_retains_its_trimmed_spelling() {
+        let clock = SourceClock::from_raw(Some(" not-a-time "));
+
+        assert_eq!(clock, SourceClock::Invalid("not-a-time".to_owned()));
     }
 
     #[test]
@@ -262,10 +270,10 @@ mod tests {
             CollectionCompleteness::Complete,
         );
 
-        assert!(matches!(
+        assert_eq!(
             complete_empty.completeness(),
-            CollectionCompleteness::Complete
-        ));
-        assert_eq!(complete_empty.payload().len(), 0);
+            &CollectionCompleteness::Complete
+        );
+        assert!(complete_empty.payload().is_empty());
     }
 }

@@ -3160,3 +3160,13 @@ callers inspect instead of requiring reconstruction of store policy.
 
 The complete core suite passes: 28 unit tests, four catalog checks, and eight doctests. Nightly
 formatting, rumdl, and changed-page Markdown linting pass.
+
+### Named source-clock normalization scenarios
+
+Core source-clock tests separate absent/empty/whitespace input, UTC offset normalization, and
+malformed spelling retention. Named parameterized missing-input cases avoid scenario loops while
+adding the previously implicit empty-string boundary. Observation tests import their types from the
+owner and compare complete-empty state directly.
+
+All seven focused observation scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
