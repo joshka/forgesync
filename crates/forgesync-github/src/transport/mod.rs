@@ -117,11 +117,6 @@ struct RequestFailure {
     retry_after: Option<Duration>,
 }
 
-struct ResponseBody {
-    body: Vec<u8>,
-    next_page: Option<Url>,
-}
-
 impl RequestFailure {
     /// Constructs a terminal request failure for a non-retryable condition.
     fn terminal(error: GitHubError) -> Self {

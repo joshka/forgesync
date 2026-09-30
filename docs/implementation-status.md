@@ -3351,3 +3351,17 @@ command operation, before presentation.
 
 All-target/all-feature CLI Clippy, all 15 CLI contract scenarios, nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Successful provider response decoding ownership
+
+The bounded successful response body now lives with response handling and consumes itself to decode
+the typed page. Request dispatch points to that method instead of embedding JSON conversion and
+pagination assembly in its success arm. Contracts distinguish prior transport trust/size checks from
+DTO decoding and make malformed/shape-mismatched JSON a terminal failure with no new request
+attempt.
+
+Three nearby cases cover typed values with retained pagination, malformed syntax, and mismatched DTO
+shape. They use explicit bytes and assertions without network fixtures or scenario control flow.
+
+All 27 GitHub unit tests and two doctests pass, including the three decoding cases. All-target
+GitHub Clippy, nightly formatting, rumdl, and changed-page Markdown linting pass.

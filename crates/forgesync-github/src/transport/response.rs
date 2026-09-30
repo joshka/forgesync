@@ -8,19 +8,49 @@
 //! redirect target against the trusted origin rather than allowing the HTTP library to follow it
 //! and possibly send authorization elsewhere.
 //!
+//! `ResponseBody` retains bounded bytes and trusted pagination, then consumes itself to decode the
+//! successful payload. Invalid JSON is a terminal typed failure rather than a new request attempt.
+//!
 //! Resource modules consume the resulting typed value or error. They do not need to reason about
 //! body stream limits, semaphore permits, or retryable network failures.
 
 use reqwest::header::LOCATION;
 use reqwest::{Response, StatusCode, Url};
+use serde::de::DeserializeOwned;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
 use crate::transport::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
 use crate::transport::{
-    BodyReadError, MAX_ERROR_BODY_BYTES, RequestFailure, ResponseBody, TrustedOrigin,
+    BodyReadError, GitHubResponse, MAX_ERROR_BODY_BYTES, RequestFailure, TrustedOrigin,
 };
+
+/// A bounded successful body and its already validated pagination destination.
+///
+/// The request traversal validates status, body size, and next-page origin before constructing this
+/// value. Decoding consumes it so raw bytes do not escape alongside the typed provider payload.
+pub struct ResponseBody {
+    /// Current-page bytes collected within the successful-response size bound.
+    pub body: Vec<u8>,
+    /// Trusted next-page destination derived from response headers, independent of JSON content.
+    pub next_page: Option<Url>,
+}
+
+impl ResponseBody {
+    /// Decodes one successful page while retaining its validated pagination destination.
+    ///
+    /// Malformed JSON or a DTO shape mismatch returns `InvalidJson`; successful HTTP payload
+    /// decoding is terminal and is not retried by the request loop. This conversion performs
+    /// no additional network I/O and does not interpret provider family completeness.
+    pub fn decode<T: DeserializeOwned>(self) -> Result<GitHubResponse<T>, GitHubError> {
+        let value = serde_json::from_slice(&self.body).map_err(|_| GitHubError::InvalidJson)?;
+        Ok(GitHubResponse {
+            value,
+            next_page: self.next_page,
+        })
+    }
+}
 
 /// Waits for a client permit or caller cancellation before sending a request.
 pub async fn acquire_request_slot(
@@ -137,3 +167,7 @@ pub fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
         RequestFailure::retryable(GitHubError::Network, None)
     }
 }
+
+#[cfg(test)]
+#[path = "response_tests.rs"]
+mod tests;

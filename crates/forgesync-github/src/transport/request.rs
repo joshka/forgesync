@@ -22,13 +22,13 @@ use tracing::Instrument;
 use crate::error::GitHubError;
 use crate::transport::pagination::next_page_from_headers;
 use crate::transport::response::{
-    acquire_request_slot, classify_api_response, classify_transport_error, read_body,
+    ResponseBody, acquire_request_slot, classify_api_response, classify_transport_error, read_body,
     redirect_target,
 };
 use crate::transport::retry::retry_backoff;
 use crate::transport::{
     BodyReadError, GitHubClient, GitHubResponse, MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES,
-    RequestFailure, ResponseBody,
+    RequestFailure,
 };
 
 /// Immutable request data shared by all budgeted attempts.
@@ -65,14 +65,7 @@ impl ProviderRequest<'_> {
             let outcome = self.attempt(remaining, attempt).await?;
 
             match outcome {
-                Ok(response) => {
-                    let value = serde_json::from_slice(&response.body)
-                        .map_err(|_| GitHubError::InvalidJson)?;
-                    return Ok(GitHubResponse {
-                        value,
-                        next_page: response.next_page,
-                    });
-                }
+                Ok(response) => return response.decode(),
                 Err(failure) if failure.retryable => {
                     self.wait_to_retry(failure, attempt, start).await?;
                 }
