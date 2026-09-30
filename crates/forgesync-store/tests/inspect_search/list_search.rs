@@ -9,13 +9,12 @@ use std::num::NonZeroU32;
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::GitHubHost;
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 
-use super::{
-    apply_thread, discussion, remove_archive, repository, temporary_archive_path, thread_id,
-};
+use crate::fixture::{discussion, remove_archive, repository, temporary_archive_path, thread_id};
 
 #[tokio::test]
 async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
@@ -35,42 +34,81 @@ async fn list_search_and_status_use_stable_filters_pagination_and_coverage() {
     let first_thread = thread_id(&first_repository.id, "thread-1", 1);
     let second_thread = thread_id(&first_repository.id, "thread-2", 2);
     let third_thread = thread_id(&second_repository.id, "thread-3", 3);
-    apply_thread(
-        &archive,
-        discussion(
-            &first_thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Needle in title",
-            Some("body text"),
-            "2026-09-20T10:00:00Z",
-        ),
-    )
-    .await;
-    apply_thread(
-        &archive,
-        discussion(
-            &second_thread,
-            ThreadKind::PullRequest,
-            SourceState::Closed,
-            "Other title",
-            Some("needle in discussion"),
-            "2026-09-20T10:00:02Z",
-        ),
-    )
-    .await;
-    apply_thread(
-        &archive,
-        discussion(
-            &third_thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Needle elsewhere",
-            None,
-            "2026-09-20T10:00:01Z",
-        ),
-    )
-    .await;
+    let content = discussion(
+        &first_thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Needle in title",
+        Some("body text"),
+        "2026-09-20T10:00:00Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
+    let content = discussion(
+        &second_thread,
+        ThreadKind::PullRequest,
+        SourceState::Closed,
+        "Other title",
+        Some("needle in discussion"),
+        "2026-09-20T10:00:02Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
+    let content = discussion(
+        &third_thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Needle elsewhere",
+        None,
+        "2026-09-20T10:00:01Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
 
     let found_repository = archive
         .find_repository(

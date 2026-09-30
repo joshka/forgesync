@@ -5,13 +5,14 @@
 //! meaningful existing data and make pending migration visible.
 
 use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
-use super::{
-    apply_thread, discussion, keyword_page, remove_archive, repository, temporary_archive_path,
-    thread_id,
+use crate::fixture::{
+    discussion, keyword_query, remove_archive, repository, temporary_archive_path, thread_id,
 };
 
 #[tokio::test]
@@ -24,18 +25,31 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .await
         .expect("store repository");
     let thread = thread_id(&repository.id, "thread-migration", 4);
-    apply_thread(
-        &archive,
-        discussion(
-            &thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Migration target",
-            Some("backfill searchable body"),
-            "2026-09-20T10:00:00Z",
-        ),
-    )
-    .await;
+    let content = discussion(
+        &thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Migration target",
+        Some("backfill searchable body"),
+        "2026-09-20T10:00:00Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     archive.close().await;
 
     let options = SqliteConnectOptions::new()
@@ -172,7 +186,10 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");
-    let results = keyword_page(&migrated, "\"backfill\"").await;
+    let results = migrated
+        .query_threads(&keyword_query("\"backfill\""))
+        .await
+        .expect("query keyword page");
     assert_eq!(results.items.len(), 1);
     assert_eq!(results.items[0].discussion.id, thread);
     assert_eq!(results.items[0].discussion.title, "Migration target");

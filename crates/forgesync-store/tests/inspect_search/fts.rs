@@ -5,11 +5,12 @@
 //! changes. Ranking policy belongs in the engine; this suite protects store retrieval.
 
 use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_store::archive::Archive;
 
-use super::{
-    apply_thread, discussion, keyword_page, remove_archive, repository, temporary_archive_path,
-    thread_id,
+use crate::fixture::{
+    discussion, keyword_query, remove_archive, repository, temporary_archive_path, thread_id,
 };
 
 #[tokio::test]
@@ -22,41 +23,75 @@ async fn fts_index_tracks_updates_and_removed_text_transactionally() {
         .await
         .expect("store repository");
     let thread = thread_id(&repository.id, "thread-search", 1);
-    apply_thread(
-        &archive,
-        discussion(
-            &thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Old title",
-            Some("distinctive obsolete content"),
-            "2026-09-20T10:00:00Z",
-        ),
-    )
-    .await;
+    let content = discussion(
+        &thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Old title",
+        Some("distinctive obsolete content"),
+        "2026-09-20T10:00:00Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
 
-    let original = keyword_page(&archive, "\"obsolete\"").await;
+    let original = archive
+        .query_threads(&keyword_query("\"obsolete\""))
+        .await
+        .expect("query keyword page");
     assert_eq!(original.items.len(), 1);
     assert_eq!(original.items[0].discussion.id, thread);
-    apply_thread(
-        &archive,
-        discussion(
-            &thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Replacement title",
-            None,
-            "2026-09-20T10:00:01Z",
-        ),
-    )
-    .await;
+    let content = discussion(
+        &thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Replacement title",
+        None,
+        "2026-09-20T10:00:01Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     assert!(
-        keyword_page(&archive, "\"obsolete\"")
+        archive
+            .query_threads(&keyword_query("\"obsolete\""))
             .await
+            .expect("query keyword page")
             .items
             .is_empty()
     );
-    let replacement = keyword_page(&archive, "\"replacement\"").await;
+    let replacement = archive
+        .query_threads(&keyword_query("\"replacement\""))
+        .await
+        .expect("query keyword page");
     assert_eq!(replacement.items.len(), 1);
     assert_eq!(replacement.items[0].discussion.id, thread);
     assert_eq!(replacement.items[0].discussion.title, "Replacement title");

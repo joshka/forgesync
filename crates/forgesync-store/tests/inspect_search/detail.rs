@@ -7,16 +7,15 @@
 use forgesync_core::content::{Comment, SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadReference};
-use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
 use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::observations::StagedItem;
 use forgesync_store::reads::ThreadTimelineEvent;
 
-use super::{
-    apply_thread, discussion, remove_archive, repository, temporary_archive_path, thread_id,
-    timestamp,
+use crate::fixture::{
+    discussion, remove_archive, repository, temporary_archive_path, thread_id, timestamp,
 };
 
 #[tokio::test]
@@ -29,18 +28,31 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         .await
         .expect("store repository");
     let thread = thread_id(&repository.id, "thread-detail", 9);
-    apply_thread(
-        &archive,
-        discussion(
-            &thread,
-            ThreadKind::Issue,
-            SourceState::Open,
-            "Detailed issue",
-            Some("body"),
-            "2026-09-20T10:00:00Z",
-        ),
-    )
-    .await;
+    let content = discussion(
+        &thread,
+        ThreadKind::Issue,
+        SourceState::Open,
+        "Detailed issue",
+        Some("body"),
+        "2026-09-20T10:00:00Z",
+    );
+    let observed_at = content.updated_at;
+    let sequence = archive
+        .reserve_observation_sequence(observed_at)
+        .await
+        .expect("reserve sequence");
+    let observation = Observation::new(
+        EvidenceFamily::Threads,
+        content,
+        SourceClock::Valid(observed_at),
+        observed_at,
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply thread observation");
     let reservation = archive
         .reserve_child_family_observation(
             &thread,

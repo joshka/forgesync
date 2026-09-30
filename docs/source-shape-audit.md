@@ -702,6 +702,13 @@ independent.
 
 ### Acceptance pass and stopping rules
 
+Store search scenarios now show all seven observation reservations/applications and each keyword
+query directly. The shallow fixture owner constructs content, identities, and query settings only;
+scenario imports name it directly instead of importing a parent prelude. Request defaults remain a
+pure `ThreadQuery` constructor, while actual reads and their failures stay visible at the caller.
+The suite root maps detail, list/search, FTS, migration, and construction responsibilities. Mixed
+list/status scenarios and deeper result assertions remain under review.
+
 Parent high-water hydration, parent integrity, comment rollback, and review-thread rollback now have
 shallow invariant owners with direct fixture imports. High-water transitions remain together because
 each step constrains later evidence selection. Integrity holds replay/conflict cases nearby without
