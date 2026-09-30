@@ -14,6 +14,9 @@ keep plans and historical evidence visibly separate.
 - Lead status pages with current open work and the next action. Put prior milestones below that
   summary, and state validation scope explicitly. Historical green checks or completed feature
   slices must not imply that a broader cleanup or acceptance review is finished.
+- Update status in place rather than appending another account of every small change. Keep one
+  current remaining-work list and validation record; retain historical detail only when it explains
+  a milestone, regression, or measurement. Version-control history holds superseded next steps.
 
 Name the reader's task in the heading and lead with the useful point. Favor connected prose for
 relationships and short lists for independent steps. Explain the local contract before linking to

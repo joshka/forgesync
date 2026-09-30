@@ -543,6 +543,35 @@ public declaration owns no transaction and does not imply completeness. The leas
 authorization. This resolves the positional reservation and staging signature findings without
 combining provider traversal with archive persistence.
 
+### GitHub signature dispositions
+
+The 15 provider broad-signature candidates have the following dispositions:
+
+- `fetch_repository` retains client, normalized host, owner/name, and cancellation. Transport origin
+  and domain host are deliberately distinct; its contract requires callers to route the host to the
+  proper client. Owner/name select the initial REST endpoint before provider identity is known.
+- `fetch_thread_page`, `fetch_thread_page_in_scope`, comment/review page fetches, and metadata fetch
+  retain explicit resource and acquisition inputs. Repository display path builds the endpoint;
+  thread identity verifies scope. Continuation belongs to the caller's traversal and cannot itself
+  prove that a same-origin URL names that resource. These functions neither retain traversal state
+  nor apply observations, so a shared acquisition owner would conceal their one-page boundary.
+- `initial_thread_list_url` and `thread_list_url_in_scope` retain independent state and update-time
+  filters. They build one initial URL and do no I/O; the lower bound is not an archive checkpoint.
+- `fetch_review_thread_page` and `complete_review_thread` retain caller-selected head context and
+  cancellation separately from the provider node. The former owns outer traversal; `CommentPages`
+  already owns nested pagination. Normalization joins fully paged nodes, validated provider ID,
+  parent, and head without owning network state. A partial nested connection never becomes a
+  successful outer-page result.
+- `CommentPages::read_page` retains client, cursor, and cancellation beyond its receiver: the
+  receiver already holds provider identity and accumulated pagination state.
+- `post_json` and `request_json_with_body` retain URL/body/protocol inputs at the transport
+  boundary; `ProviderRequest` immediately captures the immutable attempt context. Retry wait retains
+  the classified failure, attempt number, and start instant because each controls a separate budget
+  decision. These functions do not need another policy bag or compatibility wrapper.
+
+This closes provider signature inspection. Documentation-depth review remains independent, including
+short normalization and initial-URL helper comments identified during this pass.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire
