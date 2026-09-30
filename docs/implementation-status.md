@@ -192,5 +192,23 @@ measures in-memory cosine ranking and sorting, not SQLite reads or embedding-pro
 Routine hosted checks temporarily compile the workspace on Linux; full platform builds no longer
 gate crate publication, and Intel macOS is removed. Stronger checks and measured cache experiments
 are tracked in [the CI follow-up issue](https://github.com/joshka/forgesync/issues/1). A separate
-task investigates the reported CLI sync panic caused by missing Tokio runtime drivers; compilation
-alone does not verify that runtime boundary.
+task fixes the reported CLI sync panic caused by missing Tokio runtime drivers; compilation alone
+does not verify that runtime boundary.
+
+## CLI runtime driver follow-up
+
+The process runtime now enables Tokio's I/O, signal, and timer drivers. Inspection found one manual
+runtime builder; TUI operations borrow the process runtime. Two synchronous regressions use that
+same builder to register Ctrl-C and execute a harmless subprocess with captured stdout. Restoring
+the timer-only builder makes both tests reproduce the reported Tokio panics. A Unix process test
+invokes `sync ratatui/ratatui` with an isolated `gh` fixture that emits malformed, credential-free
+output; the typed credential error stops execution before any GitHub request.
+
+Local validation on 2026-09-30 passes: both runtime regressions, all five sync process cases, the
+full workspace suite (542 unit, integration, and documentation tests), workspace Clippy with warnings
+denied, nightly formatting, the minimal CLI build, workspace Rustdoc, and changed Markdown lint.
+The process fixture initially exceeded its ten-second startup allowance during cold compilation;
+it now allows thirty seconds, and the final workspace run passes. Unix process coverage ran on
+macOS; the portable runtime tests have not been executed on Windows in this task.
+
+The next action is integration and release by the parent task; this workspace does not publish.
