@@ -7,6 +7,22 @@
 //! Document vectors are read from the archive, but the query text is sent to the configured
 //! embedding service once compatible archived candidates are found. Keyword search is the offline
 //! alternative. Compatibility checks reject vectors left behind by model or recipe changes.
+//!
+//! `SemanticSource` retains one repository/filter/endpoint/model/recipe scope for the availability
+//! probe and subsequent keyset reads. The first eligible page is reused for scoring rather than
+//! fetched twice. Reads do not share a transaction, so concurrent materialization can advance
+//! between pages; this is current local evidence, not a historical snapshot.
+//!
+//! `SemanticRanking` holds the generated query vector, requested ordering, bounded winning prefix,
+//! and compatible-document count. Exact scoring and deterministic tie ordering belong to
+//! `exact_search`. The separate compatibility count prevents a zero-sized result bound from being
+//! mistaken for unavailable vectors. Archive decoding owns vector validity and nonempty chunks.
+//!
+//! Blocking scoring is capped by process-wide permits, including concurrent search requests. A
+//! worker retains its permit until it returns; cancellation is checked while waiting and by the
+//! scorer between candidates. No vectors, documents, or coverage are written during retrieval.
+//! [`semantic_result_page`] projects the already ordered prefix into visible cosine provenance
+//! before the shared pagination operation; cosine similarity is evidence, not a probability.
 
 use std::num::NonZeroU32;
 use std::sync::{Arc, OnceLock};
@@ -38,7 +54,19 @@ const EXACT_WORKER_LIMIT: usize = 2;
 /// Shared permits bound blocking scoring across concurrent search requests.
 static EXACT_SEARCH_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
 
-/// Ranks current dimension-compatible chunks with exact cosine similarity.
+/// Acquires and ranks the current compatible document prefix with exact cosine similarity.
+///
+/// Resolves repository selectors before reading candidates and uses one source scope throughout.
+/// Query text is trimmed and sent to the embedding service only after an eligible archived page
+/// exists. At most `candidate_limit` winners are retained while every eligible archive page is
+/// considered. Per-document scoring and stable ties are delegated to `exact_search`.
+///
+/// # Errors
+///
+/// Returns cancellation, repository resolution, archive, embedding, or worker failures with their
+/// typed classification. No eligible dimension-compatible collection returns
+/// [`EngineError::SemanticVectorsUnavailable`]. This operation does not select keyword fallback;
+/// its caller applies that policy.
 pub async fn semantic_candidates(
     archive: &Archive,
     request: &SearchRequest,
@@ -82,12 +110,19 @@ pub async fn semantic_candidates(
 
 /// Immutable candidate scope shared by the availability probe and full scoring traversal.
 struct SemanticSource<'a> {
+    /// Already opened archive used for current vector pages.
     archive: &'a Archive,
+    /// Original repository, kind, state, query, and sort interpretation.
     request: &'a SearchRequest,
+    /// Document rendering recipe required of stored vectors.
     recipe: DocumentRecipe,
+    /// Endpoint/model identity, dimension expectation, and query-vector service.
     client: &'a EmbeddingClient,
+    /// Resolved durable repository identities shared by every page.
     repositories: Vec<RepositoryId>,
+    /// Nonzero read-batch size, independent of the result bound.
     limit: NonZeroU32,
+    /// Workflow cancellation shared by reads and query embedding.
     cancellation: &'a CancellationToken,
 }
 
@@ -144,10 +179,15 @@ impl SemanticSource<'_> {
 
 /// Bounded accumulated ranking and compatibility evidence for one generated query vector.
 struct SemanticRanking {
+    /// Generated query vector used by every scoring batch.
     query: EmbeddingVector,
+    /// Requested deterministic ordering applied during bounded merges.
     sort: ThreadSort,
+    /// Maximum winning prefix retained, including skipped presentation positions.
     limit: usize,
+    /// Current winning prefix in final ordering.
     ranked: Vec<ScoredThread>,
+    /// Compatibility evidence independent of the number of retained winners.
     compatible_documents: usize,
 }
 
@@ -185,7 +225,12 @@ impl SemanticRanking {
     }
 }
 
-/// Counts vectors matching the selected model and query dimension.
+/// Counts documents whose every decoded chunk has the query dimension.
+///
+/// Endpoint, model, recipe, and source-currentness are filtered by the archive query before this
+/// helper runs; this predicate checks dimensions only. Archive decoding requires nonempty chunks.
+/// An independently constructed empty chunk vector satisfies `all` and counts here, so this helper
+/// must not be mistaken for standalone document validation.
 pub fn count_dimension_compatible(documents: &[EmbeddingSearchDocument], dimensions: u32) -> usize {
     documents
         .iter()
@@ -198,7 +243,12 @@ pub fn count_dimension_compatible(documents: &[EmbeddingSearchDocument], dimensi
         .count()
 }
 
-/// Scores one archive page within the exact-search worker limit.
+/// Scores an archive page on a blocking worker while holding a process-wide permit.
+///
+/// Cancellation while waiting returns immediately. Once started, the scorer observes cancellation
+/// between candidates; this method awaits the worker result, and the permit remains held until the
+/// worker exits even if the awaiting future is dropped. A join failure returns
+/// [`EngineError::SearchWorkerFailed`]; scoring errors retain their classification.
 pub async fn score_page_bounded(
     query: EmbeddingVector,
     documents: Vec<EmbeddingSearchDocument>,
@@ -227,14 +277,15 @@ pub async fn score_page_bounded(
     .map_err(|_| EngineError::SearchWorkerFailed)?
 }
 
-/// Paginates ranked semantic hits with coverage provenance.
+/// Projects an ordered semantic prefix into cosine hits and pages the requested window.
+///
+/// Reads query, mode, sort, and validated coordinates from the original request. Source ranks are
+/// one-based before slicing, so skipped results retain their positions. Scores and coverage are
+/// preserved without revalidation or freshness mutation; the caller has already acquired and ranked
+/// compatible evidence. The effective mode is semantic and no fallback reason is attached.
 pub fn semantic_result_page(
-    query: &str,
-    requested_mode: SearchMode,
-    sort: ThreadSort,
+    request: &SearchRequest,
     candidates: Vec<ScoredThread>,
-    offset: u64,
-    limit: u32,
     coverage: Vec<FamilyCoverageSummary>,
 ) -> SearchResultPage {
     let items = candidates
@@ -250,15 +301,15 @@ pub fn semantic_result_page(
         })
         .collect();
     result_page(ResultPageRequest {
-        query,
-        requested_mode,
+        query: request.query.trim(),
+        requested_mode: request.mode,
         mode: SearchMode::Semantic,
         ranking: SearchRanking::Cosine,
-        sort,
+        sort: request.filters.sort.unwrap_or(ThreadSort::Relevance),
         fallback_reason: None,
         candidates: items,
-        offset,
-        limit,
+        offset: request.filters.offset,
+        limit: request.filters.limit,
         coverage,
     })
 }

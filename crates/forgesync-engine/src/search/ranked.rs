@@ -118,15 +118,7 @@ impl RankedSearch<'_> {
         candidates: Vec<ScoredThread>,
         coverage: Vec<FamilyCoverageSummary>,
     ) -> SearchResultPage {
-        semantic_result_page(
-            self.request.query.trim(),
-            self.request.mode,
-            self.request.filters.sort.unwrap_or(ThreadSort::Relevance),
-            candidates,
-            self.window.offset,
-            self.window.limit,
-            coverage,
-        )
+        semantic_result_page(self.request, candidates, coverage)
     }
 
     /// Combines both source ranks before pagination, retaining stable requested ordering.

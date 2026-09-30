@@ -2259,3 +2259,17 @@ lines, with no missing handwritten production function comments under its exclus
 review signals, not evidence that all documentation is complete. The bounded audit records the
 updated inventory and reviewed areas. All 12 focused search tests, workspace Clippy, strict engine
 documentation, nightly formatting, and Markdown checks pass.
+
+## Continued maintenance: semantic source and result contracts
+
+Semantic module orientation now describes the retained source scope, first-page reuse, separate-read
+consistency, query-vector transmission, bounded ranking evidence, and process-wide worker permits.
+Source and ranking fields explain their roles. Method contracts distinguish archive filtering from
+the dimension-only predicate, stored nonempty-chunk guarantees from standalone construction, and
+worker cancellation from immediate task termination. Cosine evidence is not a probability.
+
+The semantic page projection uses the existing `SearchRequest` instead of seven extracted values.
+Its caller's validated window retains the same raw coordinates, so query trimming, sort defaults,
+mode, ranks, page slicing, and coverage remain unchanged. All 89 engine tests and three doctests,
+workspace Clippy, strict engine documentation, nightly formatting, and Markdown checks pass.
+Remaining workspace conventions and test review stay open.
