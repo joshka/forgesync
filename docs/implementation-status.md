@@ -1442,3 +1442,23 @@ workspace Clippy, all workspace tests/doctests, the CLI build without default fe
 public/private Rustdoc, nightly formatting, workspace rumdl, and changed-page Markdown linting. The
 next cluster work is refresh traversal and engine evidence preparation, followed by the store's
 transactional generation application and identity matching.
+
+## Continued maintenance: refresh cluster stage accounting
+
+`ClusterStage` now owns shared build policy and accumulated repository outcomes. The public stage
+operation traverses repositories, delegates attempts, and finishes one report. Separate methods
+construct requests, record successful coverage, retain failures, and account for interruption.
+Imports name defining modules directly instead of using the refresh parent's dependency prelude;
+unused parent-only imports are removed.
+
+Eight nearby named cases cover empty scope, complete generation, partial coverage, missing identity,
+cancellation as primary diagnostic, cancellation before an attempt, success retained through a later
+failure, and preservation of an earlier primary diagnostic through interruption. Static fixtures
+construct values only; no scenario loops or archive/provider setup hide the accounting rules.
+Refresh traversal is implemented; engine evidence preparation and transactional store generation
+application remain in the cluster construction batch.
+
+Final current-tree gates pass: the eight accounting cases, workspace Clippy with warnings denied,
+all workspace tests/doctests, the CLI build without default features, strict public/private Rustdoc,
+nightly formatting, workspace rumdl, and all changed Markdown pages. Engine evidence preparation and
+store generation application are the next concrete cluster surfaces.

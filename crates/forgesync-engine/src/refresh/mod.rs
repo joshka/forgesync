@@ -21,7 +21,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::clustering::{ClusterBuildReport, ClusterBuildRequest, ClusterOptions, build_clusters};
+use crate::clustering::{ClusterBuildReport, ClusterOptions};
 use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::EmbeddingReport;
 use crate::error::EngineError;

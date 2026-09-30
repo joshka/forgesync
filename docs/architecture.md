@@ -191,3 +191,9 @@ combines parsed graph policy with canonical configured endpoint/model identity a
 resolving a secret or creating a model client. The command opens the archive only after
 configuration validation, closes it after the engine result, and delegates report or failure
 presentation.
+
+Refresh `clusters::ClusterStage` retains one service identity, recipe, and graph policy across
+repository traversal. It owns attempted outcomes, first-diagnostic retention, and partial-coverage
+accounting. Repository failures remain isolated; cancellation stops further attempts without
+removing earlier generations. Aggregate status follows the retained first failure and successful
+coverage evidence, with nearby tests documenting that policy independently of archive setup.
