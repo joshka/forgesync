@@ -140,37 +140,44 @@ async fn probe_foreign_keys(pool: &sqlx::SqlitePool) -> Result<(), String> {
     Ok(())
 }
 
-/// Probes a temporary violation to verify SQLite rejects broken references.
+/// Runs the constraint probe between initial and final connection-local table cleanup.
+///
+/// Final cleanup is attempted after probe failure. Initial cleanup failure stops before creating
+/// tables; both the probe and final cleanup must succeed for a healthy result.
 async fn foreign_key_violation_is_enforced(connection: &mut SqliteConnection) -> Result<(), ()> {
     drop_foreign_key_probe_tables(connection).await?;
-    let probe_result = async {
-        sqlx::query("CREATE TEMP TABLE __forgesync_fk_parent (id INTEGER PRIMARY KEY)")
-            .execute(&mut *connection)
-            .await
-            .map_err(|_| ())?;
-        sqlx::query(
-            "CREATE TEMP TABLE __forgesync_fk_child (parent_id INTEGER REFERENCES __forgesync_fk_parent(id))",
-        )
-        .execute(&mut *connection)
-        .await
-        .map_err(|_| ())?;
-        let insert_result =
-            sqlx::query("INSERT INTO __forgesync_fk_child (parent_id) VALUES (1)")
-                .execute(&mut *connection)
-                .await;
-        match insert_result {
-            Err(sqlx::Error::Database(error))
-                if error.message().contains("FOREIGN KEY constraint failed") =>
-            {
-                Ok(())
-            }
-            _ => Err(()),
-        }
-    }
-    .await;
+    let probe_result = create_and_violate_foreign_key(connection).await;
     let cleanup_result = drop_foreign_key_probe_tables(connection).await;
 
     probe_result.and(cleanup_result)
+}
+
+/// Creates related temporary tables and tries inserting a child without its parent.
+///
+/// Only the expected foreign-key constraint error proves enforcement; another database failure
+/// or an accepted insert fails the probe. The caller attempts cleanup on either outcome.
+async fn create_and_violate_foreign_key(connection: &mut SqliteConnection) -> Result<(), ()> {
+    sqlx::query("CREATE TEMP TABLE __forgesync_fk_parent (id INTEGER PRIMARY KEY)")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| ())?;
+    sqlx::query(
+        "CREATE TEMP TABLE __forgesync_fk_child (parent_id INTEGER REFERENCES __forgesync_fk_parent(id))",
+    )
+    .execute(&mut *connection)
+    .await
+    .map_err(|_| ())?;
+    let insert_result = sqlx::query("INSERT INTO __forgesync_fk_child (parent_id) VALUES (1)")
+        .execute(&mut *connection)
+        .await;
+    match insert_result {
+        Err(sqlx::Error::Database(error))
+            if error.message().contains("FOREIGN KEY constraint failed") =>
+        {
+            Ok(())
+        }
+        _ => Err(()),
+    }
 }
 
 /// Removes temporary integrity-probe tables after the check.

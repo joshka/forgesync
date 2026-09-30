@@ -3112,3 +3112,13 @@ cleanup and why an initial cleanup failure stops the probe. Public reporting tex
 
 All six lifecycle integration scenarios, store all-target/all-feature Clippy, nightly formatting,
 rumdl, and changed-page Markdown linting pass.
+
+### Explicit foreign-key probe cleanup sequence
+
+Foreign-key enforcement now reads as initial cleanup, named constraint exercise, final cleanup, and
+result composition. The constraint operation documents the exact expected rejection and keeps SQL
+execution together. Cleanup ownership is visible at the coordinating level, matching the FTS probe
+without introducing a generic probe framework.
+
+All six lifecycle scenarios, strict store documentation including private items, nightly formatting,
+rumdl, and changed-page Markdown linting pass.
