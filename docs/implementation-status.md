@@ -2456,3 +2456,14 @@ percent-decoding limits. A runnable thread-selector example demonstrates the loc
 
 All four engine doctests, strict engine Rustdoc, nightly formatting, and Markdown checks pass.
 Parsing behavior is unchanged; broader conventions and test review remain open.
+
+## Continued maintenance: local selector parsing scenarios
+
+The selector suite moves beside the parser in `reference/tests.rs` with orientation and explicit
+owner imports. Combined success cases become independent default-host, enterprise, numbered-pair,
+and pull-URL scenarios. Rejections now assert their exact typed classifications rather than only
+`is_err`. New direct cases establish literal percent escapes and retained display-case equality.
+
+All 12 focused reference-related tests, engine Clippy across targets/features, nightly formatting,
+and Markdown checks pass. Parser behavior is unchanged; broader conventions and test review remain
+open.
