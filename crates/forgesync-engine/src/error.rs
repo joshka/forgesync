@@ -1,12 +1,24 @@
-//! # Workflow errors across provider and store boundaries
+//! # Workflow failures at engine boundaries
 //!
-//! `EngineError` collects failures that can arise while coordinating GitHub acquisition, archive
-//! application, derived analysis, and offline queries. It is the engine-facing error type, leaving
-//! transport and SQL details to their owning crates.
+//! [`EngineError`] combines request validation, missing local targets, unavailable services,
+//! cancellation, worker failures, and errors from the provider, embedding, and store owners.
+//! Transparent variants retain their owning error's display/source behavior; the engine does not
+//! flatten every failure into a transport error or a generic retry instruction.
 //!
-//! Reports preserve partial success where a workflow can continue. This error represents failures
-//! that prevent the requested operation or stage from completing and should retain enough context
-//! for CLI diagnostics and retry decisions.
+//! Workflow reports carry partial success when work can continue. An error can instead prevent a
+//! request or stage from completing, but it does not prove that no durable work occurred. Earlier
+//! pages, batches, or stages can already be committed; cleanup can also fail after a successful
+//! write. Callers must interpret the operation's contract and any retained report before retrying.
+//!
+//! [`EngineError::code`] supplies process-facing classification independently of display wording.
+//! Callers present diagnostics and choose exit status; this module installs no subscriber and reads
+//! no process environment. Some classifications group related underlying failures, so codes alone
+//! are not a complete retry policy or source-completeness decision.
+//!
+//! Failure-ledger errors preserve both the original provider failure and the store error that
+//! prevented recording it. Display text and source chains remain diagnostics rather than public
+//! payloads: presentation owners must follow the project's credential and content logging rules.
+//! Adding a variant requires reviewing its classification and the workflows that can retain it.
 
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};

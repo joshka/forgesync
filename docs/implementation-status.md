@@ -2665,3 +2665,15 @@ actions have item/variant docs and touched imports name their defining clusterin
 
 Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Engine failure reporting orientation
+
+Engine error docs now separate validation, local targets, service availability, cancellation, worker
+failures, and wrapped owner errors. They explain partial durable progress despite errors,
+classification versus retry policy, caller-owned presentation, and preservation of original provider
+failure alongside a failed ledger write. Display/source diagnostics are not described as universally
+safe public payloads.
+
+Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass. The remaining conventions pass still includes API shape, visibility, imports, and
+item-contract depth; introduction length alone does not close it.
