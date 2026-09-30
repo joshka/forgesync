@@ -51,14 +51,15 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .await
         .expect("stage first collection");
     archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            first.sequence,
-            timestamp("2026-09-20T10:00:02Z"),
-            &CollectionCompleteness::Complete,
-            Some(1),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: first.sequence,
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: None,
+        })
         .await
         .expect("commit first collection");
 
@@ -90,19 +91,17 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
     .execute(&trigger_pool)
     .await
     .expect("install test trigger");
-    assert!(
-        archive
-            .finish_child_family_observation(
-                &thread_id,
-                EvidenceFamily::Comments,
-                next.sequence,
-                timestamp("2026-09-20T10:00:04Z"),
-                &CollectionCompleteness::Complete,
-                Some(1),
-            )
-            .await
-            .is_err()
-    );
+    let observation = ChildFamilyObservation {
+        thread: &thread_id,
+        family: EvidenceFamily::Comments,
+        sequence: next.sequence,
+        observed_at: timestamp("2026-09-20T10:00:04Z"),
+        completeness: &CollectionCompleteness::Complete,
+        expected_pages: Some(1),
+        head_sha: None,
+    };
+    let result = archive.finish_child_family_observation(observation).await;
+    assert!(result.is_err());
 
     let members = archive
         .child_family_members::<serde_json::Value>(&thread_id, EvidenceFamily::Comments)
@@ -124,14 +123,15 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .expect("remove test trigger");
     trigger_pool.close().await;
     archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            next.sequence,
-            timestamp("2026-09-20T10:00:04Z"),
-            &CollectionCompleteness::Complete,
-            Some(1),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: next.sequence,
+            observed_at: timestamp("2026-09-20T10:00:04Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: None,
+        })
         .await
         .expect("retry the still-staged generation");
     assert_eq!(
@@ -185,7 +185,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .await
         .expect("stage initial review thread");
     archive
-        .finish_child_family_observation_with_context(ChildFamilyObservation {
+        .finish_child_family_observation(ChildFamilyObservation {
             thread: &thread_id,
             family: EvidenceFamily::ReviewThreads,
             sequence: first.sequence,
@@ -227,7 +227,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     .expect("install test trigger");
     assert!(
         archive
-            .finish_child_family_observation_with_context(ChildFamilyObservation {
+            .finish_child_family_observation(ChildFamilyObservation {
                 thread: &thread_id,
                 family: EvidenceFamily::ReviewThreads,
                 sequence: next.sequence,

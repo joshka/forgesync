@@ -68,14 +68,15 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("replay same page");
     let complete = archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            comments.sequence,
-            timestamp("2026-09-20T10:00:02Z"),
-            &CollectionCompleteness::Complete,
-            Some(1),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: comments.sequence,
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: None,
+        })
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
@@ -109,14 +110,15 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("stage partial page");
     let partial_result = archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            partial.sequence,
-            timestamp("2026-09-20T10:00:04Z"),
-            &incomplete(1),
-            None,
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: partial.sequence,
+            observed_at: timestamp("2026-09-20T10:00:04Z"),
+            completeness: &incomplete(1),
+            expected_pages: None,
+            head_sha: None,
+        })
         .await
         .expect("record incomplete collection");
     assert_eq!(partial_result.item_count, 1);
@@ -152,14 +154,15 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("reserve incomplete empty comments");
     archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            incomplete_empty.sequence,
-            timestamp("2026-09-20T10:00:04.6Z"),
-            &incomplete(0),
-            None,
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: incomplete_empty.sequence,
+            observed_at: timestamp("2026-09-20T10:00:04.6Z"),
+            completeness: &incomplete(0),
+            expected_pages: None,
+            head_sha: None,
+        })
         .await
         .expect("record incomplete empty collection");
     assert_eq!(
@@ -184,7 +187,7 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
     let review_head =
         CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review head SHA");
     archive
-        .finish_child_family_observation_with_context(ChildFamilyObservation {
+        .finish_child_family_observation(ChildFamilyObservation {
             thread: &thread_id,
             family: EvidenceFamily::Reviews,
             sequence: reviews.sequence,
@@ -225,7 +228,7 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("reserve review threads independently");
     archive
-        .finish_child_family_observation_with_context(ChildFamilyObservation {
+        .finish_child_family_observation(ChildFamilyObservation {
             thread: &thread_id,
             family: EvidenceFamily::ReviewThreads,
             sequence: review_threads.sequence,
@@ -269,14 +272,15 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         .await
         .expect("reserve current empty comments");
     let stale_result = archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            stale_comments.sequence,
-            timestamp("2026-09-20T10:00:07.2Z"),
-            &CollectionCompleteness::Complete,
-            Some(0),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: stale_comments.sequence,
+            observed_at: timestamp("2026-09-20T10:00:07.2Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(0),
+            head_sha: None,
+        })
         .await
         .expect("superseded generation is skipped");
     assert_eq!(stale_result.disposition, ObservationDisposition::Skipped);
@@ -288,14 +292,15 @@ async fn child_families_stage_pages_and_only_complete_results_replace_membership
         original_members
     );
     archive
-        .finish_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            empty_comments.sequence,
-            timestamp("2026-09-20T10:00:08Z"),
-            &CollectionCompleteness::Complete,
-            Some(0),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            sequence: empty_comments.sequence,
+            observed_at: timestamp("2026-09-20T10:00:08Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(0),
+            head_sha: None,
+        })
         .await
         .expect("replace with complete empty collection");
     assert!(

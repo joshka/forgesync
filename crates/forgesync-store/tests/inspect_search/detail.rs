@@ -10,6 +10,7 @@ use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadRefere
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
+use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::observations::StagedItem;
 use forgesync_store::reads::ThreadTimelineEvent;
 
@@ -74,14 +75,15 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         .await
         .expect("stage current comment");
     archive
-        .finish_child_family_observation(
-            &thread,
-            EvidenceFamily::Comments,
-            reservation.sequence,
-            timestamp("2026-09-20T10:00:02Z"),
-            &CollectionCompleteness::Complete,
-            Some(1),
-        )
+        .finish_child_family_observation(ChildFamilyObservation {
+            thread: &thread,
+            family: EvidenceFamily::Comments,
+            sequence: reservation.sequence,
+            observed_at: timestamp("2026-09-20T10:00:02Z"),
+            completeness: &CollectionCompleteness::Complete,
+            expected_pages: Some(1),
+            head_sha: None,
+        })
         .await
         .expect("complete comments");
 

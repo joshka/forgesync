@@ -2,8 +2,8 @@
 //!
 //! The [`Archive`] methods here turn a reserved, staged acquisition into its terminal result.
 //! [`ChildFamilyObservation`] carries thread/family identity, sequence, acquisition time,
-//! completeness, expected page count, and optional pull-request head context. The convenience
-//! method omits head context; context-aware methods support head-bound review families.
+//! completeness, expected page count, and optional pull-request head context. Both unfenced and
+//! fenced entry points accept the same declaration, including head-bound review evidence.
 //!
 //! Validation rejects unsupported families and inconsistent completeness/page-count declarations
 //! before beginning the transaction. Complete reviews and review threads require head context;
@@ -22,9 +22,7 @@
 //! from earlier calls remains separately durable for recovery or retry.
 
 use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::identity::{ObservationSequence, ThreadId};
 use forgesync_core::observation::CollectionCompleteness;
-use forgesync_core::timestamp::UtcTimestamp;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
@@ -35,36 +33,15 @@ use crate::observation_sql::{evidence_family_name, is_child_family, to_sql_seque
 use crate::observations::FamilyObservationResult;
 
 impl Archive {
-    /// Commits a complete membership snapshot or records an incomplete attempt without replacing
-    /// it.
+    /// Finalizes the declared child collection without enforcing an archive lease.
     ///
-    /// This convenience form supplies no head context, so complete reviews or review threads must
-    /// use a context-aware method instead. It does not enforce an archive lease. Inspect the
-    /// returned disposition: a superseded reservation is skipped without replacing membership.
+    /// The declaration supplies completeness, expected page count, and optional head context
+    /// together. Complete reviews and review threads require a head; other families reject head
+    /// context. Validation precedes the transaction, while reservation ownership and staged
+    /// membership are checked inside it. Inspect the returned disposition because superseded
+    /// reservations skip application. Use the fenced variant for a workflow holding a writer
+    /// token.
     pub async fn finish_child_family_observation(
-        &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        sequence: ObservationSequence,
-        observed_at: UtcTimestamp,
-        completeness: &CollectionCompleteness,
-        expected_pages: Option<u32>,
-    ) -> Result<FamilyObservationResult, StoreError> {
-        let observation = ChildFamilyObservation {
-            thread,
-            family,
-            sequence,
-            observed_at,
-            completeness,
-            expected_pages,
-            head_sha: None,
-        };
-        self.finish_child_family_observation_with_context(observation)
-            .await
-    }
-
-    /// Finalizes a child family with its acquisition context and without an archive lease.
-    pub async fn finish_child_family_observation_with_context(
         &self,
         observation: ChildFamilyObservation<'_>,
     ) -> Result<FamilyObservationResult, StoreError> {

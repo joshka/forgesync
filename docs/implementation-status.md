@@ -3477,3 +3477,17 @@ sequence. Source boundary and publication time retain their independent meanings
 All 15 sync workflow scenarios pass, including closed-sweep failure retention and overlap retry.
 All-target/all-feature store and engine Clippy, strict private-item store Rustdoc, nightly
 formatting, rumdl, and changed-page Markdown linting pass.
+
+### Typed child-family finalization entry point
+
+Unfenced finalization now accepts the existing `ChildFamilyObservation` declaration directly. The
+six-positional-argument convenience form and redundant context suffix are removed. Fenced and
+unfenced operations use the same declaration, including review head requirements, completeness, page
+count, acquisition time, and reserved sequence. Callers supply named fields rather than relying on
+implicit omitted head context.
+
+The transaction and declaration validation remain unchanged. A rollback scenario now names its
+declaration and operation result before asserting failure, making the side effect explicit.
+
+All 13 observation/read integration cases, all-target/all-feature store Clippy, strict private-item
+store Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.
