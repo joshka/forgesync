@@ -15,6 +15,11 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Import names where they are used. Avoid glob imports, especially `use super::*`, because they hide
   the owning module and let child files depend on unrelated parent imports. Name sibling imports
   explicitly and remove parent imports that only served as a child module's implicit prelude.
+- Give genuinely shared policy its own owner when callers otherwise import it through an unrelated
+  workflow. Clock acquisition and provider-failure classification should not make analysis depend on
+  document materialization or child sync depend on repository enumeration. Prefer a focused private
+  module with ordinary public helpers over parent re-export chains. Extract only when the policy and
+  its contract form a coherent concept; do not create a generic utilities collection.
 - Put the central type or operation first, followed by its methods and local helpers in
   caller-before-callee order where possible. Put tests close to the behavior they prove.
 - Write doc comments for helpers when a name and signature leave their purpose, context, or caller

@@ -92,6 +92,18 @@ Start at the command when changing flags, at the engine request when changing wo
 at the store projection when changing selection or decoding. Nearby filter tests establish parsing
 and conversion; engine and store scenarios establish archive behavior.
 
+## Shared engine policy owners
+
+Private `clock` acquires wall time for source acquisition, derived writes, and lease coordination.
+It does not define durable ordering: observation sequences and store rules do that. Private
+`provider_failure` maps typed GitHub failures to recorded domain categories; workflow owners decide
+retry and cancellation handling before choosing whether to record those failures.
+
+Public `exact_search` exposes cosine arithmetic. Private `scoring` owns ranked discussion
+candidates, best-chunk filtering, bounded merging, and stable identity ordering shared by search and
+clustering. Vector eligibility remains with the workflow/store selection boundary. Arithmetic and
+scoring tests live beside their respective owners so fixtures and policy assertions do not mix.
+
 ## Child-family transaction phases
 
 Reservation, staging, and finalization share one ordering contract but own different effects.
