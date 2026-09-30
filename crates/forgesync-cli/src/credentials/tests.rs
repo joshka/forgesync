@@ -38,11 +38,12 @@ fn empty_configured_environment_token_falls_back_to_github_token() {
     assert_eq!(selected.expect("token").expose(), "github-token");
 }
 
-#[test]
-fn environment_variable_names_are_checked_before_lookup() {
-    assert!(valid_environment_variable_name("FORGESYNC_GITHUB_TOKEN"));
-    assert!(!valid_environment_variable_name("9TOKEN"));
-    assert!(!valid_environment_variable_name("TOKEN;echo"));
+#[rstest::rstest]
+#[case::portable_name("FORGESYNC_GITHUB_TOKEN", true)]
+#[case::leading_digit("9TOKEN", false)]
+#[case::shell_punctuation("TOKEN;echo", false)]
+fn environment_variable_name_has_portable_spelling(#[case] name: &str, #[case] valid: bool) {
+    assert_eq!(valid_environment_variable_name(name), valid);
 }
 
 #[cfg(unix)]

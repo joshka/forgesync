@@ -70,6 +70,13 @@ read/decision commands retain their existing inputs. Eight cluster-filtered CLI 
 CLI Clippy, strict CLI Rustdoc, nightly formatting, and Markdown checks pass. The source-shape audit
 records this signature disposition while the rest of the CLI inventory remains under review.
 
+Credential helper contracts now identify direct executable invocation, post-spawn timeout scope,
+captured-output validation, and cancellation's kill-on-drop limits. Variable-name spelling has three
+named rstest cases instead of bundled assertions. The source-shape audit records retained
+credential, root-renderer, and progress-start signatures with their distinct policy inputs. Seven
+credential cases and all-target CLI Clippy pass; the remaining signature and suite-quality
+inventories stay open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

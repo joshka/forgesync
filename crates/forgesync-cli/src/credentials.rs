@@ -40,7 +40,7 @@ pub struct GitHubCredentialSettings {
     pub configured_token_environment_variable: Option<String>,
     /// Program used for host-aware `gh auth token` discovery.
     pub gh_program: PathBuf,
-    /// Maximum time to wait for credential discovery.
+    /// Maximum asynchronous helper wait after successful spawn; environment lookup is excluded.
     pub command_timeout: Duration,
 }
 
@@ -181,8 +181,16 @@ pub(crate) fn valid_environment_variable_name(name: &str) -> bool {
         && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
 }
 
-/// Runs the credential helper without stdin or visible stderr. Cancellation and timeout both
-/// drop the child with kill-on-drop enabled, so credential lookup cannot block shutdown.
+/// Executes a helper with captured stdout, no stdin, and discarded stderr.
+///
+/// `program` and `arguments` describe one direct executable invocation; no shell is inserted.
+/// The timeout covers waiting for exit and captured output after spawn, not command construction
+/// or environment lookup. Preexisting cancellation rejects the call before spawning. Cancellation
+/// during waiting or timeout drops the child future with kill-on-drop enabled; this requests child
+/// termination without waiting here for reaping or managing descendants.
+///
+/// Only a successful exit returns captured output. Spawn/wait/exit failures return typed categories
+/// without including stdout or stderr; the caller separately validates token encoding and syntax.
 async fn run_credential_process(
     program: &Path,
     arguments: &[OsString],

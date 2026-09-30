@@ -468,6 +468,27 @@ navigation without introducing another context type. Read and decision operation
 their archive path, output mode, and selected arguments. Other CLI signature candidates remain under
 review.
 
+### CLI credential and process presentation signatures
+
+Retain `GitHubCredentialSettings::resolve_token`'s host and cancellation inputs: settings already
+own lookup policy, while host selects helper arguments and cancellation belongs to the invocation.
+`run_credential_process` retains executable, argument slice, timeout, and cancellation. This private
+boundary executes one command directly and independently controls wait duration and interruption; a
+one-use argument bag would add a type without eliminating a policy choice. Its contract now names
+the post-spawn timed region and the limits of kill-on-drop cleanup.
+
+Root result/error renderers retain explicit output mode, command label, data or diagnostic, human
+renderer, and selected exit status. These are distinct presentation choices, not fields of a domain
+request. The typed store and engine adapters remain small conversion boundaries; engine cancellation
+retains status 130. Progress startup likewise takes a command label, output mode, and verbosity
+because advisory delivery is selected independently from terminal result status.
+
+Credential tests use direct environment values, avoiding process-global mutation. Subprocess cases
+remain Unix-specific direct invocations with explicit timeout/cancellation; they establish returned
+categories, not descendant cleanup or provider authentication. Portable variable spelling now uses
+three named rstest cases instead of one assertion bundle. This disposes of the inspected credential,
+root-renderer, and progress-start signatures; other CLI candidates remain open.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.
