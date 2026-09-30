@@ -16,7 +16,7 @@ use forgesync_store::archive::Archive;
 
 use crate::output::ArchiveStatusOutput;
 use crate::reports::archive::{
-    MigrationOutput, archive_status_summary, archive_summary, doctor_summary, migration_summary,
+    MigrationOutput, archive_summary, doctor_summary, migration_summary,
 };
 use crate::{OutputMode, render_engine_error, render_result, render_store_error, render_success};
 
@@ -86,7 +86,12 @@ impl ArchiveCommand {
         match result {
             Ok(status) => {
                 let data = ArchiveStatusOutput::from(&status);
-                render_success(output, "archive status", &data, archive_status_summary)
+                render_success(
+                    output,
+                    "archive status",
+                    &data,
+                    ArchiveStatusOutput::summary,
+                )
             }
             Err(error) => render_engine_error(output, "archive status", error),
         }

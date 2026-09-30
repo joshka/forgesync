@@ -1877,6 +1877,18 @@ Labels, punctuation, source-body spelling, missing-data fallback, timestamps, se
 JSON DTOs remain unchanged. Two nearby linear cases protect resolved/outdated and unknown-path
 wording. Both focused cases, all offline query output cases, workspace Clippy, formatting, rumdl,
 and changed-page Markdown linting pass. All workspace tests/doctests, the CLI build without default
-features, and strict public/private Rustdoc also pass. Review-thread match arms
-retain only explicit source-field projection into a named context; all wording policy lives below
-the dispatcher. Presentation cleanup remains open.
+features, and strict public/private Rustdoc also pass. Review-thread match arms retain only explicit
+source-field projection into a named context; all wording policy lives below the dispatcher.
+Presentation cleanup remains open.
+
+## Continued maintenance: archive status presentation
+
+`ArchiveStatusOutput::summary` coordinates named counts, coverage, work, lease, and schema methods.
+The command uses that method directly. Lease owner and expiry, migration-history suffix, and work
+counts have local names; no new wrapper or behavioral boolean parameter is introduced. Existing
+wording, section order, fallback labels, coverage iteration order, and JSON projection are retained.
+
+A linear offline command scenario protects human section order, counts, thread coverage, available
+lease, and valid schema history. All three offline query scenarios pass. Workspace Clippy passed for
+the implementation before the added scenario; final workspace validation remains to run.
+Presentation and the subsequent workspace review batches remain open.

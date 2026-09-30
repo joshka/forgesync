@@ -32,67 +32,83 @@ pub struct MigrationOutput {
     pub archive: ArchiveInfo,
 }
 
-/// Formats archive identity, counts, and diagnostics for a local status command.
-pub fn archive_status_summary(status: &ArchiveStatusOutput<'_>) -> String {
-    let mut lines = vec![
-        archive_summary(status.archive),
+impl ArchiveStatusOutput<'_> {
+    /// Presents the observed archive identity, coverage, work, lease, and schema in that order.
+    ///
+    /// These diagnostics describe the completed local read. A displayed lease is not authority to
+    /// write, and rendering does not refresh or otherwise change the archive.
+    pub fn summary(&self) -> String {
+        let mut lines = vec![archive_summary(self.archive), self.counts_line()];
+        lines.extend(self.coverage_lines());
+        lines.extend([self.work_line(), self.lease_line(), self.schema_line()]);
+        lines.join("\n")
+    }
+
+    /// Shows repository and discussion totals with the issue/pull-request split.
+    fn counts_line(&self) -> String {
         format!(
             "Repositories: {}\nThreads: {} ({} issues, {} pull requests)",
-            status.repositories, status.threads, status.issues, status.pull_requests
-        ),
-        "Coverage:".to_owned(),
-    ];
-    lines.extend(status.coverage.iter().map(|coverage| {
-        format!(
-            "  {}: {} complete, {} incomplete, {} missing of {}",
-            family_name(coverage.family),
-            coverage.complete,
-            coverage.incomplete,
-            coverage.missing,
-            coverage.applicable_threads
+            self.repositories, self.threads, self.issues, self.pull_requests
         )
-    }));
-    lines.push(format!(
-        "Work: {} unresolved failures, {} failed jobs, {} deferred jobs, {} in-progress runs",
-        status.diagnostics.work.unresolved_failures,
-        status.diagnostics.work.failed_jobs,
-        status.diagnostics.work.deferred_jobs,
-        status.diagnostics.work.in_progress_runs
-    ));
-    lines.push(format!(
-        "Lease: {} (fence {}, expires {})",
-        if status.diagnostics.lease.held {
+    }
+
+    /// Keeps coverage families in the store projection's order, including an empty heading.
+    fn coverage_lines(&self) -> Vec<String> {
+        let mut lines = vec!["Coverage:".to_owned()];
+        lines.extend(self.coverage.iter().map(|coverage| {
             format!(
-                "held by {}",
-                status
-                    .diagnostics
-                    .lease
-                    .owner_id
-                    .as_deref()
-                    .unwrap_or("unknown")
+                "  {}: {} complete, {} incomplete, {} missing of {}",
+                family_name(coverage.family),
+                coverage.complete,
+                coverage.incomplete,
+                coverage.missing,
+                coverage.applicable_threads
             )
+        }));
+        lines
+    }
+
+    /// Reports outstanding work without treating deferred jobs as completed work.
+    fn work_line(&self) -> String {
+        let work = &self.diagnostics.work;
+        format!(
+            "Work: {} unresolved failures, {} failed jobs, {} deferred jobs, {} in-progress runs",
+            work.unresolved_failures, work.failed_jobs, work.deferred_jobs, work.in_progress_runs
+        )
+    }
+
+    /// Describes the observed lease, retaining explicit fallbacks for missing owner or timestamp.
+    fn lease_line(&self) -> String {
+        let lease = &self.diagnostics.lease;
+        let state = if lease.held {
+            let owner = lease.owner_id.as_deref().unwrap_or("unknown");
+            format!("held by {owner}")
         } else {
             "available".to_owned()
-        },
-        status.diagnostics.lease.fencing_token,
-        status
-            .diagnostics
-            .lease
+        };
+        let expires = lease
             .expires_at
             .format_rfc3339()
-            .unwrap_or_else(|_| "invalid timestamp".to_owned())
-    ));
-    lines.push(format!(
-        "Schema: {} / {} supported{}",
-        status.diagnostics.schema.current_version,
-        status.diagnostics.schema.supported_version,
-        if status.diagnostics.schema.history_valid {
+            .unwrap_or_else(|_| "invalid timestamp".to_owned());
+        format!(
+            "Lease: {state} (fence {}, expires {expires})",
+            lease.fencing_token
+        )
+    }
+
+    /// Distinguishes the stored version, supported version, and migration-history diagnosis.
+    fn schema_line(&self) -> String {
+        let schema = &self.diagnostics.schema;
+        let history = if schema.history_valid {
             " (history valid)"
         } else {
             " (history invalid)"
-        }
-    ));
-    lines.join("\n")
+        };
+        format!(
+            "Schema: {} / {} supported{history}",
+            schema.current_version, schema.supported_version
+        )
+    }
 }
 
 /// Formats stable metadata after creating or opening an archive.
