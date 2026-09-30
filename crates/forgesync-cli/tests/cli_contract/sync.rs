@@ -5,10 +5,12 @@
 //! own pagination and transaction details; this suite protects user-facing selection and outcome
 //! behavior.
 
-use super::{
-    Archive, Duration, SystemTime, UNIX_EPOCH, UtcTimestamp, forgesync, remove_archive,
-    temporary_archive_path,
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_store::archive::Archive;
+
+use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]
 fn sync_all_runs_against_the_registered_archive_and_emits_a_report() {
@@ -41,13 +43,16 @@ fn sync_all_runs_against_the_registered_archive_and_emits_a_report() {
 }
 
 #[test]
-fn sync_requires_a_scope_and_rejects_all_with_explicit_repositories() {
+fn sync_requires_a_scope() {
     let missing_scope = forgesync()
         .args(["sync", "--archive", "missing.sqlite"])
         .output()
         .expect("run sync without scope");
     assert_eq!(missing_scope.status.code(), Some(2));
+}
 
+#[test]
+fn sync_rejects_all_with_explicit_repositories() {
     let conflicting_scope = forgesync()
         .args(["sync", "owner/repo", "--all", "--archive", "missing.sqlite"])
         .output()

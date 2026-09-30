@@ -3295,3 +3295,12 @@ independent process-output policies. Subscriber settings and command status beha
 
 All-target CLI Clippy and all 14 CLI contract scenarios pass. Nightly formatting and changed-page
 Markdown checks pass after prose normalization.
+
+### CLI process fixture ownership and scope scenarios
+
+Process-contract children import domain, store, and clock types from their defining modules. The
+parent now supplies only executable/path/cleanup fixtures. Fixture contracts distinguish command
+construction, filename allocation, and best-effort SQLite sidecar cleanup. Missing scope and
+conflicting scope have independent named tests, so one failure no longer masks the other.
+
+All 15 CLI process contract cases pass after the import and scenario changes.

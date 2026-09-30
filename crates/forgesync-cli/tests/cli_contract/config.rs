@@ -4,10 +4,12 @@
 //! They inspect process behavior at the boundary where library requests are constructed. Keep
 //! expectations here when a setting changes user-visible precedence or diagnostics.
 
-use super::{
-    Archive, GitHubHost, ProviderData, ProviderId, Repository, RepositoryId, forgesync,
-    remove_archive, temporary_archive_path,
-};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_store::archive::Archive;
+
+use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]
 fn explicit_config_is_loaded_and_invalid_config_uses_the_json_error_envelope() {

@@ -4,7 +4,9 @@
 //! protect the distinction between a successful report, a partial outcome, and an error.
 //! Lower-level engine reports are tested elsewhere; this file covers their process presentation.
 
-use super::{Archive, forgesync, remove_archive, temporary_archive_path};
+use forgesync_store::archive::Archive;
+
+use super::{forgesync, remove_archive, temporary_archive_path};
 
 #[test]
 fn version_flag_prints_package_version() {
