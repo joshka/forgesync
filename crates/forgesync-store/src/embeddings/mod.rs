@@ -109,6 +109,16 @@ pub struct EmbeddingWrite {
 
 impl Archive {
     /// Lists persisted chunks matching the current document and service identity.
+    ///
+    /// Validate the supplied document recipe/hash, then match its stored hash and exact endpoint,
+    /// model, and declared chunk count. Blank service identity or zero count yields no chunks;
+    /// a different stored document hash returns `DocumentNotCurrent`. Rows arrive in chunk-index
+    /// order, with checked indexes/counts and validated vector bytes.
+    ///
+    /// The result can be a partial set for retry planning. It does not prove contiguous indexes,
+    /// uniform dimensions, caller recipe freshness against all source families, or compatibility
+    /// with a query vector. Semantic candidate reads perform complete-set checks separately.
+    /// Document, stored-value, conversion, and database failures propagate without changing state.
     pub async fn embedding_chunks(
         &self,
         document: &Document,
@@ -157,6 +167,16 @@ impl Archive {
     }
 
     /// Stores a vector only while its source document and the archive writer fence are current.
+    ///
+    /// `chunk` already groups service identity, index/count, content hash, and checked vector
+    /// shape. This operation validates those fields and the document recipe/hash before writer
+    /// access, then checks the fence and stored document revision inside one transaction.
+    /// Endpoint/model strings are persisted exactly as supplied after rejecting blank identity.
+    ///
+    /// One chunk commits independently, preserving successful batches when later acquisition fails.
+    /// Replacing its existing index updates count/hash/vector and update time while retaining the
+    /// original creation time. This does not acquire embeddings or prove a complete chunk set.
+    /// Invalid input, read-only state, lost lease, noncurrent document, and SQL failures propagate.
     pub async fn upsert_embedding_chunk_fenced(
         &self,
         token: &ArchiveLeaseToken,

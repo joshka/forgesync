@@ -70,6 +70,14 @@ mod completion;
 
 impl Archive {
     /// Starts a new repository enumeration and records its first page before requesting it.
+    ///
+    /// Supply an already reserved sequence and registered repository. A sequence not newer than
+    /// that repository's stored scan is rejected. Success replaces scan bookkeeping with an
+    /// in-progress generation, zero counters, and the supplied initial cursor; it does not delete
+    /// discussions or allocate another sequence. Start time is recorded as acquisition context.
+    /// URL text is retained without transport-origin validation; the provider client owns that
+    /// check before fetching. Read-only, missing repository, stale sequence, and SQL errors
+    /// propagate.
     pub async fn begin_repository_thread_scan(
         &self,
         repository: &RepositoryId,
@@ -88,6 +96,10 @@ impl Archive {
     }
 
     /// Starts an enumeration only while the supplied archive lease remains current.
+    ///
+    /// Uses the same generation and cursor rules as [`Self::begin_repository_thread_scan`], adding
+    /// a fence check inside the start transaction. Keep this token for page and terminal writes;
+    /// possessing it does not prove that the lease is still active at a later phase.
     pub async fn begin_repository_thread_scan_fenced(
         &self,
         repository: &RepositoryId,
@@ -106,7 +118,10 @@ impl Archive {
         .await
     }
 
-    /// Reserves scan state before fetching repository pages.
+    /// Persists the caller's reserved sequence before fetching repository pages.
+    ///
+    /// Optional fencing changes authorization, not acquisition identity. This coordinator owns
+    /// the transaction and commit; no provider request is performed while it holds the connection.
     async fn begin_repository_thread_scan_inner(
         &self,
         repository: &RepositoryId,

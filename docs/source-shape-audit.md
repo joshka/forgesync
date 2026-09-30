@@ -619,6 +619,27 @@ not need another generic write context. The focused strict store documentation c
 contract additions. All 16 observation integration cases pass after coordinate derivation;
 all-target store Clippy passes.
 
+### Store scan, lease, document, and vector signatures
+
+Scan start/page/finish APIs retain repository identity and reserved sequence as the exact durable
+generation key, plus the facts recorded at that phase. Fenced variants add authorization separately;
+private variants accept an optional token without changing evidence policy. Engine `ScanPersistence`
+already owns repeated traversal coordinates. Store `ScanCompletion` captures terminal status and
+failure validation before persistence. Adding another request wrapper for each SQL checkpoint would
+repeat those owners without reducing the generation checks. Start contracts now state that the
+sequence is supplied rather than allocated, counters reset, discussions remain, and URL origin
+validation belongs to transport.
+
+Lease heartbeat retains token, caller clock, and duration: identity, evaluation time, and renewal
+policy are separate choices. Document writes retain document, fence, and build time;
+`DocumentUpdate` already captures the validated SQL projection. Vector reads retain document, exact
+service identity, and expected chunk count for retry selection. Vector writes already group
+index/count/hash/vector in `EmbeddingChunkInput`, with authorization and persistence time separate.
+Their expanded operation contracts distinguish partial retry sets from semantic complete sets,
+stored-document identity from source-family freshness, and per-chunk commit from whole-acquisition
+success. These dispositions cover the inspected scan, lease, document, and public vector signatures;
+remaining SQL adapter and engine inventory reconciliation is separate.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Scan-start and vector archive methods now explain reserved versus allocated order, cursor origin
+validation, partial chunk reads, exact service identity, and independent chunk commits. The audit
+records retained scan/lease/document/vector signatures and their existing owners. These comment-only
+changes pass nightly formatting; strict documentation validation will run with the final gates.
+
 Coverage persistence now derives acquisition time and sequence from the typed state rather than
 duplicate arguments. Parent evidence updates separate sequence conversion from SQL execution. All 16
 observation integration cases pass; store all-target Clippy passes. Run/job and audit write
