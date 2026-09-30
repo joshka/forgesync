@@ -11,14 +11,14 @@
 //! the proposed identity and clocks together for comparison and persistence. Rejected proposals
 //! still consume acquisition order, but never replace a newer reservation or create a generation.
 
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::identity::{ObservationSequence, ThreadId};
+use forgesync_core::identity::ObservationSequence;
 use forgesync_core::observation::SourceClock;
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::{Row, SqliteConnection};
 
 use crate::archive::Archive;
 use crate::error::StoreError;
+use crate::families::ChildFamilyRequest;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observation_sql::{
     SourceClockColumns, checked_sequence, evidence_family_name, is_child_family,
@@ -32,10 +32,10 @@ impl Archive {
     /// Allocates acquisition order before fetching one discussion's child evidence.
     ///
     /// Call this before provider I/O, then stage pages and finalize with the returned sequence.
-    /// `family` must identify comments, metadata, reviews, or review threads; parent thread scans
-    /// use their own observation path. `request_scope` must contain a nonempty description of the
-    /// selected provider request, while `source_clock` describes source freshness rather than the
-    /// local start time.
+    /// `request.family` must identify comments, metadata, reviews, or review threads; parent thread
+    /// scans use their own observation path. `request.request_scope` must contain a nonempty
+    /// description of the selected provider request, while `request.source_clock` describes
+    /// source freshness rather than the local start time.
     ///
     /// A result with `reserved == false` still consumes a sequence but leaves the newer reservation
     /// intact. Do not fetch or stage that rejected generation. A successful reservation does not
@@ -48,21 +48,10 @@ impl Archive {
     /// transaction is held while the caller performs network I/O.
     pub async fn reserve_child_family_observation(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        source_clock: &SourceClock,
-        started_at: UtcTimestamp,
-        request_scope: &str,
+        request: ChildFamilyRequest<'_>,
     ) -> Result<FamilyReservation, StoreError> {
-        self.reserve_child_family_observation_inner(
-            thread,
-            family,
-            source_clock,
-            started_at,
-            request_scope,
-            None,
-        )
-        .await
+        self.reserve_child_family_observation_inner(request, None)
+            .await
     }
 
     /// Reserves child evidence under an archive writer fence.
@@ -78,34 +67,26 @@ impl Archive {
     /// errors. A failed fence leaves the reservation unchanged.
     pub async fn reserve_child_family_observation_fenced(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        source_clock: &SourceClock,
-        started_at: UtcTimestamp,
-        request_scope: &str,
+        request: ChildFamilyRequest<'_>,
         token: &ArchiveLeaseToken,
     ) -> Result<FamilyReservation, StoreError> {
-        self.reserve_child_family_observation_inner(
-            thread,
-            family,
-            source_clock,
-            started_at,
-            request_scope,
-            Some(token),
-        )
-        .await
+        self.reserve_child_family_observation_inner(request, Some(token))
+            .await
     }
 
     /// Reserves a generation before provider pages arrive, under optional fencing.
     async fn reserve_child_family_observation_inner(
         &self,
-        thread: &ThreadId,
-        family: EvidenceFamily,
-        source_clock: &SourceClock,
-        started_at: UtcTimestamp,
-        request_scope: &str,
+        request: ChildFamilyRequest<'_>,
         token: Option<&ArchiveLeaseToken>,
     ) -> Result<FamilyReservation, StoreError> {
+        let ChildFamilyRequest {
+            thread,
+            family,
+            source_clock,
+            started_at,
+            request_scope,
+        } = request;
         if !is_child_family(family) {
             return Err(StoreError::UnsupportedObservationFamily(
                 evidence_family_name(family).to_owned(),

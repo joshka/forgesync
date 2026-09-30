@@ -527,6 +527,15 @@ fallback policy before opening the archive, and stores the resulting request/cli
 the existing prepared owners already capture the values that must agree. This disposes of the
 reviewed embed, refresh, and search signature candidates, not all engine/store signatures.
 
+### Child-family reservation signature ownership
+
+Reservation's parent, family, source clock, local start, and request scope now form
+`families::ChildFamilyRequest`. Fenced and unfenced archive methods accept the same declaration;
+authorization remains a separate lease token. Engine collectors and store scenarios construct named
+fields at the reservation boundary rather than passing positional acquisition coordinates. The
+request performs no validation or I/O itself: archive reservation retains validation, ordering,
+transaction, and rejection behavior. Staging and finalization remain distinct lifecycle operations.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

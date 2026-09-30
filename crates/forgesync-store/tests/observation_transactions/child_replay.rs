@@ -15,7 +15,7 @@
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -49,13 +49,13 @@ async fn replaying_a_staged_page_preserves_complete_membership() {
         .expect("apply parent thread");
 
     let comments = archive
-        .reserve_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:01Z"),
-            "GET /issues/1/comments",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:01Z"),
+            request_scope: "GET /issues/1/comments",
+        })
         .await
         .expect("reserve comments");
     assert!(comments.reserved);

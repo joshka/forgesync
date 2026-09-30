@@ -35,7 +35,7 @@ use forgesync_github::error::GitHubError;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 use serde::Serialize;
@@ -168,11 +168,13 @@ impl<'a> ReviewSync<'a> {
         let reservation = self
             .archive
             .reserve_child_family_observation_fenced(
-                self.scope.thread,
-                self.family.evidence_family(),
-                &SourceClock::Valid(self.scope.updated_at),
-                now_utc()?,
-                &request_scope,
+                ChildFamilyRequest {
+                    thread: self.scope.thread,
+                    family: self.family.evidence_family(),
+                    source_clock: &SourceClock::Valid(self.scope.updated_at),
+                    started_at: now_utc()?,
+                    request_scope: &request_scope,
+                },
                 self.context.lease,
             )
             .await?;

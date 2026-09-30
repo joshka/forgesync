@@ -18,7 +18,7 @@ use forgesync_github::resources::fetch_pull_request_metadata;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 
@@ -68,11 +68,13 @@ impl<'a> MetadataObservation<'a> {
         let request_scope = format!("run:{}:{}", context.run_id.get(), scope.key);
         let reservation = archive
             .reserve_child_family_observation_fenced(
-                scope.thread,
-                EvidenceFamily::PullRequestMetadata,
-                &source_clock,
-                now_utc()?,
-                &request_scope,
+                ChildFamilyRequest {
+                    thread: scope.thread,
+                    family: EvidenceFamily::PullRequestMetadata,
+                    source_clock: &source_clock,
+                    started_at: now_utc()?,
+                    request_scope: &request_scope,
+                },
                 context.lease,
             )
             .await?;

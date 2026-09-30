@@ -15,7 +15,7 @@ use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -48,13 +48,13 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .await
         .expect("apply parent");
     let first = archive
-        .reserve_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:01Z"),
-            "comments",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:01Z"),
+            request_scope: "comments",
+        })
         .await
         .expect("reserve first collection");
     archive
@@ -81,13 +81,13 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
         .expect("commit first collection");
 
     let next = archive
-        .reserve_child_family_observation(
-            &thread_id,
-            EvidenceFamily::Comments,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:03Z"),
-            "comments",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
+            family: EvidenceFamily::Comments,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:03Z"),
+            request_scope: "comments",
+        })
         .await
         .expect("reserve replacement collection");
     archive

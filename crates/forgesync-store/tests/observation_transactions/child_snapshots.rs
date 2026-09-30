@@ -17,7 +17,7 @@ use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 
 use crate::fixture::{
     discussion, remove_archive, repository, temporary_archive_path, thread_id, thread_observation,
@@ -57,13 +57,13 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
         .expect("apply parent thread");
 
     let snapshot = archive
-        .reserve_child_family_observation(
-            &thread_id,
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
             family,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:05Z"),
-            "fixture empty snapshot",
-        )
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:05Z"),
+            request_scope: "fixture empty snapshot",
+        })
         .await
         .expect("reserve reviews independently");
     assert!(snapshot.reserved);

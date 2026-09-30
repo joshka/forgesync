@@ -18,7 +18,7 @@ use forgesync_core::identity::CommitSha;
 use forgesync_core::observation::{CollectionCompleteness, SourceClock};
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use serde_json::json;
 
 use crate::fixture::{
@@ -58,13 +58,13 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     let head =
         CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review-thread head SHA");
     let first = archive
-        .reserve_child_family_observation(
-            &thread_id,
-            EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:01Z"),
-            "review threads",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:01Z"),
+            request_scope: "review threads",
+        })
         .await
         .expect("reserve first review-thread snapshot");
     archive
@@ -93,13 +93,13 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     let replacement_head = CommitSha::new("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         .expect("replacement review-thread head SHA");
     let next = archive
-        .reserve_child_family_observation(
-            &thread_id,
-            EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:03Z"),
-            "review threads",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread_id,
+            family: EvidenceFamily::ReviewThreads,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:03Z"),
+            request_scope: "review threads",
+        })
         .await
         .expect("reserve replacement review-thread snapshot");
     archive

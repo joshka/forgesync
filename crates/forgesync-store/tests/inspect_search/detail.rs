@@ -20,7 +20,7 @@ use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadRefere
 use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use forgesync_store::observations::StagedItem;
 use forgesync_store::reads::{ThreadTimelineEntry, ThreadTimelineEvent};
 
@@ -64,13 +64,13 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         .await
         .expect("apply thread observation");
     let reservation = archive
-        .reserve_child_family_observation(
-            &thread,
-            EvidenceFamily::Comments,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            timestamp("2026-09-20T10:00:01Z"),
-            "GET /issues/9/comments",
-        )
+        .reserve_child_family_observation(ChildFamilyRequest {
+            thread: &thread,
+            family: EvidenceFamily::Comments,
+            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            started_at: timestamp("2026-09-20T10:00:01Z"),
+            request_scope: "GET /issues/9/comments",
+        })
         .await
         .expect("reserve comments");
     let comment_id = ProviderId::new("comment-1").expect("comment provider ID");

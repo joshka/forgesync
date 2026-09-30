@@ -133,6 +133,9 @@ when changing column conversion or a genuinely shared selection rule.
 ## Child-family transaction phases
 
 Reservation, staging, and finalization share one ordering contract but own different effects.
+`ChildFamilyRequest` names the parent, evidence family, source clock, local start, and provider
+scope at the acquisition boundary. Archive reservation accepts that declaration plus a separate
+writer token when fencing is required; construction alone performs no validation or write.
 `ReservedGeneration` compares a proposed source clock and sequence, then writes a reservation and
 recoverable generation. `PageWrite` validates that generation, recognizes identical replay, and
 stores provisional pages with received counts. `FamilyApplication` promotes complete membership or

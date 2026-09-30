@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Child-family reservation now accepts a documented `ChildFamilyRequest` with named parent, family,
+source clock, acquisition start, and scope. Writer authorization remains separate. All engine and
+store call sites use the declaration; reservation retains its transaction and ordering behavior. The
+26 store observation/search cases, 17 engine sync cases, three store documentation examples, and
+store/engine all-target Clippy pass. Broader requirement reconciliation and final workspace
+validation remain open.
+
 Refresh embedding selection now delegates to documented execution methods for service-backed work
 and unavailable-service reporting; cluster result types use their defining-module import. Focused
 refresh validation passes eight unit cases and three integration cases. Strict workspace Rustdoc

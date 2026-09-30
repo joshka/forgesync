@@ -16,7 +16,7 @@ use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, Sour
 use forgesync_github::error::GitHubError;
 use forgesync_github::resources::{RestCommentPage, fetch_issue_comment_page};
 use forgesync_store::error::StoreError;
-use forgesync_store::families::ChildFamilyObservation;
+use forgesync_store::families::{ChildFamilyObservation, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::{ChildFamilyFailureScope, RunFailureInput};
 use url::Url;
@@ -82,11 +82,13 @@ impl<'a> CommentCollection<'a> {
         let reservation = work
             .archive
             .reserve_child_family_observation_fenced(
-                &discussion.id,
-                EvidenceFamily::Comments,
-                &clock,
-                now_utc()?,
-                &request_scope,
+                ChildFamilyRequest {
+                    thread: &discussion.id,
+                    family: EvidenceFamily::Comments,
+                    source_clock: &clock,
+                    started_at: now_utc()?,
+                    request_scope: &request_scope,
+                },
                 work.context.lease,
             )
             .await?;
