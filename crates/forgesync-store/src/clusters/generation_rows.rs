@@ -23,6 +23,11 @@ use crate::clusters::generation_input::PreparedCluster;
 use crate::error::StoreError;
 
 /// Records the generation attempt before replacing current groups.
+///
+/// This row describes the prepared analysis result, not a separately committed in-progress job.
+/// Status and timestamps are supplied immediately, while final member counts follow the writes.
+/// The generation coordinator keeps all of these changes in one transaction, so a later failure
+/// rolls back the run together with membership. Input counts are checked before SQL binding.
 pub async fn insert_cluster_run(
     connection: &mut SqliteConnection,
     input: &ClusterGenerationInput,
@@ -61,6 +66,11 @@ pub async fn insert_cluster_run(
 }
 
 /// Preserves a stable cluster identity while updating generated evidence.
+///
+/// The matching phase supplies an existing ID in this repository or leaves identity unassigned.
+/// Reused IDs retain their stable key and local decision rows; new groups derive a key from sorted
+/// prepared membership. This updates generated representation and lifecycle, not canonical choice
+/// or dismissal. The caller owns identity matching and transaction commit.
 pub async fn upsert_generated_cluster(
     connection: &mut SqliteConnection,
     repository_id: i64,
@@ -115,8 +125,13 @@ fn cluster_stable_key(cluster: &PreparedCluster) -> String {
     key
 }
 
-/// Carries compatible local member decisions into a new generation.
-pub async fn move_current_members(
+/// Removes proposed members' current membership in other clusters before writing their new group.
+///
+/// Only active/excluded memberships outside `cluster_id` become removed. This neither inserts the
+/// target membership nor moves decision rows; the subsequent upsert applies the target cluster's
+/// retained local decision. Every update borrows the generation transaction, so movement cannot
+/// commit separately from the replacement members.
+pub async fn remove_other_memberships(
     connection: &mut SqliteConnection,
     cluster_id: i64,
     thread_ids: &[i64],
@@ -136,6 +151,10 @@ pub async fn move_current_members(
 }
 
 /// Marks former members absent from a complete new generation.
+///
+/// The coordinator calls this only when complete replacement is authorized. An empty member set
+/// removes every active/excluded member in the selected cluster; a partial proposal must not use
+/// absence as evidence for removal. Local decision rows remain available for future upserts.
 pub async fn mark_missing_members_removed(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -165,6 +184,11 @@ pub async fn mark_missing_members_removed(
 }
 
 /// Adds or updates one generated member without losing local decision state.
+///
+/// Existing exclusion determines active versus excluded state, including when a removed member
+/// reappears. Replacements update score, last-seen run, and update time while preserving first-seen
+/// run and creation time. The caller supplies checked SQL identities and the shared generation
+/// timestamp; this helper does not validate writer authority or commit the transaction.
 pub async fn upsert_generated_member(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -191,6 +215,11 @@ pub async fn upsert_generated_member(
 }
 
 /// Retires groups absent from a complete replacement generation.
+///
+/// The coordinator must establish complete scope before calling. An empty seen-ID list retires
+/// every active group in the repository; partial coverage instead skips this operation entirely.
+/// Membership and decision history remain stored. The returned count is the changed cluster rows,
+/// not a member count, and all changes stay inside the caller's transaction.
 pub async fn retire_unseen_clusters(
     connection: &mut SqliteConnection,
     repository_id: i64,
@@ -221,6 +250,10 @@ pub async fn retire_unseen_clusters(
 }
 
 /// Records the final outcome after generation writes finish.
+///
+/// Counts come from the application owner and are checked for SQLite storage. Coverage policy
+/// determines complete/partial status; it does not independently inspect source or vector evidence.
+/// The caller subsequently commits this outcome with the generated groups and memberships.
 pub async fn finish_cluster_run(
     connection: &mut SqliteConnection,
     run_id: i64,

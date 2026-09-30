@@ -640,6 +640,20 @@ stored-document identity from source-family freshness, and per-chunk commit from
 success. These dispositions cover the inspected scan, lease, document, and public vector signatures;
 remaining SQL adapter and engine inventory reconciliation is separate.
 
+### Store generation adapter contracts
+
+`GenerationApplication` already owns the repository, run, timestamp, replacement policy, and
+accumulated results for one transaction. Its row adapters retain explicit SQL target identities and
+operation inputs; another generic context would duplicate that owner. Their contracts now describe
+run rollback, stable-key reuse, complete-only absence removal, retained local decisions, and final
+counts. They borrow the coordinator's transaction and never commit independently.
+
+The former `move_current_members` name implied transferring local decisions between clusters.
+`remove_other_memberships` instead describes its actual mutation: remove active/excluded membership
+in other groups before the target upsert applies that target's retained decision. No decision rows
+move. The nine cluster unit cases, cluster generation/restoration integration suites, and store
+all-target Clippy pass after the rename.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

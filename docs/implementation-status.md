@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Generation row adapters now explain stable identity, complete-only removal, local decision retention,
+and transaction rollback. `remove_other_memberships` replaces a misleading movement name: it removes
+membership in other clusters without transferring decisions. Cluster unit and generation/restoration
+integration cases and store all-target Clippy pass after the rename.
+
 Scan-start and vector archive methods now explain reserved versus allocated order, cursor origin
 validation, partial chunk reads, exact service identity, and independent chunk commits. The audit
 records retained scan/lease/document/vector signatures and their existing owners. These comment-only

@@ -20,7 +20,7 @@ use sqlx::SqliteConnection;
 use crate::clusters::decisions::insert_cluster_event;
 use crate::clusters::generation_input::PreparedCluster;
 use crate::clusters::generation_rows::{
-    finish_cluster_run, insert_cluster_run, mark_missing_members_removed, move_current_members,
+    finish_cluster_run, insert_cluster_run, mark_missing_members_removed, remove_other_memberships,
     retire_unseen_clusters, upsert_generated_cluster, upsert_generated_member,
 };
 use crate::clusters::{ClusterGenerationInput, ClusterGenerationResult};
@@ -115,7 +115,7 @@ impl<'a> GenerationApplication<'a> {
             .iter()
             .map(|(thread_id, _)| *thread_id)
             .collect::<Vec<_>>();
-        move_current_members(connection, cluster_id, &member_ids, self.at).await?;
+        remove_other_memberships(connection, cluster_id, &member_ids, self.at).await?;
         if self.input.complete_coverage {
             mark_missing_members_removed(connection, cluster_id, &member_ids, self.at).await?;
         }
