@@ -25,7 +25,7 @@ use forgesync_store::archive::Archive;
 
 use super::embedding_service::EmbeddingSetupError;
 use crate::config::ForgesyncConfig;
-use crate::reports::embedding::{EmbeddingOutput, embedding_summary};
+use crate::reports::embedding::EmbeddingOutput;
 use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
 
 /// Build documents and store compatible embeddings for local discussions.
@@ -253,7 +253,7 @@ fn render_configuration_error(output: OutputMode, error: EmbeddingSetupError) ->
 /// Renders a report-bearing outcome after the command closes its writable archive.
 fn render_report(output: OutputMode, report: EmbeddingOutput) -> ExitCode {
     let status = report.exit_status();
-    render_result(output, "embed", &report, embedding_summary, status)
+    render_result(output, "embed", &report, EmbeddingOutput::summary, status)
 }
 
 /// Presents a stage that produced no report after archive cleanup, preserving cancellation status.

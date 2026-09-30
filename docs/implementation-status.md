@@ -1936,3 +1936,14 @@ tuple. Dispatch accepts the initial fixed action array and later action vectors 
 TUI tests and workspace Clippy are running for this change; final workspace gates remain. Search
 editing and browser input were reviewed and retained: their existing named actions separate
 draft/apply/cancel transitions, pane navigation, selection invalidation, and query scope.
+
+## Continued maintenance: embedding output ownership
+
+`EmbeddingOutput::summary` presents its existing stage/report projection directly; the command uses
+that method as its rendering callback. `representative_failure` documents and retains stage-first,
+batch-second, document-third selection. The success branch consumes the formatted summary without an
+unnecessary clone. Structured output, failure collections, wording, and exit policy are unchanged.
+
+Focused embedding-output cases and workspace Clippy are running. Human failure-priority coverage and
+final workspace gates remain to verify this change. The presentation inventory is now explicit in
+the source-shape audit; the subsequent conventions/documentation and test-review batches remain.

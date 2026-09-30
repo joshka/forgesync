@@ -66,37 +66,48 @@ impl EmbeddingOutput {
     }
 }
 
-/// Explains the selected embedding work and partial failures in human output.
-pub fn embedding_summary(output: &EmbeddingOutput) -> String {
-    let failure = output
-        .failure
-        .as_ref()
-        .map(|failure| failure.message.as_str())
-        .or_else(|| {
-            output
-                .report
-                .failed_batches
-                .first()
-                .map(|failure| failure.message.as_str())
-        })
-        .or_else(|| {
-            output
-                .document_failures
-                .first()
-                .map(|failure| failure.message.as_str())
-        });
-    let summary = format!(
-        "Embedding {}: {} documents, {} chunks embedded, {} already current, {} failed batches, {} document failures using {} ({})",
-        refresh_status_name(output.status),
-        output.report.documents,
-        output.report.chunks_embedded,
-        output.report.chunks_skipped,
-        output.report.failed_batches.len(),
-        output.document_failures.len(),
-        output.model,
-        output.endpoint
-    );
-    failure.map_or(summary.clone(), |failure| format!("{summary}; {failure}"))
+impl EmbeddingOutput {
+    /// Explains completed derived work and one representative failure in human output.
+    ///
+    /// Full failure collections remain in JSON. This brief account does not replace them or imply
+    /// that a document/batch failure invalidates archived provider observations.
+    pub fn summary(&self) -> String {
+        let summary = format!(
+            "Embedding {}: {} documents, {} chunks embedded, {} already current, {} failed batches, {} document failures using {} ({})",
+            refresh_status_name(self.status),
+            self.report.documents,
+            self.report.chunks_embedded,
+            self.report.chunks_skipped,
+            self.report.failed_batches.len(),
+            self.document_failures.len(),
+            self.model,
+            self.endpoint
+        );
+        match self.representative_failure() {
+            Some(failure) => format!("{summary}; {failure}"),
+            None => summary,
+        }
+    }
+
+    /// Selects stage failure first, then the first failed batch, then the first failed document.
+    ///
+    /// Priority follows the scope of the failure; it is independent of diagnostic message wording.
+    fn representative_failure(&self) -> Option<&str> {
+        self.failure
+            .as_ref()
+            .map(|failure| failure.message.as_str())
+            .or_else(|| {
+                self.report
+                    .failed_batches
+                    .first()
+                    .map(|failure| failure.message.as_str())
+            })
+            .or_else(|| {
+                self.document_failures
+                    .first()
+                    .map(|failure| failure.message.as_str())
+            })
+    }
 }
 
 #[cfg(test)]
