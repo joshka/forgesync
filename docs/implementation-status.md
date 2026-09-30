@@ -13,6 +13,19 @@ findings and their dispositions; the [module map](architecture.md) explains the 
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
 
+## Lease renewal follow-up
+
+Sync and cluster builds poll the complete renewal loop alongside the active workflow. Renewal
+waiting for the serialized writer connection no longer stops the transaction that must return that
+connection. Renewal failures still cancel the child scope and drain cleanup before releasing the
+fence; the caller's token remains independent. Focused scheduling regressions model a renewal
+waiting on the active operation without depending on SQLite timing.
+
+Validation passes: eight focused lease tests; 226 engine/store tests and seven doc tests; Clippy
+for both crates across all targets; nightly formatting; and changed Markdown linting. Next: review
+and publish the local fixes, then update the installed executable before resuming acquisition.
+Existing archives remain untouched.
+
 ## Diagnostic colors follow-up
 
 Text diagnostics enable tracing's default ANSI colors and respect nonempty `NO_COLOR`. JSON logs

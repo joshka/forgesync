@@ -64,7 +64,9 @@ impl<'a> ClusterBuildLease<'a> {
         operation: impl Future<Output = Result<ClusterBuildReport, EngineError>>,
         cancellation: &CancellationToken,
     ) -> Result<ClusterBuildReport, EngineError> {
-        let result = self.wait(operation, cancellation).await;
+        let result = self
+            .wait(operation, cancellation, self.renew_until_failure())
+            .await;
         finish_cluster_lease_result(self.archive, &self.token, result).await
     }
 
@@ -73,21 +75,26 @@ impl<'a> ClusterBuildLease<'a> {
         &self,
         operation: impl Future<Output = Result<ClusterBuildReport, EngineError>>,
         cancellation: &CancellationToken,
+        renewal: impl Future<Output = EngineError>,
     ) -> Result<ClusterBuildReport, EngineError> {
         let mut operation = std::pin::pin!(operation);
+        tokio::select! {
+            result = &mut operation => result,
+            _ = cancellation.cancelled() => {
+                self.interrupt(operation.as_mut(), EngineError::ClusteringCancelled).await
+            }
+            error = renewal => self.interrupt(operation.as_mut(), error).await,
+        }
+    }
+
+    /// Keeps renewal pending alongside the build so its write can return the writer connection.
+    async fn renew_until_failure(&self) -> EngineError {
         let period = CLUSTER_LEASE_DURATION / 3;
         let mut heartbeat = interval_at(Instant::now() + period, period);
         loop {
-            tokio::select! {
-                result = &mut operation => return result,
-                _ = cancellation.cancelled() => {
-                    return self.interrupt(operation.as_mut(), EngineError::ClusteringCancelled).await;
-                }
-                _ = heartbeat.tick() => {
-                    if let Err(error) = self.renew().await {
-                        return self.interrupt(operation.as_mut(), error).await;
-                    }
-                }
+            heartbeat.tick().await;
+            if let Err(error) = self.renew().await {
+                return error;
             }
         }
     }

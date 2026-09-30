@@ -94,7 +94,7 @@ impl<'a> SyncLease<'a> {
         &self,
         operation: impl Future<Output = Result<SyncReport, EngineError>>,
     ) -> Result<SyncReport, EngineError> {
-        let result = self.maintain(operation).await;
+        let result = self.maintain(operation, self.renew_until_failure()).await;
         let release_at = now_utc()?;
         let _ = self
             .archive
@@ -103,24 +103,32 @@ impl<'a> SyncLease<'a> {
         result
     }
 
-    /// Renews the fence while polling acquisition; failed renewal drains cooperative cleanup.
+    /// Polls acquisition and renewal together so an active write can return the writer connection.
+    /// Failed renewal drains cooperative cleanup before returning its cause.
     async fn maintain(
         &self,
         operation: impl Future<Output = Result<SyncReport, EngineError>>,
+        renewal: impl Future<Output = EngineError>,
     ) -> Result<SyncReport, EngineError> {
-        let mut operation = Box::pin(operation);
-        let interval = LEASE_DURATION / 3;
-        let mut heartbeat = interval_at(Instant::now() + interval, interval);
+        let mut operation = std::pin::pin!(operation);
+        tokio::select! {
+            result = &mut operation => result,
+            error = renewal => {
+                self.cancellation.cancel();
+                let _ = operation.await;
+                Err(error)
+            }
+        }
+    }
+
+    /// Keeps renewal pending alongside acquisition, including while waiting for its connection.
+    async fn renew_until_failure(&self) -> EngineError {
+        let period = LEASE_DURATION / 3;
+        let mut heartbeat = interval_at(Instant::now() + period, period);
         loop {
-            tokio::select! {
-                result = &mut operation => return result,
-                _ = heartbeat.tick() => {
-                    if let Err(error) = self.renew().await {
-                        self.cancellation.cancel();
-                        let _ = operation.await;
-                        return Err(error);
-                    }
-                }
+            heartbeat.tick().await;
+            if let Err(error) = self.renew().await {
+                return error;
             }
         }
     }
@@ -134,3 +142,7 @@ impl<'a> SyncLease<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "lease_tests.rs"]
+mod tests;

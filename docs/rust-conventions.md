@@ -65,6 +65,9 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Review the result by following the main path and one failure path. Extraction should reduce the
   facts a caller carries and the places a policy is repeated. Shorter functions alone are not
   evidence of a better design.
+- Poll lease renewal alongside the active workflow even while renewal waits for a connection.
+  Awaiting renewal inside a select branch can stop the transaction that must return the sole writer
+  connection, causing a pool timeout.
 - Scope background listeners and helper tasks with the operation that needs them. Prefer a small
   lifetime owner over repeating manual teardown at every return; cancellation must still let the
   workflow finish its own durable cleanup.
