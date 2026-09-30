@@ -698,7 +698,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "forgesync"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "assert_cmd",
  "forgesync-cli",
@@ -712,7 +712,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "etcetera",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rstest",
  "serde",
@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "forgesync-core",
  "forgesync-github",
@@ -768,7 +768,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-github"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "forgesync-core",
  "httpdate",
@@ -785,7 +785,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "forgesync-core",
  "rstest",
@@ -800,7 +800,7 @@ dependencies = [
 
 [[package]]
 name = "forgesync-tui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crossterm",
  "forgesync-core",
