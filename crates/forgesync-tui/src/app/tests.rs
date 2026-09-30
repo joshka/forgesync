@@ -10,15 +10,16 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, RunId};
 use forgesync_core::provider_data::ProviderData;
+use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
 use forgesync_store::reads::ThreadPage;
 
-use super::{App, Focus, Screen};
 use crate::app::messages::QueryMessage;
 use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::repositories::RepositoryPicker;
 use crate::app::test_data::{sample_cluster_detail, sample_repository};
 use crate::app::threads::{ThreadList, ThreadReply};
+use crate::app::{App, Focus, Screen};
 use crate::query::requests::QueryAction;
 
 #[test]
@@ -170,7 +171,7 @@ fn maintainer_keys_target_the_selected_cluster_member() {
 }
 
 #[test]
-fn writer_actions_use_current_repository_scope() {
+fn sync_uses_the_applied_repository_scope() {
     let repository = sample_repository();
     let mut app = App {
         repository_picker: RepositoryPicker {
@@ -180,17 +181,43 @@ fn writer_actions_use_current_repository_scope() {
         },
         ..App::default()
     };
+    let repository = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
 
-    let sync = app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
-    assert!(matches!(
-        sync.as_slice(),
-        [QueryAction::Sync { repositories }] if repositories.len() == 1
-    ));
-    let refresh = app.handle_key(KeyEvent::new(KeyCode::Char('R'), KeyModifiers::NONE));
-    assert!(matches!(
-        refresh.as_slice(),
-        [QueryAction::Refresh { repositories }] if repositories.len() == 1
-    ));
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+
+    assert_eq!(
+        actions,
+        [QueryAction::Sync {
+            repositories: vec![repository]
+        }]
+    );
+}
+
+#[test]
+fn refresh_uses_the_applied_repository_scope() {
+    let repository = sample_repository();
+    let mut app = App {
+        repository_picker: RepositoryPicker {
+            items: vec![repository.clone()],
+            applied: Some(repository),
+            ..RepositoryPicker::default()
+        },
+        ..App::default()
+    };
+    let repository = "owner/repo"
+        .parse::<RepositorySelector>()
+        .expect("selector");
+
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Char('R'), KeyModifiers::NONE));
+
+    assert_eq!(
+        actions,
+        [QueryAction::Refresh {
+            repositories: vec![repository]
+        }]
+    );
 }
 
 #[test]
@@ -220,10 +247,7 @@ fn cluster_dismiss_and_selected_run_retry_use_the_current_selection() {
 
     app.screen = Screen::Failures;
     let retry = app.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
-    assert!(matches!(
-        retry.as_slice(),
-        [QueryAction::Retry(run_id)] if *run_id == RunId::new(23).expect("run ID")
-    ));
+    assert_eq!(retry, [QueryAction::Retry(RunId::new(23).expect("run ID"))]);
 }
 
 #[test]

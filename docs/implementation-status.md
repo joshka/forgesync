@@ -2860,3 +2860,14 @@ finalization. The visibility audit retains raw pool capabilities, lifecycle/migr
 and lease checks as documented exceptions; archive pool fields and lifecycle helper contracts now
 explain those boundaries directly. This closes store visibility candidates, not the full
 conventions/test review.
+
+### Exact terminal workflow target assertions
+
+A combined sync/refresh test previously checked only that one repository was selected. Separate
+linear scenarios now assert the complete emitted action with the expected repository selector. Retry
+asserts its exact run action directly rather than using a conditional pattern guard. The suite
+imports app types from their defining module. This strengthens target correctness rather than merely
+restyling assertions.
+
+All 11 focused app-transition scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.
