@@ -15,106 +15,26 @@ use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::search::SearchResultPage;
 use forgesync_store::reads::{ThreadDetail, ThreadPage};
 
-use super::detail::thread_detail_summary;
 use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
+use crate::reports::detail::thread_detail_summary;
 use crate::{OutputMode, render_success};
 
 /// Renders a local discussion page in human or JSON form.
 pub fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
     let output = ThreadPageOutput::from(page);
-    render_success(json, command, &output, thread_page_summary)
+    render_success(json, command, &output, ThreadPageOutput::summary)
 }
 
 /// Renders ranked results with their effective retrieval mode.
 pub fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
     let output = SearchPageOutput::from(page);
-    render_success(json, "search", &output, search_page_summary)
+    render_success(json, "search", &output, SearchPageOutput::summary)
 }
 
 /// Renders one archived discussion and its selected evidence.
 pub fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
     let output = ThreadDetailOutput::from(detail);
     render_success(json, "thread show", &output, thread_detail_summary)
-}
-
-/// Formats pagination and discussion summaries for terminal output.
-pub fn thread_page_summary(page: &ThreadPageOutput<'_>) -> String {
-    let mut lines = vec!["REPOSITORY\tNUMBER\tKIND\tSTATE\tTITLE".to_owned()];
-    for item in &page.items {
-        let thread = item.thread;
-        lines.push(format!(
-            "{}\t{}\t{}\t{}\t{}",
-            item.repository.full_name,
-            thread.id.number().get(),
-            discussion_kind_name(thread.kind),
-            source_state_name(&thread.state),
-            thread.title
-        ));
-    }
-    if page.items.is_empty() {
-        lines.push("No discussions matched.".to_owned());
-    }
-    lines.push("Coverage:".to_owned());
-    lines.extend(page.coverage.iter().map(|coverage| {
-        format!(
-            "  {}: {} complete, {} incomplete, {} missing of {}",
-            family_name(coverage.family),
-            coverage.complete,
-            coverage.incomplete,
-            coverage.missing,
-            coverage.applicable_threads
-        )
-    }));
-    if let Some(next_offset) = page.next_offset {
-        lines.push(format!("Next offset: {next_offset}"));
-    }
-    lines.join("\n")
-}
-
-/// Formats ranking, fallback, and result provenance for terminal output.
-pub fn search_page_summary(page: &SearchPageOutput<'_>) -> String {
-    let mut lines = vec![format!(
-        "Mode: {:?} (requested {:?}), ranking: {:?}, sort: {:?}",
-        page.mode, page.requested_mode, page.ranking, page.sort
-    )];
-    if let Some(reason) = page.fallback_reason {
-        lines.push(format!("Keyword fallback: {reason}"));
-    }
-    lines.push("RANK\tSCORE\tREPOSITORY\tNUMBER\tKIND\tSTATE\tTITLE".to_owned());
-    for (index, item) in page.items.iter().enumerate() {
-        let score = item
-            .score
-            .map(|score| format!("{score:.6}"))
-            .unwrap_or_else(|| "-".to_owned());
-        lines.push(format!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            index + 1,
-            score,
-            item.repository.full_name,
-            item.thread.id.number().get(),
-            discussion_kind_name(item.thread.kind),
-            source_state_name(&item.thread.state),
-            item.thread.title
-        ));
-    }
-    if page.items.is_empty() {
-        lines.push("No discussions matched.".to_owned());
-    }
-    lines.push("Coverage:".to_owned());
-    lines.extend(page.coverage.iter().map(|coverage| {
-        format!(
-            "  {}: {} complete, {} incomplete, {} missing of {}",
-            family_name(coverage.family),
-            coverage.complete,
-            coverage.incomplete,
-            coverage.missing,
-            coverage.applicable_threads
-        )
-    }));
-    if let Some(next_offset) = page.next_offset {
-        lines.push(format!("Next offset: {next_offset}"));
-    }
-    lines.join("\n")
 }
 
 /// Returns the display name for a normalized discussion kind.

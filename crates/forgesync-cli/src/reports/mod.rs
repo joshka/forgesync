@@ -18,6 +18,7 @@ pub mod archive;
 pub mod clusters;
 pub mod detail;
 pub mod embedding;
+mod pages;
 pub mod runs;
 pub mod sync;
 pub mod threads;

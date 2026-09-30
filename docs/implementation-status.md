@@ -1961,3 +1961,17 @@ nearby linear cases protect resolved/outdated source-path and unresolved/current
 Focused TUI tests and workspace Clippy are running. Full acceptance remains to run for the
 embedding-output and TUI timeline changes. CLI page, cluster, and run-detail projections are the
 remaining implementation targets in presentation cleanup.
+
+## Continued maintenance: CLI page presentation
+
+`reports::pages` gives existing thread/search output DTOs owned human summaries and result rows.
+Shared footer formatting preserves scope-wide coverage counts and optional continuation. Search
+policy/fallback stays with the page, row score/rank stays with the hit, and source kind/state labels
+remain shared queries. The report adapter uses the summary method directly. No parallel DTO model,
+JSON change, or query behavior is introduced.
+
+All three offline query scenarios and workspace Clippy pass for the implementation. Two nearby
+linear output cases protect empty-page wording and complete/incomplete/missing footer counts before
+continuation. Both focused cases and final-tree workspace Clippy pass, along with nightly
+formatting, rumdl, and changed-page Markdown linting. Full acceptance remains. Presentation's
+remaining implementation inventory is CLI cluster and run-detail projections.

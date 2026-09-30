@@ -231,17 +231,16 @@ selection cannot target stale data, and meaningful rendering behavior is covered
 configured output contracts and terminal cancellation behavior.
 
 Completed presentation slices: CLI timeline event wording and archive-status sections; TUI archive
-coverage sections, cluster list/detail projections, and the owned terminal event loop. Browser input
-and search editing retain their existing named transitions after review. Store/engine identities and
-JSON output remain unchanged.
+coverage sections, cluster list/detail projections, and the owned terminal event loop. Embedding
+output owns its summary and representative-failure query; TUI timeline has named event projections.
+CLI thread/search pages have owned summaries, row methods, and a shared coverage/continuation
+footer. Browser input and search editing retain their existing named transitions after review.
+Store/engine identities and JSON output remain unchanged.
 
 Remaining implementation inventory for this batch:
 
-- CLI thread/search pages: separate result rows and shared coverage/pagination presentation.
 - CLI cluster pages/details: name cluster and member projections inside traversal.
 - CLI run details: separate run identity, job rows, and failure rows.
-- Embedding output: put summary and representative-failure selection on its existing output type.
-- TUI timeline: move event wording from substantive match arms to named local projections.
 
 Finish with focused human-output evidence and full workspace gates. Broader test-suite and
 module/item documentation review stays in batches 7 and 8; these slices do not claim those reviews.
