@@ -7,6 +7,22 @@
 //! The engine uses these records for partial reports and retries. Storing failure scope explicitly
 //! avoids inferring it from missing rows, which cannot distinguish an unrequested resource from
 //! one that was attempted and failed.
+//!
+//! [`Archive::record_run_failure`] accepts failures both before and after repository resolution.
+//! Thread scope requires a matching supplied repository, but recording the ledger entry does not
+//! acquire evidence, update coverage, or complete a job. The operation retains original failure
+//! JSON so later retries and history can explain the failed attempt.
+//!
+//! Selector-scoped retry/resolution targets unresolved rows without a resolved repository.
+//! Child-family retry/resolution uses registered repository and exact thread identity, family,
+//! and scope key. Both exclude entries created by the current run, preserving new failures from
+//! that same attempt. A successful mutation can affect zero prior rows.
+//!
+//! Retry marking increments counts and records the current retry run; repeated marking is not
+//! idempotent. Resolution timestamps matching unresolved rows without deleting history or proving
+//! provider completion. The engine must invoke resolution only after its matching work succeeds.
+//! All mutations validate the active archive lease within their transaction, but that fence alone
+//! does not prove that the workflow selected the correct failure scope.
 
 use forgesync_core::timestamp::UtcTimestamp;
 
@@ -19,7 +35,13 @@ use crate::runs::{
 };
 
 impl Archive {
-    /// Marks matching unresolved selector failures as retried by this run.
+    /// Increments retry counts for prior unresolved selector failures in the exact supplied scope.
+    ///
+    /// Matches target, family, and scope key only on rows without a repository, excluding this
+    /// run's own failures. Returns the affected count, including zero. Repeating the call
+    /// increments again; the engine owns calling it once for the selected retry attempt.
+    ///
+    /// Read-only, lease, run-ID conversion, and database errors reject the transaction.
     pub async fn mark_scope_failures_retried(
         &self,
         token: &ArchiveLeaseToken,
@@ -42,7 +64,14 @@ impl Archive {
         Ok(result.rows_affected())
     }
 
-    /// Resolves selector failures only after the matching scope has completed.
+    /// Resolves prior selector failures after the caller establishes matching work completion.
+    ///
+    /// Uses the same exact scope and current-run exclusion as retry marking. Records `resolved_at`
+    /// and fills the retry run only when absent; existing retry provenance is retained. Returns the
+    /// affected count without deleting history. Repeating resolution affects zero already resolved
+    /// rows. This method does not check coverage or independently prove successful acquisition.
+    ///
+    /// Read-only, lease, run-ID conversion, and database errors reject the transaction.
     pub async fn resolve_scope_failures(
         &self,
         token: &ArchiveLeaseToken,
@@ -67,7 +96,15 @@ impl Archive {
         Ok(result.rows_affected())
     }
 
-    /// Records a failure that occurred before a repository identity could be resolved.
+    /// Records a workflow failure with optional resolved repository and thread scope.
+    ///
+    /// A supplied thread requires a repository with the same stable identity; otherwise returns
+    /// [`StoreError::InvalidRunData`] before writing. A supplied repository must be registered.
+    /// The failure payload and scope are recorded without validating acquisition completeness or
+    /// updating coverage. Each call inserts a new historical entry rather than deduplicating it.
+    ///
+    /// Read-only, lease, identity conversion, serialization, and database errors are propagated.
+    /// A successful entry does not imply that the enclosing run or job has been finished.
     pub async fn record_run_failure(
         &self,
         token: &ArchiveLeaseToken,
@@ -119,7 +156,15 @@ impl Archive {
         Ok(())
     }
 
-    /// Marks unresolved thread-family failures as retried by this run.
+    /// Increments retry counts for prior unresolved failures matching this exact child-family
+    /// scope.
+    ///
+    /// Requires matching repository/thread identity and a registered repository. Matches both
+    /// thread provider ID and local number, family, and scope key; excludes this run's
+    /// failures. Returns affected rows, including zero. Repeated calls increment again rather
+    /// than being idempotent.
+    ///
+    /// Scope mismatch, read-only, lease, identity conversion, and database failures reject writing.
     pub async fn mark_child_family_failures_retried(
         &self,
         token: &ArchiveLeaseToken,
@@ -153,7 +198,14 @@ impl Archive {
         Ok(result.rows_affected())
     }
 
-    /// Resolves prior failures only after the matching child family is complete.
+    /// Resolves prior child-family failures after the caller proves matching collection completion.
+    ///
+    /// Uses the exact identity/family/scope and current-run exclusion of retry marking. Retains
+    /// existing retry provenance and sets the supplied resolution time without deleting entries.
+    /// Returns zero for an absent or already resolved prior scope. This method checks identity and
+    /// lease authority, not stored collection completeness; the engine owns that prerequisite.
+    ///
+    /// Scope mismatch, read-only, lease, identity conversion, and database failures reject writing.
     pub async fn resolve_child_family_failures(
         &self,
         token: &ArchiveLeaseToken,

@@ -2376,3 +2376,14 @@ requirements. Malformed persisted records reject projection rather than disappea
 The ledger remains diagnostic state rather than a snapshot or write authority. Strict store Rustdoc,
 nightly formatting, and Markdown checks pass. SQL and behavior are unchanged; broader review remains
 open.
+
+## Continued maintenance: failure ledger mutation contracts
+
+Failure-ledger orientation and methods now explain optional resolved identity, exact selector versus
+child-family scope, current-run exclusions, zero affected rows, retained history, repeated retry
+increments, and resolution provenance. The resolution docs correct an implied store completion
+check: engine callers establish successful matching work; store checks scope and lease authority.
+Recording failure does not complete its job or mutate acquired evidence.
+
+Strict store Rustdoc, nightly formatting, and Markdown checks pass. SQL and behavior are unchanged;
+broader conventions and test review remain open.
