@@ -2838,3 +2838,15 @@ Clippy caught a now-unused root import, which is removed. Projection behavior is
 
 All 26 store unit scenarios, store Clippy across all targets/features, strict private-item Rustdoc,
 nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Shared SQL filter owner
+
+Bound repository/discussion predicates move from the browsing query module into private query-SQL
+adaptation. Browsing, aggregate coverage, and embedding eligibility name the owner directly; the
+public reads root drops its final restricted helper re-export. The new orientation documents alias
+and existing-predicate obligations, empty-scope meaning, and the policies left to each query owner.
+The touched browsing query imports its own root-defined types explicitly.
+
+Store Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
+and changed-page Markdown linting pass. Combined integration validation remains pending for the
+recent store ownership moves.

@@ -19,7 +19,7 @@ use sqlx::{QueryBuilder, Row, Sqlite};
 use crate::archive::Archive;
 use crate::coverage_projection::{ALL_FAMILIES, evidence_family_name, is_pull_request_family};
 use crate::error::StoreError;
-use crate::reads::query::push_repository_scope;
+use crate::query_sql::push_repository_scope;
 use crate::reads::{ArchiveStatus, FamilyCoverageSummary};
 
 impl Archive {

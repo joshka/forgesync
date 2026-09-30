@@ -22,7 +22,8 @@ use super::{
 use crate::archive::Archive;
 use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
-use crate::reads::{ThreadSummary, push_discussion_filters, push_repository_scope};
+use crate::query_sql::{push_discussion_filters, push_repository_scope};
+use crate::reads::ThreadSummary;
 
 impl Archive {
     /// Reads current documents, then independently checks evidence and complete vector sets.

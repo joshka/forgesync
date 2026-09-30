@@ -71,5 +71,6 @@ pub mod migration;
 mod observation_sql;
 pub mod observations;
 pub mod ordering;
+mod query_sql;
 pub mod reads;
 pub mod runs;

@@ -23,16 +23,15 @@
 //! Repository display-name lookup is separate from stable repository identity used for scope.
 //! No read acquires a writer lease, refreshes providers, or changes completeness records.
 
-use forgesync_core::content::{Repository, ThreadKind};
-use forgesync_core::identity::{GitHubHost, RepositoryId};
+use forgesync_core::content::Repository;
+use forgesync_core::identity::GitHubHost;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
-use super::{
-    StoredThreadSummary, ThreadPage, ThreadQuery, ThreadSort, ThreadStateFilter, ThreadSummary,
-};
 use crate::archive::Archive;
 use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
+use crate::query_sql::{push_discussion_filters, push_repository_scope};
+use crate::reads::{StoredThreadSummary, ThreadPage, ThreadQuery, ThreadSort, ThreadSummary};
 
 impl Archive {
     /// Returns registered repositories in stable host, owner, and name order.
@@ -226,52 +225,6 @@ impl StoredThreadSummary {
                 coverage: Vec::new(),
             },
         })
-    }
-}
-
-/// Adds bound repository IDs to a read query without string interpolation.
-pub fn push_repository_scope(statement: &mut QueryBuilder<Sqlite>, repositories: &[RepositoryId]) {
-    if repositories.is_empty() {
-        return;
-    }
-    statement.push(" AND (");
-    for (index, repository) in repositories.iter().enumerate() {
-        if index > 0 {
-            statement.push(" OR ");
-        }
-        statement
-            .push("(r.host = ")
-            .push_bind(repository.host().as_str())
-            .push(" AND r.provider_id = ")
-            .push_bind(repository.provider_id().as_str())
-            .push(")");
-    }
-    statement.push(")");
-}
-
-/// Adds kind and state predicates to a query using the `t` discussion alias.
-///
-/// Kind values are bound, and the closed state choices use fixed SQL fragments. Date filtering
-/// belongs to the owning query's construction rather than this shared helper.
-pub fn push_discussion_filters(
-    statement: &mut QueryBuilder<Sqlite>,
-    kind: Option<ThreadKind>,
-    state: ThreadStateFilter,
-) {
-    if let Some(kind) = kind {
-        statement.push(" AND t.kind = ").push_bind(match kind {
-            ThreadKind::Issue => "issue",
-            ThreadKind::PullRequest => "pull_request",
-        });
-    }
-    match state {
-        ThreadStateFilter::All => {}
-        ThreadStateFilter::Open => {
-            statement.push(" AND t.state = 'open'");
-        }
-        ThreadStateFilter::Closed => {
-            statement.push(" AND t.state = 'closed'");
-        }
     }
 }
 

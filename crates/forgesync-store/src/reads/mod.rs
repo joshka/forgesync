@@ -220,5 +220,3 @@ mod detail;
 mod query;
 mod summary;
 mod timeline;
-
-pub(crate) use query::{push_discussion_filters, push_repository_scope};
