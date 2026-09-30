@@ -299,6 +299,7 @@ async fn writable_pool(path: &PathBuf) -> sqlx::SqlitePool {
         .expect("open writable test pool")
 }
 
+/// Allocates a process-local unique filename without creating or opening an archive.
 fn temporary_archive_path() -> PathBuf {
     let sequence = NEXT_ARCHIVE.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
@@ -307,6 +308,9 @@ fn temporary_archive_path() -> PathBuf {
     ))
 }
 
+/// Removes the closed database and its possible WAL sidecars on a best-effort basis.
+///
+/// The fixed suffix loop is cleanup only; it does not select scenarios or compute expectations.
 fn remove_archive(path: &PathBuf) {
     let _ = std::fs::remove_file(path);
     for suffix in ["-wal", "-shm"] {

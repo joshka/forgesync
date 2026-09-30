@@ -112,7 +112,9 @@ Review changes to parsing, traits, MSRV, and feature resolution separately from 
   `tests.rs`. Reserve integration tests for behavior crossing crate or process boundaries.
 - Avoid loops and branches in test bodies that select scenarios or expected outcomes. Use separate
   tests or named `rstest` cases. Fixture helpers may build incidental setup but should not hide the
-  behavior under test.
+  behavior under test. Fixed resource cleanup loops may remain when their purpose is documented;
+  expanding identical cleanup steps adds noise without clarifying a scenario. Name fixture policies
+  such as active versus historical selection instead of passing behavior booleans.
 - Compare values or structured error variants so failures explain what changed. Use `insta` for
   stable structured output or rendering when the snapshot is easier to review than many asserts.
   Review each changed snapshot as a behavior change.

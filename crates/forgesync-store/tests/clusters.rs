@@ -67,7 +67,7 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
     assert_eq!(first_run.retired_count, 0);
 
     let first_page = archive
-        .list_clusters(&list_query(&repository.id, true))
+        .list_clusters(&all_clusters(&repository.id))
         .await
         .expect("list initial clusters");
     let first_cluster = first_page
@@ -116,7 +116,7 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
         .expect("save partial generation");
     assert_eq!(partial.retired_count, 0);
     let after_partial = archive
-        .list_clusters(&list_query(&repository.id, true))
+        .list_clusters(&all_clusters(&repository.id))
         .await
         .expect("list after partial generation");
     assert!(after_partial.items.iter().any(|cluster| {
@@ -178,14 +178,14 @@ async fn partial_generations_preserve_groups_and_complete_generations_retire_the
         .expect("save complete generation");
     assert_eq!(complete.retired_count, 1);
     let active = archive
-        .list_clusters(&list_query(&repository.id, false))
+        .list_clusters(&active_clusters(&repository.id))
         .await
         .expect("list active clusters");
     assert_eq!(active.items.len(), 1);
     assert_eq!(active.items[0].id, first_cluster);
     assert_eq!(active.items[0].excluded_member_count, 0);
     let all = archive
-        .list_clusters(&list_query(&repository.id, true))
+        .list_clusters(&all_clusters(&repository.id))
         .await
         .expect("list including retired clusters");
     assert_eq!(all.items.len(), 2);
@@ -249,7 +249,7 @@ async fn invalid_member_decisions_and_incomplete_counts_are_rejected() {
         .await
         .expect("save valid generation");
     let cluster_id = archive
-        .list_clusters(&list_query(&repository.id, false))
+        .list_clusters(&active_clusters(&repository.id))
         .await
         .expect("list valid generation")
         .items[0]
@@ -305,12 +305,21 @@ fn cluster(title: &str, representative: &ThreadId, members: &[(&ThreadId, f64)])
     }
 }
 
-fn list_query<'a>(repository: &'a RepositoryId, include_retired: bool) -> ClusterListQuery<'a> {
+/// Selects current clusters for one repository without retired generations.
+fn active_clusters(repository: &RepositoryId) -> ClusterListQuery<'_> {
     ClusterListQuery {
         repositories: std::slice::from_ref(repository),
-        include_retired,
+        include_retired: false,
         limit: NonZeroU32::new(100).expect("positive limit"),
         offset: 0,
+    }
+}
+
+/// Includes retired generations when a scenario inspects historical cluster lifecycle.
+fn all_clusters(repository: &RepositoryId) -> ClusterListQuery<'_> {
+    ClusterListQuery {
+        include_retired: true,
+        ..active_clusters(repository)
     }
 }
 
@@ -377,6 +386,7 @@ fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
 }
 
+/// Allocates a process-local unique filename without creating or opening an archive.
 fn temporary_archive_path() -> PathBuf {
     let sequence = NEXT_ARCHIVE.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
@@ -385,6 +395,9 @@ fn temporary_archive_path() -> PathBuf {
     ))
 }
 
+/// Removes the closed database and its possible WAL sidecars on a best-effort basis.
+///
+/// The fixed suffix loop is cleanup only; it does not select scenarios or compute expectations.
 fn remove_archive(path: &PathBuf) {
     let _ = std::fs::remove_file(path);
     for suffix in ["-wal", "-shm"] {

@@ -2962,3 +2962,14 @@ preceding accumulated cleanup tree; this fixture change receives its own focused
 
 All six archive-lifecycle integration scenarios pass. Nightly formatting, rumdl, and changed-page
 Markdown linting pass.
+
+### Named cluster fixture selection and cleanup disposition
+
+Cluster persistence scenarios use named active/all queries instead of a boolean helper argument. The
+remaining fixed SQLite sidecar loops in the inspected store and engine integration fixtures serve
+cleanup only and are retained with explicit contracts. Unique-path helpers now state that they do
+not create archives. Linked test guidance records the distinction between scenario branching and
+incidental resource cleanup.
+
+Both cluster-persistence integration scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass. The other fixture edits are documentation-only.
