@@ -25,14 +25,14 @@
 //! Document hashing and recipe identity belong to core; store owns document validation and
 //! vector invalidation. Normalized deduplication text is derived separately from readable text.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use forgesync_core::document::{Document, DocumentRecipe};
-use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
 use forgesync_store::documents::DocumentWrite;
 use serde::Serialize;
 
+use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::inspect::show_thread;
 use crate::reference::ThreadSelector;
@@ -97,18 +97,6 @@ pub async fn materialize_thread_document(
     };
     release?;
     Ok(DocumentBuildReport { document, write })
-}
-
-/// Produces the materialization timestamp after validating the system clock.
-pub(crate) fn now_utc() -> Result<UtcTimestamp, EngineError> {
-    let elapsed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| forgesync_store::error::StoreError::ClockOutOfRange)?;
-    let micros = i64::try_from(elapsed.as_micros())
-        .map_err(|_| forgesync_store::error::StoreError::ClockOutOfRange)?;
-    UtcTimestamp::from_unix_microseconds(micros)
-        .map_err(forgesync_store::error::StoreError::InvalidCreatedAt)
-        .map_err(Into::into)
 }
 
 #[cfg(test)]

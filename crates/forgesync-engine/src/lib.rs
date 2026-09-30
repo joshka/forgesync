@@ -56,6 +56,7 @@
 //! regression tests; incidental helper types and module paths may change as ownership becomes
 //! clearer.
 
+mod clock;
 pub mod clustering;
 pub mod documents;
 pub mod embedding_client;

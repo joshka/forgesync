@@ -14,8 +14,6 @@
 //! and failure to durable coverage and report diagnostics. Cursor advancement follows parent
 //! observation commits; terminal coverage follows the recorded terminal page.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use forgesync_core::content::Repository;
 use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_core::timestamp::UtcTimestamp;
@@ -24,11 +22,11 @@ use forgesync_github::resources::{ThreadListState, fetch_repository};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScan;
-use forgesync_store::error::StoreError;
 use forgesync_store::leases::ArchiveLeaseToken;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
+use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
@@ -177,16 +175,4 @@ pub(super) fn github_failure(error: &GitHubError) -> Failure {
         kind,
         message: error.to_string(),
     }
-}
-
-/// Validates local acquisition time before recording a scan.
-pub(super) fn now_utc() -> Result<UtcTimestamp, EngineError> {
-    let elapsed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| StoreError::ClockOutOfRange)?;
-    let microseconds =
-        i64::try_from(elapsed.as_micros()).map_err(|_| StoreError::ClockOutOfRange)?;
-    UtcTimestamp::from_unix_microseconds(microseconds)
-        .map_err(StoreError::InvalidCreatedAt)
-        .map_err(Into::into)
 }

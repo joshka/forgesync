@@ -27,7 +27,7 @@ use super::lease::ClusterBuildLease;
 use super::proposals::ClusterCandidate;
 use super::snapshot::ClusterSnapshot;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
-use crate::documents::now_utc;
+use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::query::{checked_page, resolve_repositories};
 

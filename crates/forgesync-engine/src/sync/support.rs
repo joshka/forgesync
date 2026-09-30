@@ -24,7 +24,8 @@ use super::{
     CLOSED_SWEEP_OVERLAP_MICROSECONDS, SyncProgress, SyncProgressStatus, SyncRequest,
     SyncRunContext,
 };
-use crate::enumeration::{ThreadEnumerationReport, now_utc};
+use crate::clock::now_utc;
+use crate::enumeration::ThreadEnumerationReport;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 

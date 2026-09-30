@@ -25,7 +25,7 @@ use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
 use super::SyncReport;
-use crate::enumeration::now_utc;
+use crate::clock::now_utc;
 use crate::error::EngineError;
 
 /// Fence lifetime; renewal runs every third of this interval.

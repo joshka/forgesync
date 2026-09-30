@@ -27,7 +27,8 @@ use super::repository_work::RepositoryWork;
 use super::support::{overlap_start, progress_status, send_progress};
 use super::thread_job::ThreadJob;
 use super::{ScopeUnit, SyncProgressStatus, SyncRunContext};
-use crate::enumeration::{ThreadScanContext, github_failure, now_utc};
+use crate::clock::now_utc;
+use crate::enumeration::{ThreadScanContext, github_failure};
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 

@@ -18,8 +18,9 @@ use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
 use super::support::{job_result, send_progress};
+use crate::clock::now_utc;
 use crate::enumeration::{
-    ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages, now_utc,
+    ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages,
 };
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;

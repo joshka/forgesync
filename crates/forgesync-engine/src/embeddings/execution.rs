@@ -21,7 +21,7 @@ use forgesync_store::embeddings::EmbeddingChunkInput;
 use forgesync_store::leases::ArchiveLeaseToken;
 use tokio_util::sync::CancellationToken;
 
-use crate::documents::now_utc;
+use crate::clock::now_utc;
 use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::EmbeddingReport;
 use crate::embeddings::batches::EmbeddingBatch;

@@ -22,8 +22,8 @@ use forgesync_store::leases::ArchiveLeaseToken;
 use tokio::time::{Instant, interval_at};
 use tokio_util::sync::CancellationToken;
 
+use crate::clock::now_utc;
 use crate::clustering::ClusterBuildReport;
-use crate::documents::now_utc;
 use crate::error::EngineError;
 
 /// Writer fence lifetime, renewed every third of this interval during a generation build.

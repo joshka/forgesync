@@ -17,8 +17,9 @@ use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::leases::ArchiveLeaseToken;
 
+use crate::clock::now_utc;
 use crate::enumeration::scan_outcome::ScanOutcome;
-use crate::enumeration::{ThreadEnumerationReport, ThreadScanContext, now_utc};
+use crate::enumeration::{ThreadEnumerationReport, ThreadScanContext};
 use crate::error::EngineError;
 
 /// Durable write phases belonging to one reserved repository scan.

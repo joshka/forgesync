@@ -23,7 +23,7 @@ use super::repository_work::RepositoryWork;
 use super::review_collection::{ReviewFamily, ReviewSync};
 use super::support::{send_progress, store_state_filter};
 use super::{PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope};
-use crate::enumeration::now_utc;
+use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 

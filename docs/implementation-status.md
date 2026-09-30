@@ -2772,3 +2772,14 @@ scoring owner. Both test modules explain what they establish and the timestamp-o
 not cover. The split preserves every scenario while removing cross-owner setup from arithmetic.
 
 All 88 engine unit scenarios, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Shared engine wall-clock owner
+
+Duplicated document/enumeration clock helpers move into a private engine clock module. Acquisition,
+embedding, clustering, and lease workflows import that owner directly instead of depending on an
+unrelated workflow. Documentation distinguishes wall time from monotonic timers and durable
+observation ordering, including precision loss and clock-range errors. Both former restricted
+helpers are removed. Initial Clippy caught an obsolete document timestamp import, now removed.
+
+All 88 engine unit scenarios, engine Clippy across all targets/features, strict private-item
+Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.

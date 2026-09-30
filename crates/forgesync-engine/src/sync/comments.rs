@@ -23,7 +23,8 @@ use url::Url;
 
 use super::ThreadFamilyResult;
 use super::repository_work::RepositoryWork;
-use crate::enumeration::{github_failure, now_utc};
+use crate::clock::now_utc;
+use crate::enumeration::github_failure;
 use crate::error::EngineError;
 
 impl RepositoryWork<'_> {

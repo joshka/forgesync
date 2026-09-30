@@ -18,7 +18,7 @@ use forgesync_store::runs::{SyncJobCompletion, SyncJobStatus};
 use super::accounting::WorkSummary;
 use super::support::{progress_status, send_progress};
 use super::{SyncProgressStatus, SyncRunContext, ThreadFamilyResult};
-use crate::enumeration::now_utc;
+use crate::clock::now_utc;
 use crate::error::EngineError;
 
 /// A started durable job together with the thread outcomes it has accumulated.
