@@ -122,6 +122,9 @@ Review changes to parsing, traits, MSRV, and feature resolution separately from 
 - Compare values or structured error variants so failures explain what changed. Use `insta` for
   stable structured output or rendering when the snapshot is easier to review than many asserts.
   Review each changed snapshot as a behavior change.
+- When a test claims typed cause preservation, downcast `Error::source` and check the concrete
+  variant. Matching display text only establishes wording and can pass after the typed boundary has
+  been replaced by a string. Keep presentation wording checks separate from source contracts.
 
 Run `cargo +nightly fmt` for formatting. Use focused tests before the applicable workspace gates in
 `AGENTS.md`.

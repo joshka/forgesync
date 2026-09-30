@@ -138,6 +138,12 @@ absent detail, remaining work, and engine scheduling. Failure-precedence cases, 
 tables, and exact whole-summary assertions have retained dispositions. All 76 CLI unit cases and CLI
 all-target Clippy pass; other report/unit owners and cross-crate review remain open.
 
+Provider setup cause tests now downcast and assert exact credential, URL, and adapter variants. The
+former display-only cases could not establish their claimed typed preservation. Cancellation retains
+its separate no-source scenario, and Rust conventions record the distinction between typed source
+assertions and wording checks. All 76 CLI unit cases, CLI all-target Clippy, nightly formatting, and
+Markdown checks pass. Remaining unit/report owners are still under review.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

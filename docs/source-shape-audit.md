@@ -602,6 +602,14 @@ are the observable contract of one projection. Their module now distinguishes re
 from engine scheduling and remaining work from missing stage details. These dispositions close the
 inspected embedding and refresh-summary unit suites; other report owners remain open.
 
+### Provider setup cause assertions
+
+Credential, endpoint, and adapter setup causes now have separate linear tests that downcast the
+source and check the exact error variant. The former table compared only display strings despite
+claiming typed preservation; those assertions could not establish the intended boundary. Explicit
+cancellation remains a separate no-source case. The reusable rule now distinguishes source-type
+contracts from presentation wording in the Rust conventions.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

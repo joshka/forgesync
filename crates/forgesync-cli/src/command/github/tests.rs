@@ -16,26 +16,37 @@ use forgesync_github::error::GitHubError;
 use crate::command::github::GitHubClientSetupError;
 use crate::credentials::CredentialError;
 
-#[rstest::rstest]
-#[case::credential(
-    GitHubClientSetupError::Credential(CredentialError::InvalidToken),
-    CredentialError::InvalidToken.to_string()
-)]
-#[case::endpoint(
-    GitHubClientSetupError::InvalidApiUrl(url::ParseError::RelativeUrlWithoutBase),
-    url::ParseError::RelativeUrlWithoutBase.to_string()
-)]
-#[case::adapter(
-    GitHubClientSetupError::Initialization(GitHubError::Network),
-    GitHubError::Network.to_string()
-)]
-fn setup_failure_retains_its_typed_cause(
-    #[case] error: GitHubClientSetupError,
-    #[case] message: String,
-) {
-    let source = error.source().expect("typed setup cause");
+#[test]
+fn credential_setup_failure_retains_invalid_token_cause() {
+    let error = GitHubClientSetupError::Credential(CredentialError::InvalidToken);
+    let source = error.source().expect("credential cause");
 
-    assert_eq!(source.to_string(), message);
+    assert_eq!(
+        source.downcast_ref::<CredentialError>(),
+        Some(&CredentialError::InvalidToken)
+    );
+}
+
+#[test]
+fn endpoint_setup_failure_retains_relative_url_cause() {
+    let error = GitHubClientSetupError::InvalidApiUrl(url::ParseError::RelativeUrlWithoutBase);
+    let source = error.source().expect("URL parsing cause");
+
+    assert!(matches!(
+        source.downcast_ref::<url::ParseError>(),
+        Some(url::ParseError::RelativeUrlWithoutBase)
+    ));
+}
+
+#[test]
+fn adapter_setup_failure_retains_network_cause() {
+    let error = GitHubClientSetupError::Initialization(GitHubError::Network);
+    let source = error.source().expect("adapter cause");
+
+    assert!(matches!(
+        source.downcast_ref::<GitHubError>(),
+        Some(GitHubError::Network)
+    ));
 }
 
 #[test]
