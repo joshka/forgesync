@@ -14,8 +14,7 @@
 //! page does not mean the family is complete until every outer page has been acquired and applied.
 //! Transport owns the HTTP request; `normalize` owns GraphQL-to-domain conversion.
 
-use std::collections::HashSet;
-
+mod comments;
 mod normalize;
 mod request;
 mod wire;
@@ -26,12 +25,11 @@ use normalize::normalize_review_thread;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
-use crate::review_threads::request::{
-    GraphqlRequest, REVIEW_THREAD_COMMENTS_QUERY, REVIEW_THREADS_QUERY,
-};
+use crate::review_threads::comments::CommentPages;
+use crate::review_threads::request::{GraphqlRequest, REVIEW_THREADS_QUERY};
 use crate::review_threads::wire::{
-    GraphqlEnvelope, GraphqlPageInfo, GraphqlReviewThread, ReviewThreadCommentsData,
-    ReviewThreadCommentsVariables, ReviewThreadsData, ReviewThreadsVariables,
+    GraphqlEnvelope, GraphqlPageInfo, GraphqlReviewThread, ReviewThreadsData,
+    ReviewThreadsVariables,
 };
 use crate::transport::GitHubClient;
 
@@ -124,42 +122,12 @@ async fn complete_review_thread(
 ) -> Result<ReviewThread, GitHubError> {
     let provider_id =
         ProviderId::new(node.id.clone()).map_err(|_| GitHubError::InvalidProviderData)?;
-    let mut comments = node
+    let connection = node
         .comments
         .take()
         .ok_or(GitHubError::InvalidProviderData)?;
-    let mut comment_nodes = comments
-        .nodes
-        .take()
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let mut comment_page_info = comments
-        .page_info
-        .take()
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let mut seen_cursors = HashSet::new();
-    while has_next_page(&comment_page_info)? {
-        let cursor = required_next_cursor(&comment_page_info)?;
-        if !seen_cursors.insert(cursor.clone()) {
-            return Err(GitHubError::InvalidPaginationLink);
-        }
-        let variables = ReviewThreadCommentsVariables {
-            thread_id: &provider_id,
-            cursor: Some(&cursor),
-        };
-        let request = GraphqlRequest {
-            query: REVIEW_THREAD_COMMENTS_QUERY,
-            variables: &variables,
-        };
-        let response: GraphqlEnvelope<ReviewThreadCommentsData> =
-            request.execute(client, cancellation).await?;
-        let data = response.data.ok_or(GitHubError::InvalidProviderData)?;
-        let node_data = data.node.ok_or(GitHubError::InvalidProviderData)?;
-        let connection = node_data.comments.ok_or(GitHubError::InvalidProviderData)?;
-        comment_nodes.extend(connection.nodes.ok_or(GitHubError::InvalidProviderData)?);
-        comment_page_info = connection
-            .page_info
-            .ok_or(GitHubError::InvalidProviderData)?;
-    }
+    let pages = CommentPages::new(provider_id.clone(), connection)?;
+    let comment_nodes = pages.complete(client, cancellation).await?;
 
     normalize_review_thread(thread, head_sha, provider_id, node, comment_nodes)
 }
@@ -180,16 +148,6 @@ fn has_next_page(page_info: &GraphqlPageInfo) -> Result<bool, GitHubError> {
     page_info
         .has_next_page
         .ok_or(GitHubError::InvalidProviderData)
-}
-
-/// Requires a usable cursor whenever another GraphQL page is declared.
-fn required_next_cursor(page_info: &GraphqlPageInfo) -> Result<String, GitHubError> {
-    page_info
-        .end_cursor
-        .as_deref()
-        .filter(|cursor| !cursor.is_empty())
-        .map(str::to_owned)
-        .ok_or(GitHubError::InvalidPaginationLink)
 }
 
 #[cfg(test)]

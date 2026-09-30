@@ -2145,3 +2145,18 @@ The initial ownership change passes all 20 GitHub tests, both doctests, and work
 nearby linear encoding case checks named operation variables and a null initial cursor. Final-tree
 focused checks, Clippy, and strict GitHub Rustdoc are running. Nested comment pagination still has
 live state in a long function and remains an explicit convention-review target.
+
+## Continued maintenance: nested comment pagination owner
+
+Private `review_threads::comments::CommentPages` owns raw members, current continuation metadata,
+consumed cursors, and the selected provider node. Consuming completion dispatches named cursor,
+request, and page-application operations before exposing the completed node list. The review-thread
+coordinator checks identity and initial connection, awaits completion, then normalizes the same
+source/head context. No partial node list escapes on failure.
+
+Request order, member order, cursor spelling, repeated-cursor rejection, error classification,
+normalization, and cancellation behavior remain unchanged. Page application checks required members
+and metadata before updating retained state. Three nearby linear cases cover repeated continuation,
+terminal metadata without a cursor, and missing pagination flag. Existing GitHub request cases pass;
+final focused checks, workspace Clippy, and strict GitHub Rustdoc are running after removing
+leftover imports. Broader conventions/documentation and test-suite reviews remain open.
