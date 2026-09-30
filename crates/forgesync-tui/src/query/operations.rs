@@ -11,70 +11,64 @@
 //!
 //! [`ProgressForwarder`] owns advisory delivery for the admitted writer. Execution releases its
 //! producer when it returns; scheduling drains buffered progress before sending the terminal
-//! result. [`QueryTasks`] retains the writer handle and cooperative cancellation token for
-//! shutdown. Dropping progress delivery on an unexpected writer exit aborts its forwarding task.
+//! result. [`crate::query::tasks::QueryTasks`] retains the writer handle and cooperative
+//! cancellation token for shutdown. Dropping progress delivery on an unexpected writer exit aborts
+//! its forwarding task.
 
 use std::sync::Arc;
 
-use forgesync_core::identity::GitHubHost;
-use forgesync_github::transport::GitHubClient;
-use forgesync_store::archive::Archive;
-use tokio::runtime::Handle;
-use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
+use crate::query::QueryDispatch;
 use crate::query::action::execute_operation;
 use crate::query::progress::ProgressForwarder;
 use crate::query::requests::QueryAction;
-use crate::query::tasks::QueryTasks;
 
-/// Starts one writer operation and reports progress through the UI message channel.
-pub fn start_operation(
-    action: QueryAction,
-    app: &mut App,
-    archive: &Arc<Archive>,
-    clients: &Arc<std::collections::HashMap<GitHubHost, GitHubClient>>,
-    runtime: &Handle,
-    sender: &Sender<QueryMessage>,
-    tasks: &mut QueryTasks,
-) {
-    let label = match &action {
-        QueryAction::Sync { .. } => "sync",
-        QueryAction::Refresh { .. } => "refresh",
-        QueryAction::Retry(_) => "retry",
-        QueryAction::DismissCluster { .. } => "dismiss cluster",
-        QueryAction::RestoreCluster { .. } => "restore cluster",
-        QueryAction::ExcludeClusterMember { .. } => "exclude cluster member",
-        QueryAction::IncludeClusterMember { .. } => "include cluster member",
-        QueryAction::SetCanonicalClusterMember { .. } => "set canonical member",
-        _ => return,
-    };
-    let Some(generation) = app.begin_operation(label) else {
-        return;
-    };
+impl QueryDispatch<'_> {
+    /// Admits a writer and schedules its execution using this session's resources.
+    ///
+    /// Non-writer actions and an already busy app start no task. A successful admission clones the
+    /// archive, clients, and sender into one worker; its progress forwarder drains before the
+    /// terminal reply. The task registry retains cancellation and shutdown ownership.
+    pub fn start_operation(&mut self, action: QueryAction, app: &mut App) {
+        let label = match &action {
+            QueryAction::Sync { .. } => "sync",
+            QueryAction::Refresh { .. } => "refresh",
+            QueryAction::Retry(_) => "retry",
+            QueryAction::DismissCluster { .. } => "dismiss cluster",
+            QueryAction::RestoreCluster { .. } => "restore cluster",
+            QueryAction::ExcludeClusterMember { .. } => "exclude cluster member",
+            QueryAction::IncludeClusterMember { .. } => "include cluster member",
+            QueryAction::SetCanonicalClusterMember { .. } => "set canonical member",
+            _ => return,
+        };
+        let Some(generation) = app.begin_operation(label) else {
+            return;
+        };
 
-    let archive = Arc::clone(archive);
-    let clients = Arc::clone(clients);
-    let sender = sender.clone();
-    let cancellation = CancellationToken::new();
-    let operation_cancellation = cancellation.clone();
-    let handle = runtime.spawn(async move {
-        let progress = ProgressForwarder::start(generation, sender.clone());
-        let result = execute_operation(
-            &action,
-            &archive,
-            &clients,
-            &operation_cancellation,
-            progress.sender(),
-        )
-        .await;
-        progress.finish().await;
-        let _ = sender
-            .send(QueryMessage::OperationFinished { generation, result })
+        let archive = Arc::clone(self.archive);
+        let clients = Arc::clone(self.clients);
+        let sender = self.sender.clone();
+        let cancellation = CancellationToken::new();
+        let operation_cancellation = cancellation.clone();
+        let handle = self.runtime.spawn(async move {
+            let progress = ProgressForwarder::start(generation, sender.clone());
+            let result = execute_operation(
+                &action,
+                &archive,
+                &clients,
+                &operation_cancellation,
+                progress.sender(),
+            )
             .await;
-    });
+            progress.finish().await;
+            let _ = sender
+                .send(QueryMessage::OperationFinished { generation, result })
+                .await;
+        });
 
-    tasks.track_operation(handle, cancellation);
+        self.tasks.track_operation(handle, cancellation);
+    }
 }

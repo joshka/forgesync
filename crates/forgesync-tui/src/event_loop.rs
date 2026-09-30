@@ -26,8 +26,8 @@ use tokio::sync::mpsc;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
+use crate::query::QueryDispatch;
 use crate::query::requests::QueryAction;
-use crate::query::start_query;
 use crate::query::tasks::QueryTasks;
 use crate::view;
 
@@ -85,16 +85,15 @@ impl<'a> EventLoop<'a> {
 
     /// Starts each explicit action using the same session resources and tracked-task owner.
     fn dispatch(&mut self, actions: impl IntoIterator<Item = QueryAction>) {
+        let mut dispatch = QueryDispatch {
+            archive: &self.archive,
+            clients: &self.clients,
+            runtime: self.runtime,
+            sender: &self.sender,
+            tasks: self.tasks,
+        };
         for action in actions {
-            start_query(
-                action,
-                &mut self.app,
-                &self.archive,
-                &self.clients,
-                self.runtime,
-                &self.sender,
-                self.tasks,
-            );
+            dispatch.start(action, &mut self.app);
         }
     }
 

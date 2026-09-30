@@ -14,6 +14,12 @@ current instructions.
 
 ## Latest changes and evidence
 
+Terminal dispatch now uses `QueryDispatch` for one session's borrowed scheduling resources. Its
+methods receive action and app rather than seven positional arguments. All 75 TUI unit cases, its
+documentation example, all-target Clippy, and strict private-item Rustdoc pass. The workspace
+results below cover the preceding child-input API tree; they must be refreshed after this executable
+change.
+
 Child acquisition now has three explicit declarations in `forgesync_store::families`:
 
 - `ChildFamilyRequest` names reservation scope and independent source/acquisition clocks.

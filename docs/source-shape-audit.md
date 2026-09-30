@@ -572,6 +572,22 @@ The 15 provider broad-signature candidates have the following dispositions:
 This closes provider signature inspection. Documentation-depth review remains independent, including
 short normalization and initial-URL helper comments identified during this pass.
 
+### TUI signature dispositions
+
+`QueryDispatch` now borrows the archive, clients, runtime, reply channel, and task registry for one
+event-loop dispatch batch. Its `start` and `start_operation` methods receive only action and app;
+the two former seven-argument functions are removed. The owner opens no resources and starts no task
+on construction. Read dispatch retains its narrow scheduling projection, while admitted writer tasks
+clone only owned resources and preserve progress draining and shutdown tracking.
+
+`EventLoop::new` retains its four independent launcher inputs: archive/client ownership and borrowed
+runtime/task lifetimes. It constructs the session and its reply channel rather than forwarding a
+second service bag. `execute_operation` retains action, archive, clients, cancellation, and progress
+at the worker boundary, immediately capturing them in `OperationExecution`. Progress is specific to
+the admitted writer and cannot be supplied by the earlier session dispatch context. These
+dispositions address all four TUI broad-signature candidates. All 75 unit cases, the documentation
+example, all-target Clippy, and strict private-item Rustdoc pass.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire
