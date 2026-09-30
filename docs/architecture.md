@@ -104,6 +104,22 @@ candidates, best-chunk filtering, bounded merging, and stable identity ordering 
 clustering. Vector eligibility remains with the workflow/store selection boundary. Arithmetic and
 scoring tests live beside their respective owners so fixtures and policy assertions do not mix.
 
+## Private store SQL adapters
+
+`observation_sql` owns clock-column conversion, checked SQLite integers, canonical row lookup, and
+coverage persistence shared by parent observations, child families, and run records. Public domain
+inputs/results remain in `observations`. These helpers borrow the caller's connection; ordering,
+lease checks, and transaction commit remain with the archive operation.
+
+`coverage_projection` loads recorded completeness and current head context, then derives visible
+staleness without changing durable coverage. Thread reads, embedding eligibility, and cluster
+members import it directly. `query_sql` supplies bound repository/kind/state predicates shared by
+those reads; each query still owns aliases, joins, ordering, page windows, and decoding.
+
+These private modules make implementation dependencies visible without adding SQL resources to
+public library APIs. Start in the workflow or public archive method, then follow its named adapter
+when changing column conversion or a genuinely shared selection rule.
+
 ## Child-family transaction phases
 
 Reservation, staging, and finalization share one ordering contract but own different effects.
@@ -284,8 +300,8 @@ page permits complete scan coverage. The report is read after the terminal write
 `enumeration::completion` validates terminal status/failure combinations and the active-generation
 cursor before writing terminal evidence within the archive-owned transaction.
 
-Store read projections separate individual discussion evidence (`reads::coverage`) from archive-wide
-counts and status (`reads::summary`). Summary accumulation validates grouped SQL labels/counts while
-preserving explicit missing/incomplete/complete buckets. Aggregate status uses separate read
-queries; it provides diagnostics rather than a transactionally frozen snapshot of concurrent
-writers.
+Store read projections separate individual discussion evidence (`coverage_projection`) from
+archive-wide counts and status (`reads::summary`). Summary accumulation validates grouped SQL
+labels/counts while preserving explicit missing/incomplete/complete buckets. Aggregate status uses
+separate read queries; it provides diagnostics rather than a transactionally frozen snapshot of
+concurrent writers.
