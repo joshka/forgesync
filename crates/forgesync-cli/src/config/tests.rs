@@ -4,10 +4,14 @@
 //! semantic embedding validation. They construct settings directly rather than mutating process
 //! environment, keeping the expected input visible and safe under concurrent tests. Network and
 //! credential resolution belong to their own boundaries; successful validation makes no request.
+//!
+//! Recipe cases select explicit TOML and expected domain values. Invalid endpoint and capacity
+//! cases assert the configuration category rather than accepting any failure. Default checks
+//! establish selected public values and validation, not exhaustive coverage of every service limit.
 
 use forgesync_core::document::DocumentRecipe;
 
-use crate::config::{DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
+use crate::config::{ConfigError, DocumentsConfig, EmbeddingServiceConfig, ForgesyncConfig};
 
 #[test]
 fn config_defaults_to_discussion_enriched_documents() {
@@ -19,25 +23,26 @@ fn config_defaults_to_discussion_enriched_documents() {
     );
 }
 
-#[test]
-fn config_accepts_both_explicit_document_recipes() {
-    let original: ForgesyncConfig = toml::from_str("[documents]\nrecipe = 'original_body'\n")
-        .expect("parse original-body config");
-    let enriched: ForgesyncConfig = toml::from_str("[documents]\nrecipe = 'discussion_enriched'\n")
-        .expect("parse discussion-enriched config");
-
-    assert_eq!(original.documents.recipe, DocumentRecipe::OriginalBody);
-    assert_eq!(
-        enriched.documents.recipe,
-        DocumentRecipe::DiscussionEnriched
-    );
+#[rstest::rstest]
+#[case::original_body(
+    "[documents]\nrecipe = 'original_body'\n",
+    DocumentRecipe::OriginalBody
+)]
+#[case::discussion_enriched(
+    "[documents]\nrecipe = 'discussion_enriched'\n",
+    DocumentRecipe::DiscussionEnriched
+)]
+fn config_accepts_explicit_document_recipe(#[case] input: &str, #[case] expected: DocumentRecipe) {
+    let config: ForgesyncConfig = toml::from_str(input).expect("parse selected recipe");
+    assert_eq!(config.documents.recipe, expected);
 }
 
 #[test]
 fn config_rejects_unknown_recipe_values() {
-    assert!(
-        toml::from_str::<ForgesyncConfig>("[documents]\nrecipe = 'include_everything'\n").is_err()
-    );
+    let result = toml::from_str::<ForgesyncConfig>("[documents]\nrecipe = 'include_everything'\n");
+    let error = result.expect_err("reject unknown recipe");
+    assert!(error.message().contains("unknown variant"));
+    assert!(error.message().contains("include_everything"));
 }
 
 #[test]
@@ -55,7 +60,8 @@ fn embedding_service_config_rejects_nonlocal_http() {
         endpoint: "http://example.com/v1".to_owned(),
         ..EmbeddingServiceConfig::default()
     };
-    assert!(config.validate().is_err());
+    let error = config.validate().expect_err("reject remote HTTP endpoint");
+    assert!(matches!(error, ConfigError::InvalidEmbeddings));
 }
 
 #[test]
@@ -64,5 +70,8 @@ fn embedding_service_config_rejects_batch_smaller_than_chunk() {
         max_batch_input_bytes: EmbeddingServiceConfig::default().max_input_bytes - 1,
         ..EmbeddingServiceConfig::default()
     };
-    assert!(config.validate().is_err());
+    let error = config
+        .validate()
+        .expect_err("reject incompatible input limits");
+    assert!(matches!(error, ConfigError::InvalidEmbeddings));
 }

@@ -119,6 +119,12 @@ CLI all-target Clippy, nightly formatting, and Markdown checks pass. The process
 review is disposed of in the source-shape audit; unit and remaining cross-crate suites are still
 open.
 
+CLI unit review now gives each accepted recipe a named case and strengthens rejected-recipe and
+service-validation diagnostics. Parsed paths compare their actual type; filter fixtures explain
+production argument/default ownership. Coherent whole-value parsing assertions and enum-variant
+guards have explicit retained dispositions. All 76 CLI unit cases, CLI all-target Clippy, nightly
+formatting, and Markdown checks pass. Other CLI unit owners and cross-crate suites remain open.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

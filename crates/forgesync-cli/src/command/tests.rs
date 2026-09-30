@@ -6,6 +6,8 @@
 //! running GitHub or opening an archive. When a new flag changes workflow scope, add a nearby
 //! direct parsing example so the mapping from user text to request stays legible.
 
+use std::path::Path;
+
 use clap::Parser;
 
 use crate::command::values::{ColorChoice, LogFormat, RefreshAnalysisArg, SyncIncludeArg};
@@ -30,14 +32,8 @@ fn global_options_parse_together() {
     ])
     .expect("global options should parse");
 
-    assert_eq!(
-        args.archive.as_deref().and_then(|path| path.to_str()),
-        Some("archive.db")
-    );
-    assert_eq!(
-        args.config.as_deref().and_then(|path| path.to_str()),
-        Some("config.toml")
-    );
+    assert_eq!(args.archive.as_deref(), Some(Path::new("archive.db")));
+    assert_eq!(args.config.as_deref(), Some(Path::new("config.toml")));
     assert!(args.json);
     assert_eq!(args.color, ColorChoice::Never);
     assert_eq!(args.log_format, LogFormat::Json);

@@ -559,6 +559,20 @@ now reflects the selected TUI feature, the noninteractive TUI case is feature-ga
 output matches exact package metadata. This closes the inspected CLI process-scenario quality
 findings; CLI unit suites and the remaining cross-crate suite review are separate work.
 
+### CLI configuration and parsing unit scenarios
+
+Recipe acceptance now uses named original-body and enriched cases, each parsing one input and
+asserting one expected domain recipe. Unknown recipes inspect the parse diagnostic; invalid service
+endpoint and capacity scenarios assert `InvalidEmbeddings` rather than accepting any error. Global
+path parsing compares typed paths directly without optional UTF-8 conversion. Filter parser
+documentation identifies the production flattened arguments and workflow-owned default sort.
+
+Retain coordinated global-option and explicit-filter assertions together: each inspects one parsed
+value and its complete conversion, without running another workflow. Sync/refresh parsing cases
+retain a local `let`/`else` variant check because the test must establish the selected enum before
+inspecting its payload; this is a typed assertion rather than scenario control flow. This review
+covers configuration, global parsing, and shared filters; other CLI unit owners remain open.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

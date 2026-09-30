@@ -3,6 +3,11 @@
 //! A minimal parser flattens the actual argument type so defaults and flags are tested without
 //! opening an archive. Each scenario converts once and compares the engine-facing values directly.
 //! Engine repository resolution and SQLite offset validation are outside this parsing contract.
+//!
+//! The parser wrapper contains the production filter type, so Clap validates the same options used
+//! by commands. Default sort remains absent for the owning workflow to choose; explicit sort and
+//! pagination values survive conversion unchanged. Named limit cases establish parse bounds rather
+//! than exercising SQL pagination or archive identity resolution.
 
 use clap::Parser;
 use forgesync_core::content::ThreadKind;
@@ -11,8 +16,10 @@ use forgesync_engine::reference::RepositorySelector;
 
 use crate::command::thread_filters::ThreadFilterArgs;
 
+/// Minimal process parser that exposes production filters without a command hierarchy.
 #[derive(Parser)]
 struct FilterParser {
+    /// Actual command filter arguments; the wrapper introduces no alternate defaults or rules.
     #[command(flatten)]
     filters: ThreadFilterArgs,
 }
