@@ -1,12 +1,25 @@
-//! # Run the ordered refresh workflow
+//! # Run selected refresh stages in dependency order
 //!
-//! `refresh` validates a request, determines unique repositories, runs acquisition, then performs
-//! requested derived stages. Helper functions convert sync results into stage reports and preserve
-//! the first meaningful failure.
+//! [`refresh`] validates stage selection and builds a private execution owner around the supplied
+//! archive, provider clients, optional embedding client, request, and cancellation token.
+//! Repository selectors are deduplicated by their formatted URL while retaining first-occurrence
+//! order. Selection validation rejects empty scope, no stages, and repeated analysis stages; it
+//! does not prove that repositories exist or that all services are available.
 //!
-//! The ordering matters because documents, embeddings, and clusters depend on archived evidence.
-//! Each stage reports its own completion, so a later failure does not erase earlier progress.
-//! Provider I/O remains outside archive transactions.
+//! Execution always orders selected acquisition, embeddings, then clustering. Each selected stage
+//! is attempted and reports independently; failure does not erase earlier durable progress or
+//! automatically suppress later analysis. Later stages must judge available evidence through their
+//! own workflow boundaries. Cancellation is passed to those workflows rather than enforced by a
+//! single coordinator transaction.
+//!
+//! The embedding adapter retains document and batch outcomes; the cluster adapter retains results
+//! per repository. Status helpers derive remaining work and the combined outcome only after these
+//! stage reports are assembled. Progress delivery here is the optional sync progress channel, not
+//! a unified stream of every derived-analysis event.
+//!
+//! Callers open and close the archive and prepare clients. The coordinator installs no process
+//! diagnostics, discovers no credentials, and holds no transaction across provider I/O. A returned
+//! report can contain failed or interrupted stages even though request execution returned `Ok`.
 
 use std::collections::HashSet;
 

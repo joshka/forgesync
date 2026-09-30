@@ -1,12 +1,25 @@
-//! # Select and summarize refresh embedding work
+//! # Materialize and embed refresh repository pages
 //!
-//! Embedding helpers choose repositories with relevant refreshed material, determine stage status,
-//! and combine page or batch reports. They let the coordinator describe partial vector generation
-//! precisely.
+//! [`collect_embedding_repositories`] traverses each selected repository's retained discussions in
+//! updated-order pages, including open and closed states. A private execution owner carries the
+//! archive, client, recipe, embedding policy, cancellation token, aggregate counts, and first
+//! stage-level failure. This module adapts document and embedding workflows into refresh reporting;
+//! those workflows own durable writes and service protocol respectively.
 //!
-//! The embedding client owns service protocol and `embeddings` owns materialization. This module
-//! owns only their place in the refresh workflow and how their outcomes contribute to the stage
-//! report.
+//! Each discussion is materialized independently. A document failure records its repository,
+//! number, and typed diagnostic while successful documents on the same page remain eligible for
+//! embedding. A page-read failure ends that repository's traversal; an embedding failure is
+//! retained while subsequent pages and repositories remain eligible unless cancellation stops
+//! traversal.
+//!
+//! Cancellation is checked after each materialization and embedding page. It does not interrupt a
+//! document operation midway here, and already stored documents or batches remain durable. Offset
+//! pagination uses separate reads rather than a frozen repository snapshot.
+//!
+//! [`embedding_status`] gives interruption precedence, distinguishes partial progress from failure,
+//! and treats a clean empty report as complete. [`add_embedding_report`] saturates aggregate counts
+//! and preserves all batch failures and cancellation. Counts measure reported work, not unique
+//! discussion identities or proof of complete source evidence.
 
 use forgesync_core::document::{Document, DocumentRecipe};
 use forgesync_store::archive::Archive;

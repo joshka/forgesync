@@ -2643,3 +2643,14 @@ families need the context-aware form. Application imports now name their definin
 
 Strict store Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Refresh execution orientation
+
+Refresh coordinator and embedding-stage introductions now explain selection validation limits, fixed
+stage order, independent attempts after failure, caller-owned services, and structured partial
+outcomes. Embedding docs describe per-document isolation, repository page-read failure, continued
+traversal after embedding failure, cancellation boundaries, separate-read pagination, and aggregate
+counts that are not unique-identity or source-completeness claims.
+
+Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
+linting pass for this documentation-only change.
