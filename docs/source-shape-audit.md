@@ -645,6 +645,14 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+The long cluster replacement scenario is now three independent contracts: retained dismissal,
+exclusion, and canonical choice on a matched group; preservation of an omitted group under partial
+coverage; and retirement under complete coverage. The coverage cases use two singleton groups and
+explicit before/after durable identities, avoiding human-decision setup unrelated to retirement. All
+observation reservations and generation writes remain visible. The matched decision case uses two
+discussions without the unrelated third group. This closes the identified mixed generation scenario;
+broader integration acceptance remains open.
+
 Cluster persistence now has shallow generation, canonical-validation, coverage-validation, and
 fixture owners. The root maps responsibilities; scenario imports name their construction owner
 directly. Fixtures contain no archive capability or asynchronous writes. Canonical and coverage

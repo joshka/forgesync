@@ -1,7 +1,8 @@
 //! # Cluster persistence integration
 //!
 //! This suite separates derived generations from local maintainer decisions and invalid inputs.
-//! `generations` checks replacement, identity reuse, decision retention, and retirement.
+//! `generations` checks identity reuse and retention of explicit local decisions.
+//! `partial_generation` preserves an omitted group; `complete_generation` retires that group.
 //! `canonical` checks that a stored discussion outside the group cannot become canonical.
 //! `coverage` rejects falsely complete vector coverage and verifies no cluster was persisted.
 //!
@@ -18,3 +19,8 @@ mod coverage;
 mod fixture;
 #[path = "clusters/generations.rs"]
 mod generations;
+
+#[path = "clusters/complete_generation.rs"]
+mod complete_generation;
+#[path = "clusters/partial_generation.rs"]
+mod partial_generation;
