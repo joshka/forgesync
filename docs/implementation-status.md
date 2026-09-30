@@ -2513,3 +2513,12 @@ records and performs no acquisition, scheduling, or completeness validation.
 Core outcome and engine error imports name their defining modules rather than a parent dependency
 prelude. Strict engine Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged;
 broader review remains open.
+
+## Continued maintenance: refresh dependency locality
+
+Refresh coordinator imports now name standard, core, provider, store, Tokio, and engine owners
+directly. The parent retains dependencies used by its actual report/request types rather than
+serving a child prelude. Embedding-stage sibling/status imports also name their defining modules.
+
+All eight focused refresh tests, engine Clippy across targets/features, nightly formatting, and
+Markdown checks pass. Workflow ordering and behavior are unchanged; broader review remains open.

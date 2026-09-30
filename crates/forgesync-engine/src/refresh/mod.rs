@@ -10,23 +10,14 @@
 //! failure. The CLI presents this structured report rather than inferring an overall result from a
 //! single boolean.
 
-use std::collections::HashSet;
-
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;
-use forgesync_github::transport::GitHubClient;
-use forgesync_store::archive::Archive;
 use serde::Serialize;
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
 
 use crate::clustering::{ClusterBuildReport, ClusterOptions};
-use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::EmbeddingReport;
-use crate::error::EngineError;
 use crate::reference::RepositorySelector;
-use crate::sync::{SyncProgress, SyncReport, SyncRequest, SyncThreadScope, sync_repositories};
+use crate::sync::{SyncReport, SyncThreadScope};
 
 /// Selects the optional model-backed stages included in a refresh.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]

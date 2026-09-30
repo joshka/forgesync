@@ -13,10 +13,6 @@ use forgesync_store::archive::Archive;
 use forgesync_store::reads::ThreadSummary;
 use tokio_util::sync::CancellationToken;
 
-use super::status::{keep_first_failure, stage_failure};
-use super::{
-    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStageFailure, RefreshStageStatus,
-};
 use crate::documents::materialize_thread_document;
 use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::{EmbeddingPolicy, EmbeddingReport, embed_documents};
@@ -25,6 +21,10 @@ use crate::inspect::{
     ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, list_threads,
 };
 use crate::reference::{RepositorySelector, ThreadSelector};
+use crate::refresh::status::{keep_first_failure, stage_failure};
+use crate::refresh::{
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStageFailure, RefreshStageStatus,
+};
 
 /// Materializes repositories independently, retaining successful pages and the first stage failure.
 ///

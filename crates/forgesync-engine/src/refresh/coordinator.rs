@@ -8,17 +8,28 @@
 //! Each stage reports its own completion, so a later failure does not erase earlier progress.
 //! Provider I/O remains outside archive transactions.
 
-use super::clusters::build_repository_clusters;
-use super::embeddings::{collect_embedding_repositories, embedding_status};
-use super::status::{refresh_outcome, remaining_stages, stage_failure};
-use super::{
-    Archive, CancellationToken, DocumentRecipe, EmbeddingClient, EngineError, GitHubClient,
-    GitHubHost, HashSet, OperationOutcome, RefreshAnalysisStage, RefreshEmbeddingReport,
-    RefreshReport, RefreshRequest, RefreshStage, RefreshStageFailure, RefreshStageKind,
-    RefreshStageStatus, RepositorySelector, SyncProgress, SyncReport, SyncRequest, mpsc,
-    sync_repositories,
-};
+use std::collections::HashSet;
+
+use forgesync_core::document::DocumentRecipe;
+use forgesync_core::identity::GitHubHost;
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_github::transport::GitHubClient;
+use forgesync_store::archive::Archive;
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
+
+use crate::embedding_client::EmbeddingClient;
 use crate::embeddings::EmbeddingPolicy;
+use crate::error::EngineError;
+use crate::reference::RepositorySelector;
+use crate::refresh::clusters::build_repository_clusters;
+use crate::refresh::embeddings::{collect_embedding_repositories, embedding_status};
+use crate::refresh::status::{refresh_outcome, remaining_stages, stage_failure};
+use crate::refresh::{
+    RefreshAnalysisStage, RefreshEmbeddingReport, RefreshReport, RefreshRequest, RefreshStage,
+    RefreshStageFailure, RefreshStageKind, RefreshStageStatus,
+};
+use crate::sync::{SyncProgress, SyncReport, SyncRequest, sync_repositories};
 
 /// Runs selected refresh stages, retaining each stage's result if another stage fails.
 ///
