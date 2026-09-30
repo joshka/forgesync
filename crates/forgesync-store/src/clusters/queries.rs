@@ -7,6 +7,18 @@
 //! Use this path for offline list/show operations in the engine, CLI, and TUI. Queries must
 //! reflect member roles and lifecycle state; callers should not reconstruct those semantics by
 //! joining raw tables themselves.
+//!
+//! Summary SQL chooses an effective representative from active members: the local canonical
+//! choice wins, followed by the generated representative, then the lowest thread number. A cluster
+//! without active members has no effective representative. Titles remain generation-derived.
+//!
+//! List order is descending active membership count followed by stable cluster ID. Detail members
+//! are ordered by thread number and archive row ID; excluded members remain visible, while removed
+//! members are omitted. Canonical, representative, and related roles are separate from member
+//! state.
+//!
+//! Summary, membership, and coverage are separate reads. Concurrent writers may advance between
+//! them, so detail is an inspection projection rather than a frozen generation snapshot.
 
 use sqlx::Row;
 
@@ -19,6 +31,17 @@ use super::{
 
 impl Archive {
     /// Lists durable generated clusters without contacting GitHub or mutating the archive.
+    ///
+    /// Repository scope is optional. Retired clusters are omitted unless requested; dismissal is
+    /// an independent local state and does not itself remove a cluster from this list. Results use
+    /// active-member count followed by stable ID, fetching one extra row for continuation
+    /// detection.
+    ///
+    /// # Errors
+    ///
+    /// Rejects page sizes above 1,000 and offsets outside SQLite's signed range. Invalid persisted
+    /// identities, counts, timestamps, lifecycle labels, payloads, and SQL failures return typed
+    /// archive errors; no query changes membership or local decisions.
     pub async fn list_clusters(
         &self,
         query: &ClusterListQuery<'_>,
@@ -55,6 +78,19 @@ impl Archive {
     }
 
     /// Shows a cluster and current or locally excluded generated members.
+    ///
+    /// Removed members are omitted. Each selected member includes its canonical discussion and
+    /// explicit evidence coverage. Local canonical selection takes precedence over representative
+    /// role; exclusions are reported as member state rather than dropping the discussion.
+    ///
+    /// Summary, member rows, and coverage are acquired separately. A concurrent generation or
+    /// decision can advance between those reads; callers must not treat this view as a transaction
+    /// snapshot or use it as authority to bypass validation in a later decision operation.
+    ///
+    /// # Errors
+    ///
+    /// Invalid or absent cluster IDs return `ClusterMissing`. Malformed stored rows and SQL
+    /// failures abort projection without changing archive state.
     pub async fn cluster_detail(&self, id: u64) -> Result<ClusterDetail, StoreError> {
         let cluster_id = checked_cluster_id(id)?;
         let mut statement = QueryBuilder::<Sqlite>::new(cluster_summary_select());

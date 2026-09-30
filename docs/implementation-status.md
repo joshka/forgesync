@@ -1763,3 +1763,21 @@ External dependencies import from their actual owners; unused root aliases are r
 integration cases, formatting, rumdl, and changed-page Markdown linting pass. Final current-tree
 Clippy and workspace validation are running; cluster decisions and queries remain in the bounded
 store-operation review.
+
+## Continued maintenance: cluster inspection contracts
+
+Cluster read documentation now explains effective representative selection, generation-derived
+titles, lifecycle versus dismissal, member ordering, excluded/removed membership, role precedence,
+and independent summary/member/coverage reads. Public list/detail operations describe pagination,
+errors, and why an inspection view cannot authorize a later mutation without fresh validation. The
+summary representative field documents its active-member fallback contract.
+
+The documentation guide now records the recurring rule: describe read-snapshot consistency,
+selection/order policy, and the distinction between diagnostic observations and mutation authority.
+No query, output, or mutation behavior changes in this documentation revision. Member-decision
+Clippy passes; combined workspace gates remain running before the next code extraction.
+
+The final combined member-decision/inspection-contract tree passes all workspace tests/doctests, the
+CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
+formatting, rumdl, and changed-page Markdown linting. Store-operation cleanup remains open; detail
+member projection and remaining decision coordination are next.

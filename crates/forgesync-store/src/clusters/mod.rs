@@ -133,7 +133,11 @@ pub struct ClusterSummary {
     pub dismissed: bool,
     /// Reason supplied for a local dismissal, when dismissed.
     pub dismissal_reason: Option<String>,
-    /// Effective canonical or generated representative.
+    /// Effective active representative used for display.
+    ///
+    /// Prefers a local canonical member, then the generated representative, then the lowest active
+    /// thread number. Absent when no active member remains. The generation-derived title is
+    /// retained even when local decisions change this display identity.
     pub representative: Option<ThreadReference>,
     /// Number of active, non-excluded generated members.
     pub active_member_count: u64,

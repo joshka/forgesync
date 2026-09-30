@@ -24,6 +24,13 @@ their invariant and who constructs them. Fallible operations should explain rele
 partial state, cancellation, retry, and recovery. State the lifecycle of archives, network clients,
 and terminal state at their owning APIs.
 
+For assembled read projections, document whether related values share one database snapshot or come
+from separate reads that concurrent writers may advance between. Explain ordering and fallback
+selection where those determine visible identities. A diagnostic observation is not mutation
+authority: lease state, current membership, or a displayed canonical choice must not imply that a
+later write can skip its own fence and identity validation. Keep these contracts beside the owning
+operation so callers need not reconstruct them from SQL.
+
 Every Rust module file, including private leaves and focused test modules, needs an opening `//!`
 that orients a reader arriving directly from search. Explain what the file contains, when its main
 types or operations are used, who calls them, and how they relate to neighboring modules. A small
