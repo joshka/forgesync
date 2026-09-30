@@ -11,7 +11,7 @@ use forgesync_store::families::ChildFamilyObservation;
 use forgesync_store::observations::ObservationDisposition;
 use serde_json::json;
 
-use super::{
+use crate::fixture::{
     create_archive_with_repository, discussion, incomplete, item, remove_archive, reserve,
     temporary_archive_path, thread_observation, timestamp,
 };

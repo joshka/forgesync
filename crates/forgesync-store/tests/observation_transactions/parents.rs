@@ -12,7 +12,7 @@ use forgesync_store::error::StoreError;
 use forgesync_store::observations::ObservationDisposition;
 use forgesync_store::ordering::compare_revision_observation_order;
 
-use super::{
+use crate::fixture::{
     create_archive_with_repository, discussion, incomplete, read_current_thread_title,
     remove_archive, reserve, temporary_archive_path, thread_observation,
 };

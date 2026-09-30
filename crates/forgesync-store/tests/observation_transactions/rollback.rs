@@ -11,7 +11,7 @@ use forgesync_store::error::StoreError;
 use forgesync_store::families::ChildFamilyObservation;
 use serde_json::json;
 
-use super::{
+use crate::fixture::{
     create_archive_with_repository, discussion, item, remove_archive, reserve,
     temporary_archive_path, thread_observation, timestamp, writable_pool,
 };
