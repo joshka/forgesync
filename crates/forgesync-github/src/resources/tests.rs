@@ -24,6 +24,9 @@ use crate::resources::{
 };
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
+/// Loads a synthetic provider payload by its catalog filename without normalizing it.
+///
+/// Call sites show any scenario-specific mutations before the payload reaches the mock server.
 fn fixture(name: &str) -> serde_json::Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/github")
@@ -229,6 +232,8 @@ async fn issue_comment_pages_normalize_identity_and_preserve_unknown_fields() {
     .expect("first comment page");
     assert_eq!(first.comments.len(), 1);
     assert_eq!(first.comments[0].id.thread(), &thread);
+    assert_eq!(first.comments[0].id.provider_id().as_str(), "3001");
+    assert_eq!(first.comments[0].body, "first response");
     assert_eq!(first.comments[0].author.as_deref(), Some("reviewer"));
     assert_eq!(
         first.comments[0].provider_data.get("author_association"),
@@ -247,6 +252,8 @@ async fn issue_comment_pages_normalize_identity_and_preserve_unknown_fields() {
     .expect("second comment page");
     assert_eq!(second.comments.len(), 1);
     assert_eq!(second.comments[0].id.provider_id().as_str(), "3002");
+    assert_eq!(second.comments[0].id.thread(), &thread);
+    assert_eq!(second.comments[0].body, "second response");
     assert_eq!(second.comments[0].author, None);
     assert_eq!(second.comments[0].updated_at, None);
     assert_eq!(

@@ -2943,3 +2943,12 @@ the routing and membership contracts stated in their names. Resource imports poi
 
 The complete GitHub suite passes: 24 unit scenarios and two doctests. Nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Provider fixture contracts and comment provenance
+
+GitHub fixture helpers now explain their construction-only role and which fields intentionally stay
+constant between nested pages. REST comment pagination checks each page's body, parent identity, and
+provider identity, so second-page content cannot be silently paired with the wrong provenance.
+
+The complete GitHub suite passes: 24 unit scenarios and two doctests. Nightly formatting, rumdl, and
+changed-page Markdown linting pass.

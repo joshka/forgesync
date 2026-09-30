@@ -18,6 +18,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use crate::review_threads::fetch_review_thread_page;
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
+/// Constructs the enterprise repository and parent pull-request identity used by these payloads.
+///
+/// It performs no requests; the mock paths and request bodies stay visible in each scenario.
 fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
     let repository_id = RepositoryId::new(
         GitHubHost::parse("ghe.example.test").expect("host"),
@@ -40,6 +43,10 @@ fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
     (repository, thread)
 }
 
+/// Builds one nested comment payload with explicit node identity and creation order.
+///
+/// Other fields intentionally stay constant across pages. Assertions about differing comments
+/// use node IDs rather than the shared database ID or body.
 fn review_comment(id: &str, created_at: &str) -> serde_json::Value {
     json!({
         "id": id,
