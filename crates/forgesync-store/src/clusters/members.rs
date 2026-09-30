@@ -109,6 +109,18 @@ fn parse_member_state(value: &str) -> Result<ClusterMemberState, StoreError> {
 
 #[cfg(test)]
 mod tests {
+    //! # Canonical and representative role precedence
+    //!
+    //! Each case supplies explicit archive row identity and repository discussion number.
+    //! Canonical selection wins when the same discussion also serves as representative.
+    //! Representative selection compares the repository number, independently of the archive row.
+    //! With neither selection present, a retained member is related.
+    //!
+    //! The role owner is constructed directly with no cluster generation or local decision writes.
+    //! Store integration tests establish how canonical and representative selections are loaded.
+    //! These cases protect projection precedence once those checked inputs reach the role mapper.
+    //! Separate names keep each policy visible without a multi-scenario fixture or loop.
+
     use forgesync_core::identity::ThreadNumber;
 
     use crate::clusters::ClusterMemberRole;

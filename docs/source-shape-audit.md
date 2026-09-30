@@ -645,6 +645,14 @@ Other core suites remain under review.
 
 ### Acceptance pass and stopping rules
 
+Store's local scan-completion, summary accumulation, timeline ordering, member-role, and lease
+conversion suites now explain their checked-value boundaries and integration evidence limits. Their
+existing direct cases retain specific error variants and explicit inputs. Timeline inverse
+comparisons form one ordering contract; summary accumulation forms one denominator/bucket contract.
+Generation matching already compares entire assignment maps from construction-only memberships, so
+its named overlap and tie-break cases need no behavioral fixture or scenario restructuring. Store
+integration-suite quality acceptance remains separate work.
+
 Pairwise graph thresholds now have a shallow sibling suite, separating title/kind acceptance from
 reference scoping, bounded grouping, and cancellation. A high-confidence same-kind case explicitly
 proves that unrelated titles do not reject otherwise strong vector evidence. The suite introductions

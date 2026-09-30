@@ -112,6 +112,18 @@ impl<'a> ScanCompletion<'a> {
 
 #[cfg(test)]
 mod tests {
+    //! # Terminal scan declaration validation
+    //!
+    //! These cases construct completion declarations directly from status and diagnostic evidence.
+    //! An active scan cannot finalize, and complete coverage cannot carry a provider failure.
+    //! Complete success and incomplete interruption remain valid declarations without diagnostics.
+    //! Each rejected declaration checks the specific invalid-scan error variant.
+    //!
+    //! No scan ledger or archive is created here. Integration tests own durable finalization,
+    //! checkpoint publication, membership, and lease fencing. This suite owns the checked value
+    //! that those writes consume, including its stored status spelling and borrowed failure.
+    //! Small direct cases stay beside the constructor without a shared workflow fixture.
+
     use forgesync_core::coverage::{Failure, FailureKind};
 
     use crate::enumeration::RepositoryThreadScanStatus;

@@ -119,6 +119,19 @@ impl FamilyCoverageSummary {
 
 #[cfg(test)]
 mod tests {
+    //! # Coverage bucket accumulation at the SQL boundary
+    //!
+    //! Explicit grouped counts establish missing, incomplete, complete, and denominator totals.
+    //! Negative counts and unknown status spellings have separate typed rejection cases.
+    //! The empty fixture supplies only initial state; each accumulation remains visible in its
+    //! test. The successful sequence is one aggregate contract rather than unrelated query
+    //! scenarios.
+    //!
+    //! These tests call row-conversion policy directly without opening SQLite or executing a query.
+    //! Archive read tests establish which rows are grouped and which repositories are selected.
+    //! This suite protects checked conversion and accounting after those rows have been returned.
+    //! Keep exact bucket assertions here so an invalid status cannot quietly alter the denominator.
+
     use forgesync_core::coverage::EvidenceFamily;
 
     use crate::error::StoreError;

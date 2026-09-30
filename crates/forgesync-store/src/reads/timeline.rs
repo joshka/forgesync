@@ -172,6 +172,19 @@ fn timeline_event_key(event: &ThreadTimelineEvent) -> (u8, String) {
 
 #[cfg(test)]
 mod tests {
+    //! # Optional source-time ordering
+    //!
+    //! Dated events precede undated events in both comparison directions.
+    //! Two absent times compare equal, leaving the surrounding comparator to resolve identity ties.
+    //! A fixed timestamp provides one present value; no process clock or archive setup is involved.
+    //! The inverse comparisons describe one ordering contract and remain together.
+    //!
+    //! These cases exercise only the optional-time helper, not the full timeline projection.
+    //! Integration tests own event hydration, family coverage, filtering, and pagination.
+    //! Event identities and source payloads are intentionally absent from this local arithmetic
+    //! test. Changes to tie-breaking policy belong beside the comparator that actually owns
+    //! those facts.
+
     use std::cmp::Ordering;
 
     use forgesync_core::timestamp::UtcTimestamp;

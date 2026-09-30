@@ -202,6 +202,12 @@ mod tests {
     //! nonzero nanosecond duration must not silently become an immediate-expiry zero in SQLite.
     //! Ownership and concurrent writer behavior are exercised by the archive lease integration
     //! suite; these tests keep conversion setup and failure expectations local.
+    //!
+    //! Every duration is fixed and supplied directly, without waiting for time to pass.
+    //! Zero, submicrosecond, and out-of-range inputs check the specific duration error variant.
+    //! Accepted input retains whole microseconds and discards finer precision.
+    //! These tests validate storage conversion, not the lease's current ownership or expiry.
+    //! Acquisition and renewal consume this same conversion rule before writing their deadline.
 
     use std::time::Duration;
 
