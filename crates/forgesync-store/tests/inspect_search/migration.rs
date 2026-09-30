@@ -10,7 +10,8 @@ use forgesync_store::error::StoreError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 use super::{
-    apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,
+    apply_thread, discussion, keyword_page, remove_archive, repository, temporary_archive_path,
+    thread_id,
 };
 
 #[tokio::test]
@@ -164,7 +165,7 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");
-    assert_eq!(query(&migrated, "\"backfill\"").await.items.len(), 1);
+    assert_eq!(keyword_page(&migrated, "\"backfill\"").await.items.len(), 1);
     migrated.close().await;
     remove_archive(&path);
 }

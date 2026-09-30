@@ -28,7 +28,11 @@ mod list_search;
 #[path = "inspect_search/migration.rs"]
 mod migration;
 
-async fn query(archive: &Archive, expression: &str) -> forgesync_store::reads::ThreadPage {
+/// Reads the first ten all-repository keyword matches ranked by relevance.
+///
+/// This helper fixes incidental page settings; the expression and result assertions remain visible
+/// in the scenario. It performs no writes or provider requests.
+async fn keyword_page(archive: &Archive, expression: &str) -> forgesync_store::reads::ThreadPage {
     archive
         .query_threads(&ThreadQuery {
             repositories: Vec::new(),
@@ -44,6 +48,10 @@ async fn query(archive: &Archive, expression: &str) -> forgesync_store::reads::T
         .expect("query thread page")
 }
 
+/// Reserves a sequence and commits complete thread evidence for the supplied discussion.
+///
+/// Provider update time also supplies acquisition time in this fixture. Store application updates
+/// the derived full-text representation; callers register the repository before invoking this.
 async fn apply_thread(archive: &Archive, discussion: Discussion) {
     let updated_at = discussion.updated_at;
     let sequence = archive
@@ -65,6 +73,9 @@ async fn apply_thread(archive: &Archive, discussion: Discussion) {
         .expect("apply thread observation");
 }
 
+/// Constructs the scenario-selected identity, kind, state, searchable text, and update time.
+///
+/// Other metadata stays constant. This is value construction only, with no archive writes.
 fn discussion(
     thread: &ThreadId,
     kind: ThreadKind,
@@ -89,6 +100,7 @@ fn discussion(
     }
 }
 
+/// Constructs public GitHub repository metadata without registering it in an archive.
 fn repository(owner: &str, name: &str, provider_id: &str) -> Repository {
     Repository {
         id: RepositoryId::new(
@@ -104,6 +116,7 @@ fn repository(owner: &str, name: &str, provider_id: &str) -> Repository {
     }
 }
 
+/// Constructs a discussion identity scoped to its repository with explicit provider ID and number.
 fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> ThreadId {
     ThreadId::new(
         repository.clone(),
@@ -112,6 +125,7 @@ fn thread_id(repository: &RepositoryId, provider_id: &str, number: u64) -> Threa
     )
 }
 
+/// Parses a fixture timestamp, failing on invalid setup before the archive operation.
 fn timestamp(value: &str) -> UtcTimestamp {
     UtcTimestamp::parse(value).expect("valid timestamp")
 }

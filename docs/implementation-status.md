@@ -3053,3 +3053,13 @@ API prelude. Explicit parent imports identify only the setup helpers implemented
 
 All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Search fixture effect and target contracts
+
+Search setup helpers document durable observation reservation/application and derived index effects.
+The keyword page helper has a query-specific name and states its fixed page, scope, and ordering.
+FTS update assertions check the selected discussion identity and replacement title in addition to
+result counts, so a hit on the wrong discussion cannot satisfy the update scenario.
+
+All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

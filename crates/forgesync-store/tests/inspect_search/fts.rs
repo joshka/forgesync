@@ -8,7 +8,8 @@ use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_store::archive::Archive;
 
 use super::{
-    apply_thread, discussion, query, remove_archive, repository, temporary_archive_path, thread_id,
+    apply_thread, discussion, keyword_page, remove_archive, repository, temporary_archive_path,
+    thread_id,
 };
 
 #[tokio::test]
@@ -34,7 +35,9 @@ async fn fts_index_tracks_updates_and_removed_text_transactionally() {
     )
     .await;
 
-    assert_eq!(query(&archive, "\"obsolete\"").await.items.len(), 1);
+    let original = keyword_page(&archive, "\"obsolete\"").await;
+    assert_eq!(original.items.len(), 1);
+    assert_eq!(original.items[0].discussion.id, thread);
     apply_thread(
         &archive,
         discussion(
@@ -47,8 +50,16 @@ async fn fts_index_tracks_updates_and_removed_text_transactionally() {
         ),
     )
     .await;
-    assert!(query(&archive, "\"obsolete\"").await.items.is_empty());
-    assert_eq!(query(&archive, "\"replacement\"").await.items.len(), 1);
+    assert!(
+        keyword_page(&archive, "\"obsolete\"")
+            .await
+            .items
+            .is_empty()
+    );
+    let replacement = keyword_page(&archive, "\"replacement\"").await;
+    assert_eq!(replacement.items.len(), 1);
+    assert_eq!(replacement.items[0].discussion.id, thread);
+    assert_eq!(replacement.items[0].discussion.title, "Replacement title");
 
     archive.close().await;
     remove_archive(&path);
