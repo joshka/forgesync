@@ -31,7 +31,7 @@ pub struct ThreadFilterArgs {
     /// Filter by source open or closed state.
     #[arg(long, value_enum, default_value_t = ThreadStateArg::All)]
     pub state: ThreadStateArg,
-    /// Sort by source update or creation time.
+    /// Sort by relevance, source update time, or creation time.
     #[arg(long, value_enum)]
     pub sort: Option<ThreadSortArg>,
     /// Maximum number of results (1-1000).
@@ -70,3 +70,7 @@ impl ThreadFilterArgs {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "thread_filters/tests.rs"]
+mod tests;

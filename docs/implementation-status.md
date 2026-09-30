@@ -2733,3 +2733,11 @@ All CLI tests and its doctest pass.
 
 CLI Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl, and
 changed-page Markdown linting also pass.
+
+### Shared filter parsing contract scenarios
+
+Four nearby linear scenarios establish default scope/page values with an absent sort, explicit
+repository/kind/state/order/window conversion, and rejection of zero and excessive limits. A small
+parser flattens the real argument type; assertions inspect the resulting engine request rather than
+using behavior helpers to calculate expectations. Shared sort help includes relevance. All four
+focused tests pass after correcting the expected selector construction to its FromStr API.
