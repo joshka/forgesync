@@ -2326,3 +2326,16 @@ Coverage orientation describes current and acquired head facts, fixed applicable
 missing rows, and stale inspection without rewriting complete membership. Query imports now name the
 coverage helper owner directly. Behavior is unchanged. Store Clippy, strict store Rustdoc, nightly
 formatting, and Markdown checks pass. Broader module/test review remains open.
+
+## Continued maintenance: store failure contracts
+
+Store error orientation explains lifecycle recovery, invalid input versus persisted facts, stale
+writer/generation authority, wrapped source chains, and classification versus retry policy. Variant
+docs correct narrow creation-time, sync-only lease, scan-status-only, and coverage-only JSON claims
+to match their actual use. Duration failure includes the microsecond storage boundary.
+
+The exhaustive error-code match remains a visible pure value map: extracting one function per
+constant would make classification harder to review. Type and code contracts avoid promising atomic
+rollback for every multi-step caller and distinguish stable codes from human display text. Strict
+store Rustdoc, nightly formatting, and Markdown checks pass. Behavior is unchanged; broader review
+remains open.

@@ -4,15 +4,44 @@
 //! observations, and reading projections. It keeps database-specific causes in the store while
 //! giving the engine enough structure to report or retry failures.
 //!
-//! Conversion helpers here classify failures before they cross into workflow code. Callers should
+//! [`StoreError::code`] classifies failures before they cross into workflow code. Callers should
 //! propagate these errors rather than flattening them into a success-shaped empty result,
 //! especially when a transaction or staged collection did not finish.
+//!
+//! Lifecycle variants distinguish a missing path, incompatible format, required migration, and
+//! invalid migration history. Opening never repairs those conditions. A required migration can
+//! lead to the explicit migration workflow; checksum, dirty-history, or newer-schema failures
+//! must not be treated as permission to rewrite migration history or recreate the archive.
+//!
+//! Input and projection variants distinguish invalid domain/collection contracts from absent
+//! registered identities and malformed persisted facts. Context matters: for example an invalid
+//! embedding can be rejected on write or discovered during decoding. Variant names alone do not
+//! prove whether a caller's input or stored data caused the failure; the owning operation documents
+//! that boundary.
+//!
+//! Lease loss, superseded generations, and changed embedding documents reject stale authority.
+//! Repeating the same write with the same token or old generation does not restore authority.
+//! The workflow must stop that attempt and decide whether to acquire fresh state. Incomplete or
+//! conflicting collections cannot be presented as successful complete membership.
+//!
+//! Wrapped filesystem, SQLite, JSON, and migration errors retain source chains for diagnostics.
+//! Their display text is not the machine protocol and can contain contextual paths or database
+//! details. Use the stable code for structured classification and apply the application's output
+//! policy at its boundary. This module installs no logger and decides no universal retry policy.
+//!
+//! The long match in `code` is an exhaustive value mapping, not workflow dispatch. Keeping one
+//! visible arm per variant makes additions reviewable without hiding classification in helpers.
 
 use std::path::PathBuf;
 
 use thiserror::Error;
 
-/// Errors returned by archive lifecycle and local storage operations.
+/// Typed lifecycle, contract, authority, and persistence failures from archive operations.
+///
+/// Operations preserve their specific variants rather than replacing failures with empty results.
+/// Consult the originating method for transaction, partial staging, or cleanup guarantees: this
+/// enum does not itself imply that every failed multi-step operation has no persisted effects.
+/// [`Self::code`] supplies structured classification independently of human-readable display text.
 #[derive(Debug, Error)]
 pub enum StoreError {
     /// An archive already occupies the requested path.
@@ -70,7 +99,7 @@ pub enum StoreError {
     /// The stored archive UUID is malformed.
     #[error("archive ID is invalid")]
     InvalidArchiveId(#[source] uuid::Error),
-    /// The stored creation timestamp cannot be represented by core timestamp rules.
+    /// A stored or computed archive timestamp cannot be represented by core timestamp rules.
     #[error("archive creation timestamp is invalid")]
     InvalidCreatedAt(#[source] forgesync_core::timestamp::TimestampError),
     /// The system clock could not produce a supported archive timestamp.
@@ -149,16 +178,16 @@ pub enum StoreError {
     /// No in-progress repository thread scan matches the supplied identity and sequence.
     #[error("repository thread scan is not in progress for this sequence")]
     RepositoryThreadScanMissing,
-    /// A stored repository thread scan status is invalid.
+    /// Repository scan data or required completion state is invalid.
     #[error("archive contains an invalid repository thread scan")]
     InvalidRepositoryThreadScan,
-    /// Another sync operation currently owns the archive write lease.
+    /// Another coordinated writer currently owns the archive write lease.
     #[error("another sync operation currently owns the archive lease")]
     ArchiveLeaseHeld,
-    /// The current sync operation no longer owns the archive write lease.
+    /// The coordinated writer no longer owns an active archive write lease.
     #[error("archive write lease was lost or expired")]
     ArchiveLeaseLost,
-    /// The archive lease duration must be positive and representable.
+    /// The lease duration must retain at least one microsecond and fit expiry arithmetic.
     #[error("archive lease duration is invalid")]
     InvalidArchiveLeaseDuration,
     /// A stored run, job, or outcome state is invalid.
@@ -185,7 +214,7 @@ pub enum StoreError {
     /// The supplied coverage state cannot be persisted by the current observation operation.
     #[error("coverage state is not valid for this observation operation")]
     InvalidCoverageState,
-    /// A coverage or staging result could not be encoded or decoded.
+    /// An archive payload, coverage state, or staging result could not be encoded or decoded.
     #[error("observation JSON is invalid: {0}")]
     Json(#[from] serde_json::Error),
     /// A stored provider ID is malformed.
@@ -231,6 +260,10 @@ pub enum StoreError {
 
 impl StoreError {
     /// Returns the stable machine-readable classification used by CLI JSON errors.
+    ///
+    /// Payload details and source chains do not change the code. This is a classification only,
+    /// not a retry decision or a guarantee about transaction effects. Human-readable `Display`
+    /// text can evolve independently; consumers should match this code or the typed variant.
     pub fn code(&self) -> &'static str {
         match self {
             Self::AlreadyExists(_) => "archive_exists",
