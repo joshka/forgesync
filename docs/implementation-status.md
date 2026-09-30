@@ -2531,3 +2531,15 @@ variant and identifies the acquisition boundary rather than describing every var
 startup documentation records terminal prerequisites, writable archive access, credential setup, and
 transfer of shutdown responsibility to the browser. Retry and GitHub setup imports name their
 defining command modules. Strict CLI Rustdoc passes with private items included.
+
+### Archive command lifecycle contracts
+
+Archive command orientation now separates creation, explicit migration, status projections, and
+health checks. Migration docs explain that a later reporting failure does not undo schema changes
+and that earlier migrations may survive a later migration failure. Doctor docs distinguish an
+unhealthy completed report from an error obtaining one, and scope health to the selected local
+checks rather than source freshness. The command closes each handle before rendering; capability
+probes use temporary storage rather than changing durable archive data.
+
+Strict CLI Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown linting
+pass for this documentation-only change.

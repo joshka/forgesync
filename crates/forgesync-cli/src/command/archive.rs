@@ -1,11 +1,25 @@
 //! # Create, inspect, migrate, and diagnose archives
 //!
-//! `ArchiveCommand` groups operations whose primary subject is the local database. Its run method
-//! selects the explicit archive lifecycle action and renders the resulting status or diagnostic
-//! report.
+//! [`ArchiveCommand`] groups operations whose primary subject is the local SQLite archive.
+//! Its dispatch method selects an explicit lifecycle action; each operation owns opening and
+//! closing its archive handle and then delegates presentation to the archive report module.
+//! No variant acquires provider content or discovers GitHub credentials.
 //!
-//! Create, open, and migrate have different side effects. This command is where a user explicitly
-//! asks for them; ordinary read commands must not silently create or change an archive.
+//! Init creates a new archive without overwriting an existing file. Migrate applies pending schema
+//! changes to an existing archive, then opens it read-only to report its resulting identity and
+//! metadata. Migration and that reporting read are separate operations: an error during the later
+//! read does not undo applied migrations. Store migration errors can also follow earlier committed
+//! migrations, so failure must not be interpreted as an unchanged file.
+//!
+//! Status and doctor open the archive read-only. Status projects local metadata and counts through
+//! the engine, then adapts that projection to the CLI output schema. Doctor asks the store to check
+//! integrity and SQLite capabilities; its temporary capability probes do not change durable
+//! archive data. Both require an archive accepted by the ordinary read-only opening checks.
+//!
+//! Doctor preserves a completed diagnostic report even when it is unhealthy, rendering that report
+//! with a failing exit status. Failure to obtain a report uses the shared typed-error presentation.
+//! A healthy report describes the selected checks, not provider freshness or completion of every
+//! acquisition workflow. Creation, migration, and inspection remain distinct user choices.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -58,6 +72,9 @@ impl ArchiveCommand {
     }
 
     /// Applies migrations, then reads the resulting archive metadata for the report.
+    ///
+    /// A failure opening the reporting handle leaves successful migrations in place. The store
+    /// also permits earlier migrations to remain committed if a later migration fails.
     async fn migrate(path: &Path, output: OutputMode) -> ExitCode {
         let migration = match Archive::migrate(path).await {
             Ok(migration) => migration,
@@ -98,6 +115,9 @@ impl ArchiveCommand {
     }
 
     /// Checks integrity and returns failure when the archive is unhealthy.
+    ///
+    /// An unhealthy completed report remains report data in both output modes. A failure to open
+    /// the archive or perform a check is rendered as a store error instead.
     async fn doctor(path: &Path, output: OutputMode) -> ExitCode {
         let archive = match Archive::open_read_only(path).await {
             Ok(archive) => archive,
