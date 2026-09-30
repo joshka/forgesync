@@ -63,6 +63,13 @@ already documented above multiline Clap attributes and required no changes. A re
 inventory covers 1,301 named production fields with no missing leading comments, excluding tests and
 examples. This closes the presence candidates, not the complete documentation-depth review.
 
+CLI cluster dispatch now directly selects named operations in `ClusterCommand::run`. The redundant
+wide `execute` forwarding method is removed; build consumes configuration during request preparation
+instead of forwarding its individual fields through dispatch. Engine requests remain narrow and
+read/decision commands retain their existing inputs. Eight cluster-filtered CLI cases, all-target
+CLI Clippy, strict CLI Rustdoc, nightly formatting, and Markdown checks pass. The source-shape audit
+records this signature disposition while the rest of the CLI inventory remains under review.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

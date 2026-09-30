@@ -458,6 +458,16 @@ request rather than inventing an application-wide context. Private execution fie
 request selection from deduplicated order, sync-only progress, stage failures, and document
 failures. These dispositions cover those two entry signatures, not all refresh or engine signatures.
 
+### CLI cluster dispatch signature review
+
+Cluster command dispatch no longer expands configuration into embedding settings and recipe through
+an intermediate `execute` method. The parsed command's `run` owns interruption and directly selects
+the named operation. Build alone consumes configuration during preparation and passes a narrow
+`ClusterBuildRequest` to the engine. Removing the forwarding method reduces both signature width and
+navigation without introducing another context type. Read and decision operations still receive only
+their archive path, output mode, and selected arguments. Other CLI signature candidates remain under
+review.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

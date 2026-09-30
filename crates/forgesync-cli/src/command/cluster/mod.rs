@@ -23,11 +23,9 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use clap::{ArgAction, Args, Subcommand};
-use forgesync_core::document::DocumentRecipe;
-use tokio_util::sync::CancellationToken;
 
 use crate::OutputMode;
-use crate::config::{EmbeddingServiceConfig, ForgesyncConfig};
+use crate::config::ForgesyncConfig;
 
 mod build;
 mod decisions;
@@ -170,53 +168,21 @@ impl ClusterCommand {
     ) -> ExitCode {
         let interruption = super::interruption::CommandInterruption::new();
         let cancellation = interruption.cancellation();
-        self.execute(
-            path,
-            config.embeddings,
-            config.documents.recipe,
-            json,
-            verbose,
-            cancellation,
-        )
-        .await
-    }
-
-    /// Routes a selected cluster operation after installing cancellation.
-    async fn execute(
-        self,
-        archive_path: &Path,
-        embedding_service: EmbeddingServiceConfig,
-        recipe: DocumentRecipe,
-        json: OutputMode,
-        verbose: u8,
-        cancellation: &CancellationToken,
-    ) -> ExitCode {
         match self {
             ClusterCommand::Build(args) => {
-                args.run_build(
-                    archive_path,
-                    embedding_service,
-                    recipe,
-                    json,
-                    verbose,
-                    cancellation,
-                )
-                .await
+                args.run_build(path, config, json, verbose, cancellation)
+                    .await
             }
-            ClusterCommand::List(args) => run_list(args, archive_path, json).await,
-            ClusterCommand::Show { id } => run_show(id, archive_path, json).await,
-            ClusterCommand::Dismiss { id, reason } => {
-                run_dismiss(id, reason, archive_path, json).await
-            }
-            ClusterCommand::Restore { id } => run_restore(id, archive_path, json).await,
+            ClusterCommand::List(args) => run_list(args, path, json).await,
+            ClusterCommand::Show { id } => run_show(id, path, json).await,
+            ClusterCommand::Dismiss { id, reason } => run_dismiss(id, reason, path, json).await,
+            ClusterCommand::Restore { id } => run_restore(id, path, json).await,
             ClusterCommand::Exclude { id, member, reason } => {
-                run_exclude(id, member, reason, archive_path, json).await
+                run_exclude(id, member, reason, path, json).await
             }
-            ClusterCommand::Include { id, member } => {
-                run_include(id, member, archive_path, json).await
-            }
+            ClusterCommand::Include { id, member } => run_include(id, member, path, json).await,
             ClusterCommand::Canonical { id, member } => {
-                run_set_canonical(id, member, archive_path, json).await
+                run_set_canonical(id, member, path, json).await
             }
         }
     }

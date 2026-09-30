@@ -22,7 +22,7 @@ use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
 
 use crate::command::cluster::ClusterBuildArgs;
-use crate::config::{ConfigError, EmbeddingServiceConfig};
+use crate::config::{ConfigError, EmbeddingServiceConfig, ForgesyncConfig};
 use crate::reports::clusters::cluster_build_summary;
 use crate::{
     OutputMode, render_engine_error, render_error_with_status, render_result, render_store_error,
@@ -34,13 +34,12 @@ impl ClusterBuildArgs {
     pub async fn run_build(
         self,
         archive_path: &Path,
-        embedding_service: EmbeddingServiceConfig,
-        recipe: DocumentRecipe,
+        config: ForgesyncConfig,
         json: OutputMode,
         verbose: u8,
         cancellation: &CancellationToken,
     ) -> ExitCode {
-        let request = match self.prepare(embedding_service, recipe) {
+        let request = match self.prepare(config.embeddings, config.documents.recipe) {
             Ok(request) => request,
             Err(error) => return render_configuration_error(json, error),
         };
