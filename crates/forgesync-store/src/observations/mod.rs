@@ -6,10 +6,10 @@
 //! support child-family acquisition without conflating it with the parent snapshot.
 //!
 //! `sequence` allocates durable local order, `apply` commits a parent snapshot, `repository`
-//! resolves its scope, and `coverage` records what was actually obtained. Source update time and
-//! acquisition order have different jobs: an older provider revision should not displace newer
-//! canonical content merely because it arrived later. The engine decides when to fetch; the store
-//! enforces these ordering and completeness rules.
+//! resolves its scope, and `coverage` reads directly recorded family completeness. Source update
+//! time and acquisition order have different jobs: an older provider revision should not displace
+//! newer canonical content merely because it arrived later. The engine decides when to fetch; the
+//! store enforces these ordering and completeness rules.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{ObservationSequence, ProviderId, ThreadId};

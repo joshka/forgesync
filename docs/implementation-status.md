@@ -2677,3 +2677,13 @@ safe public payloads.
 Strict engine Rustdoc with private items, nightly formatting, rumdl, and changed-page Markdown
 linting pass. The remaining conventions pass still includes API shape, visibility, imports, and
 item-contract depth; introduction length alone does not close it.
+
+### Family workflow import locality
+
+Family application and staging imports now identify the defining family modules directly. The
+observation root's module map also corrects its coverage entry to describe a recorded-state read,
+matching the leaf contract corrected earlier. These changes preserve the existing domain and SQL
+boundaries rather than exposing internal connections or converting private helpers to public APIs.
+
+Store Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
+and changed-page Markdown linting pass.
