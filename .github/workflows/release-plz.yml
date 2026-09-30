@@ -44,7 +44,7 @@ jobs:
       group: release-plz-pr-${{ github.ref }}
       cancel-in-progress: false
     outputs:
-      pr: ${{ steps.release-plz.outputs.pr }}
+      ref: ${{ fromJSON(steps.release-plz.outputs.pr || '{}').head_branch }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,7 +61,7 @@ jobs:
   # GITHUB_TOKEN-created PRs do not trigger pull_request workflows. Run the same CI explicitly.
   release-pr-checks:
     needs: release-pr
-    if: needs.release-pr.outputs.pr != '' && needs.release-pr.outputs.pr != 'null'
+    if: needs.release-pr.outputs.ref != ''
     uses: ./.github/workflows/ci.yml
     with:
-      ref: ${{ fromJSON(needs.release-pr.outputs.pr).head_branch }}
+      ref: ${{ needs.release-pr.outputs.ref }}

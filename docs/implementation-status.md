@@ -20,9 +20,17 @@ packages have descriptions, repository links, READMEs, and packaged license text
 workflow uses GitHub OIDC in the main-only `crates-io` environment and validates generated release
 PRs through reusable CI. Release-plz configuration schema and workflow linting pass.
 
-Cargo workspace publication and per-crate trusted publisher setup are in progress. The next action
-is to verify published versions and registry settings, push the source and bootstrap tags, and
-confirm hosted workflow status.
+All seven crates are published at 0.1.0 with registry checksums matching the verified local release
+archives. Each trusted publisher entry is read back through the crates.io API and matches
+`joshka/forgesync`, `release-plz.yml`, and `crates-io`. Source and all seven bootstrap tags are
+pushed. A crates.io installation with `--locked`, default features, and the debug profile passes;
+its binary includes terminal browsing and passes the credential-free offline smoke script.
+
+Hosted Rust gates and all four platform smoke jobs pass in the release workflow. The publisher
+correctly skips a non-release-PR commit, and release-plz reports no version changes after bootstrap.
+Its empty PR output is `{}`, so the reusable PR check now depends on an actual returned branch
+rather than a nonempty JSON string. The next action is to confirm that the corrected hosted workflow
+skips PR checks when no release PR exists.
 
 ## Product facade follow-up
 
@@ -30,7 +38,8 @@ The `forgesync` package now owns the installable executable and module-oriented 
 and TUI features are enabled by default. The CLI package is a library; process tests live with the
 executable. Workflow implementations remain in the existing core, store, provider, and engine
 owners. CI and release builds target the product, and workspace path dependencies carry registry
-version requirements so publication can preserve the same graph. No packages have been published.
+version requirements so publication can preserve the same graph. The registry follow-up above
+records subsequent publication.
 
 Validation is in progress: product process tests, workspace gates, library-only and CLI-only feature
 builds, and a local installation check. The next action is to complete these gates and record their

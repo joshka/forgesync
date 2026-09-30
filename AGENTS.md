@@ -61,6 +61,9 @@ reader locality, correctness, and API clarity. Local rules resolve conflicting l
 
 ## Change and validation procedure
 
+- Read [release guidance](docs/releasing.md) before registry publication or release automation
+  changes. New crates require an initial Cargo publication before configuring their trusted
+  publisher; CI uses the matching workflow filename and environment without a registry secret.
 - Use jj for version control. Start a described new change for each separable task and run jj
   operations sequentially. Do not create Git worktree threads.
 - Read the plan, this file, implementation status, and the selected reference tests before each

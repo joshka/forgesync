@@ -32,6 +32,12 @@ New crates need one manual first publication and a trusted publisher entry befor
 later versions. Changing the repository, workflow filename, or environment requires updating the
 trusted publisher entries on crates.io too.
 
+When bootstrapping several new crates, crates.io may pause publication at its new-crate rate limit.
+Honor the server-provided retry time, then publish only the remaining packages with
+`cargo publish -p PACKAGE --locked`. Already published versions are immutable; do not repeat the
+full workspace upload after a partial publication. Verify registry checksums against the local
+`.crate` archives before declaring the batch complete.
+
 ## Native binary assets
 
 The manual `.github/workflows/release.yml` workflow builds and smoke-tests native binaries on Linux,
