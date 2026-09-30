@@ -46,25 +46,21 @@
 //! feature controls whether the launcher is included; this crate itself owns the terminal behavior.
 
 mod app;
+mod event_loop;
 mod query;
 mod view;
 
 use std::collections::HashMap;
 use std::io::{self, IsTerminal};
 use std::sync::Arc;
-use std::time::Duration;
 
-use app::App;
-use app::messages::QueryMessage;
-use crossterm::event::{self, Event, KeyEventKind};
 use forgesync_core::identity::GitHubHost;
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
-use query::start_query;
 use thiserror::Error;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc;
 
+use crate::event_loop::EventLoop;
 use crate::query::tasks::QueryTasks;
 
 /// Runs the interactive archive browser and closes its archive handle on exit.
@@ -91,13 +87,13 @@ pub async fn run(
     let github_clients = Arc::new(github_clients);
     let mut tasks = QueryTasks::default();
     let terminal_result = ratatui::run(|terminal| {
-        run_event_loop(
-            terminal,
+        let mut event_loop = EventLoop::new(
             Arc::clone(&archive),
             Arc::clone(&github_clients),
             &runtime,
             &mut tasks,
-        )
+        );
+        event_loop.run(terminal)
     });
 
     tasks.stop().await;
@@ -105,69 +101,6 @@ pub async fn run(
         archive.close().await;
     }
     terminal_result.map_err(TuiError::Terminal)
-}
-
-/// Keeps keyboard input responsive while completed background messages update the view.
-fn run_event_loop(
-    terminal: &mut ratatui::DefaultTerminal,
-    archive: Arc<Archive>,
-    github_clients: Arc<HashMap<GitHubHost, GitHubClient>>,
-    runtime: &Handle,
-    tasks: &mut QueryTasks,
-) -> io::Result<()> {
-    let (sender, mut receiver) = mpsc::channel(16);
-    let mut app = App::default();
-    for action in app.initial_actions() {
-        start_query(
-            action,
-            &mut app,
-            &archive,
-            &github_clients,
-            runtime,
-            &sender,
-            tasks,
-        );
-    }
-
-    while !app.quit {
-        while let Ok(message) = receiver.try_recv() {
-            let operation_finished = matches!(message, QueryMessage::OperationFinished { .. });
-            app.apply(message);
-            if operation_finished {
-                for action in app.refresh_after_operation() {
-                    start_query(
-                        action,
-                        &mut app,
-                        &archive,
-                        &github_clients,
-                        runtime,
-                        &sender,
-                        tasks,
-                    );
-                }
-            }
-        }
-
-        terminal.draw(|frame| view::draw(frame, &mut app))?;
-        if event::poll(Duration::from_millis(40))?
-            && let Event::Key(key) = event::read()?
-            && matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat)
-        {
-            for action in app.handle_key(key) {
-                start_query(
-                    action,
-                    &mut app,
-                    &archive,
-                    &github_clients,
-                    runtime,
-                    &sender,
-                    tasks,
-                );
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// An error starting or running the terminal browser.

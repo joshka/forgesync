@@ -1921,3 +1921,18 @@ once. Focused and full workspace validation pass for that final tree, including 
 coverage presentation change: all tests/doctests, workspace Clippy, the CLI build without default
 features, strict public/private Rustdoc, nightly formatting, rumdl, and changed-page Markdown
 linting. Remaining CLI list/detail and TUI input/event-loop review stays open.
+
+## Continued maintenance: terminal event-loop owner
+
+A private `event_loop` module owns the live app, completion channel, and shared execution resources.
+`EventLoop::run` coordinates initial dispatch, message draining, drawing, and input polling. Named
+methods apply completion messages and dispatch operation refreshes, route accepted key events, and
+start actions with one locally retained resource set. The launcher retains terminal setup and
+restoration, awaited task shutdown, and archive closure. Channel capacity, message/draw/input order,
+40 ms poll interval, accepted key kinds, and cancellation semantics remain unchanged.
+
+The constructor's four parameters are explicit session execution resources, not an unexplained state
+tuple. Dispatch accepts the initial fixed action array and later action vectors directly. Focused
+TUI tests and workspace Clippy are running for this change; final workspace gates remain. Search
+editing and browser input were reviewed and retained: their existing named actions separate
+draft/apply/cancel transitions, pane navigation, selection invalidation, and query scope.
