@@ -289,6 +289,14 @@ publicly re-exported for reporting. Source comments document both exceptions. Sh
 clock, and provider-failure policy have private module owners with ordinary public helpers. This
 disposition closes the engine visibility candidates, not the store/provider/CLI review.
 
+Core and TUI contain no restricted-visibility declarations. CLI retains one environment-name
+predicate shared with configuration: its spelling-only contract is documented and a separate
+single-function module would add navigation without reducing context. GitHub retains two methods on
+the public client for internal typed GraphQL adapters: bounded POST and enterprise endpoint
+derivation. Publishing them would expose arbitrary request/protocol setup as acquisition API. Their
+source contracts document the exception and shared transport safeguards. This disposes of non-store
+visibility candidates; store SQL and archive lifecycle seams remain under review.
+
 ### 8. Tests
 
 Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the

@@ -143,6 +143,10 @@ impl GitHubClient {
     }
 
     /// Sends a bounded JSON POST request to the configured API origin.
+    ///
+    /// This crate-only protocol seam serves typed GraphQL resource requests. Keeping it off the
+    /// public client avoids exposing arbitrary POST operations as part of the acquisition API.
+    /// Origin checks, response limits, cancellation, and retries still use the shared transport.
     pub(crate) async fn post_json<T>(
         &self,
         url: &Url,
@@ -159,6 +163,10 @@ impl GitHubClient {
     }
 
     /// Builds GitHub's GraphQL endpoint from the configured REST API base URL.
+    ///
+    /// Internal resource adapters own GraphQL request construction. This endpoint derivation stays
+    /// crate-only on the public client so callers use typed resource operations instead of
+    /// depending on enterprise REST-path conversion. The derived URL retains origin validation.
     pub(crate) fn graphql_endpoint_url(&self) -> Result<Url, GitHubError> {
         let mut url = self.api_base_url.clone();
         let path = url.path().trim_end_matches('/');

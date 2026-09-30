@@ -168,6 +168,10 @@ fn choose_environment_token(
 }
 
 /// Accepts only variable names that can be read consistently across supported shells.
+///
+/// Shared with configuration validation but kept off the public credential-resolution API. It
+/// checks spelling only; it does not read the environment, establish presence, or validate a token.
+/// A separate module for this single predicate would add navigation without a broader concept.
 pub(crate) fn valid_environment_variable_name(name: &str) -> bool {
     let mut characters = name.chars();
     let Some(first) = characters.next() else {
