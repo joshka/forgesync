@@ -2201,3 +2201,19 @@ before a write. Four nearby linear cases cover zero, submicrosecond, precision t
 signed-range overflow. All 50 store tests and both doctests, workspace Clippy, strict store
 documentation, nightly formatting, and Markdown checks pass. Broader convention and test-suite
 reviews remain open.
+
+## Continued maintenance: keyword interpretation and result contracts
+
+Keyword expression construction now directly splits on non-term characters, retains nonempty terms,
+and quotes them in order rather than maintaining an imperative character buffer. The original
+operator-looking scenario moves beside the implementation and becomes independent operator,
+punctuation-only, Unicode/underscore, and empty-input scenarios. The FTS interpretation is
+unchanged.
+
+Keyword module contracts explain prefix acquisition, page-size bounds, rank provenance, coverage
+selection, defensive continuation termination, and separate-read consistency. Ranking documentation
+clarifies that its paging projection preserves an already ordered prefix rather than sorting, and
+that fallback eligibility still requires the caller's preference. The remaining long candidate
+collector and broad projection signatures remain review targets; documentation does not close them.
+All 12 focused search tests, workspace Clippy, strict engine documentation, nightly formatting, and
+Markdown checks pass.

@@ -278,17 +278,7 @@ use ranked::retrieve_ranked;
 
 #[cfg(test)]
 mod tests {
-    use super::keyword::keyword_expression;
     use crate::search::fusion::reciprocal_rank_score;
-
-    #[test]
-    fn ordinary_text_becomes_quoted_terms_instead_of_fts_syntax() {
-        assert_eq!(
-            keyword_expression("issues OR (cache* NEAR/4 timeout)"),
-            Some("\"issues\" \"OR\" \"cache\" \"NEAR\" \"4\" \"timeout\"".to_owned())
-        );
-        assert_eq!(keyword_expression("***"), None);
-    }
 
     #[test]
     fn hybrid_rank_uses_the_selected_constant_and_source_provenance() {

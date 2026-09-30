@@ -6,6 +6,21 @@
 //!
 //! The store owns bound SQL and full-text storage. This module owns search interpretation and the
 //! shape of keyword evidence used by `ranking`.
+//!
+//! [`keyword_expression`] treats punctuation as separators and quotes each surviving Unicode
+//! alphanumeric/underscore term. It deliberately does not expose FTS operators from user text.
+//! A punctuation-only query has no expression; the search coordinator decides how empty queries
+//! behave rather than sending invalid FTS syntax to SQLite.
+//!
+//! [`keyword_candidates`] starts at offset zero to collect the prefix needed by hybrid fusion,
+//! using at most 1,000 rows per read. It preserves local result order and attaches one-based
+//! keyword ranks instead of inventing comparable numeric scores. Empty or nonadvancing pages end
+//! retrieval defensively. Separate pages are separate reads, not a frozen database snapshot.
+//!
+//! [`keyword_result_page`] annotates an already paged store result. [`keyword_fallback_page`]
+//! instead pages a previously acquired prefix while retaining the semantic failure explanation.
+//! Neither helper decides whether fallback is permitted: that policy belongs to `ranking` and
+//! the search coordinator. Coverage travels with the candidates and proves no new acquisition.
 
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::ThreadPage;
@@ -18,7 +33,17 @@ use crate::search::{
     SearchRequest, SearchResultPage, search_threads,
 };
 
-/// Collects local full-text candidates for hybrid rank fusion.
+/// Collects up to `count` keyword hits from the beginning of the local result order.
+///
+/// Retains query, repository, and state filters but replaces page coordinates for prefix
+/// acquisition. Each successful page contributes one-based keyword provenance and no numeric
+/// score. Coverage is retained from the first nonempty coverage report; zero requested candidates
+/// perform no reads and return empty coverage. Reads across pages need not share a snapshot.
+///
+/// # Errors
+///
+/// Propagates search validation and store errors. An empty page or nonadvancing continuation ends
+/// collection instead of retrying forever; it can return fewer than `count` candidates.
 pub async fn keyword_candidates(
     archive: &Archive,
     request: &SearchRequest,
@@ -73,7 +98,11 @@ pub async fn keyword_candidates(
     })
 }
 
-/// Wraps a keyword page with requested and effective mode metadata.
+/// Annotates an already paged keyword result without changing its order or continuation.
+///
+/// `offset` is the page's starting rank coordinate, so provenance remains one-based across pages.
+/// Oversized ranks saturate at `u32::MAX`. Requested and effective modes remain separate to expose
+/// fallback; this projection trusts their supplied values and does not authorize fallback itself.
 pub fn keyword_result_page(
     query: &str,
     requested_mode: SearchMode,
@@ -110,7 +139,11 @@ pub fn keyword_result_page(
     }
 }
 
-/// Keeps the semantic failure reason when returning keyword candidates.
+/// Pages a keyword prefix while retaining the permitted semantic failure explanation.
+///
+/// The caller has already checked fallback policy. Candidate order, rank provenance, and coverage
+/// are preserved; `offset` and `limit` select the visible slice through `ranking::result_page`.
+/// The effective mode is keyword even when the requested mode was semantic or hybrid.
 pub fn keyword_fallback_page(
     query: &str,
     requested_mode: SearchMode,
@@ -134,28 +167,61 @@ pub fn keyword_fallback_page(
     })
 }
 
-/// Quotes ordinary search terms for the local FTS index.
+/// Quotes ordinary terms so user text cannot become FTS operators.
+///
+/// Splits on every character except Unicode alphanumerics and underscores, discards empty pieces,
+/// and joins individually quoted terms with spaces. Case and term order are preserved. Returns
+/// `None` when no term survives. This is literal keyword interpretation rather than an FTS query
+/// parser: `OR`, wildcards, parentheses, and `NEAR` receive no special operator meaning.
 pub fn keyword_expression(query: &str) -> Option<String> {
-    let mut terms = Vec::new();
-    let mut term = String::new();
-    for character in query.chars() {
-        if character.is_alphanumeric() || character == '_' {
-            term.push(character);
-        } else if !term.is_empty() {
-            terms.push(std::mem::take(&mut term));
-        }
-    }
-    if !term.is_empty() {
-        terms.push(term);
-    }
+    let terms: Vec<_> = query
+        .split(|character: char| !character.is_alphanumeric() && character != '_')
+        .filter(|term| !term.is_empty())
+        .map(|term| format!("\"{term}\""))
+        .collect();
     if terms.is_empty() {
         return None;
     }
-    Some(
-        terms
-            .into_iter()
-            .map(|term| format!("\"{term}\""))
-            .collect::<Vec<_>>()
-            .join(" "),
-    )
+    Some(terms.join(" "))
+}
+
+#[cfg(test)]
+mod tests {
+    //! Literal keyword interpretation at the owning boundary.
+    //!
+    //! These linear examples make operator-looking text, punctuation-only input, and retained
+    //! Unicode/underscore terms explicit. The store integration suites exercise actual FTS
+    //! matching; these tests establish only the expression passed to that boundary.
+
+    use crate::search::keyword::keyword_expression;
+
+    #[test]
+    fn operator_looking_text_becomes_quoted_terms() {
+        let expression = keyword_expression("issues OR (cache* NEAR/4 timeout)");
+        assert_eq!(
+            expression,
+            Some("\"issues\" \"OR\" \"cache\" \"NEAR\" \"4\" \"timeout\"".to_owned())
+        );
+    }
+
+    #[test]
+    fn punctuation_only_input_has_no_expression() {
+        let expression = keyword_expression("***");
+        assert_eq!(expression, None);
+    }
+
+    #[test]
+    fn unicode_and_underscore_terms_keep_their_spelling() {
+        let expression = keyword_expression("  café/cache_key---東京  ");
+        assert_eq!(
+            expression,
+            Some("\"café\" \"cache_key\" \"東京\"".to_owned())
+        );
+    }
+
+    #[test]
+    fn empty_input_has_no_expression() {
+        let expression = keyword_expression("");
+        assert_eq!(expression, None);
+    }
 }
