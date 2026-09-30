@@ -1424,3 +1424,21 @@ Validation passes for the three new lease cases, existing generation integration
 workspace Clippy and all workspace tests/doctests, the CLI build without default features, strict
 public/private Rustdoc, nightly formatting, workspace rumdl, and both changed Markdown pages. The
 next cluster surface is CLI build request preparation and result presentation.
+
+## Continued maintenance: CLI cluster build preparation
+
+Parsed `ClusterBuildArgs` now owns build execution and request conversion. Preparation applies
+service overrides, validates configuration, canonicalizes endpoint/model identity, and preserves
+recipe and graph policy without reading credentials or contacting a model service. The engine keeps
+policy validation and generation behavior. The outer command opens, executes, closes, and presents
+through named operations rather than inline multi-effect match arms.
+
+Three nearby linear cases pass for canonical service overrides, all graph policy values, and
+rejection of nonlocal HTTP identity before archive execution. Cluster construction remains open for
+refresh traversal, engine evidence loading/projection, and store generation persistence.
+
+Final current-tree validation passes: all three preparation cases, all fifty-eight CLI unit tests,
+workspace Clippy, all workspace tests/doctests, the CLI build without default features, strict
+public/private Rustdoc, nightly formatting, workspace rumdl, and changed-page Markdown linting. The
+next cluster work is refresh traversal and engine evidence preparation, followed by the store's
+transactional generation application and identity matching.

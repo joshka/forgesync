@@ -22,7 +22,6 @@ mod build;
 mod decisions;
 mod read;
 
-use build::run_build;
 use decisions::{run_dismiss, run_exclude, run_include, run_restore, run_set_canonical};
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use read::{run_list, run_show};
@@ -183,8 +182,7 @@ impl ClusterCommand {
     ) -> ExitCode {
         match self {
             ClusterCommand::Build(args) => {
-                run_build(
-                    args,
+                args.run_build(
                     archive_path,
                     embedding_service,
                     recipe,

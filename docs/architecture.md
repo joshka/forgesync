@@ -185,3 +185,9 @@ analysis, and generation persistence. The owner renews the fence and keeps a chi
 scope. Caller interruption or renewal failure cancels that child and awaits analysis cleanup before
 release; the original triggering failure is retained. Short local decision writes continue to use
 the release helpers without taking on the long-build renewal lifecycle.
+
+CLI `command/cluster/build` implements preparation and execution on `ClusterBuildArgs`. Preparation
+combines parsed graph policy with canonical configured endpoint/model identity and recipe, without
+resolving a secret or creating a model client. The command opens the archive only after
+configuration validation, closes it after the engine result, and delegates report or failure
+presentation.
