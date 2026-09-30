@@ -654,6 +654,55 @@ in other groups before the target upsert applies that target's retained decision
 move. The nine cluster unit cases, cluster generation/restoration integration suites, and store
 all-target Clippy pass after the rename.
 
+### Store family and decision SQL readability
+
+Family application, freshness reads, and local cluster decisions now name long SQL queries before
+binding values. Each binding is visible on its own line, and generation loading separates database
+execution from the missing-reservation check. SQL text, binding order, transaction ownership, and
+error types remain the same. The Rust guide records this recurring readability rule.
+
+`FamilyApplication` already owns terminal declaration, resolved identity, checked sequence, source
+clock, and staged data. `FamilyFreshness` owns the independent reuse evidence; `ClusterDecisionWrite`
+owns a validated maintainer action. Their methods use those owners rather than repeated positional
+scope arguments. `Generation::load` retains the borrowed connection and exact three-column generation
+key as a direct SQL lookup. All 80 store unit/integration/documentation cases and all-target store
+Clippy pass after the binding-only change.
+
+Family reservation's coordinator remains a 52-line linear transaction, including declaration
+destructuring and named construction of `ReservedGeneration`. It validates before opening the
+transaction, allocates order, delegates source comparison/persistence to that owner, and commits
+once. Extracting allocation or commit into a new lifetime owner would hide the deliberate rule that
+even a rejected proposal consumes its sequence. This is a retained linear-function exception, not an
+unmodeled pagination or policy state machine.
+
+### Engine embedding and retrieval signature review
+
+Embedding execution separates selection, deterministic splitting/batching, worker lifetime, and
+fenced persistence. `EmbeddingSelection::collect` retains archive/client/document/policy inputs:
+these are the services, source set, and explicit reuse choice used to create its existing owner.
+`select` borrows those services for one document without storing unnecessary lifetime-bound fields.
+`EmbeddingWriter` owns service identity and authorization; `BatchScheduler` owns pending and active
+requests. Scheduler persistence takes the writer, report, batch, and returned vectors because these
+are independent capabilities and paired request/response facts, not another persistent owner.
+
+The chunk reuse helper still duplicates total count from the selected chunks. That specific input
+is pending removal; its loop also reconstructs unchanged chunks unnecessarily. This review therefore
+does not yet close embedding signatures.
+
+Retrieval uses `RankedSearch` for request/window interpretation, `SemanticSource` for one archive
+candidate scope, `SemanticRanking` for accumulated winners and compatibility evidence, and
+`HybridRanking`/`FusionEntry` for source union and provenance. `semantic_candidates` retains explicit
+recipe, service, result bound, and cancellation alongside archive/request; it constructs the source
+and ranking owners immediately. `score_page_bounded` transfers the query, document page, sort, and
+bound into a permit-limited worker while cancellation remains shared. A generic search context would
+combine workflow policy and worker ownership without reducing the facts each operation needs.
+
+`fuse_hybrid` retains its two independent ordered sources plus sort and limit. Final pagination
+already takes `ResultPageRequest`, distinguishing projection metadata from an executable search
+request. These dispositions cover the reviewed retrieval signatures, not unrelated engine sync or
+clustering adapters. Contracts describe current evidence rather than a historical snapshot, shared
+worker permits, cancellation, source provenance, and fallback eligibility.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

@@ -77,6 +77,9 @@ review prompts; Forgesync's domain and crate boundaries decide the final shape.
 - Name important intermediate values, especially around I/O, parsing, mutation, and errors. Make
   each fallible step and its error context clear. Use explaining variables when they also improve
   line wrapping.
+- When a long SQL literal makes formatting compress its binding chain, name the query first and
+  bind one value per line. Keep serialization/conversion, database execution, and missing-row
+  validation as separate fallible steps so readers can trace values and failure boundaries.
 - Avoid behavioral boolean parameters. Use distinct operations, a meaningful enum, or named options.
   A boolean recording a domain fact can remain a boolean.
 - In workflow tests, construct the real request next to the real operation and assertions. Shared

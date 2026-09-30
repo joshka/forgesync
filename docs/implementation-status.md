@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Family application/reuse and local cluster decisions now keep long SQL receivers separate from
+their binding chains. Generation loading separates database execution from missing-row validation.
+Nightly formatting, all 80 store unit/integration/documentation cases, and all-target store Clippy
+pass after these changes.
+
 Generation row adapters now explain stable identity, complete-only removal, local decision retention,
 and transaction rollback. `remove_other_memberships` replaces a misleading movement name: it removes
 membership in other clusters without transferring decisions. Cluster unit and generation/restoration

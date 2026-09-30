@@ -185,9 +185,17 @@ impl<'a> FamilyApplication<'a> {
         item: &crate::observations::StagedItem<serde_json::Value>,
     ) -> Result<(), StoreError> {
         let payload = serde_json::to_string(&item.payload)?;
-        sqlx::query("INSERT INTO thread_family_membership (thread_id, family, provider_id, payload_json, sequence) VALUES (?, ?, ?, ?, ?)")
-            .bind(self.thread).bind(self.family()).bind(item.id.as_str()).bind(payload).bind(self.sequence)
-            .execute(&mut *connection).await?;
+        let query = sqlx::query(
+            "INSERT INTO thread_family_membership (thread_id, family, provider_id, payload_json, sequence) VALUES (?, ?, ?, ?, ?)",
+        );
+        query
+            .bind(self.thread)
+            .bind(self.family())
+            .bind(item.id.as_str())
+            .bind(payload)
+            .bind(self.sequence)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -212,9 +220,16 @@ impl<'a> FamilyApplication<'a> {
         let Some(head) = self.observation.head_sha else {
             return Ok(());
         };
-        sqlx::query("INSERT INTO thread_family_head_contexts (thread_id, family, head_sha, sequence) VALUES (?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET head_sha = excluded.head_sha, sequence = excluded.sequence")
-            .bind(self.thread).bind(self.family()).bind(head.as_str()).bind(self.sequence)
-            .execute(&mut *connection).await?;
+        let query = sqlx::query(
+            "INSERT INTO thread_family_head_contexts (thread_id, family, head_sha, sequence) VALUES (?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET head_sha = excluded.head_sha, sequence = excluded.sequence",
+        );
+        query
+            .bind(self.thread)
+            .bind(self.family())
+            .bind(head.as_str())
+            .bind(self.sequence)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -228,9 +243,18 @@ impl<'a> FamilyApplication<'a> {
     ) -> Result<(), StoreError> {
         let received = i64::try_from(received).map_err(|_| StoreError::IntegerOutOfRange)?;
         let items = i64::try_from(items).map_err(|_| StoreError::IntegerOutOfRange)?;
-        sqlx::query("UPDATE observation_generations SET status = ?, received_items = ?, item_count = ? WHERE thread_id = ? AND family = ? AND sequence = ?")
-            .bind(status).bind(received).bind(items).bind(self.thread).bind(self.family()).bind(self.sequence)
-            .execute(&mut *connection).await?;
+        let query = sqlx::query(
+            "UPDATE observation_generations SET status = ?, received_items = ?, item_count = ? WHERE thread_id = ? AND family = ? AND sequence = ?",
+        );
+        query
+            .bind(status)
+            .bind(received)
+            .bind(items)
+            .bind(self.thread)
+            .bind(self.family())
+            .bind(self.sequence)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -241,8 +265,15 @@ impl<'a> FamilyApplication<'a> {
             .bind(self.family())
             .execute(&mut *connection)
             .await?;
-        sqlx::query("DELETE FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence <> ?")
-            .bind(self.thread).bind(self.family()).bind(self.sequence).execute(&mut *connection).await?;
+        let query = sqlx::query(
+            "DELETE FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence <> ?",
+        );
+        query
+            .bind(self.thread)
+            .bind(self.family())
+            .bind(self.sequence)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -274,9 +305,16 @@ impl Generation {
         family: &str,
         sequence: i64,
     ) -> Result<Self, StoreError> {
-        let row = sqlx::query("SELECT source_clock_state, source_clock_raw, source_clock_us, status, item_count FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence = ?")
-            .bind(thread).bind(family).bind(sequence).fetch_optional(&mut *connection).await?
-            .ok_or(StoreError::ObservationGenerationMissing)?;
+        let query = sqlx::query(
+            "SELECT source_clock_state, source_clock_raw, source_clock_us, status, item_count FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence = ?",
+        );
+        let row = query
+            .bind(thread)
+            .bind(family)
+            .bind(sequence)
+            .fetch_optional(&mut *connection)
+            .await?;
+        let row = row.ok_or(StoreError::ObservationGenerationMissing)?;
         Ok(Self {
             status: row.try_get("status")?,
             items: row.try_get("item_count")?,

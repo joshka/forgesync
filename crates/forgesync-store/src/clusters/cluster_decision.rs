@@ -54,18 +54,29 @@ impl ClusterDecisionWrite<'_> {
 
     /// Records dismissal time and trimmed reason without changing generated membership.
     async fn dismiss(&self, connection: &mut SqliteConnection) -> Result<u64, StoreError> {
-        let result = sqlx::query("UPDATE clusters SET dismissed_at_us = ?, dismissal_reason = ?, updated_at_us = ? WHERE id = ?")
-            .bind(self.at.unix_microseconds()).bind(self.reason.trim())
-            .bind(self.at.unix_microseconds()).bind(self.cluster_id)
-            .execute(connection).await?;
+        let query = sqlx::query(
+            "UPDATE clusters SET dismissed_at_us = ?, dismissal_reason = ?, updated_at_us = ? WHERE id = ?",
+        );
+        let result = query
+            .bind(self.at.unix_microseconds())
+            .bind(self.reason.trim())
+            .bind(self.at.unix_microseconds())
+            .bind(self.cluster_id)
+            .execute(connection)
+            .await?;
         Ok(result.rows_affected())
     }
 
     /// Clears local dismissal state without reactivating a retired generation.
     async fn restore(&self, connection: &mut SqliteConnection) -> Result<u64, StoreError> {
-        let result = sqlx::query("UPDATE clusters SET dismissed_at_us = NULL, dismissal_reason = '', updated_at_us = ? WHERE id = ?")
-            .bind(self.at.unix_microseconds()).bind(self.cluster_id)
-            .execute(connection).await?;
+        let query = sqlx::query(
+            "UPDATE clusters SET dismissed_at_us = NULL, dismissal_reason = '', updated_at_us = ? WHERE id = ?",
+        );
+        let result = query
+            .bind(self.at.unix_microseconds())
+            .bind(self.cluster_id)
+            .execute(connection)
+            .await?;
         Ok(result.rows_affected())
     }
 

@@ -173,10 +173,14 @@ struct FamilyFreshness<'a> {
 impl FamilyFreshness<'_> {
     /// Evaluates complete coverage before comparing the durable member count.
     async fn current(&self, connection: &mut sqlx::SqliteConnection) -> Result<bool, StoreError> {
-        let row = sqlx::query(
+        let query = sqlx::query(
             "SELECT source_clock_state, source_clock_raw, source_clock_us, state_json FROM family_coverage WHERE thread_id = ? AND family = ?",
-        )
-        .bind(self.thread).bind(self.family).fetch_optional(&mut *connection).await?;
+        );
+        let row = query
+            .bind(self.thread)
+            .bind(self.family)
+            .fetch_optional(&mut *connection)
+            .await?;
         let Some(row) = row else {
             return Ok(false);
         };
