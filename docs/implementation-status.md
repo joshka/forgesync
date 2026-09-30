@@ -2434,3 +2434,15 @@ owner imports. Rendered bytes and persistence behavior are unchanged.
 
 All three focused document scenarios pass. Workspace Clippy and strict engine Rustdoc are running on
 the completed split; broader conventions and test review remain open.
+
+## Continued maintenance: CLI result projection contracts
+
+Output orientation now explains envelope shape, structured partial success, inherited read
+consistency, retained stale child evidence, search provenance, and serialization omissions.
+Constructors accept supplied strings/data without redaction, validation, printing, or exit-code
+selection; safe message responsibility is explicit. Search query documentation reflects engine
+trimming, and child-family descriptions direct readers to coverage instead of implying freshness.
+
+Nearby envelope tests gain orientation and an explicit owner import. All three focused output tests,
+strict CLI Rustdoc, nightly formatting, and Markdown checks pass. Serialized shapes and behavior
+remain unchanged; broader review remains open.

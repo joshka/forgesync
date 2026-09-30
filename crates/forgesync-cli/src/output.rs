@@ -5,8 +5,28 @@
 //! coverage, and partial failure information.
 //!
 //! These shapes are distinct from provider DTOs, domain types, and SQL rows. Human summaries live
-//! in `reports`; command handlers choose the mode. Keep new JSON fields here so their meaning can
-//! be reviewed independently of terminal wording.
+//! in `reports`; command handlers choose the mode. Keep projection meaning independent of terminal
+//! wording, with command-specific DTOs at their owning command when appropriate.
+//!
+//! [`JsonEnvelope`] provides schema version, command path, optional data/error, and always-present
+//! warnings. Its constructors establish ordinary success/failure shapes but do not serialize,
+//! print, choose exit codes, or sanitize messages. A successful envelope can contain a structured
+//! partial workflow report; absence of its top-level error is not proof that every work item
+//! passed.
+//!
+//! Archive projections borrow metadata, counts, coverage, and diagnostics. Thread projections
+//! preserve normalized parent content alongside independently acquired child families. Retained
+//! last-complete members can remain visible while coverage reports them stale; these DTOs do not
+//! filter or reacquire evidence, and they inherit the store read's consistency limits.
+//!
+//! Search projections retain requested/effective modes, ranking, fallback reason, and provenance.
+//! Keyword scores are omitted rather than serialized as null, while continuation and fallback
+//! option fields retain their own declared serialization shape. Conversion allocates row wrappers
+//! where needed but otherwise borrows loaded values, without archive or network effects.
+//!
+//! Callers must supply safe error text: [`ErrorOutput`] is a string record, not a redaction
+//! service. Rendering and exit-code policy live at the command/report boundary. Argument-parser
+//! failures occur before these application-result constructors.
 
 use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread,
@@ -31,7 +51,8 @@ pub const JSON_SCHEMA_VERSION: u32 = 1;
 pub struct ErrorOutput {
     /// Machine-readable error classification.
     pub code: String,
-    /// Human-readable summary that does not expose secrets or private payloads.
+    /// Human-readable summary that the caller must keep free of secrets/private payloads.
+    /// Construction and serialization do not redact this string.
     pub message: String,
 }
 
@@ -136,7 +157,7 @@ impl<'a> From<&'a ThreadPage> for ThreadPageOutput<'a> {
 /// Stable JSON view of keyword, semantic, and hybrid search results.
 #[derive(Serialize)]
 pub struct SearchPageOutput<'a> {
-    /// User-supplied query text.
+    /// Query text retained by the engine after its boundary trimming.
     pub query: &'a str,
     /// Mode requested by the caller.
     pub requested_mode: SearchMode,
@@ -205,13 +226,13 @@ impl<'a> From<&'a SearchResultPage> for SearchPageOutput<'a> {
 pub struct ThreadDetailOutput<'a> {
     /// Discussion summary and per-family coverage.
     pub summary: ThreadSummaryOutput<'a>,
-    /// Current comments.
+    /// Retained comment membership; inspect summary coverage for completeness and staleness.
     pub comments: &'a [StagedItem<Comment>],
     /// Current pull-request metadata.
     pub pull_request_metadata: &'a [StagedItem<PullRequestMetadata>],
-    /// Current submitted reviews.
+    /// Retained review membership, which can describe an earlier head when marked stale.
     pub reviews: &'a [StagedItem<Review>],
-    /// Current review threads.
+    /// Retained review-thread membership with completeness/head freshness in summary coverage.
     pub review_threads: &'a [StagedItem<ReviewThread>],
     /// Chronological projection of current source content.
     pub timeline: &'a [ThreadTimelineEntry],
@@ -234,7 +255,11 @@ impl<'a> From<&'a ThreadDetail> for ThreadDetailOutput<'a> {
 }
 
 impl<T> JsonEnvelope<T> {
-    /// Creates a successful result envelope.
+    /// Wraps supplied data with the current schema version and no top-level error.
+    ///
+    /// Starts with empty warnings. Data is accepted unchanged, including structured partial
+    /// reports; this constructor does not validate workflow success, print JSON, or select an
+    /// exit code.
     pub fn success(command: impl Into<String>, data: T) -> Self {
         Self {
             schema_version: JSON_SCHEMA_VERSION,
@@ -245,7 +270,11 @@ impl<T> JsonEnvelope<T> {
         }
     }
 
-    /// Creates an error envelope for failures after successful argument parsing.
+    /// Wraps an application failure with no data and initially empty warnings.
+    ///
+    /// The caller supplies a stable classification and safe human message. Values are retained
+    /// verbatim without redaction or validation. Argument parsing, serialization, output streams,
+    /// and process exit policy remain outside this constructor.
     pub fn failure(
         command: impl Into<String>,
         code: impl Into<String>,
@@ -266,9 +295,15 @@ impl<T> JsonEnvelope<T> {
 
 #[cfg(test)]
 mod tests {
+    //! Versioned envelope serialization at the application output boundary.
+    //!
+    //! These direct examples establish optional data/error omission and always-present warnings.
+    //! They serialize synthetic values without invoking commands or inferring exit status from
+    //! the envelope. Command integration tests cover actual rendering and process behavior.
+
     use serde_json::json;
 
-    use super::JsonEnvelope;
+    use crate::output::JsonEnvelope;
 
     #[test]
     fn failure_uses_versioned_envelope_without_data() {
