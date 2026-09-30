@@ -26,10 +26,9 @@ use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
 use crate::exact_search::{ScoredThread, merge_scored_pages, score_embedding_page};
 use crate::inspect::{ThreadSort, resolve_repositories, store_sort, store_state_filter};
-use crate::search::ranking::result_page;
+use crate::search::ranking::{ResultPageRequest, result_page};
 use crate::search::{
-    ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest,
-    SearchResultPage,
+    SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
 };
 
 /// Number of archived documents read per exact-scoring batch.

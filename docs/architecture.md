@@ -237,7 +237,10 @@ Search `fusion::HybridRanking` merges candidates by durable discussion identity,
 summary and each source's rank evidence. `SemanticEvidence` binds semantic rank to its cosine
 explanation. `FusionEntry` projects reciprocal-rank scores and keyword-then-semantic provenance;
 explicit ordering adds the requested sort and stable identity tie break before truncation.
-Pagination and fallback classification remain in `ranking`, separate from source fusion.
+Pagination and fallback classification remain in `ranking`, separate from source fusion. Its
+`ResultPageRequest` describes an already ordered prefix and projection metadata rather than the
+original user request. `keyword::KeywordCandidates` owns prefix accumulation and coverage; keyword
+page projections interpret the existing `SearchRequest` directly.
 
 Ranked search coordination lives in `search::ranked`. `RankedSearch` keeps request interpretation
 and the validated `SearchWindow` together during vector acquisition and page construction. The

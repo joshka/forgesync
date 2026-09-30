@@ -27,10 +27,10 @@ use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadSummary};
 
 use crate::error::EngineError;
 use crate::inspect::{ThreadFilters, ThreadSort};
-use crate::search::ranking::result_page;
+use crate::search::ranking::{ResultPageRequest, result_page};
 use crate::search::{
-    ResultPageRequest, SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest,
-    SearchResultPage, search_threads,
+    SearchHit, SearchMode, SearchProvenance, SearchRanking, SearchRequest, SearchResultPage,
+    search_threads,
 };
 
 /// Collects up to `count` keyword hits from the beginning of the local result order.

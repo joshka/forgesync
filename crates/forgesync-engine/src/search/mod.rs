@@ -220,19 +220,6 @@ async fn retrieve_keyword_fallback(
     Ok(keyword_result_page(request, page, Some(reason)))
 }
 
-struct ResultPageRequest<'a> {
-    query: &'a str,
-    requested_mode: SearchMode,
-    mode: SearchMode,
-    ranking: SearchRanking,
-    sort: ThreadSort,
-    fallback_reason: Option<String>,
-    candidates: Vec<SearchHit>,
-    offset: u64,
-    limit: u32,
-    coverage: Vec<FamilyCoverageSummary>,
-}
-
 mod fusion;
 mod keyword;
 mod ranked;

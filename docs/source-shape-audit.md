@@ -262,6 +262,13 @@ not proof of documentation quality. Restricted visibility and crate-internal cov
 remain explicit review targets; do not expose SQL resources or implementation types just to replace
 `pub(crate)` mechanically.
 
+The refreshed inventory after the ownership splits covers 210 production module files (core 15,
+store 50, CLI 35, TUI 32, engine 59, GitHub 19). There are 44 introductions below ten lines and no
+missing handwritten production function comments under the syntax inventory's exclusions. These
+counts remain inspection signals: test/example exclusions and documentation presence do not prove
+contract depth. Core identity/value, GitHub wire/acquisition, store checkpoint/health/lease, and
+keyword/ranking contracts have received targeted review; the complete pass remains open.
+
 Core review has begun with coverage and provider extensions: stale marking becomes a named
 operation, and extension-object validation, rejected-value retention, replacement/null semantics,
 and sorted field access gain concrete contracts. The rest of core and all other crate reviews remain

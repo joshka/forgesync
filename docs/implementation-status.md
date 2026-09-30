@@ -2245,3 +2245,17 @@ precedence. Reused candidates and freshly fetched fallback pages preserve their 
 coverage, continuation, and safe failure reason. No new parameter-bag type is introduced. Full
 engine tests (89 cases and three doctests), workspace Clippy, strict engine documentation, nightly
 formatting, and Markdown checks pass.
+
+## Continued maintenance: ranked projection input ownership
+
+The prepared ranking input moves from the search root to its private `ranking` owner. Its type
+contract distinguishes acquired, ordered projection facts from the original user request; each field
+now documents validation, interpretation, mode/provenance, or coverage expectations. Keyword,
+semantic, and hybrid callers import that input directly from its consuming module rather than the
+parent as a dependency prelude. The shape and projection behavior remain unchanged.
+
+A refreshed syntax inventory records 210 production module files and 44 introductions under ten
+lines, with no missing handwritten production function comments under its exclusions. These remain
+review signals, not evidence that all documentation is complete. The bounded audit records the
+updated inventory and reviewed areas. All 12 focused search tests, workspace Clippy, strict engine
+documentation, nightly formatting, and Markdown checks pass.

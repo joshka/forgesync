@@ -17,8 +17,40 @@
 //! remain failures. The coordinator additionally checks the caller's explicit fallback preference;
 //! this module never initiates provider calls or mutates archive state.
 
+use forgesync_store::reads::FamilyCoverageSummary;
+
 use crate::error::EngineError;
-use crate::search::{ResultPageRequest, SearchResultPage};
+use crate::inspect::ThreadSort;
+use crate::search::{SearchHit, SearchMode, SearchRanking, SearchResultPage};
+
+/// Prepared ordered prefix and metadata consumed by final result pagination.
+///
+/// Candidate generation and fusion establish order before constructing this value. It carries
+/// projection facts rather than an executable user request: effective mode, ranking provenance,
+/// and fallback reason can differ from what the caller originally requested. Coordinates have
+/// already been validated by the workflow; construction performs no validation or archive I/O.
+pub struct ResultPageRequest<'a> {
+    /// Trimmed query text retained for the visible result, not interpreted here.
+    pub query: &'a str,
+    /// Mode selected by the caller before any permitted fallback.
+    pub requested_mode: SearchMode,
+    /// Mode that actually produced the candidate prefix.
+    pub mode: SearchMode,
+    /// Scoring/provenance strategy already applied to the candidates.
+    pub ranking: SearchRanking,
+    /// Reported sort policy; pagination does not reorder candidates to enforce it.
+    pub sort: ThreadSort,
+    /// Safe failure code explaining a permitted keyword fallback, when used.
+    pub fallback_reason: Option<String>,
+    /// Acquired prefix in final result order, consumed by the selected page slice.
+    pub candidates: Vec<SearchHit>,
+    /// Validated zero-based position in the acquired prefix.
+    pub offset: u64,
+    /// Validated maximum number of visible items.
+    pub limit: u32,
+    /// Coverage observation retained with this projection, without freshness mutation.
+    pub coverage: Vec<FamilyCoverageSummary>,
+}
 
 /// Applies pagination after ranking so `next_offset` describes the ordered candidate set, not
 /// the size of an intermediate keyword or vector batch.
