@@ -3063,3 +3063,13 @@ result counts, so a hit on the wrong discussion cannot satisfy the update scenar
 
 All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
 linting pass.
+
+### Migration report and backfill identity assertions
+
+The search migration scenario checks its baseline/final schema and exact ordered migration versions
+instead of only the number applied. Its backfilled keyword result must match the original discussion
+identity and title. This makes the intended schema transition and preserved searchable content
+explicit in the test, with no scenario-dependent helper logic.
+
+All four read/search integration scenarios, nightly formatting, rumdl, and changed-page Markdown
+linting pass.

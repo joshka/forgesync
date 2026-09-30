@@ -161,11 +161,21 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         })
     ));
     let migration = Archive::migrate(&path).await.expect("migrate archive");
-    assert_eq!(migration.applied_migrations.len(), 8);
+    assert_eq!(migration.previous_schema_version, 2);
+    assert_eq!(migration.schema_version, 10);
+    let applied_versions: Vec<_> = migration
+        .applied_migrations
+        .iter()
+        .map(|migration| migration.version)
+        .collect();
+    assert_eq!(applied_versions, [3, 4, 5, 6, 7, 8, 9, 10]);
     let migrated = Archive::open_read_only(&path)
         .await
         .expect("open migrated archive");
-    assert_eq!(keyword_page(&migrated, "\"backfill\"").await.items.len(), 1);
+    let results = keyword_page(&migrated, "\"backfill\"").await;
+    assert_eq!(results.items.len(), 1);
+    assert_eq!(results.items[0].discussion.id, thread);
+    assert_eq!(results.items[0].discussion.title, "Migration target");
     migrated.close().await;
     remove_archive(&path);
 }
