@@ -40,3 +40,16 @@ fn legacy_revisions_without_sequences_compare_source_time() {
 
     assert_eq!(order, Ordering::Greater);
 }
+
+#[test]
+fn revision_sequence_precedes_source_time_when_both_sequences_are_known() {
+    let incoming = SourceClock::from_raw(Some("2026-09-20T10:00:00Z"));
+    let current = SourceClock::from_raw(Some("2026-09-20T10:00:01Z"));
+    let earlier = ObservationSequence::new(1).expect("earlier sequence");
+    let later = ObservationSequence::new(2).expect("later sequence");
+
+    let order = compare_revision_observation_order(&incoming, Some(later), &current, Some(earlier))
+        .expect("revision sequence order");
+
+    assert_eq!(order, Ordering::Greater);
+}

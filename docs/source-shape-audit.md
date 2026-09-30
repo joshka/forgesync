@@ -702,6 +702,12 @@ independent.
 
 ### Acceptance pass and stopping rules
 
+Parent replay and tied-conflict rejection now have independent scenarios with retained-title
+assertions. Malformed-clock rejection additionally checks that the original title survives.
+Revision-sequence precedence moved to the ordering suite as a direct fixed-value test, eliminating
+unrelated database setup from arithmetic evidence. Parent high-water hydration remains one linear
+dependent transition contract. Parent file grouping and child-family separation remain under review.
+
 Observation integration fixtures now have a shallow defining owner with direct scenario imports. The
 root maps parent, ordering, child, rollback, and fixture responsibilities without an import prelude.
 Archive creation, repository registration, and all ten sequence reservations now appear directly in

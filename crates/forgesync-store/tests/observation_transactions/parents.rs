@@ -3,15 +3,19 @@
 //! These cases apply normalized discussion snapshots and inspect the resulting canonical thread
 //! state. They protect identity mapping and transactional application. Child resources are
 //! independent families; a parent write should not silently claim their coverage.
-
-use std::cmp::Ordering;
+//!
+//! Replay, tied payload conflicts, and malformed source clocks have independent scenarios.
+//! Every scenario creates its archive, registers the repository, and reserves sequences directly.
+//! Pure fixtures supply payloads and clocks; raw inspection verifies retained canonical title.
+//! Arithmetic precedence is tested separately in `ordering` without an archive.
+//! The high-water scenario retains its linear hydration sequence because each step constrains the
+//! next: source selection and complete-evidence selection advance independently.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
-use forgesync_core::observation::{CollectionCompleteness, SourceClock};
+use forgesync_core::observation::CollectionCompleteness;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::observations::ObservationDisposition;
-use forgesync_store::ordering::compare_revision_observation_order;
 
 use crate::fixture::{
     discussion, incomplete, read_current_thread_title, remove_archive, repository,
@@ -137,7 +141,7 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
 }
 
 #[tokio::test]
-async fn tied_conflicts_are_rejected_and_identical_observations_are_idempotent() {
+async fn identical_observation_replay_preserves_canonical_content() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let repository = repository();
@@ -168,6 +172,38 @@ async fn tied_conflicts_are_rejected_and_identical_observations_are_idempotent()
         .expect("replay same observation");
     assert_eq!(replay.disposition, ObservationDisposition::Replayed);
 
+    let current = read_current_thread_title(&path).await;
+    assert_eq!(current, "same");
+    archive.close().await;
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create archive");
+    let repository = repository();
+    archive
+        .upsert_repository(&repository)
+        .await
+        .expect("register repository");
+    let thread_id = thread_id(&repository.id);
+    let sequence = archive
+        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
+        .await
+        .expect("reserve observation sequence");
+    let observation = thread_observation(
+        discussion(&thread_id, "2026-09-20T10:00:00Z", "same"),
+        "2026-09-20T10:00:00Z",
+        "2026-09-20T10:00:00Z",
+        sequence,
+        CollectionCompleteness::Complete,
+    );
+
+    archive
+        .apply_thread_observation(&observation)
+        .await
+        .expect("apply first observation");
     let conflicting = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "conflict"),
         "2026-09-20T10:00:00Z",
@@ -187,7 +223,7 @@ async fn tied_conflicts_are_rejected_and_identical_observations_are_idempotent()
 }
 
 #[tokio::test]
-async fn malformed_source_clocks_are_ambiguous_but_revision_sequences_remain_distinct() {
+async fn different_malformed_source_clocks_are_rejected_without_replacing_content() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
     let repository = repository();
@@ -227,14 +263,8 @@ async fn malformed_source_clocks_are_ambiguous_but_revision_sequences_remain_dis
         Err(StoreError::AmbiguousObservationClocks { .. })
     ));
 
-    let revision_order = compare_revision_observation_order(
-        &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-        Some(second_sequence),
-        &SourceClock::from_raw(Some("2026-09-20T10:00:01Z")),
-        Some(first_sequence),
-    )
-    .expect("revision evidence compares acquisition sequences first");
-    assert_eq!(revision_order, Ordering::Greater);
+    let current = read_current_thread_title(&path).await;
+    assert_eq!(current, "first");
     archive.close().await;
     remove_archive(&path);
 }
