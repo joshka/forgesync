@@ -327,6 +327,12 @@ Review regressions have sibling owners for failure isolation, head freshness, me
 replacement, and partial-collection isolation, keeping each complete scenario local without deeper
 module nesting.
 
+Cluster integration under `tests/clustering_workflow` has shallow complete, partial, and namespace
+scenario owners. Its fixture module constructs identities and source/document values only, plus path
+allocation and cleanup. Scenarios explicitly reserve observations, apply source evidence, persist
+fenced document/vector chunks, release the preparation lease, and invoke engine operations. The
+partial case retains its complete baseline because subsequent preservation depends on it.
+
 ### Closed-sweep publication
 
 The store's public `checkpoints` module owns `ClosedSweepCheckpoint`, the typed input for publishing

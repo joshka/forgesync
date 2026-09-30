@@ -676,11 +676,17 @@ budget exhaustion and cancellation without HTTP requests. Configuration helpers 
 only. Named response-validation and error-classification matrices already compare exact errors
 without scenario loops or hidden operations and are retained.
 
-Engine workflow integration remains open. The cluster scenario still hides observation application
-and fenced document/vector writes in behavior helpers, and combines complete generation,
-partial-preservation, and unavailable-vector rejection. Address those concrete ownership and
-scenario findings next; fixture construction may stay pure. Sync scenario read projections also need
-inspection for hidden retrieval boundaries and assertions that establish only counts.
+Cluster workflow integration now separates complete creation, partial preservation, and unmatched
+endpoint rejection into shallow scenario owners. Fixtures construct repository/discussion/document
+values only. Each scenario shows observation reservation/application, fenced document and chunk
+writes, lease release, and engine calls. The partial case keeps its dependent complete baseline and
+replacement together: preservation requires evidence that the group previously existed. Complete
+creation additionally checks the listed active lifecycle and member count. Namespace rejection uses
+persisted vectors without an unrelated prior build.
+
+Engine workflow integration remains open for enumeration and sync suites. Sync read projections need
+inspection for hidden retrieval boundaries and assertions that establish only counts. Remaining
+observation assertion acceptance and broad documentation/API acceptance are separate review work.
 
 ### Store lifecycle and cluster-suite dispositions
 

@@ -18,6 +18,13 @@ release evidence and are not the only outstanding work.
 
 ### Latest validation and contract review
 
+Cluster engine integration now has shallow complete-creation, partial-preservation, namespace-error,
+and construction owners. Observation reservation/application and fenced document/vector writes stay
+visible in each scenario; behavior helpers are removed. Partial preservation retains its dependent
+baseline, while unavailable namespaces need no unrelated previous generation. All three integration
+cases pass; engine all-target Clippy passes with warnings denied. Enumeration/sync review, remaining
+store observation assertions, broad API/docs acceptance, and final workspace gates remain open.
+
 Embedding-client protocol tests now compare the complete request body and response count. Redirect
 rejection checks one source request and no destination requests; fallible history reads have their
 own failure context. Named validation and retry-classification cases retain exact error assertions.
