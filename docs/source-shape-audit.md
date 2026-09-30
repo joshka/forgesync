@@ -588,6 +588,20 @@ variant rather than any engine error plus display wording. Sync conversion cases
 all-repository scope and independent family flags. This disposes of the inspected embedding,
 refresh, and sync preparation suite findings, not every CLI unit or cross-crate suite.
 
+### CLI embedding and refresh report suites
+
+Retain named failure-precedence cases and the explicit stage-to-exit table: each establishes one
+policy without hidden workflow execution. The shared embedding output fixture now follows all its
+callers and documents fixed identity, present empty report, and diagnostic-free construction.
+Failure values have direct defining-owner imports and names before assignment/insertion, avoiding
+wrapped struct literals inside mutation chains. Message selection remains independent of supplied
+stage status; the fixture does not infer outcome policy from diagnostics.
+
+Refresh summary tests keep whole rendered strings because ordering, omission, counts, and suffixes
+are the observable contract of one projection. Their module now distinguishes report-selected order
+from engine scheduling and remaining work from missing stage details. These dispositions close the
+inspected embedding and refresh-summary unit suites; other report owners remain open.
+
 ### Acceptance pass and stopping rules
 
 - Reconcile every explicit maintainer requirement against current source and recorded evidence.

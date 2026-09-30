@@ -4,6 +4,11 @@
 //! and failure rendering when no payload exists, selected-stage order, omission of absent records,
 //! and the separate remaining-work suffix. Count formatting consumes existing engine reports and
 //! is independent of archive access or service configuration.
+//!
+//! Selected order is supplied by the report, not recomputed from execution dependencies. A missing
+//! stage record is omitted from details but can still appear in remaining work. The partial payload
+//! case keeps successful counts before its diagnostic suffix; the renderer does not retry work or
+//! derive completeness from counts. Engine tests own outcome calculation and stage scheduling.
 
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::embeddings::EmbeddingReport;
