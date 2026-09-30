@@ -3408,3 +3408,13 @@ decision in the audit. Fixed value/SQL projections, family freshness comparisons
 timeline identity, and optional repository lookup remain local. Archive lifecycle keeps validated
 pool construction and owned-pool failure cleanup visible at its operation. These decisions close the
 inspected match findings without claiming broad-signature, documentation, or test completion.
+
+### CLI startup error dispatch
+
+Configuration and runtime creation failures now point to named presenters directly below the process
+entry point. Their contracts describe pre-dispatch ownership, stable error codes, diagnostic stream
+selection, and configuration status 2. Message formatting is explicit before the output operation;
+rendering policy no longer fills process orchestration match arms.
+
+All-target/all-feature CLI Clippy and all 15 CLI process contracts pass. Nightly formatting, rumdl,
+and changed-page Markdown linting pass.

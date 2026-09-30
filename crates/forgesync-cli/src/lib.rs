@@ -89,15 +89,7 @@ where
 
     let config = match config_for_command(&args) {
         Ok(config) => config,
-        Err(error) => {
-            return render_error_with_status(
-                OutputMode::from(args.json),
-                "configuration",
-                error.code(),
-                &error.to_string(),
-                ExitCode::from(2),
-            );
-        }
+        Err(error) => return render_configuration_error(OutputMode::from(args.json), error),
     };
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
@@ -105,16 +97,33 @@ where
         .build()
     {
         Ok(runtime) => runtime,
-        Err(error) => {
-            return render_error(
-                OutputMode::from(args.json),
-                "startup",
-                "runtime_unavailable",
-                &format!("could not start async runtime: {error}"),
-            );
-        }
+        Err(error) => return render_runtime_error(OutputMode::from(args.json), error),
     };
     runtime.block_on(args.dispatch(config))
+}
+
+/// Presents rejected configuration before any command archive or provider operation begins.
+///
+/// Configuration errors use their stable typed code and status 2. The selected output mode controls
+/// JSON on stdout versus the human diagnostic on stderr through the shared renderer.
+fn render_configuration_error(output: OutputMode, error: config::ConfigError) -> ExitCode {
+    let message = error.to_string();
+    render_error_with_status(
+        output,
+        "configuration",
+        error.code(),
+        &message,
+        ExitCode::from(2),
+    )
+}
+
+/// Presents failure to create the process-owned async runtime as a startup error.
+///
+/// No command has been dispatched. The stable code is independent of the underlying I/O wording,
+/// which remains useful in the human or JSON diagnostic message.
+fn render_runtime_error(output: OutputMode, error: std::io::Error) -> ExitCode {
+    let message = format!("could not start async runtime: {error}");
+    render_error(output, "startup", "runtime_unavailable", &message)
 }
 
 /// Writes Clap's help or usage diagnostic to its selected stream and preserves its exit status.
