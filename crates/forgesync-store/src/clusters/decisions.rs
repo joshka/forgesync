@@ -8,22 +8,20 @@
 //! automatic proposal from an explicit choice. ID conversion and validation stay beside the write
 //! path because malformed or out-of-range identifiers must fail before SQL receives them.
 
-use super::{
-    Archive, ArchiveLeaseToken, SqliteConnection, StoreError, ThreadId, UtcTimestamp,
-    require_active_archive_lease,
-};
+use forgesync_core::identity::ThreadId;
+use forgesync_core::timestamp::UtcTimestamp;
+use sqlx::SqliteConnection;
+
+use crate::archive::Archive;
 use crate::clusters::generation_input::thread_row_id;
+use crate::clusters::member_decision::{MemberDecision, MemberDecisionWrite};
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
 #[derive(Clone, Copy)]
 enum ClusterDecision {
     Dismiss,
     Restore,
-}
-
-#[derive(Clone, Copy)]
-enum MemberDecision {
-    Exclude,
-    Include,
 }
 
 impl Archive {
@@ -145,45 +143,14 @@ impl Archive {
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let member_id = current_cluster_member_id(&mut transaction, cluster_id, thread).await?;
-        let (excluded, state, event) = match decision {
-            MemberDecision::Exclude => (1_i64, "excluded", "member_excluded"),
-            MemberDecision::Include => (0_i64, "active", "member_included"),
-        };
-        sqlx::query(
-            "INSERT INTO cluster_member_decisions (cluster_id, thread_id, excluded, reason, updated_at_us) VALUES (?, ?, ?, ?, ?) ON CONFLICT (cluster_id, thread_id) DO UPDATE SET excluded = excluded.excluded, reason = excluded.reason, updated_at_us = excluded.updated_at_us",
-        )
-        .bind(cluster_id)
-        .bind(member_id)
-        .bind(excluded)
-        .bind(reason.trim())
-        .bind(at.unix_microseconds())
-        .execute(&mut *transaction)
-        .await?;
-        sqlx::query("UPDATE cluster_memberships SET state = ?, updated_at_us = ? WHERE cluster_id = ? AND thread_id = ?")
-            .bind(state)
-            .bind(at.unix_microseconds())
-            .bind(cluster_id)
-            .bind(member_id)
-            .execute(&mut *transaction)
-            .await?;
-        if matches!(decision, MemberDecision::Exclude) {
-            sqlx::query("UPDATE clusters SET canonical_thread_id = NULL, updated_at_us = ? WHERE id = ? AND canonical_thread_id = ?")
-                .bind(at.unix_microseconds())
-                .bind(cluster_id)
-                .bind(member_id)
-                .execute(&mut *transaction)
-                .await?;
-        }
-        insert_cluster_event(
-            &mut transaction,
+        let write = MemberDecisionWrite {
             cluster_id,
-            None,
-            event,
-            Some(member_id),
-            reason.trim(),
+            member_id,
+            decision,
+            reason,
             at,
-        )
-        .await?;
+        };
+        write.apply(&mut transaction).await?;
         transaction.commit().await?;
         Ok(())
     }

@@ -20,11 +20,10 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{RepositoryId, ThreadId, ThreadNumber, ThreadReference};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
-use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
+use sqlx::{QueryBuilder, Sqlite};
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::reads::{ThreadSummary, coverage_for_kind, load_thread_coverage};
 
 /// One generated member and its default score to the graph representative.
@@ -195,6 +194,7 @@ mod generation_apply;
 mod generation_input;
 mod generation_matching;
 mod generation_rows;
+mod member_decision;
 mod queries;
 
 use decisions::checked_cluster_id;

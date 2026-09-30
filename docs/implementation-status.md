@@ -1747,3 +1747,19 @@ surface.
 The corrected combined document/timeline/diagnostic tree passes all workspace tests/doctests, the
 CLI build without default features, strict public/private Rustdoc, workspace Clippy, nightly
 formatting, rumdl, and changed-page Markdown linting. Store-operation cleanup remains open.
+
+## Continued maintenance: prepared cluster member decisions
+
+`MemberDecisionWrite` retains the resolved cluster/member, typed inclusion choice, reason, and
+action time through durable decision recording, membership update, canonical cleanup, and event
+insertion. The archive entry preserves early reason/ID validation, transaction/fence ownership,
+current-member resolution, and one final commit. Named policy values replace positional
+exclusion/state/event coordinates, keeping those encodings coupled and readable at their bind sites.
+
+Member-decision SQL statements are unchanged. Bind order, trimming, canonical cleanup only on
+exclusion, event labels, and mutation order are preserved. The new private module documents the
+transaction boundary and the distinction between local choices and generated source evidence.
+External dependencies import from their actual owners; unused root aliases are removed. Both cluster
+integration cases, formatting, rumdl, and changed-page Markdown linting pass. Final current-tree
+Clippy and workspace validation are running; cluster decisions and queries remain in the bounded
+store-operation review.
