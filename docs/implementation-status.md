@@ -2186,3 +2186,18 @@ executes temporary DDL. Health summarizes capability checks rather than pending 
 completeness, or write authority. Separate pooled reads are not a single snapshot. Strict store
 Rustdoc and nightly formatting pass. This is a contract clarification with unchanged behavior;
 workspace acceptance and the remaining module/test reviews are still open.
+
+## Continued maintenance: archive lease timing and ownership
+
+Lease contracts now distinguish acquisition identity from current write authority, explicit clocks
+from mutation-time clock checks, heartbeat expiry replacement from extension of the previous expiry,
+and release of an expired owner from rejection of a successor. Token cloning and dropping have no
+database effect; workflows own heartbeat and release. The raw-connection guard retains crate
+visibility because exposing SQL resources would weaken the archive API boundary.
+
+The conversion review found that a nonzero duration below one microsecond previously truncated to
+zero and could create an immediately expired lease. Acquisition and heartbeat now reject that value
+before a write. Four nearby linear cases cover zero, submicrosecond, precision truncation, and
+signed-range overflow. All 50 store tests and both doctests, workspace Clippy, strict store
+documentation, nightly formatting, and Markdown checks pass. Broader convention and test-suite
+reviews remain open.
