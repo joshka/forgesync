@@ -14,8 +14,7 @@ use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_string_contains, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use super::{EmbeddingClient, EmbeddingClientConfig, EmbeddingClientError};
-use crate::embedding_client::EmbeddingResponse;
+use crate::embedding_client::{EmbeddingClient, EmbeddingClientConfig, EmbeddingClientError};
 
 fn config(endpoint: &str) -> EmbeddingClientConfig {
     EmbeddingClientConfig {
@@ -63,36 +62,6 @@ async fn compatible_embedding_request_orders_responses_by_index() {
     assert_eq!(result[0].values(), &[1.0, 0.0]);
     assert_eq!(result[1].values(), &[0.0, 1.0]);
     assert_eq!(server.received_requests().await.expect("requests").len(), 1);
-}
-
-#[rstest::rstest]
-#[case::missing_item(json!({"data": [{"index": 0, "embedding": [1.0, 0.0]}]}))]
-#[case::duplicate_index(json!({"data": [
-    {"index": 0, "embedding": [1.0, 0.0]},
-    {"index": 0, "embedding": [0.0, 1.0]}
-]}))]
-#[case::out_of_range_index(json!({"data": [
-    {"index": 0, "embedding": [1.0, 0.0]},
-    {"index": 2, "embedding": [0.0, 1.0]}
-]}))]
-#[case::zero_vector(json!({"data": [
-    {"index": 0, "embedding": [0.0, 0.0]},
-    {"index": 1, "embedding": [0.0, 1.0]}
-]}))]
-#[case::wrong_dimensions(json!({"data": [
-    {"index": 0, "embedding": [1.0]},
-    {"index": 1, "embedding": [0.0, 1.0]}
-]}))]
-#[case::out_of_range_value(json!({"data": [
-    {"index": 0, "embedding": [3.5e39, 0.0]},
-    {"index": 1, "embedding": [0.0, 1.0]}
-]}))]
-fn malformed_indices_and_vectors_are_rejected(#[case] response: serde_json::Value) {
-    let response = serde_json::from_value::<EmbeddingResponse>(response).expect("typed fixture");
-
-    let result = response.validate(2, Some(2), "fixture-model");
-
-    assert!(result.is_err());
 }
 
 #[tokio::test]

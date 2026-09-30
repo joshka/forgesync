@@ -2490,3 +2490,14 @@ claim to reject reordered vectors is corrected. No partial validated batch escap
 All 16 focused embedding-client tests, engine Clippy across targets/features, strict engine Rustdoc,
 nightly formatting, and Markdown checks pass. Request/response behavior remains unchanged; broader
 review remains open.
+
+## Continued maintenance: response validation scenario locality
+
+Malformed embedding-response scenarios move to the nearby `response/tests.rs` leaf, leaving HTTP
+request and redirect cases with the client. Fixtures now assert `InvalidResponse` for count/index
+failures and `InvalidVector` for numeric/dimension failures instead of only checking `is_err`. The
+test orientation explains its request-relative facts and direct wire decoding; imports name the
+actual response and client owners rather than a parent dependency prelude.
+
+All 16 focused embedding-client tests, engine Clippy across targets/features, nightly formatting,
+and Markdown checks pass. Production behavior is unchanged; broader review remains open.

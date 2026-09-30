@@ -102,3 +102,6 @@ impl EmbeddingResponse {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests;
