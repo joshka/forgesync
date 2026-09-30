@@ -18,12 +18,8 @@ use std::collections::{BTreeMap, HashSet};
 
 mod normalize;
 
-use forgesync_core::content::{Comment, Repository, ReviewThread};
-use forgesync_core::identity::{
-    CommentId, CommitSha, ProviderId, ReviewId, ReviewThreadId, ThreadId,
-};
-use forgesync_core::provider_data::ProviderData;
-use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_core::content::{Repository, ReviewThread};
+use forgesync_core::identity::{CommitSha, ProviderId, ThreadId};
 use normalize::normalize_review_thread;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

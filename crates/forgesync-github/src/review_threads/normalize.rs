@@ -12,10 +12,16 @@
 //! the result to a pull-request head, and the store decides whether that head-bound family can
 //! replace current membership.
 
-use super::{
-    Comment, CommentId, CommitSha, GitHubError, GraphqlComment, GraphqlReviewThread, ProviderData,
-    ProviderId, ReviewId, ReviewThread, ReviewThreadId, ThreadId, UtcTimestamp, Value,
+use forgesync_core::content::{Comment, ReviewThread};
+use forgesync_core::identity::{
+    CommentId, CommitSha, ProviderId, ReviewId, ReviewThreadId, ThreadId,
 };
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
+use serde_json::Value;
+
+use crate::error::GitHubError;
+use crate::review_threads::{GraphqlComment, GraphqlReviewThread};
 
 /// Converts a fully paged GraphQL thread into normalized review evidence.
 pub fn normalize_review_thread(

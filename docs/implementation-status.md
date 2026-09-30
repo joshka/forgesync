@@ -2075,3 +2075,11 @@ pagination semantics, cancellation, bounded bodies, and typed failures. Strict G
 nightly formatting, rumdl, and changed-page Markdown linting also pass. Remaining provider modules,
 item depth, private protocol ownership, and restricted-visibility review remain in the conventions
 batch.
+
+## Continued maintenance: provider normalization dependency locality
+
+REST acquisition and REST/GraphQL normalizers name their domain, transport, error, cancellation, and
+JSON owners directly. Resource parents drop imported names used only by children. Provider wire
+shapes remain distinct from normalized content and public page results. All 20 GitHub tests, both
+doctests, and workspace Clippy pass. REST wire-type placement and item contracts are the next local
+review surface; this slice does not complete the crate-wide review.

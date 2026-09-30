@@ -16,22 +16,10 @@
 
 use std::collections::BTreeMap;
 
-use forgesync_core::content::{
-    BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
-    ReviewerIdentity, SourceState, ThreadKind,
-};
-use forgesync_core::identity::{
-    CommentId, CommitSha, GitHubHost, ProviderId, RepositoryId, ReviewId, ThreadId, ThreadNumber,
-};
-use forgesync_core::provider_data::ProviderData;
-use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_core::content::{Comment, Discussion, Review};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio_util::sync::CancellationToken;
-
-use crate::error::GitHubError;
-use crate::transport::{GitHubClient, GitHubResponse};
 
 /// One normalized issue-list page and its validated next-page destination.
 #[derive(Clone, Debug, Eq, PartialEq)]

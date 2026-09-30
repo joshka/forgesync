@@ -14,12 +14,22 @@
 //! provider data. A new resource family also needs engine acquisition and store coverage handling;
 //! adding a DTO alone does not make the archive complete.
 
-use super::{
-    BTreeMap, BranchRef, Comment, CommentId, CommitSha, Discussion, GitHubError, GitHubHost,
-    ProviderData, ProviderId, PullRequestMetadata, Repository, RepositoryId, RestBranchRef,
-    RestComment, RestIssue, RestPullRequest, RestRepository, RestReview, Review, ReviewId,
-    ReviewState, ReviewerIdentity, SourceState, ThreadId, ThreadKind, ThreadNumber, UtcTimestamp,
-    Value,
+use std::collections::BTreeMap;
+
+use forgesync_core::content::{
+    BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
+    ReviewerIdentity, SourceState, ThreadKind,
+};
+use forgesync_core::identity::{
+    CommentId, CommitSha, GitHubHost, ProviderId, RepositoryId, ReviewId, ThreadId, ThreadNumber,
+};
+use forgesync_core::provider_data::ProviderData;
+use forgesync_core::timestamp::UtcTimestamp;
+use serde_json::Value;
+
+use crate::error::GitHubError;
+use crate::resources::{
+    RestBranchRef, RestComment, RestIssue, RestPullRequest, RestRepository, RestReview,
 };
 
 /// Converts a provider repository response to checked domain identity.

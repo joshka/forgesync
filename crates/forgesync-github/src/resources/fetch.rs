@@ -14,15 +14,22 @@
 //! needed. Use the family-specific fetch functions for later comment, metadata, and review jobs
 //! rather than treating all resources as interchangeable provider JSON.
 
-use super::normalize::{
+use forgesync_core::content::{PullRequestMetadata, Repository};
+use forgesync_core::identity::{GitHubHost, ThreadId};
+use forgesync_core::timestamp::UtcTimestamp;
+use reqwest::Url;
+use tokio_util::sync::CancellationToken;
+
+use crate::error::GitHubError;
+use crate::resources::normalize::{
     normalize_comment, normalize_issue, normalize_pull_request, normalize_repository,
     normalize_review,
 };
-use super::{
-    CancellationToken, GitHubClient, GitHubError, GitHubHost, GitHubResponse, PullRequestMetadata,
-    Repository, RestComment, RestCommentPage, RestIssue, RestPullRequest, RestRepository,
-    RestReview, RestReviewPage, RestThreadPage, ThreadId, ThreadListState, Url, UtcTimestamp,
+use crate::resources::{
+    RestComment, RestCommentPage, RestIssue, RestPullRequest, RestRepository, RestReview,
+    RestReviewPage, RestThreadPage, ThreadListState,
 };
+use crate::transport::{GitHubClient, GitHubResponse};
 
 /// Fetches current repository metadata from GitHub's REST API.
 pub async fn fetch_repository(
