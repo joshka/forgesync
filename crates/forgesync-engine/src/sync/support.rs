@@ -10,55 +10,58 @@
 //! flag.
 
 use forgesync_core::coverage::{EvidenceFamily, Failure, FailureKind};
-use forgesync_core::identity::{RunId, ThreadId};
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_github::resources::ThreadListState;
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScanStatus;
 use forgesync_store::reads::ThreadStateFilter;
 use forgesync_store::runs::{RunFailureInput, SyncJobStatus};
-use tokio::sync::mpsc;
 
 use super::accounting::WorkSummary;
 use super::{
     CLOSED_SWEEP_OVERLAP_MICROSECONDS, SyncProgress, SyncProgressStatus, SyncRequest,
-    SyncRunContext,
+    SyncRunContext, ThreadFamilyScope,
 };
 use crate::clock::now_utc;
 use crate::enumeration::ThreadEnumerationReport;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
 
-/// Persists one family failure without discarding other acquired evidence.
-pub async fn record_thread_family_failure(
-    archive: &Archive,
-    context: &SyncRunContext<'_>,
-    repository: &forgesync_core::content::Repository,
-    thread: &ThreadId,
-    family: EvidenceFamily,
-    scope_key: &str,
-    failure: &Failure,
-) -> Result<(), EngineError> {
-    archive
-        .record_run_failure(
-            context.lease,
-            RunFailureInput {
-                run_id: context.run_id,
-                target: &repository.full_name,
-                repository: Some(&repository.id),
-                thread: Some(thread),
-                family: Some(family),
-                scope_key,
-                failure,
-                created_at: now_utc()?,
-            },
-        )
-        .await
-        .map_err(|source| EngineError::FailureLedger {
-            original: failure.clone(),
-            source,
-        })?;
-    Ok(())
+impl ThreadFamilyScope<'_> {
+    /// Persists a failure with this scope's repository, thread, and ledger key.
+    ///
+    /// The run supplies writer authorization and run identity; the collector supplies its
+    /// independent evidence family. Other acquired evidence remains committed. If ledger
+    /// persistence fails, the returned error retains both the original family failure and its
+    /// storage cause.
+    pub async fn record_failure(
+        &self,
+        archive: &Archive,
+        context: &SyncRunContext<'_>,
+        family: EvidenceFamily,
+        failure: &Failure,
+    ) -> Result<(), EngineError> {
+        archive
+            .record_run_failure(
+                context.lease,
+                RunFailureInput {
+                    run_id: context.run_id,
+                    target: &self.repository.full_name,
+                    repository: Some(&self.repository.id),
+                    thread: Some(self.thread),
+                    family: Some(family),
+                    scope_key: self.key,
+                    failure,
+                    created_at: now_utc()?,
+                },
+            )
+            .await
+            .map_err(|source| EngineError::FailureLedger {
+                original: failure.clone(),
+                source,
+            })?;
+        Ok(())
+    }
 }
 
 /// Maps a provider thread-state scope to its local query filter.
@@ -132,28 +135,32 @@ pub fn overlap_start(watermark: UtcTimestamp) -> UtcTimestamp {
     .unwrap_or(watermark)
 }
 
-/// Sends an opportunistic progress snapshot without blocking acquisition.
-pub fn send_progress(
-    sender: &Option<mpsc::Sender<SyncProgress>>,
-    run_id: RunId,
-    summary: &WorkSummary,
-    total_jobs: u64,
-    repository: Option<String>,
-    status: SyncProgressStatus,
-) {
-    if let Some(sender) = sender {
-        let event = SyncProgress {
-            run_id,
-            completed_jobs: summary.completed_jobs,
-            total_jobs,
-            threads_seen: summary.threads_seen,
-            comments_seen: summary.comments_seen,
-            pull_request_metadata_seen: summary.pull_request_metadata_seen,
-            reviews_seen: summary.reviews_seen,
-            review_threads_seen: summary.review_threads_seen,
-            repository,
-            status,
-        };
-        let _ = sender.try_send(event);
+impl SyncRunContext<'_> {
+    /// Publishes this run's current accounting without blocking acquisition.
+    ///
+    /// Job totals come from the summary because pull-request families can extend the initial job
+    /// set. A missing, full, or disconnected progress channel neither fails nor delays durable
+    /// writes.
+    pub fn publish(
+        &self,
+        summary: &WorkSummary,
+        repository: Option<String>,
+        status: SyncProgressStatus,
+    ) {
+        if let Some(sender) = &self.progress {
+            let event = SyncProgress {
+                run_id: self.run_id,
+                completed_jobs: summary.completed_jobs,
+                total_jobs: summary.total_jobs,
+                threads_seen: summary.threads_seen,
+                comments_seen: summary.comments_seen,
+                pull_request_metadata_seen: summary.pull_request_metadata_seen,
+                reviews_seen: summary.reviews_seen,
+                review_threads_seen: summary.review_threads_seen,
+                repository,
+                status,
+            };
+            let _ = sender.try_send(event);
+        }
     }
 }

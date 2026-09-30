@@ -23,7 +23,6 @@ use forgesync_store::observations::{ObservationDisposition, StagedItem};
 use forgesync_store::runs::ChildFamilyFailureScope;
 
 use super::comments::incomplete_reason;
-use super::support::record_thread_family_failure;
 use super::{SyncRunContext, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
 use crate::error::EngineError;
@@ -120,16 +119,14 @@ impl<'a> MetadataObservation<'a> {
             return Ok(result);
         }
         let failure = github_failure(&error);
-        record_thread_family_failure(
-            self.archive,
-            self.context,
-            self.scope.repository,
-            self.scope.thread,
-            EvidenceFamily::PullRequestMetadata,
-            self.scope.key,
-            &failure,
-        )
-        .await?;
+        self.scope
+            .record_failure(
+                self.archive,
+                self.context,
+                EvidenceFamily::PullRequestMetadata,
+                &failure,
+            )
+            .await?;
         result.failure = Some(failure);
         Ok(result)
     }

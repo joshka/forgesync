@@ -14,6 +14,11 @@ current instructions.
 
 ## Latest changes and evidence
 
+Sync failure recording now belongs to the selected thread scope. Progress publication belongs to
+the run context and derives current job totals from the work summary. All seventeen focused workflow
+cases and engine all-target Clippy pass. The remaining sync root combines API definitions, private scope, and
+coordination; separating those existing responsibilities is the next source task.
+
 Clustering contract review now documents deterministic grouping preconditions, retained edges,
 worker permit lifetime, and cancellation separately from the writer lease. The audit records the
 existing snapshot/evidence/projection owners and retained signature choices. These are comment-only

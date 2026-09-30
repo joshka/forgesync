@@ -24,7 +24,7 @@ use forgesync_store::runs::RunFailureInput;
 
 use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
-use super::support::{overlap_start, progress_status, send_progress};
+use super::support::{overlap_start, progress_status};
 use super::thread_job::ThreadJob;
 use super::{ScopeUnit, SyncProgressStatus, SyncRunContext};
 use crate::clock::now_utc;
@@ -240,14 +240,8 @@ impl RepositorySync<'_> {
 
     /// Publishes the repository's current accounting after a durable update.
     fn publish(&self, summary: &WorkSummary, status: SyncProgressStatus) {
-        send_progress(
-            &self.context.progress,
-            self.context.run_id,
-            summary,
-            summary.total_jobs,
-            Some(self.selector.as_url()),
-            status,
-        );
+        self.context
+            .publish(summary, Some(self.selector.as_url()), status);
     }
 }
 

@@ -41,7 +41,6 @@ use forgesync_store::runs::ChildFamilyFailureScope;
 use serde::Serialize;
 
 use super::comments::incomplete_reason;
-use super::support::record_thread_family_failure;
 use super::{SyncRunContext, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
 use crate::error::EngineError;
@@ -235,16 +234,14 @@ impl<'a> ReviewSync<'a> {
 
     /// Attributes a provider failure to this run's thread and evidence family.
     async fn record_failure(&self, failure: &Failure) -> Result<(), EngineError> {
-        record_thread_family_failure(
-            self.archive,
-            self.context,
-            self.scope.repository,
-            self.scope.thread,
-            self.family.evidence_family(),
-            self.scope.key,
-            failure,
-        )
-        .await
+        self.scope
+            .record_failure(
+                self.archive,
+                self.context,
+                self.family.evidence_family(),
+                failure,
+            )
+            .await
     }
 
     /// Clears earlier failures only when current or newly completed evidence satisfies the family.

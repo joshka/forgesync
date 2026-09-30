@@ -728,6 +728,24 @@ flags; its match arms only delegate to the corresponding fenced store method. St
 perform relational validation and mutation. This closes the inspected clustering broad-signature
 candidates; sync and remaining cross-crate acceptance are still separate.
 
+### Engine sync attribution review
+
+Failure attribution now uses `ThreadFamilyScope::record_failure`: repository, thread, and ledger key
+come from the selected scope instead of three independent caller arguments. Run identity and fence
+remain with `SyncRunContext`, while evidence family and failure remain explicit collector inputs.
+Metadata and both review-family collectors use that method.
+
+Progress publication now belongs to `SyncRunContext::publish`. It reads run/channel identity from the
+context and current job totals from `WorkSummary`; callers no longer repeat the total beside the same
+summary or pass run/channel coordinates independently. Repository presentation and current status
+remain per-event choices. Bounded channel failure remains observational and cannot block writes.
+
+The remaining sync root still mixes public request/report definitions, private acquisition scope,
+and coordinator execution in one 470-line module. Separating those existing responsibilities is the
+next source change; this review does not yet close sync layout or signature acceptance. Focused sync
+workflow validation passes all seventeen cases, and engine all-target Clippy passes for attribution
+changes.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

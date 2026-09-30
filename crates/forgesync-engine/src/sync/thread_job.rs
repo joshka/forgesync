@@ -18,7 +18,7 @@ use forgesync_store::runs::{RunFailureScope, SyncJobCompletion, SyncJobStart};
 use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::repository_work::RepositoryWork;
-use super::support::{job_result, send_progress};
+use super::support::job_result;
 use crate::clock::now_utc;
 use crate::enumeration::{
     ThreadEnumerationReport, ThreadScanContext, enumerate_repository_thread_pages,
@@ -169,13 +169,8 @@ impl<'a> ThreadJob<'a> {
 
     /// Publishes this scope after its ledger state has been persisted.
     fn publish(&self, summary: &WorkSummary, status: SyncProgressStatus) {
-        send_progress(
-            &self.work.context.progress,
-            self.work.context.run_id,
-            summary,
-            summary.total_jobs,
-            Some(self.target.clone()),
-            status,
-        );
+        self.work
+            .context
+            .publish(summary, Some(self.target.clone()), status);
     }
 }

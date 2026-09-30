@@ -21,7 +21,7 @@ use super::SyncProgressStatus;
 use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
 use super::repository_work::RepositoryWork;
-use super::support::{send_progress, store_state_filter};
+use super::support::store_state_filter;
 use crate::clock::now_utc;
 use crate::error::EngineError;
 use crate::reference::RepositorySelector;
@@ -72,11 +72,8 @@ impl<'a> CommentJob<'a> {
         work.archive
             .mark_scope_failures_retried(work.context.lease, &job.scope())
             .await?;
-        send_progress(
-            &work.context.progress,
-            work.context.run_id,
+        work.context.publish(
             summary,
-            summary.total_jobs,
             Some(job.repository.clone()),
             SyncProgressStatus::InProgress,
         );
@@ -182,14 +179,9 @@ impl<'a> CommentJob<'a> {
             summary.interrupted = true;
             summary.interrupted_jobs += 1;
         }
-        send_progress(
-            &self.work.context.progress,
-            self.work.context.run_id,
-            summary,
-            summary.total_jobs,
-            Some(self.repository.clone()),
-            progress,
-        );
+        self.work
+            .context
+            .publish(summary, Some(self.repository.clone()), progress);
         Ok(())
     }
 

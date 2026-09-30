@@ -22,7 +22,7 @@ use super::accounting::WorkSummary;
 use super::family_job::FamilyJob;
 use super::repository_work::RepositoryWork;
 use super::review_collection::{ReviewFamily, ReviewSync};
-use super::support::{send_progress, store_state_filter};
+use super::support::store_state_filter;
 use super::{PullRequestTarget, SyncProgressStatus, ThreadFamilyResult, ThreadFamilyScope};
 use crate::clock::now_utc;
 use crate::error::EngineError;
@@ -73,14 +73,8 @@ impl<'a> RepositoryWork<'a> {
             None
         };
         let repository = RepositorySelector::from_repository(self.repository).as_url();
-        send_progress(
-            &self.context.progress,
-            self.context.run_id,
-            summary,
-            summary.total_jobs,
-            Some(repository),
-            SyncProgressStatus::InProgress,
-        );
+        self.context
+            .publish(summary, Some(repository), SyncProgressStatus::InProgress);
         Ok(PullRequestJobs {
             work: self,
             metadata,

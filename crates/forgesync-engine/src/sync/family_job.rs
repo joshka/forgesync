@@ -16,7 +16,7 @@ use forgesync_store::error::StoreError;
 use forgesync_store::runs::{SyncJobCompletion, SyncJobStatus};
 
 use super::accounting::WorkSummary;
-use super::support::{progress_status, send_progress};
+use super::support::progress_status;
 use super::{SyncProgressStatus, SyncRunContext, ThreadFamilyResult};
 use crate::clock::now_utc;
 use crate::error::EngineError;
@@ -61,14 +61,7 @@ impl FamilyJob {
             )
             .await?;
         summary.record_family_outcome(failure, self.progress.interrupted);
-        send_progress(
-            &context.progress,
-            context.run_id,
-            summary,
-            summary.total_jobs,
-            Some(repository.to_owned()),
-            progress_status,
-        );
+        context.publish(summary, Some(repository.to_owned()), progress_status);
         Ok(())
     }
 }
