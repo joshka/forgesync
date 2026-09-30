@@ -2083,3 +2083,17 @@ JSON owners directly. Resource parents drop imported names used only by children
 shapes remain distinct from normalized content and public page results. All 20 GitHub tests, both
 doctests, and workspace Clippy pass. REST wire-type placement and item contracts are the next local
 review surface; this slice does not complete the crate-wide review.
+
+## Continued maintenance: REST response ownership
+
+Private `resources::wire` owns raw REST repository/discussion/comment/pull-request/review response
+shapes and nested user/label/branch values. Type and field contracts explain source spelling,
+nullable fields, comment-body default, extension retention, and normalization obligations. Sibling
+fetch and normalization code import those DTOs directly. Public page results stay in the 69-line
+resource module; the wire leaf is 176 lines with documentation. Wire types/fields use `pub` inside
+the private module and are not exposed as domain, archive, or CLI APIs.
+
+Serde names, defaults, flattening, serialization derives, and normalized behavior are unchanged. All
+20 GitHub tests pass; doctests and workspace Clippy are finishing. Strict GitHub Rustdoc and
+remaining workspace gates remain to run. GraphQL response ownership and remaining provider API
+contracts still belong to the bounded conventions review.

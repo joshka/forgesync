@@ -28,7 +28,7 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde_json::Value;
 
 use crate::error::GitHubError;
-use crate::resources::{
+use crate::resources::wire::{
     RestBranchRef, RestComment, RestIssue, RestPullRequest, RestRepository, RestReview,
 };
 

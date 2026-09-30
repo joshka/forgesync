@@ -25,10 +25,8 @@ use crate::resources::normalize::{
     normalize_comment, normalize_issue, normalize_pull_request, normalize_repository,
     normalize_review,
 };
-use crate::resources::{
-    RestComment, RestCommentPage, RestIssue, RestPullRequest, RestRepository, RestReview,
-    RestReviewPage, RestThreadPage, ThreadListState,
-};
+use crate::resources::wire::{RestComment, RestIssue, RestPullRequest, RestRepository, RestReview};
+use crate::resources::{RestCommentPage, RestReviewPage, RestThreadPage, ThreadListState};
 use crate::transport::{GitHubClient, GitHubResponse};
 
 /// Fetches current repository metadata from GitHub's REST API.
