@@ -1642,3 +1642,16 @@ and interruption without provider failure. Existing enumeration integration scen
 transactional path. All four completion cases, both enumeration integration cases, workspace Clippy,
 formatting, rumdl, and changed-page Markdown linting pass. Full workspace validation is running; the
 acquisition batch remains open.
+
+## Continued maintenance: linear enumeration replay
+
+The replay integration scenario now explicitly performs and checks its initial acquisition and
+replay instead of looping over the operation. It also checks that replay reserves a newer
+acquisition sequence while retaining two canonical threads. The renamed-repository scenario sets up
+its redirect inline; the repository fixture supplies only a static successful response, without
+hidden transport branching. Fixture and archive-cleanup helpers document their limited roles.
+
+Both enumeration integration scenarios pass. Store completion now passes all workspace
+tests/doctests, the CLI build without default features, strict public/private Rustdoc, workspace
+Clippy, and formatting. Further checkpoint-rejection cases and the acquisition acceptance review
+remain open.

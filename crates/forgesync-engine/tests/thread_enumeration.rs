@@ -26,7 +26,15 @@ static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
 #[tokio::test]
 async fn page_two_failure_keeps_page_one_and_records_incomplete_coverage() {
     let server = MockServer::start().await;
-    mount_repository(&server, "old", "name", "new", 1).await;
+    Mock::given(method("GET"))
+        .and(path("/api/v3/repos/old/name"))
+        .respond_with(
+            ResponseTemplate::new(301).insert_header("Location", "/api/v3/repos/new/name"),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    mount_repository(&server, "new", "name", 1).await;
     Mock::given(method("GET"))
         .and(path("/api/v3/repos/new/name/issues"))
         .and(query_param("state", "all"))
@@ -106,7 +114,7 @@ async fn page_two_failure_keeps_page_one_and_records_incomplete_coverage() {
 #[tokio::test]
 async fn replay_reuses_canonical_threads_without_duplicate_rows() {
     let server = MockServer::start().await;
-    mount_repository(&server, "owner", "repo", "owner", 2).await;
+    mount_repository(&server, "owner", "repo", 2).await;
     Mock::given(method("GET"))
         .and(path("/api/v3/repos/owner/repo/issues"))
         .and(query_param("state", "all"))
@@ -134,15 +142,22 @@ async fn replay_reuses_canonical_threads_without_duplicate_rows() {
     let selector = "owner/repo"
         .parse::<RepositorySelector>()
         .expect("selector");
-    for _ in 0..2 {
-        let report =
-            enumerate_repository_threads(&archive, &client, &selector, &CancellationToken::new())
-                .await
-                .expect("complete report");
-        assert_eq!(report.scan.status, RepositoryThreadScanStatus::Complete);
-        assert_eq!(report.scan.pages_completed, 2);
-        assert_eq!(report.scan.threads_seen, 2);
-    }
+    let initial =
+        enumerate_repository_threads(&archive, &client, &selector, &CancellationToken::new())
+            .await
+            .expect("initial complete scan");
+    assert_eq!(initial.scan.status, RepositoryThreadScanStatus::Complete);
+    assert_eq!(initial.scan.pages_completed, 2);
+    assert_eq!(initial.scan.threads_seen, 2);
+
+    let replay =
+        enumerate_repository_threads(&archive, &client, &selector, &CancellationToken::new())
+            .await
+            .expect("replayed complete scan");
+    assert_eq!(replay.scan.status, RepositoryThreadScanStatus::Complete);
+    assert_eq!(replay.scan.pages_completed, 2);
+    assert_eq!(replay.scan.threads_seen, 2);
+    assert!(replay.scan.sequence > initial.scan.sequence);
 
     let page = archive
         .query_threads(&ThreadQuery {
@@ -162,6 +177,7 @@ async fn replay_reuses_canonical_threads_without_duplicate_rows() {
     remove_archive(&archive_path);
 }
 
+/// Creates the provider client for the test server without credentials.
 fn client(server: &MockServer) -> GitHubClient {
     let api_base_url = format!("{}/api/v3/", server.uri())
         .parse()
@@ -169,30 +185,16 @@ fn client(server: &MockServer) -> GitHubClient {
     GitHubClient::new(GitHubClientConfig::new(api_base_url), None).expect("GitHub client")
 }
 
-async fn mount_repository(
-    server: &MockServer,
-    old_owner: &str,
-    name: &str,
-    new_owner: &str,
-    expected_requests: u64,
-) {
-    let old_path = format!("/api/v3/repos/{old_owner}/{name}");
-    let new_path = format!("/api/v3/repos/{new_owner}/{name}");
-    if old_path != new_path {
-        Mock::given(method("GET"))
-            .and(path(old_path))
-            .respond_with(ResponseTemplate::new(301).insert_header("Location", new_path.clone()))
-            .expect(1)
-            .mount(server)
-            .await;
-    }
+/// Installs only a stable repository response; redirect scenarios set up their own transport.
+async fn mount_repository(server: &MockServer, owner: &str, name: &str, expected_requests: u64) {
+    let repository_path = format!("/api/v3/repos/{owner}/{name}");
     Mock::given(method("GET"))
-        .and(path(new_path))
+        .and(path(repository_path))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "id": 41,
             "name": name,
-            "full_name": format!("{new_owner}/{name}"),
-            "owner": { "login": new_owner },
+            "full_name": format!("{owner}/{name}"),
+            "owner": { "login": owner },
             "default_branch": "main",
             "updated_at": "2026-09-20T12:00:00Z"
         })))
@@ -201,6 +203,7 @@ async fn mount_repository(
         .await;
 }
 
+/// Builds one static issue payload; pagination and acquisition remain visible in each test.
 fn issue(id: u64, number: u64, title: &str) -> serde_json::Value {
     json!({
         "id": id,
@@ -218,6 +221,7 @@ fn issue(id: u64, number: u64, title: &str) -> serde_json::Value {
     })
 }
 
+/// Allocates a distinct on-disk archive path for concurrent integration cases.
 fn temporary_archive_path() -> PathBuf {
     let next = NEXT_ARCHIVE.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
@@ -226,6 +230,7 @@ fn temporary_archive_path() -> PathBuf {
     ))
 }
 
+/// Removes a closed archive and SQLite sidecars after a successful scenario.
 fn remove_archive(path: &PathBuf) {
     let _ = std::fs::remove_file(path);
     let _ = std::fs::remove_file(path.with_extension("sqlite-wal"));
