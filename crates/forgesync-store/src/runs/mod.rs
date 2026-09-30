@@ -17,10 +17,7 @@ use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observations::{evidence_family_name, repository_row_id};
 
 /// Durable terminal or active state of one sync run.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

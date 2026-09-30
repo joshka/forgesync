@@ -2353,3 +2353,15 @@ completed migrations can survive a later failure, so retries inspect history rat
 assumed baseline. Pool-level helpers retain crate visibility at the archive lifecycle boundary;
 public report types remain usable. Strict store Rustdoc, nightly formatting, and Markdown checks
 pass. Behavior is unchanged; broader review remains open.
+
+## Continued maintenance: run ledger dependency locality
+
+Run lifecycle, failure persistence, and read-query leaves now import external/core dependencies from
+their defining modules instead of relying on a parent import prelude. Shared ledger types and
+helpers retain explicit imports from their actual run-module owner. Parent-only transport, lease,
+and observation imports are removed, while imports needed by public record fields remain.
+
+Lifecycle orientation explains scope records, supplied counts, evidence authority, transaction
+fencing, and completion rejection. No SQL, ordering, failure accounting, or public shape changes.
+Store Clippy, strict store Rustdoc, nightly formatting, and Markdown checks pass. The broader
+conventions and test review remain open.

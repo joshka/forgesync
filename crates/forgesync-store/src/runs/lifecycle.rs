@@ -7,11 +7,29 @@
 //! A terminal job status records work outcome, not proof that every possible resource family is
 //! complete. Coverage and observations remain the source of truth for acquired evidence; the run
 //! ledger explains how the workflow reached its state.
+//!
+//! Run creation preserves requested scope as JSON; job creation identifies repository, family,
+//! and sub-scope. Completion records counts and optional failure details supplied by the engine.
+//! The ledger does not independently prove that those counts describe complete provider evidence.
+//! Observation and coverage operations own that separate authority.
+//!
+//! Mutations check the active archive lease in their transaction. Job completion requires an
+//! in-progress row and a terminal/interrupted completion status; it records any failure within
+//! the same transaction. A missing or already finished target is rejected rather than silently
+//! creating a replacement. These methods perform no provider I/O or automatic retry.
 
-use super::{
-    Archive, ArchiveLeaseToken, EvidenceFamily, OperationOutcome, RepositoryId, RunId, StoreError,
-    SyncJobCompletion, SyncJobStatus, UtcTimestamp, Value, checked_run_id, evidence_family_name,
-    job_status_name, repository_row_id, require_active_archive_lease, run_status, run_status_name,
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::{RepositoryId, RunId};
+use forgesync_core::outcome::OperationOutcome;
+use forgesync_core::timestamp::UtcTimestamp;
+use serde_json::Value;
+
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::observations::{evidence_family_name, repository_row_id};
+use crate::runs::{
+    SyncJobCompletion, SyncJobStatus, checked_run_id, job_status_name, run_status, run_status_name,
     to_sql_id, to_sql_id_u64,
 };
 

@@ -7,11 +7,15 @@
 //! A retry should be based on recorded failure scope and the current archive state. Querying is
 //! side-effect-free; starting a new run belongs to `lifecycle` and the engine coordinator.
 
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::RunId;
 use sqlx::Row;
 
-use super::{
-    Archive, EvidenceFamily, RunDetail, RunFailureRecord, RunId, RunRecord, RunStatus, StoreError,
-    SyncJobRecord, SyncJobStatus, checked_run_id, decode_count, decode_timestamp, to_sql_id,
+use crate::archive::Archive;
+use crate::error::StoreError;
+use crate::runs::{
+    RunDetail, RunFailureRecord, RunRecord, RunStatus, SyncJobRecord, SyncJobStatus,
+    checked_run_id, decode_count, decode_timestamp, to_sql_id,
 };
 
 impl Archive {
