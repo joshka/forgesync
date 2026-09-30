@@ -7,6 +7,10 @@
 //! This is distinct from a thread observation. Knowing that a repository was scanned does not
 //! imply every child resource family of every thread is complete. Store these scopes independently
 //! so status and retry paths describe the work that really happened.
+//!
+//! The private `completion` module validates terminal state and performs the active-generation
+//! cursor guard and terminal write. Archive methods retain transaction and lease ownership.
+//! Completion requires a cleared next-page cursor; interruption preserves the last checkpoint.
 
 use forgesync_core::coverage::Failure;
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
@@ -52,6 +56,8 @@ pub struct RepositoryThreadScan {
     /// Safe provider or archive failure that stopped acquisition, when known.
     pub failure: Option<Failure>,
 }
+
+mod completion;
 
 impl Archive {
     /// Starts a new repository enumeration and records its first page before requesting it.
@@ -223,6 +229,16 @@ impl Archive {
     }
 
     /// Marks an active scan complete or incomplete without advancing its page cursor.
+    ///
+    /// Complete coverage requires the terminal page to have cleared the stored next-page cursor.
+    /// Incomplete coverage retains that cursor and may carry a safe failure diagnostic; passing
+    /// no failure represents interruption or another incomplete attempt without provider evidence.
+    ///
+    /// # Errors
+    ///
+    /// Rejects active status, failure-bearing completion, and completion with a pending cursor.
+    /// A missing or superseded active generation returns `RepositoryThreadScanMissing`. Validation
+    /// of the status/failure pair precedes writable-archive checks; mutations commit atomically.
     pub async fn finish_repository_thread_scan(
         &self,
         repository: &RepositoryId,
@@ -268,12 +284,7 @@ impl Archive {
         failure: Option<&Failure>,
         token: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError> {
-        if status == RepositoryThreadScanStatus::InProgress {
-            return Err(StoreError::InvalidRepositoryThreadScan);
-        }
-        if status == RepositoryThreadScanStatus::Complete && failure.is_some() {
-            return Err(StoreError::InvalidRepositoryThreadScan);
-        }
+        let completion = completion::ScanCompletion::new(status, failure)?;
 
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = to_sql_integer(sequence.get())?;
@@ -281,40 +292,12 @@ impl Archive {
         if let Some(token) = token {
             require_active_archive_lease(&mut transaction, token).await?;
         }
-        let row = sqlx::query(
-            "SELECT next_page_url FROM repository_thread_scans WHERE repository_id = (SELECT id FROM repositories WHERE host = ? AND provider_id = ?) AND sequence = ? AND status = 'in_progress'",
-        )
-        .bind(repository.host().as_str())
-        .bind(repository.provider_id().as_str())
-        .bind(sequence)
-        .fetch_optional(&mut *transaction)
-        .await?
-        .ok_or(StoreError::RepositoryThreadScanMissing)?;
-        let next_page_url: Option<String> = row.try_get("next_page_url")?;
-        if status == RepositoryThreadScanStatus::Complete && next_page_url.is_some() {
-            return Err(StoreError::InvalidRepositoryThreadScan);
-        }
-        let status_name = match status {
-            RepositoryThreadScanStatus::InProgress => unreachable!(),
-            RepositoryThreadScanStatus::Incomplete => "incomplete",
-            RepositoryThreadScanStatus::Complete => "complete",
-        };
-        let failure_json = failure.map(serde_json::to_string).transpose()?;
-        let result = sqlx::query(
-            "UPDATE repository_thread_scans SET status = ?, updated_at_us = ?, next_page_url = CASE WHEN ? = 'complete' THEN NULL ELSE next_page_url END, failure_json = ? WHERE repository_id = (SELECT id FROM repositories WHERE host = ? AND provider_id = ?) AND sequence = ? AND status = 'in_progress'",
-        )
-        .bind(status_name)
-        .bind(updated_at.unix_microseconds())
-        .bind(status_name)
-        .bind(failure_json)
-        .bind(repository.host().as_str())
-        .bind(repository.provider_id().as_str())
-        .bind(sequence)
-        .execute(&mut *transaction)
-        .await?;
-        if result.rows_affected() != 1 {
-            return Err(StoreError::RepositoryThreadScanMissing);
-        }
+        completion
+            .validate_cursor(&mut transaction, repository, sequence)
+            .await?;
+        completion
+            .write(&mut transaction, repository, sequence, updated_at)
+            .await?;
         transaction.commit().await?;
         Ok(())
     }

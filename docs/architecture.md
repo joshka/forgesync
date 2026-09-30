@@ -238,4 +238,6 @@ workflow and retains its public request/result types.
 Repository enumeration keeps provider traversal in `enumeration::scan`, reserved archive mutations
 in `scan_persistence`, and terminal coverage/diagnostic meaning in `scan_outcome`. Earlier parent
 observations remain usable after failed or cancelled traversal; only a durably recorded terminal
-page permits complete scan coverage. The report is read after the terminal write.
+page permits complete scan coverage. The report is read after the terminal write. Store
+`enumeration::completion` validates terminal status/failure combinations and the active-generation
+cursor before writing terminal evidence within the archive-owned transaction.

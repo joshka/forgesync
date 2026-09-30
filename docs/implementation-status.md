@@ -1627,3 +1627,18 @@ network-failure classification. Existing integration cases cover page-two failur
 and replay avoiding duplicate canonical rows. Page application, cursor advancement, optional fence
 checks, clock evaluation, and incomplete coverage retain their existing ordering. Validation is in
 progress; store scan finalization and replay-scenario review remain in the acquisition batch.
+
+## Continued maintenance: typed store scan completion
+
+Store finalization validates `ScanCompletion` before opening its transaction. Complete coverage
+cannot carry failure evidence, while incomplete coverage can represent interruption or retain a safe
+diagnostic. A private completion module owns the active-generation/cursor guard and terminal SQL
+write. The archive method opens/fences, validates the cursor, writes, and commits in reading order.
+
+The SQL predicates, binding order, missing-generation error, pending-cursor rejection, failure
+serialization timing, and single-commit boundary are preserved. Four nearby linear cases cover
+active-status rejection, failure-bearing completion rejection, complete coverage without diagnostic,
+and interruption without provider failure. Existing enumeration integration scenarios exercise the
+transactional path. All four completion cases, both enumeration integration cases, workspace Clippy,
+formatting, rumdl, and changed-page Markdown linting pass. Full workspace validation is running; the
+acquisition batch remains open.
