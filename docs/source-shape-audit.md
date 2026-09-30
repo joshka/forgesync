@@ -588,6 +588,19 @@ the admitted writer and cannot be supplied by the earlier session dispatch conte
 dispositions address all four TUI broad-signature candidates. All 75 unit cases, the documentation
 example, all-target Clippy, and strict private-item Rustdoc pass.
 
+### Store ordering signature and scenario dispositions
+
+The two comparison functions retain explicit incoming/current clocks and sequences. They are pure
+comparisons of two positions; a generic position wrapper would need different sequence semantics for
+canonical and revision evidence without removing a caller decision. Function contracts now state
+precedence, ambiguity, and the limits of checked sequences as write authority.
+
+Ordering tests have a nearby shallow sibling file with independent source, equivalent-instant,
+missing-clock, malformed-clock, acquisition-priority, legacy-fallback, and signed-key cases. The
+malformed pair asserts the typed error and both preserved spellings instead of display wording.
+Construction helpers are documented and perform no archive work. All ten ordering-filtered cases
+pass; broader store signature and documentation acceptance remain open.
+
 ### Offline CLI scenario locality
 
 The former offline test combined eight commands and validated archive status only after the entire

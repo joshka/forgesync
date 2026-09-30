@@ -17,6 +17,15 @@ use forgesync_core::observation::SourceClock;
 use crate::error::StoreError;
 
 /// Orders canonical observations by provider source clock, then acquisition sequence.
+///
+/// Compare the incoming and currently accepted positions without reading or writing an archive.
+/// A newer valid provider revision wins even when its acquisition sequence is lower. Equal valid
+/// instants, matching malformed spellings, and two missing clocks use sequence as the tie break.
+/// A valid clock outranks an unusable one; distinct unusable spellings return an ambiguity error
+/// instead of making canonical content depend on arrival order.
+///
+/// The caller supplies sequences from the relevant archive. Checked positive values alone do not
+/// prove reservation or membership; this function decides relative order, not write authority.
 pub fn compare_observation_order(
     incoming_clock: &SourceClock,
     incoming_sequence: ObservationSequence,
@@ -33,6 +42,12 @@ pub fn compare_observation_order(
 ///
 /// Older stored records can lack a sequence; `None` represents that legacy state. Distinct
 /// malformed clocks remain ambiguous even when their acquisition sequences are different.
+///
+/// This policy selects complete revision evidence independently of canonical source high water.
+/// Different present sequences take precedence over source time; a present sequence outranks a
+/// missing one. Equal or absent sequences fall back to source-clock comparison. The ambiguity
+/// check runs first so distinct unusable clocks cannot silently become compatible through order.
+/// No archive state is inspected or changed, and the result does not authorize persistence.
 pub fn compare_revision_observation_order(
     incoming_clock: &SourceClock,
     incoming_sequence: Option<ObservationSequence>,
@@ -105,100 +120,4 @@ fn ambiguous_clocks(incoming: &SourceClock, current: &SourceClock) -> StoreError
 }
 
 #[cfg(test)]
-mod tests {
-    use std::cmp::Ordering;
-
-    use forgesync_core::identity::ObservationSequence;
-    use forgesync_core::observation::SourceClock;
-
-    use crate::ordering::{
-        compare_observation_order, compare_revision_observation_order,
-        observation_sequence_order_value,
-    };
-
-    fn sequence(value: u64) -> ObservationSequence {
-        ObservationSequence::new(value).expect("positive sequence")
-    }
-
-    fn clock(value: Option<&str>) -> SourceClock {
-        SourceClock::from_raw(value)
-    }
-
-    #[test]
-    fn canonical_observation_order_uses_source_then_sequence() {
-        let source_newer = compare_observation_order(
-            &clock(Some("2026-09-20T10:00:01Z")),
-            sequence(1),
-            &clock(Some("2026-09-20T10:00:00Z")),
-            sequence(2),
-        )
-        .expect("valid clocks are orderable");
-        assert_eq!(source_newer, Ordering::Greater);
-
-        let same_instant = compare_observation_order(
-            &clock(Some("2026-09-20T11:00:00+01:00")),
-            sequence(3),
-            &clock(Some("2026-09-20T10:00:00Z")),
-            sequence(2),
-        )
-        .expect("equivalent clocks are orderable");
-        assert_eq!(same_instant, Ordering::Greater);
-
-        let missing_clock =
-            compare_observation_order(&clock(None), sequence(1), &clock(None), sequence(2))
-                .expect("missing clocks use sequence");
-        assert_eq!(missing_clock, Ordering::Less);
-    }
-
-    #[test]
-    fn valid_clocks_beat_malformed_and_distinct_malformed_clocks_fail() {
-        let valid_wins = compare_observation_order(
-            &clock(Some("2026-09-20T10:00:00Z")),
-            sequence(1),
-            &clock(Some("not-a-time")),
-            sequence(2),
-        )
-        .expect("valid clock outranks malformed clock");
-        assert_eq!(valid_wins, Ordering::Greater);
-
-        let error = compare_observation_order(
-            &clock(Some("not-a-time-a")),
-            sequence(2),
-            &clock(Some("not-a-time-b")),
-            sequence(1),
-        )
-        .expect_err("distinct invalid clocks are ambiguous");
-        assert!(
-            error
-                .to_string()
-                .contains("ambiguous malformed observation timestamps")
-        );
-    }
-
-    #[test]
-    fn revision_order_prefers_acquisition_sequence_and_supports_legacy_rows() {
-        let fetch_wins = compare_revision_observation_order(
-            &clock(Some("2026-09-20T10:00:00Z")),
-            Some(sequence(2)),
-            &clock(Some("2026-09-20T10:00:01Z")),
-            Some(sequence(1)),
-        )
-        .expect("sequences determine revision order");
-        assert_eq!(fetch_wins, Ordering::Greater);
-
-        let source_fallback = compare_revision_observation_order(
-            &clock(Some("2026-09-20T10:00:01Z")),
-            None,
-            &clock(Some("2026-09-20T10:00:00Z")),
-            None,
-        )
-        .expect("legacy rows use source clocks");
-        assert_eq!(source_fallback, Ordering::Greater);
-    }
-
-    #[test]
-    fn signed_sequence_order_key_handles_minimum_integer() {
-        assert_eq!(observation_sequence_order_value(i64::MIN), i64::MAX);
-        assert_eq!(observation_sequence_order_value(-8), 8);
-    }
-}
+mod tests;
