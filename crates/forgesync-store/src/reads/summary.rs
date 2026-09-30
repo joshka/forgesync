@@ -17,10 +17,10 @@ use forgesync_core::identity::RepositoryId;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::archive::Archive;
+use crate::coverage_projection::{ALL_FAMILIES, evidence_family_name, is_pull_request_family};
 use crate::error::StoreError;
-use crate::reads::coverage::{evidence_family_name, is_pull_request_family};
 use crate::reads::query::push_repository_scope;
-use crate::reads::{ALL_FAMILIES, ArchiveStatus, FamilyCoverageSummary};
+use crate::reads::{ArchiveStatus, FamilyCoverageSummary};
 
 impl Archive {
     /// Returns coverage counts for all families, optionally limited to resolved repositories.

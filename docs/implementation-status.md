@@ -2827,3 +2827,14 @@ The first compile exposed an old qualified column type path and unused imports, 
 All 26 store unit scenarios, store Clippy across all targets/features, strict private-item Rustdoc,
 nightly formatting, rumdl, and changed-page Markdown linting pass. Integration scenarios still need
 the next combined workspace run; unit checks alone do not prove observation ordering invariants.
+
+### Private coverage projection owner
+
+Coverage row decoding and freshness projection move to a private store module shared directly by
+thread reads, embedding eligibility, and cluster members. Recorded clock/head fields and the family
+catalog gain owner-level contracts. The public reads root no longer carries the internal row type or
+re-exports coverage helpers. Its remaining intermediate thread row gains item/field docs. Initial
+Clippy caught a now-unused root import, which is removed. Projection behavior is preserved.
+
+All 26 store unit scenarios, store Clippy across all targets/features, strict private-item Rustdoc,
+nightly formatting, rumdl, and changed-page Markdown linting pass.

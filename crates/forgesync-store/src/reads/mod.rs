@@ -16,7 +16,7 @@ use std::num::NonZeroU32;
 use forgesync_core::content::{
     Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewThread, ThreadKind,
 };
-use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::coverage::{Coverage, EvidenceFamily};
 use forgesync_core::identity::{CommitSha, RepositoryId, ReviewThreadId, ThreadId};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
@@ -208,32 +208,17 @@ pub struct ArchiveStatus {
     pub diagnostics: ArchiveDiagnostics,
 }
 
+/// Row identity paired with a decoded discussion before coverage assembly.
 struct StoredThreadSummary {
+    /// Canonical row used to batch coverage lookup.
     row_id: i64,
+    /// Public projection whose coverage is filled after the page query.
     summary: ThreadSummary,
 }
 
-pub(crate) struct StoredCoverage {
-    state: CoverageState,
-    source_clock_state: String,
-    source_clock_us: Option<i64>,
-    snapshot_head_sha: Option<String>,
-    current_head_sha: Option<String>,
-}
-
-const ALL_FAMILIES: [EvidenceFamily; 5] = [
-    EvidenceFamily::Threads,
-    EvidenceFamily::Comments,
-    EvidenceFamily::PullRequestMetadata,
-    EvidenceFamily::Reviews,
-    EvidenceFamily::ReviewThreads,
-];
-
-mod coverage;
 mod detail;
 mod query;
 mod summary;
 mod timeline;
 
-pub(crate) use coverage::{coverage_for_kind, load_thread_coverage};
 pub(crate) use query::{push_discussion_filters, push_repository_scope};

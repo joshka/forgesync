@@ -31,8 +31,8 @@ use super::{
     StoredThreadSummary, ThreadPage, ThreadQuery, ThreadSort, ThreadStateFilter, ThreadSummary,
 };
 use crate::archive::Archive;
+use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
-use crate::reads::coverage::{coverage_for_kind, load_thread_coverage};
 
 impl Archive {
     /// Returns registered repositories in stable host, owner, and name order.

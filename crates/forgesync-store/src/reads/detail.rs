@@ -18,9 +18,9 @@ use serde::de::DeserializeOwned;
 use sqlx::Row;
 
 use crate::archive::Archive;
+use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
 use crate::observations::StagedItem;
-use crate::reads::coverage::{coverage_for_kind, load_thread_coverage};
 use crate::reads::timeline::thread_timeline;
 use crate::reads::{ThreadDetail, ThreadSummary};
 

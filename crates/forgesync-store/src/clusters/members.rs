@@ -18,8 +18,9 @@ use forgesync_core::identity::ThreadNumber;
 use sqlx::{Row, SqlitePool};
 
 use crate::clusters::{ClusterMember, ClusterMemberRole, ClusterMemberState};
+use crate::coverage_projection::{StoredCoverage, coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
-use crate::reads::{StoredCoverage, ThreadSummary, coverage_for_kind, load_thread_coverage};
+use crate::reads::ThreadSummary;
 
 /// Role coordinates selected by the cluster-summary read.
 pub struct MemberRoles {

@@ -20,11 +20,9 @@ use super::{
     StoredEmbeddingChunk, complete_chunk_set, decode_embedding_chunk,
 };
 use crate::archive::Archive;
+use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
-use crate::reads::{
-    ThreadSummary, coverage_for_kind, load_thread_coverage, push_discussion_filters,
-    push_repository_scope,
-};
+use crate::reads::{ThreadSummary, push_discussion_filters, push_repository_scope};
 
 impl Archive {
     /// Reads current documents, then independently checks evidence and complete vector sets.

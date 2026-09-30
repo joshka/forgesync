@@ -58,6 +58,7 @@
 pub mod archive;
 mod checkpoints;
 pub mod clusters;
+mod coverage_projection;
 pub mod diagnostics;
 pub mod documents;
 pub mod embeddings;

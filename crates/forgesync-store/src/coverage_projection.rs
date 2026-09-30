@@ -28,7 +28,31 @@ use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::error::StoreError;
-use crate::reads::{ALL_FAMILIES, StoredCoverage};
+
+/// Recorded completeness and source/head coordinates retained for freshness projection.
+///
+/// This private-module row representation does not escape as public archive output.
+pub struct StoredCoverage {
+    /// Persisted completeness state before derived staleness.
+    state: CoverageState,
+    /// Persisted missing/valid/invalid source-clock discriminant.
+    source_clock_state: String,
+    /// Comparable source timestamp when the persisted clock is valid.
+    source_clock_us: Option<i64>,
+    /// Pull-request head associated with acquired review evidence.
+    snapshot_head_sha: Option<String>,
+    /// Head from the separately read current metadata membership.
+    current_head_sha: Option<String>,
+}
+
+/// Stable display catalog; issues omit pull-request-only families during projection.
+pub const ALL_FAMILIES: [EvidenceFamily; 5] = [
+    EvidenceFamily::Threads,
+    EvidenceFamily::Comments,
+    EvidenceFamily::PullRequestMetadata,
+    EvidenceFamily::Reviews,
+    EvidenceFamily::ReviewThreads,
+];
 
 /// Loads coverage with both the recorded review head and current PR head so callers can mark
 /// review evidence stale without rewriting the stored collection.
