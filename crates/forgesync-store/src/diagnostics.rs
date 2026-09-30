@@ -87,14 +87,23 @@ pub struct ArchiveLeaseStatus {
     pub held: bool,
 }
 
-/// Durable failed, deferred, and unresolved work counts.
+/// Observed job statuses and unresolved failure-ledger counts.
+///
+/// Jobs, runs, and failures are different units: one job can have multiple failure entries, and
+/// resolving an entry does not imply its job status changed. These counters are not additive.
+/// Family counts include known labels only; the total also includes unknown non-null labels.
+/// Separate reads may observe different moments, so family subtotals need not reconcile during
+/// concurrent writes. Use run details and retry policy to decide which work can be retried.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct WorkDiagnostics {
     /// Jobs whose last recorded status is failed.
     pub failed_jobs: u64,
     /// Jobs whose last recorded status is deferred.
     pub deferred_jobs: u64,
-    /// Runs left in progress by an interrupted process.
+    /// Runs currently recorded as in progress, whether active or left by an interrupted process.
+    ///
+    /// This count alone cannot distinguish a live worker from abandoned work; inspect the lease
+    /// and run ledger before choosing recovery.
     pub in_progress_runs: u64,
     /// Unresolved failures grouped by evidence family.
     pub failures_by_family: Vec<FamilyFailureCount>,
@@ -107,7 +116,9 @@ pub struct WorkDiagnostics {
 /// Unresolved failure count for one evidence family.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct FamilyFailureCount {
-    /// Evidence family with retryable failures.
+    /// Known evidence family assigned to unresolved ledger entries.
+    ///
+    /// Membership here does not establish that every entry is retryable under workflow policy.
     pub family: EvidenceFamily,
     /// Number of unresolved failures for this family.
     pub unresolved: u64,
@@ -209,24 +220,7 @@ impl Archive {
             "SELECT COUNT(*) FROM runs WHERE status = 'in_progress'",
         )
         .await?;
-        let mut failures_by_family = Vec::with_capacity(5);
-        for (family, name) in [
-            (EvidenceFamily::Threads, "threads"),
-            (EvidenceFamily::Comments, "comments"),
-            (EvidenceFamily::PullRequestMetadata, "pull_request_metadata"),
-            (EvidenceFamily::Reviews, "reviews"),
-            (EvidenceFamily::ReviewThreads, "review_threads"),
-        ] {
-            failures_by_family.push(FamilyFailureCount {
-                family,
-                unresolved: count_bound(
-                    &self.reader,
-                    "SELECT COUNT(*) FROM failures WHERE resolved_at_us IS NULL AND family = ?",
-                    name,
-                )
-                .await?,
-            });
-        }
+        let failures_by_family = self.family_failure_counts().await?;
         let unassigned_failures = count(
             &self.reader,
             "SELECT COUNT(*) FROM failures WHERE resolved_at_us IS NULL AND family IS NULL",
@@ -246,6 +240,33 @@ impl Archive {
             unassigned_failures,
             unresolved_failures,
         })
+    }
+
+    /// Counts unresolved entries for each known family in the fixed presentation order.
+    ///
+    /// Unknown family labels are omitted here and remain part of the separate unresolved total.
+    /// Each family query is independent; this projection does not acquire a snapshot or write
+    /// lease.
+    async fn family_failure_counts(&self) -> Result<Vec<FamilyFailureCount>, StoreError> {
+        let mut counts = Vec::with_capacity(5);
+        for (family, name) in [
+            (EvidenceFamily::Threads, "threads"),
+            (EvidenceFamily::Comments, "comments"),
+            (EvidenceFamily::PullRequestMetadata, "pull_request_metadata"),
+            (EvidenceFamily::Reviews, "reviews"),
+            (EvidenceFamily::ReviewThreads, "review_threads"),
+        ] {
+            counts.push(FamilyFailureCount {
+                family,
+                unresolved: count_bound(
+                    &self.reader,
+                    "SELECT COUNT(*) FROM failures WHERE resolved_at_us IS NULL AND family = ?",
+                    name,
+                )
+                .await?,
+            });
+        }
+        Ok(counts)
     }
 }
 

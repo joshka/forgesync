@@ -3122,3 +3122,13 @@ without introducing a generic probe framework.
 
 All six lifecycle scenarios, strict store documentation including private items, nightly formatting,
 rumdl, and changed-page Markdown linting pass.
+
+### Diagnostic count units and family ownership
+
+Work diagnostics now explain that job, run, and failure counts measure different units and cannot be
+summed. In-progress runs can be live or abandoned; family membership does not prove retryability.
+Known-family counting has a named archive method with explicit ordering, unknown-label, and separate
+read contracts. The outer work projection keeps its scalar counters and report assembly together.
+
+All six lifecycle scenarios, store all-target/all-feature Clippy, nightly formatting, rumdl, and
+changed-page Markdown linting pass.
