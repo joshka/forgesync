@@ -21,13 +21,14 @@ use sqlx::SqliteConnection;
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::observation_sql::{
+    SourceClockColumns, normalize_source_clock, repository_row_id, source_clock_columns,
+    sqlite_integer, to_sql_sequence, write_coverage,
+};
 use crate::observations::thread_rows::{
     StoredThreadObservation, ThreadPayloadUpdate, load_thread_observation, update_thread_payload,
 };
-use crate::observations::{
-    ObservationDisposition, SourceClockColumns, ThreadObservationResult, normalize_source_clock,
-    repository_row_id, source_clock_columns, sqlite_integer, to_sql_sequence, write_coverage,
-};
+use crate::observations::{ObservationDisposition, ThreadObservationResult};
 use crate::ordering::compare_observation_order;
 
 impl Archive {

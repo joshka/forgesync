@@ -2815,3 +2815,15 @@ failure policy. This closes engine visibility candidates without claiming the wo
 
 Strict engine private-item Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting
 pass.
+
+### Observation SQL visibility boundary
+
+Observation clock columns, checked SQL integers, canonical identity lookup, and coverage persistence
+move into a private observation-SQL module. Public domain results remain in observations. Shared SQL
+helpers use ordinary public visibility within the private boundary, and family/run/read callers
+import that owner directly. Its orientation states caller-owned ordering, lease, and commit duties.
+The first compile exposed an old qualified column type path and unused imports, now corrected.
+
+All 26 store unit scenarios, store Clippy across all targets/features, strict private-item Rustdoc,
+nightly formatting, rumdl, and changed-page Markdown linting pass. Integration scenarios still need
+the next combined workspace run; unit checks alone do not prove observation ordering invariants.

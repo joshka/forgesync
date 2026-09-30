@@ -28,7 +28,7 @@ use forgesync_core::timestamp::UtcTimestamp;
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observations::checked_sequence;
+use crate::observation_sql::checked_sequence;
 
 impl Archive {
     /// Commits the next archive-wide acquisition value without a workflow lease check.

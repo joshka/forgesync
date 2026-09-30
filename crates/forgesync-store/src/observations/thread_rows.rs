@@ -20,10 +20,10 @@ use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::{Row, SqliteConnection};
 
 use crate::error::StoreError;
-use crate::observations::apply::IncomingThread;
-use crate::observations::{
+use crate::observation_sql::{
     SourceClockColumns, checked_sequence, source_clock_from_columns, to_sql_sequence,
 };
+use crate::observations::apply::IncomingThread;
 
 /// Current canonical row positions loaded before deciding whether an observation can replace it.
 ///

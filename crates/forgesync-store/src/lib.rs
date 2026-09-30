@@ -67,6 +67,7 @@ pub mod families;
 pub mod health;
 pub mod leases;
 pub mod migration;
+mod observation_sql;
 pub mod observations;
 pub mod ordering;
 pub mod reads;

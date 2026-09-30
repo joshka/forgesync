@@ -31,9 +31,8 @@ use crate::error::StoreError;
 use crate::families::ChildFamilyObservation;
 use crate::families::application::{FamilyApplication, FamilyFinalization};
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observations::{
-    FamilyObservationResult, evidence_family_name, is_child_family, to_sql_sequence,
-};
+use crate::observation_sql::{evidence_family_name, is_child_family, to_sql_sequence};
+use crate::observations::FamilyObservationResult;
 
 impl Archive {
     /// Commits a complete membership snapshot or records an incomplete attempt without replacing

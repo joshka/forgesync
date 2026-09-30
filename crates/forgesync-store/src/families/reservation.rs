@@ -20,11 +20,12 @@ use sqlx::{Row, SqliteConnection};
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observations::{
-    FamilyReservation, SourceClockColumns, checked_sequence, evidence_family_name, is_child_family,
+use crate::observation_sql::{
+    SourceClockColumns, checked_sequence, evidence_family_name, is_child_family,
     normalize_source_clock, source_clock_columns, source_clock_from_columns, thread_row_id,
     to_sql_sequence,
 };
+use crate::observations::FamilyReservation;
 use crate::ordering::compare_observation_order;
 
 impl Archive {

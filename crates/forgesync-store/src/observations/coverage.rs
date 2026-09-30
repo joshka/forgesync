@@ -21,7 +21,7 @@ use forgesync_core::identity::ThreadId;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::observations::{evidence_family_name, thread_row_id};
+use crate::observation_sql::{evidence_family_name, thread_row_id};
 
 impl Archive {
     /// Reads the stored family state for an existing canonical discussion.

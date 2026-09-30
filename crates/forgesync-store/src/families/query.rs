@@ -18,10 +18,11 @@ use sqlx::Row;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::observations::{
-    StagedItem, evidence_family_name, is_child_family, normalize_source_clock,
-    source_clock_columns, thread_row_id,
+use crate::observation_sql::{
+    evidence_family_name, is_child_family, normalize_source_clock, source_clock_columns,
+    thread_row_id,
 };
+use crate::observations::StagedItem;
 
 impl Archive {
     /// Returns the canonical complete membership for one thread family.
@@ -140,7 +141,7 @@ impl Archive {
 struct FamilyFreshness<'a> {
     thread: i64,
     family: &'static str,
-    source: crate::observations::SourceClockColumns,
+    source: crate::observation_sql::SourceClockColumns,
     expectation: MembershipExpectation<'a>,
 }
 

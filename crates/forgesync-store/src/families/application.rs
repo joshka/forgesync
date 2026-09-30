@@ -18,10 +18,11 @@ use crate::families::staging::{
     count_staged_items, load_staged_pages, merge_staged_items, validate_page_set,
 };
 use crate::families::{ChildFamilyObservation, StagedPage};
-use crate::observations::{
-    FamilyObservationResult, ObservationDisposition, SourceClockColumns, evidence_family_name,
-    source_clock_columns, source_clock_from_columns, thread_row_id, write_coverage,
+use crate::observation_sql::{
+    SourceClockColumns, evidence_family_name, source_clock_columns, source_clock_from_columns,
+    thread_row_id, write_coverage,
 };
+use crate::observations::{FamilyObservationResult, ObservationDisposition};
 
 /// Preparation either returns a terminal replay/skip or a pending collection to apply.
 pub enum FamilyFinalization<'a> {

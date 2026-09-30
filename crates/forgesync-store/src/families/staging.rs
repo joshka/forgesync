@@ -23,9 +23,10 @@ use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::families::StagedPage;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observations::{
-    StagedItem, evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
+use crate::observation_sql::{
+    evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
 };
+use crate::observations::StagedItem;
 
 impl Archive {
     /// Persists a provisional page without changing canonical child membership.
