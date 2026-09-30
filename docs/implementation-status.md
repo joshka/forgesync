@@ -3226,3 +3226,13 @@ be presented as runtime guarantees, and count contracts must identify their unit
 uses message safety, completeness, compatibility, retry classification, active runs, and unresolved
 ledger entries as concrete examples. These rules preserve future review context at the existing
 AGENTS-linked entry point. Rumdl and changed-page Markdown linting pass.
+
+### Nearby core value test files
+
+Observation, timestamp, and document suites move from inline blocks to adjacent `tests.rs` files.
+Each has a module introduction explaining its value boundary, scenario inputs, and what downstream
+workflow tests establish separately. Production files now end at their contracts and algorithms;
+focused tests stay one direct navigation step away with explicit owner imports.
+
+The complete core suite passes: 46 unit tests, four catalog checks, and eight doctests. Nightly
+formatting, rumdl, and changed-page Markdown linting pass.
