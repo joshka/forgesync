@@ -1593,5 +1593,23 @@ Hybrid fallback still reuses keyword candidates; semantic fallback performs a lo
 Existing cancellation, provider-error classification, source ranking, page offsets, and JSON DTOs
 remain unchanged. Archive, client, recipe, and cancellation stay explicit operation inputs rather
 than being hidden in a generic application context. Workspace Clippy and all engine tests/doctests
-pass; final workspace validation is in progress. Scoring limits now live beside their
-implementation, and keyword/semantic helpers import dependencies from their actual defining modules.
+pass. The completed search validation also passes all workspace tests/doctests, the CLI build
+without default features, strict public/private Rustdoc, formatting, rumdl, and changed-page
+Markdown linting. Scoring limits now live beside their implementation, and keyword/semantic helpers
+import dependencies from their actual defining modules. The first three bounded batches are
+implemented; acquisition is next, with five implementation batches and final acceptance remaining.
+
+## Continued maintenance: metadata completion phases
+
+`MetadataObservation::complete` now names staging, canonical application, and failure resolution
+before constructing the dependent-family result. `apply` accepts only applied/replayed dispositions;
+a superseded reservation still returns the existing stale-generation error. Failed acquisition names
+its incomplete terminal write before cancellation or diagnostic handling. Private fields explain the
+archive/provider split, parent source clock, run fence, and reserved generation.
+
+The archive commits and ledger order remain unchanged. A failure-resolution error still returns an
+error after canonical metadata has independently committed. Review collectors receive no successful
+result from that attempt. The existing sync scenarios cover metadata-dependent reviews, changed
+heads, partial snapshots, and retry behavior. The final metadata tree passes workspace Clippy, all
+15 sync workflow scenarios, nightly formatting, rumdl, and changed-page Markdown linting.
+Acquisition scan and store finalization remain open in the bounded acquisition batch.

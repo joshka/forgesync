@@ -43,10 +43,15 @@ impl ThreadFamilyScope<'_> {
 
 /// Reserved metadata work whose provider result is not yet canonical.
 struct MetadataObservation<'a> {
+    /// Archive receiving the staged and canonical observation.
     archive: &'a Archive,
+    /// Provider transport used only for the metadata request.
     client: &'a GitHubClient,
+    /// Parent identity and source clock selected by the family coordinator.
     scope: ThreadFamilyScope<'a>,
+    /// Owning run, writer fence, and cancellation boundary.
     context: &'a SyncRunContext<'a>,
+    /// Reserved acquisition order used by staging and terminal application.
     sequence: ObservationSequence,
 }
 
@@ -106,23 +111,7 @@ impl<'a> MetadataObservation<'a> {
         error: GitHubError,
     ) -> Result<ThreadFamilyResult<PullRequestMetadata>, EngineError> {
         let mut result = ThreadFamilyResult::default();
-        self.archive
-            .finish_child_family_observation_fenced(
-                ChildFamilyObservation {
-                    thread: self.scope.thread,
-                    family: EvidenceFamily::PullRequestMetadata,
-                    sequence: self.sequence,
-                    observed_at: now_utc()?,
-                    completeness: &CollectionCompleteness::Incomplete {
-                        reason: incomplete_reason(&error, 0),
-                        received_items: 0,
-                    },
-                    expected_pages: None,
-                    head_sha: None,
-                },
-                self.context.lease,
-            )
-            .await?;
+        self.finish_incomplete(&error).await?;
         if matches!(error, GitHubError::Cancelled) {
             result.interrupted = true;
             return Ok(result);
@@ -142,12 +131,53 @@ impl<'a> MetadataObservation<'a> {
         Ok(result)
     }
 
+    /// Finishes failed or cancelled acquisition without replacing canonical metadata.
+    ///
+    /// No page was staged, so incomplete coverage records zero received members. Provider
+    /// cancellation uses this same durable boundary before returning interruption to the caller.
+    async fn finish_incomplete(&self, error: &GitHubError) -> Result<(), EngineError> {
+        self.archive
+            .finish_child_family_observation_fenced(
+                ChildFamilyObservation {
+                    thread: self.scope.thread,
+                    family: EvidenceFamily::PullRequestMetadata,
+                    sequence: self.sequence,
+                    observed_at: now_utc()?,
+                    completeness: &CollectionCompleteness::Incomplete {
+                        reason: incomplete_reason(error, 0),
+                        received_items: 0,
+                    },
+                    expected_pages: None,
+                    head_sha: None,
+                },
+                self.context.lease,
+            )
+            .await?;
+        Ok(())
+    }
+
     /// Stages and applies the single metadata member, then exposes its head to dependent work.
     async fn complete(
         self,
         metadata: PullRequestMetadata,
     ) -> Result<ThreadFamilyResult<PullRequestMetadata>, EngineError> {
-        let mut result = ThreadFamilyResult::default();
+        self.stage(&metadata).await?;
+        let items_committed = self.apply().await?;
+        self.resolve_failures().await?;
+        Ok(ThreadFamilyResult {
+            pages_completed: 1,
+            items_received: 1,
+            items_committed,
+            value: Some(metadata),
+            ..ThreadFamilyResult::default()
+        })
+    }
+
+    /// Stages the sole metadata member under this reserved acquisition generation.
+    ///
+    /// Staging preserves the payload for replay without making its head canonical. The provider
+    /// thread identity is the member key; page zero is the complete metadata collection.
+    async fn stage(&self, metadata: &PullRequestMetadata) -> Result<(), EngineError> {
         let item = StagedItem {
             id: self.scope.thread.provider_id().clone(),
             payload: metadata.clone(),
@@ -162,6 +192,14 @@ impl<'a> MetadataObservation<'a> {
                 self.context.lease,
             )
             .await?;
+        Ok(())
+    }
+
+    /// Finishes the complete observation and accepts only canonical application or replay.
+    ///
+    /// A superseded reservation cannot supply a head to review collectors. Return the store's
+    /// committed count only after its disposition establishes canonical metadata.
+    async fn apply(&self) -> Result<u64, EngineError> {
         let observation = self
             .archive
             .finish_child_family_observation_fenced(
@@ -177,25 +215,23 @@ impl<'a> MetadataObservation<'a> {
                 self.context.lease,
             )
             .await?;
-        if matches!(
-            observation.disposition,
-            ObservationDisposition::Applied | ObservationDisposition::Replayed
-        ) {
-            result.pages_completed = 1;
-            result.items_received = 1;
-            result.items_committed = observation.item_count;
-            result.value = Some(metadata);
-            self.archive
-                .resolve_child_family_failures(
-                    self.context.lease,
-                    &self.failure_scope(),
-                    now_utc()?,
-                )
-                .await?;
-        } else {
-            return Err(StoreError::StaleObservationGeneration.into());
+        match observation.disposition {
+            ObservationDisposition::Applied | ObservationDisposition::Replayed => {
+                Ok(observation.item_count)
+            }
+            _ => Err(StoreError::StaleObservationGeneration.into()),
         }
-        Ok(result)
+    }
+
+    /// Resolves prior metadata failures after successful canonical application.
+    ///
+    /// A ledger error still fails this operation even though the independently committed metadata
+    /// remains usable in the archive. The caller must not count this attempt as fully completed.
+    async fn resolve_failures(&self) -> Result<(), EngineError> {
+        self.archive
+            .resolve_child_family_failures(self.context.lease, &self.failure_scope(), now_utc()?)
+            .await?;
+        Ok(())
     }
 
     /// Identifies metadata failure records for retry marking and successful resolution.
