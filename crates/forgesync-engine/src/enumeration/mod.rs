@@ -4,8 +4,8 @@
 //! archive. `ThreadEnumerationReport` tells the caller what was visited and whether the scan
 //! completed.
 //!
-//! This is a discovery workflow, not a full sync of each discussion or child family. Scope-aware
-//! variants allow the sync coordinator to ask for only the identities it needs. The store persists
+//! This is a discovery workflow, not a full sync of each discussion or child family. The private
+//! page executor lets sync supply its reserved scope and writer authority. The store persists
 //! scan state so a later run can distinguish an empty complete repository from an interrupted
 //! scan.
 //!
@@ -20,7 +20,6 @@ use forgesync_github::resources::{ThreadListState, fetch_repository};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use forgesync_store::enumeration::RepositoryThreadScan;
-use forgesync_store::leases::ArchiveLeaseToken;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -74,43 +73,20 @@ pub(crate) struct ThreadScanContext {
 /// The acquisition sequence is reserved before the first request. Each page's thread rows are
 /// committed before its cursor advances, so a failed later page leaves earlier content usable and
 /// the stored scan explicitly incomplete.
+///
+/// This discovery entry point acquires all thread states without enforcing a writer lease. Sync
+/// supplies its own reserved state/cutoff and fence through the private page executor instead.
+/// Repository resolution and acquisition order happen before page requests. Failures before the
+/// scan starts return an error; cancellation or provider failure during paging retains durable
+/// partial scan evidence in the returned report.
 pub async fn enumerate_repository_threads(
     archive: &Archive,
     client: &GitHubClient,
     selector: &RepositorySelector,
     cancellation: &CancellationToken,
 ) -> Result<ThreadEnumerationReport, EngineError> {
-    enumerate_repository_threads_in_scope(
-        archive,
-        client,
-        selector,
-        ThreadListState::All,
-        None,
-        None,
-        cancellation,
-    )
-    .await
-}
-
-/// Fetches and applies one selected state scope while enforcing an archive lease fence.
-pub async fn enumerate_repository_threads_in_scope(
-    archive: &Archive,
-    client: &GitHubClient,
-    selector: &RepositorySelector,
-    state: ThreadListState,
-    since: Option<UtcTimestamp>,
-    lease: Option<&ArchiveLeaseToken>,
-    cancellation: &CancellationToken,
-) -> Result<ThreadEnumerationReport, EngineError> {
     let started_at = now_utc()?;
-    let sequence = match lease {
-        Some(lease) => {
-            archive
-                .reserve_observation_sequence_fenced(started_at, lease)
-                .await?
-        }
-        None => archive.reserve_observation_sequence(started_at).await?,
-    };
+    let sequence = archive.reserve_observation_sequence(started_at).await?;
     let repository = fetch_repository(
         client,
         selector.host(),
@@ -119,14 +95,7 @@ pub async fn enumerate_repository_threads_in_scope(
         cancellation,
     )
     .await?;
-    match lease {
-        Some(lease) => {
-            archive.upsert_repository_fenced(&repository, lease).await?;
-        }
-        None => {
-            archive.upsert_repository(&repository).await?;
-        }
-    }
+    archive.upsert_repository(&repository).await?;
 
     enumerate_repository_thread_pages(
         archive,
@@ -135,10 +104,10 @@ pub async fn enumerate_repository_threads_in_scope(
             repository,
             sequence,
             started_at,
-            state,
-            since,
+            state: ThreadListState::All,
+            since: None,
         },
-        lease,
+        None,
         cancellation,
     )
     .await

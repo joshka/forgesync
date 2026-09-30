@@ -662,11 +662,11 @@ execution from the missing-reservation check. SQL text, binding order, transacti
 error types remain the same. The Rust guide records this recurring readability rule.
 
 `FamilyApplication` already owns terminal declaration, resolved identity, checked sequence, source
-clock, and staged data. `FamilyFreshness` owns the independent reuse evidence; `ClusterDecisionWrite`
-owns a validated maintainer action. Their methods use those owners rather than repeated positional
-scope arguments. `Generation::load` retains the borrowed connection and exact three-column generation
-key as a direct SQL lookup. All 80 store unit/integration/documentation cases and all-target store
-Clippy pass after the binding-only change.
+clock, and staged data. `FamilyFreshness` owns the independent reuse evidence;
+`ClusterDecisionWrite` owns a validated maintainer action. Their methods use those owners rather
+than repeated positional scope arguments. `Generation::load` retains the borrowed connection and
+exact three-column generation key as a direct SQL lookup. All 80 store
+unit/integration/documentation cases and all-target store Clippy pass after the binding-only change.
 
 Family reservation's coordinator remains a 52-line linear transaction, including declaration
 destructuring and named construction of `ReservedGeneration`. It validates before opening the
@@ -685,20 +685,21 @@ these are the services, source set, and explicit reuse choice used to create its
 requests. Scheduler persistence takes the writer, report, batch, and returned vectors because these
 are independent capabilities and paired request/response facts, not another persistent owner.
 
-Chunk reuse now compares each prepared chunk's own count with its stored record rather than taking
-a duplicate count argument. Pending chunks move directly into the result without cloning their hash
-or reconstructing fields. Independent cases cover reuse with optional dimension policy and rejection
+Chunk reuse now compares each prepared chunk's own count with its stored record rather than taking a
+duplicate count argument. Pending chunks move directly into the result without cloning their hash or
+reconstructing fields. Independent cases cover reuse with optional dimension policy and rejection
 for changed position, count, hash, or dimensions. All eleven chunk unit cases, the durable embedding
-retry integration case, and engine all-target Clippy pass. This closes
-the identified signature duplication, while final workspace acceptance remains separate.
+retry integration case, and engine all-target Clippy pass. This closes the identified signature
+duplication, while final workspace acceptance remains separate.
 
 Retrieval uses `RankedSearch` for request/window interpretation, `SemanticSource` for one archive
 candidate scope, `SemanticRanking` for accumulated winners and compatibility evidence, and
-`HybridRanking`/`FusionEntry` for source union and provenance. `semantic_candidates` retains explicit
-recipe, service, result bound, and cancellation alongside archive/request; it constructs the source
-and ranking owners immediately. `score_page_bounded` transfers the query, document page, sort, and
-bound into a permit-limited worker while cancellation remains shared. A generic search context would
-combine workflow policy and worker ownership without reducing the facts each operation needs.
+`HybridRanking`/`FusionEntry` for source union and provenance. `semantic_candidates` retains
+explicit recipe, service, result bound, and cancellation alongside archive/request; it constructs
+the source and ranking owners immediately. `score_page_bounded` transfers the query, document page,
+sort, and bound into a permit-limited worker while cancellation remains shared. A generic search
+context would combine workflow policy and worker ownership without reducing the facts each operation
+needs.
 
 `fuse_hybrid` retains its two independent ordered sources plus sort and limit. Final pagination
 already takes `ResultPageRequest`, distinguishing projection metadata from an executable search
@@ -711,10 +712,10 @@ worker permits, cancellation, source provenance, and fallback eligibility.
 Cluster building already has a request declaration, `ClusterBuildLease` for authority/cleanup,
 `ClusterSnapshot` for source/vector evidence, `CandidateEvidence` for relationships, and
 `ClusterProjection` for representative/member projection. The coordinator retains archive, request,
-lease, and cancellation as separate capabilities; it passes immutable documents, repository reference
-context, and graph options into the bounded worker. Snapshot vector loading keeps resolved repository
-identities separate from the original service/recipe request. These inputs do not require another
-bag of workflow state.
+lease, and cancellation as separate capabilities; it passes immutable documents, repository
+reference context, and graph options into the bounded worker. Snapshot vector loading keeps resolved
+repository identities separate from the original service/recipe request. These inputs do not require
+another bag of workflow state.
 
 Pure candidate construction and proposal formatting retain their input projections and policy
 limits. Their existing owners capture repeated indexes and scoring facts. Component docs now state
@@ -735,10 +736,11 @@ come from the selected scope instead of three independent caller arguments. Run 
 remain with `SyncRunContext`, while evidence family and failure remain explicit collector inputs.
 Metadata and both review-family collectors use that method.
 
-Progress publication now belongs to `SyncRunContext::publish`. It reads run/channel identity from the
-context and current job totals from `WorkSummary`; callers no longer repeat the total beside the same
-summary or pass run/channel coordinates independently. Repository presentation and current status
-remain per-event choices. Bounded channel failure remains observational and cannot block writes.
+Progress publication now belongs to `SyncRunContext::publish`. It reads run/channel identity from
+the context and current job totals from `WorkSummary`; callers no longer repeat the total beside the
+same summary or pass run/channel coordinates independently. Repository presentation and current
+status remain per-event choices. Bounded channel failure remains observational and cannot block
+writes.
 
 Attribution changes pass all seventeen focused sync workflow cases and engine all-target Clippy.
 
@@ -754,6 +756,30 @@ The root is 162 lines, coordinator 194, and scope approximately 150, without dee
 additional workflow state. This closes the identified sync root layout finding. The split passes
 engine all-target Clippy and all seventeen focused workflow cases after the final scope-declaration
 change. Final workspace/private Rustdoc acceptance remains open.
+
+### Engine enumeration and remaining signature dispositions
+
+The public seven-argument scoped-enumeration adapter had no scope/fence caller: its only invocation
+selected all states with no cutoff or lease. Sync already supplies reserved `ThreadScanContext` and
+writer authority to the private page executor. Removing the unused adapter leaves a direct discovery
+entry point without optional authority branches or a second public way to coordinate those facts.
+Both enumeration integration cases and engine all-target Clippy pass for this simplification.
+
+Refresh coordination retains independent archive/provider/model services, selected request,
+cancellation, and acquisition progress, then constructs `RefreshExecution` immediately. Repository
+cluster analysis similarly constructs `ClusterStage` around service identity, recipe, graph policy,
+and accumulated outcomes. These existing owners keep stage policy separate from borrowed services;
+another generic execution wrapper would duplicate their role. Retry execution accepts its existing
+`RetryPlan` plus shared services/cancellation/progress and turns each recorded scope into the normal
+sync request.
+
+Response validation retains input count, optional expected dimensions, and expected model because
+they are independent request-relative checks on a consumed raw envelope; passing the whole client
+would unnecessarily expose transport configuration. Scoring and bounded merging retain independent
+query/page, sort, limit, and cancellation facts; `SemanticRanking` already owns repeated workflow
+ordering and accumulation. Rendering's attributed-body helper retains author, time, body, and output
+buffer as a small pure formatting operation. The remaining broad signatures do not conceal an
+additional repeated owner. Final contract-quality and test acceptance reconciliation remains open.
 
 ### Offline CLI scenario locality
 

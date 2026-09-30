@@ -14,32 +14,37 @@ current instructions.
 
 ## Latest changes and evidence
 
-Sync failure recording now belongs to the selected thread scope. Progress publication belongs to
-the run context and derives current job totals from the work summary. All seventeen focused workflow
+The unused seven-argument scoped enumeration API is removed. Public discovery now prepares its
+all-state scan directly; fenced sync continues through its existing private reserved-context
+executor. Both enumeration integration cases and engine all-target Clippy pass. The audit now
+includes retained refresh, retry, response-validation, and scoring signature decisions.
+
+Sync failure recording now belongs to the selected thread scope. Progress publication belongs to the
+run context and derives current job totals from the work summary. All seventeen focused workflow
 cases and engine all-target Clippy pass. Sync API definitions, private acquisition state, and run
 coordination now have three shallow sibling owners, with direct defining-module imports and named
-scope declarations. The root is 162 lines; the split passes Clippy and all seventeen focused workflow
-cases after its final declaration change.
+scope declarations. The root is 162 lines; the split passes Clippy and all seventeen focused
+workflow cases after its final declaration change.
 
 Clustering contract review now documents deterministic grouping preconditions, retained edges,
 worker permit lifetime, and cancellation separately from the writer lease. The audit records the
 existing snapshot/evidence/projection owners and retained signature choices. These are comment-only
 changes; strict Rustdoc will run with final workspace acceptance.
 
-Chunk reuse now takes its count from each selected input and retains unmatched chunks directly.
-New linear cases isolate count, position, hash, and dimension compatibility. All eleven chunk unit
+Chunk reuse now takes its count from each selected input and retains unmatched chunks directly. New
+linear cases isolate count, position, hash, and dimension compatibility. All eleven chunk unit
 cases, durable embedding retry, and engine all-target Clippy pass. Retrieval and embedding signature
 dispositions are recorded in the source-shape audit.
 
-Family application/reuse and local cluster decisions now keep long SQL receivers separate from
-their binding chains. Generation loading separates database execution from missing-row validation.
-Nightly formatting, all 80 store unit/integration/documentation cases, and all-target store Clippy
-pass after these changes.
+Family application/reuse and local cluster decisions now keep long SQL receivers separate from their
+binding chains. Generation loading separates database execution from missing-row validation. Nightly
+formatting, all 80 store unit/integration/documentation cases, and all-target store Clippy pass
+after these changes.
 
-Generation row adapters now explain stable identity, complete-only removal, local decision retention,
-and transaction rollback. `remove_other_memberships` replaces a misleading movement name: it removes
-membership in other clusters without transferring decisions. Cluster unit and generation/restoration
-integration cases and store all-target Clippy pass after the rename.
+Generation row adapters now explain stable identity, complete-only removal, local decision
+retention, and transaction rollback. `remove_other_memberships` replaces a misleading movement name:
+it removes membership in other clusters without transferring decisions. Cluster unit and
+generation/restoration integration cases and store all-target Clippy pass after the rename.
 
 Scan-start and vector archive methods now explain reserved versus allocated order, cursor origin
 validation, partial chunk reads, exact service identity, and independent chunk commits. The audit
