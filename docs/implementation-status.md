@@ -3102,3 +3102,13 @@ details. Error text and cleanup behavior remain unchanged.
 
 All six archive-lifecycle scenarios, nightly formatting, rumdl, and changed-page Markdown linting
 pass.
+
+### Named FTS probe phases
+
+The FTS5 health check delegates to explicit connection acquisition, initial cleanup, create/query,
+and final cleanup operations. Result composition replaces three related booleans and preserves the
+requirement that final cleanup runs after a create/query failure. Short contracts identify who owns
+cleanup and why an initial cleanup failure stops the probe. Public reporting text is unchanged.
+
+All six lifecycle integration scenarios, store all-target/all-feature Clippy, nightly formatting,
+rumdl, and changed-page Markdown linting pass.

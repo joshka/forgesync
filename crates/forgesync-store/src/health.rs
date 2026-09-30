@@ -188,40 +188,48 @@ async fn drop_foreign_key_probe_tables(connection: &mut SqliteConnection) -> Res
 
 /// Checks the full-text capability required by offline keyword search.
 async fn check_fts5(pool: &sqlx::SqlitePool) -> HealthCheck {
-    let result = async {
-        let mut connection = pool.acquire().await.map_err(|_| ())?;
-        sqlx::query("DROP TABLE IF EXISTS temp.__forgesync_fts5_probe")
-            .execute(&mut *connection)
-            .await
-            .map_err(|_| ())?;
-        let create_ok =
-            sqlx::query("CREATE VIRTUAL TABLE temp.__forgesync_fts5_probe USING fts5(content)")
-                .execute(&mut *connection)
-                .await
-                .is_ok();
-        let probe_ok = if create_ok {
-            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM temp.__forgesync_fts5_probe")
-                .fetch_one(&mut *connection)
-                .await
-                .is_ok()
-        } else {
-            false
-        };
-        let cleanup_ok = sqlx::query("DROP TABLE IF EXISTS temp.__forgesync_fts5_probe")
-            .execute(&mut *connection)
-            .await
-            .is_ok();
-        if !(create_ok && probe_ok && cleanup_ok) {
-            return Err(());
-        }
-        Ok::<_, ()>(())
-    }
-    .await;
+    let result = probe_fts5(pool).await;
 
     match result {
         Ok(()) => pass("fts5", "SQLite FTS5 is available"),
         Err(()) => fail("fts5", "SQLite FTS5 is unavailable or could not be probed"),
     }
+}
+
+/// Exercises FTS5 on one reader connection and attempts cleanup after creation or query failure.
+///
+/// Both the capability operation and final cleanup must succeed. An initial cleanup failure
+/// returns immediately, since the connection cannot safely reuse the probe table name.
+async fn probe_fts5(pool: &sqlx::SqlitePool) -> Result<(), ()> {
+    let mut connection = pool.acquire().await.map_err(|_| ())?;
+    drop_fts5_probe_table(&mut connection).await?;
+    let probe_result = create_and_query_fts5_table(&mut connection).await;
+    let cleanup_result = drop_fts5_probe_table(&mut connection).await;
+    probe_result.and(cleanup_result)
+}
+
+/// Creates a temporary FTS5 table and reads it to prove the extension can execute a query.
+///
+/// Creation failure skips the query. The caller owns cleanup even when this operation fails.
+async fn create_and_query_fts5_table(connection: &mut SqliteConnection) -> Result<(), ()> {
+    sqlx::query("CREATE VIRTUAL TABLE temp.__forgesync_fts5_probe USING fts5(content)")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| ())?;
+    sqlx::query_scalar::<_, i64>("SELECT count(*) FROM temp.__forgesync_fts5_probe")
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| ())?;
+    Ok(())
+}
+
+/// Removes the connection-local FTS probe table, including remnants of an earlier failed probe.
+async fn drop_fts5_probe_table(connection: &mut SqliteConnection) -> Result<(), ()> {
+    sqlx::query("DROP TABLE IF EXISTS temp.__forgesync_fts5_probe")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| ())?;
+    Ok(())
 }
 
 /// Builds a successful named archive health check.
