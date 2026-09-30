@@ -187,37 +187,41 @@ impl EngineError {
             Self::Embedding(error) => error.code(),
             Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",
             Self::Store(error) => error.code(),
-            Self::GitHub(GitHubError::Cancelled) => "operation_cancelled",
-            Self::GitHub(GitHubError::Timeout) => "github_timeout",
-            Self::GitHub(GitHubError::Network) => "github_network_error",
-            Self::GitHub(GitHubError::Api {
-                kind: ApiFailureKind::AuthenticationRequired,
-                ..
-            }) => "github_authentication_required",
-            Self::GitHub(GitHubError::Api {
-                kind: ApiFailureKind::PermissionDenied,
-                ..
-            }) => "github_permission_denied",
-            Self::GitHub(GitHubError::Deferred { .. }) => "github_retry_deferred",
-            Self::GitHub(error) => match error {
-                GitHubError::UntrustedOrigin => "github_untrusted_origin",
-                GitHubError::InvalidPaginationLink => "github_pagination_invalid",
-                GitHubError::RedirectRejected => "github_redirect_rejected",
-                GitHubError::ResponseTooLarge => "github_response_too_large",
-                GitHubError::InvalidJson => "github_response_invalid_json",
-                GitHubError::GraphqlErrors { .. } => "github_graphql_errors",
-                GitHubError::InvalidProviderData => "github_provider_data_invalid",
-                GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
-                GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
-                GitHubError::InvalidConfiguration => "github_configuration_invalid",
-                GitHubError::ClientInitialization => "github_client_initialization_failed",
-                GitHubError::Api { .. } => "github_api_error",
-                GitHubError::Cancelled
-                | GitHubError::Timeout
-                | GitHubError::Network
-                | GitHubError::Deferred { .. } => unreachable!(),
-            },
+            Self::GitHub(error) => github_error_code(error),
             Self::FailureLedger { .. } => "failure_ledger_write_failed",
         }
+    }
+}
+
+/// Maps provider errors to process-output codes without applying retry or workflow policy.
+///
+/// Keeping the complete provider mapping together makes each variant explicit and avoids an
+/// unreachable fallback for variants classified earlier in the outer engine match.
+fn github_error_code(error: &GitHubError) -> &'static str {
+    match error {
+        GitHubError::Cancelled => "operation_cancelled",
+        GitHubError::Timeout => "github_timeout",
+        GitHubError::Network => "github_network_error",
+        GitHubError::Api {
+            kind: ApiFailureKind::AuthenticationRequired,
+            ..
+        } => "github_authentication_required",
+        GitHubError::Api {
+            kind: ApiFailureKind::PermissionDenied,
+            ..
+        } => "github_permission_denied",
+        GitHubError::Deferred { .. } => "github_retry_deferred",
+        GitHubError::UntrustedOrigin => "github_untrusted_origin",
+        GitHubError::InvalidPaginationLink => "github_pagination_invalid",
+        GitHubError::RedirectRejected => "github_redirect_rejected",
+        GitHubError::ResponseTooLarge => "github_response_too_large",
+        GitHubError::InvalidJson => "github_response_invalid_json",
+        GitHubError::GraphqlErrors { .. } => "github_graphql_errors",
+        GitHubError::InvalidProviderData => "github_provider_data_invalid",
+        GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
+        GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
+        GitHubError::InvalidConfiguration => "github_configuration_invalid",
+        GitHubError::ClientInitialization => "github_client_initialization_failed",
+        GitHubError::Api { .. } => "github_api_error",
     }
 }

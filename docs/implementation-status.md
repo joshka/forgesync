@@ -3236,3 +3236,15 @@ focused tests stay one direct navigation step away with explicit owner imports.
 
 The complete core suite passes: 46 unit tests, four catalog checks, and eight doctests. Nightly
 formatting, rumdl, and changed-page Markdown linting pass.
+
+### Local provider error-code classifier
+
+The refreshed source inventory found a nested provider error mapping in engine output
+classification. A named local classifier now handles every GitHub variant in one exhaustive match.
+The outer engine match delegates to it and no longer carries unreachable cases for variants
+classified earlier. Codes and policy are unchanged; classification is still distinct from retry
+decisions.
+
+The focused engine error-name selection passes all 22 matching scenarios, including error mapping
+and error-preserving lease cleanup. Nightly formatting, rumdl, and changed-page Markdown linting
+pass.
