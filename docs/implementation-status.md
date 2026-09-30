@@ -2804,3 +2804,14 @@ acquisition workflow should record a failure; that remains workflow policy.
 
 All 11 classification scenarios pass; the filter also runs one existing provider-failure scenario
 for 12 passing tests. Nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Engine visibility candidate disposition
+
+The remaining engine restrictions are documented exceptions: enumeration's reserved-context/executor
+bridge shared with sync, and retry policy on the public embedding error type. Enumeration comments
+explain caller-owned reservation/fence obligations and the public coordinator alternative. The audit
+records these retained seams and the private owners created for query, scoring, clock, and provider
+failure policy. This closes engine visibility candidates without claiming the workspace pass done.
+
+Strict engine private-item Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting
+pass.

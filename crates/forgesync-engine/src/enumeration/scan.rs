@@ -26,6 +26,11 @@ use crate::enumeration::{ThreadEnumerationReport, ThreadScanContext};
 use crate::error::EngineError;
 
 /// Commits each acquired page before advancing the durable scan cursor.
+///
+/// The internal caller supplies provider-resolved scope and previously reserved observation
+/// coordinates. An optional fence applies to the store writes; this executor does not acquire it.
+/// Crate-only visibility prevents this coordination seam from becoming a second public acquisition
+/// API alongside the request-preparing enumeration coordinator.
 pub(crate) async fn enumerate_repository_thread_pages(
     archive: &Archive,
     client: &GitHubClient,

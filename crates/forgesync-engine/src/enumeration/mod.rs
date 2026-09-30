@@ -31,6 +31,8 @@ use crate::reference::RepositorySelector;
 mod scan;
 mod scan_outcome;
 mod scan_persistence;
+// Sync supplies its already reserved sequence and writer fence to the same page executor.
+// Keep this bridge crate-only: public callers use the coordinator that prepares those facts.
 pub(crate) use scan::enumerate_repository_thread_pages;
 
 /// Result of enumerating all currently visible issues and pull requests in one repository.
@@ -48,6 +50,11 @@ pub struct ThreadEnumerationReport {
 ///
 /// The same sequence/time applies to all parent observations and scan writes. State and cutoff
 /// constrain provider traversal; they do not change the ordering of canonical observation writes.
+///
+/// This crate-only seam lets sync reuse page acquisition after preparing its own ledger and lease.
+/// Public enumeration callers use the coordinator, which resolves the repository and reserves
+/// acquisition order. Publishing this context would offer a second entry point requiring callers
+/// to coordinate those invariants manually; its fields are not an independently validated request.
 #[derive(Clone)]
 pub(crate) struct ThreadScanContext {
     /// Provider-resolved repository, including its current renamed path.

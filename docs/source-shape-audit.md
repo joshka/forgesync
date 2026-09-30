@@ -281,6 +281,14 @@ rather than using line counts as completion evidence. Shared discussion filter a
 CLI owner, and shared engine query adapters live in a private module with ordinary public functions.
 These findings are fixed; other visibility and item-depth candidates remain open.
 
+Engine restricted-visibility review now leaves two deliberate seams: the enumeration scan context
+and executor bridge, and embedding-client retry classification. Enumeration shares already reserved
+coordinates and a caller-owned fence with sync; exposing that bridge would require public callers to
+reproduce coordinator invariants. Retry classification is internal adapter policy on an error type
+publicly re-exported for reporting. Source comments document both exceptions. Shared query, scoring,
+clock, and provider-failure policy have private module owners with ordinary public helpers. This
+disposition closes the engine visibility candidates, not the store/provider/CLI review.
+
 ### 8. Tests
 
 Review the existing suites for scenario loops, branches, opaque behavior helpers, distance from the
