@@ -42,6 +42,13 @@ documents service/policy inputs, independent document failures, first stage fail
 work. Three refresh-filtered integration cases and engine/CLI all-target Clippy pass. Signature
 dispositions are recorded in the source-shape audit; the remaining cross-crate review is still open.
 
+Semantic page contracts now describe raw-candidate limits and continuation, including an empty
+accepted page with a nonempty cursor. Candidate payload, coverage, and vector hydration are separate
+reads rather than one atomic revision. The public result distinguishes stored chunk-set validation
+from compatibility with a separately generated query vector. Private fields explain local row IDs,
+payload provenance, SQL ordering, and whole-document rejection after any invalid chunk. Runtime
+behavior is unchanged; strict store Rustdoc and nightly formatting validate this contract pass.
+
 ## Implementation milestones and prior passes
 
 - Embedding setup failures now implement the standard error traits and retain their typed cause;

@@ -54,16 +54,21 @@ pub struct EmbeddingDocumentQuery<'a> {
     pub model: &'a str,
     /// Current configured document recipe.
     pub recipe: DocumentRecipe,
-    /// Last document row ID returned by the previous page.
+    /// Raw-candidate cursor supplied by the previous page, including rejected candidates.
     pub after_document_id: Option<i64>,
-    /// Maximum number of documents in this page.
+    /// Maximum raw candidates examined; post-query validation may yield fewer documents.
     pub limit: NonZeroU32,
 }
 
-/// A current document and all of its complete, compatible stored chunks.
+/// A selected discussion projection and its complete, validated stored chunk set.
+///
+/// Service identity and document hash are matched by the query; chunks agree on count and vector
+/// width. This does not prove compatibility with an independently generated query vector. The
+/// summary and chunks are hydrated separately, so concurrent writes can advance their source data
+/// between reads.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingSearchDocument {
-    /// Current discussion and coverage used to build the document.
+    /// Candidate discussion payload with separately hydrated coverage, not a build-time snapshot.
     pub summary: ThreadSummary,
     /// Stored embedding chunks in document order.
     pub chunks: Vec<StoredEmbeddingChunk>,
@@ -72,9 +77,10 @@ pub struct EmbeddingSearchDocument {
 /// One bounded page of documents with compatible stored embeddings.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingDocumentPage {
-    /// Current documents with complete chunk coverage.
+    /// Accepted candidate projections with complete chunk coverage, possibly fewer than the limit.
     pub items: Vec<EmbeddingSearchDocument>,
-    /// Keyset cursor for the next page, when more candidates may exist.
+    /// Last raw candidate ID when the candidate limit was reached, even if `items` is empty.
+    /// More candidates may exist; a subsequent empty terminal page is possible.
     pub next_document_id: Option<i64>,
 }
 

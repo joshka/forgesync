@@ -10,6 +10,9 @@
 //! `embeddings` owns vector writes and single-document reads; engine search owns similarity policy.
 //!
 //! These reads are bounded, local, and do not materialize documents or contact a model service.
+//! Candidate payloads, coverage, and vectors are loaded in separate reads rather than one snapshot.
+//! Concurrent writes can advance them between phases; this is a search projection, not proof that
+//! every returned component describes one atomic archive revision.
 
 use std::collections::{HashMap, HashSet};
 
@@ -27,6 +30,12 @@ use crate::reads::ThreadSummary;
 
 impl Archive {
     /// Reads current documents, then independently checks evidence and complete vector sets.
+    ///
+    /// The limit bounds raw candidates, so rejected vectors or stale enriched coverage can leave
+    /// fewer results, including an empty page with a continuation cursor. Advance using the page's
+    /// cursor rather than the last returned item. Candidate, coverage, and vector reads do not
+    /// share a transaction snapshot. Invalid chunk data rejects its whole document; SQL
+    /// failures and invalid candidate payload JSON still fail the operation.
     pub async fn embedding_search_page(
         &self,
         query: &EmbeddingDocumentQuery<'_>,
@@ -110,13 +119,18 @@ impl EmbeddingDocumentQuery<'_> {
 
 /// Persisted candidate identity and payload, prior to coverage and vector validation.
 struct EmbeddingCandidate {
+    /// Local document row identity used for keyset ordering and vector grouping.
     document_id: i64,
+    /// Local parent row identity used to batch coverage reads and assemble summaries.
     thread_id: i64,
+    /// Canonical repository payload captured by the candidate query, decoded during hydration.
     repository_json: String,
+    /// Canonical discussion payload captured with the candidate, not reread with its vectors.
     discussion_json: String,
 }
 /// Ordered raw candidates whose last ID determines cursor advancement.
 struct EmbeddingCandidates {
+    /// Ascending document-ID candidates retained even when later hydration rejects an item.
     rows: Vec<EmbeddingCandidate>,
 }
 impl EmbeddingCandidates {
@@ -199,7 +213,9 @@ impl EmbeddingCandidates {
 
 /// Chunk groups and poisoned document IDs from one bounded vector read.
 struct CompatibleChunks {
+    /// Successfully decoded chunks in SQL index order, still awaiting whole-set validation.
     by_document: HashMap<i64, Vec<StoredEmbeddingChunk>>,
+    /// Document IDs with any undecodable chunk; valid siblings cannot salvage those documents.
     invalid: HashSet<i64>,
 }
 impl CompatibleChunks {
