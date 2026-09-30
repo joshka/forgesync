@@ -137,21 +137,41 @@ fn initialize_tracing(verbose: u8, format: LogFormat) {
     };
 
     let result = match format {
-        LogFormat::Text => tracing_subscriber::fmt()
-            .compact()
-            .with_writer(std::io::stderr)
-            .with_max_level(max_level)
-            .try_init(),
-        LogFormat::Json => tracing_subscriber::fmt()
-            .json()
-            .flatten_event(true)
-            .with_writer(std::io::stderr)
-            .with_max_level(max_level)
-            .try_init(),
+        LogFormat::Text => initialize_text_tracing(max_level),
+        LogFormat::Json => initialize_json_tracing(max_level),
     };
     if let Err(error) = result {
         eprintln!("could not initialize diagnostic logging: {error}");
     }
+}
+
+/// Installs compact human diagnostics on stderr at the resolved process verbosity.
+///
+/// Returns subscriber-installation failure to the process coordinator, which reports it and
+/// continues command execution. This never changes stdout command output formatting.
+fn initialize_text_tracing(
+    max_level: LevelFilter,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    tracing_subscriber::fmt()
+        .compact()
+        .with_writer(std::io::stderr)
+        .with_max_level(max_level)
+        .try_init()
+}
+
+/// Installs JSON diagnostics with flattened event fields on stderr at process verbosity.
+///
+/// This format governs tracing only; command JSON envelopes have their own output policy.
+/// Installation failure remains a startup diagnostic rather than changing command exit status.
+fn initialize_json_tracing(
+    max_level: LevelFilter,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    tracing_subscriber::fmt()
+        .json()
+        .flatten_event(true)
+        .with_writer(std::io::stderr)
+        .with_max_level(max_level)
+        .try_init()
 }
 
 /// Selects the configuration source needed by the chosen command.

@@ -3285,3 +3285,13 @@ printing failure, and the usage-code fallback; the dispatcher no longer hides th
 a match arm.
 
 All 14 CLI contract scenarios, nightly formatting, rumdl, and changed-page Markdown linting pass.
+
+### Named tracing format installation
+
+Logging format dispatch points to directly following text/JSON subscriber operations. Their
+contracts explain stderr ownership, resolved verbosity, event flattening, and installation-failure
+behavior. Tracing JSON is distinguished from command envelopes so callers do not confuse two
+independent process-output policies. Subscriber settings and command status behavior are unchanged.
+
+All-target CLI Clippy and all 14 CLI contract scenarios pass. Nightly formatting and changed-page
+Markdown checks pass after prose normalization.
