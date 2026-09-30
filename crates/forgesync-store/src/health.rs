@@ -7,6 +7,21 @@
 //! The doctor path reports problems rather than silently repairing them. Commands can present the
 //! recommended next action while creation, migration, retry, and refresh remain explicit
 //! operations with their own side effects.
+//!
+//! [`Archive::doctor`] first obtains [`ArchiveDiagnostics`], which validates schema history and
+//! observes lease and pending-work state. It then reports four checks in a stable order: SQLite
+//! integrity, foreign-key enforcement, FTS5 capability, and schema history. A failed capability
+//! probe becomes an unhealthy [`HealthCheck`]; failure to acquire the diagnostic report returns
+//! an error before a [`DoctorReport`] can be assembled.
+//!
+//! Probes use the reader pool and create connection-local temporary tables to exercise actual
+//! SQLite behavior. They attempt cleanup before returning and never create permanent archive
+//! tables. Thus this operation leaves durable content unchanged, but it is not SQL with no side
+//! effects at all. Separate reads and pooled connections do not form one database snapshot.
+//!
+//! A healthy report means these checks passed, not that all provider evidence is complete or
+//! pending work is absent. Inspect `diagnostics.work` and family coverage when assessing freshness;
+//! the aggregate health flag is not permission to skip a later write's lease or identity checks.
 
 use serde::Serialize;
 use sqlx::SqliteConnection;
@@ -26,7 +41,11 @@ pub struct HealthCheck {
     pub detail: String,
 }
 
-/// Local health report produced without changing persisted archive state.
+/// Local capability and integrity report that leaves durable archive state unchanged.
+///
+/// `healthy` summarizes `checks` only. Pending work, an active lease, or unapplied migrations can
+/// still appear in `diagnostics` on a healthy report. The fields are observations from separate
+/// queries rather than one transactionally consistent snapshot.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct DoctorReport {
     /// True when all checks pass.
@@ -38,7 +57,22 @@ pub struct DoctorReport {
 }
 
 impl Archive {
-    /// Checks archive integrity, foreign-key enforcement, and FTS5 availability.
+    /// Inspects integrity, foreign-key enforcement, FTS5 capability, and schema history.
+    ///
+    /// Runs against an already opened archive, including a read-only archive. SQLite probes use
+    /// temporary tables on acquired reader connections and attempt to remove them before returning;
+    /// no permanent content, checkpoint, lease, or migration is changed.
+    ///
+    /// Individual probe failures are retained as unhealthy checks so the caller can show the
+    /// remaining results. Schema diagnostics are obtained first: their failure rejects the whole
+    /// operation instead of producing a partial report. The checks and diagnostics are not one
+    /// snapshot, and `healthy` does not summarize pending work or acquisition completeness.
+    ///
+    /// # Errors
+    ///
+    /// Returns errors from [`Archive::diagnostics`], including invalid migration history and
+    /// diagnostic database failures. Capability-probe errors become report entries rather than
+    /// errors from this method.
     pub async fn doctor(&self) -> Result<DoctorReport, StoreError> {
         let diagnostics = self.diagnostics().await?;
         let mut checks = Vec::with_capacity(4);

@@ -38,6 +38,11 @@ authority: lease state, current membership, or a displayed canonical choice must
 later write can skip its own fence and identity validation. Keep these contracts beside the owning
 operation so callers need not reconstruct them from SQL.
 
+Describe side effects precisely: an operation can preserve durable application data while creating
+connection-local temporary probe objects. Explain cleanup and error reporting at that operation;
+calling it read-only should not conceal temporary writes. Likewise, state which checks an aggregate
+health flag summarizes rather than implying that pending work or evidence freshness is included.
+
 Every Rust module file, including private leaves and focused test modules, needs an opening `//!`
 that orients a reader arriving directly from search. Explain what the file contains, when its main
 types or operations are used, who calls them, and how they relate to neighboring modules. A small

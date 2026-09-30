@@ -7,6 +7,18 @@
 //! These methods store progress, not the discussion content itself. Thread observations and
 //! child-family staging live in their own modules; a checkpoint tells the next run where to begin
 //! looking again.
+//!
+//! [`Archive::closed_sweep_watermark`] reads the last committed source-time boundary. Absence is
+//! different from a zero timestamp: an unregistered repository or a repository without this
+//! checkpoint both return `None`. The engine decides the overlap and source query for its next
+//! sweep; the store does not interpret provider clocks as acquisition order.
+//!
+//! [`Archive::commit_closed_sweep_watermark`] is the publication boundary. Within one transaction
+//! it checks the active writer lease, resolves the registered repository, verifies a completed
+//! scan with no continuation at the supplied acquisition sequence, and advances the checkpoint
+//! only when that sequence is newer. A failed check rolls back the checkpoint update. Source-time
+//! watermark values are retained as supplied; sequence ordering, not timestamp magnitude, fences
+//! an older acquisition from overwriting newer progress.
 
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
 use forgesync_core::timestamp::UtcTimestamp;
@@ -17,7 +29,16 @@ use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 
 impl Archive {
-    /// Returns the last successfully completed closed-thread sweep watermark.
+    /// Returns the committed closed-sweep source-time boundary, if one exists.
+    ///
+    /// Returns `None` for both an unregistered repository and a registered repository without a
+    /// closed-sweep checkpoint. This read does not claim a lease or begin another scan. A later
+    /// writer may advance the checkpoint after the query.
+    ///
+    /// # Errors
+    ///
+    /// Returns database errors when the lookup fails and [`StoreError::InvalidCreatedAt`] when
+    /// the stored microsecond value cannot be represented as a domain timestamp.
     pub async fn closed_sweep_watermark(
         &self,
         repository: &RepositoryId,
@@ -36,7 +57,25 @@ impl Archive {
             .transpose()
     }
 
-    /// Advances a closed-sweep watermark only after its same-sequence scan completed.
+    /// Publishes a closed-sweep boundary after the same-sequence scan is complete.
+    ///
+    /// `sequence` identifies the durable scan, `watermark` is the provider source-time boundary
+    /// selected by the workflow, and `updated_at` records when the checkpoint was published. The
+    /// store does not derive or compare these two timestamps. The scan must have status `complete`
+    /// and no next-page URL; this check does not independently prove which source query was used.
+    ///
+    /// The active lease check, scan check, and checkpoint upsert share one transaction. Replaying
+    /// an equal sequence is rejected rather than treated as an idempotent success. Any error
+    /// leaves the previous checkpoint intact.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::ReadOnlyArchive`] without a writer pool, lease errors when the token
+    /// no longer authorizes writing, [`StoreError::RepositoryMissing`] for an unknown repository,
+    /// and [`StoreError::IntegerOutOfRange`] for a sequence outside SQLite's signed range. An
+    /// unfinished or absent scan returns [`StoreError::InvalidRepositoryThreadScan`]; an equal or
+    /// older checkpoint sequence returns [`StoreError::StaleRepositoryThreadScan`]. Database
+    /// failures are propagated.
     pub async fn commit_closed_sweep_watermark(
         &self,
         token: &ArchiveLeaseToken,

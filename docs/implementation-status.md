@@ -2171,3 +2171,18 @@ continuation, and cancellation have distinct roles. A parameter bag would only r
 The outer coordinator retains its linear traversal and required-data checks; nested pagination state
 has its own owner. Strict GitHub documentation, nightly formatting, repository Markdown linting, and
 changed-file Markdown checks pass for this documentation change.
+
+## Continued maintenance: checkpoint and health contracts
+
+Store checkpoint documentation explains absent versus zero watermarks, independent source and
+publication clocks, sequence-fenced advancement, completed-scan requirements, and transaction
+rollback. The scan check proves completion of the named sequence, not the provider query's semantic
+identity. The explicit arguments retain their distinct lease, repository, scan, and clock roles;
+linear SQL binding and transaction order remain visible.
+
+Health documentation explains report assembly, stable check order, failed probes versus diagnostic
+errors, and connection-local temporary probes. Durable data remains unchanged, but the operation
+executes temporary DDL. Health summarizes capability checks rather than pending work, evidence
+completeness, or write authority. Separate pooled reads are not a single snapshot. Strict store
+Rustdoc and nightly formatting pass. This is a contract clarification with unchanged behavior;
+workspace acceptance and the remaining module/test reviews are still open.
