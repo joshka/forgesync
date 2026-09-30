@@ -22,19 +22,17 @@
 //! completeness. Internal query adapters are shared with search without becoming public inspection
 //! operations.
 
-use std::num::NonZeroU32;
-
 use forgesync_core::content::{Repository, ThreadKind};
-use forgesync_core::identity::{RepositoryId, ThreadReference};
+use forgesync_core::identity::ThreadReference;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
-use forgesync_store::reads::{
-    ArchiveStatus, ThreadDetail, ThreadPage, ThreadQuery, ThreadSort as StoreThreadSort,
-    ThreadStateFilter as StoreThreadStateFilter,
-};
+use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadQuery};
 use serde::Serialize;
 
 use crate::error::EngineError;
+use crate::query::{
+    checked_page, repository_missing, resolve_repositories, store_sort, store_state_filter,
+};
 use crate::reference::{RepositorySelector, ThreadSelector};
 
 /// Source-state filter for a local discussion query.
@@ -142,24 +140,6 @@ pub async fn list_threads(
     archive.query_threads(&query).await.map_err(Into::into)
 }
 
-/// Maps a read request state to the store query representation.
-pub(crate) fn store_state_filter(state: ThreadStateFilter) -> StoreThreadStateFilter {
-    match state {
-        ThreadStateFilter::All => StoreThreadStateFilter::All,
-        ThreadStateFilter::Open => StoreThreadStateFilter::Open,
-        ThreadStateFilter::Closed => StoreThreadStateFilter::Closed,
-    }
-}
-
-/// Maps presentation sort policy to the store's stable ordering.
-pub(crate) fn store_sort(sort: ThreadSort) -> StoreThreadSort {
-    match sort {
-        ThreadSort::Relevance => StoreThreadSort::Relevance,
-        ThreadSort::Updated => StoreThreadSort::Updated,
-        ThreadSort::Created => StoreThreadSort::Created,
-    }
-}
-
 /// Shows retained canonical content and selected evidence for a local discussion selector.
 ///
 /// Resolves the repository's current display name to its durable identity before looking up the
@@ -187,48 +167,4 @@ pub async fn show_thread(
             StoreError::ThreadMissing => EngineError::ThreadMissing,
             error => EngineError::Store(error),
         })
-}
-
-/// Resolves current local display names to distinct durable repository identities.
-///
-/// Preserves first-selection order and removes duplicate identities. Empty input remains empty
-/// for the store's all-repositories convention; any missing selector fails the whole resolution.
-/// Restricted visibility keeps this shared query adapter out of the public inspection API.
-pub(crate) async fn resolve_repositories(
-    archive: &Archive,
-    selectors: &[RepositorySelector],
-) -> Result<Vec<RepositoryId>, EngineError> {
-    let mut repositories = Vec::with_capacity(selectors.len());
-    for selector in selectors {
-        let repository = archive
-            .find_repository(selector.host(), selector.owner(), selector.name())
-            .await?
-            .ok_or_else(|| repository_missing(selector))?;
-        if !repositories.contains(&repository.id) {
-            repositories.push(repository.id);
-        }
-    }
-    Ok(repositories)
-}
-
-/// Validates the 1–1000 limit and signed-SQLite offset without changing either value.
-///
-/// Returns a nonzero limit for query construction. Restricted visibility keeps this adapter shared
-/// with search while leaving public callers at the request boundary.
-pub(crate) fn checked_page(limit: u32, offset: u64) -> Result<(NonZeroU32, u64), EngineError> {
-    let limit = NonZeroU32::new(limit).filter(|value| value.get() <= 1000);
-    let limit = limit.ok_or(EngineError::InvalidPageLimit)?;
-    if offset > i64::MAX as u64 {
-        return Err(EngineError::InvalidPageOffset);
-    }
-    Ok((limit, offset))
-}
-
-/// Builds the typed error for an absent repository selector.
-fn repository_missing(selector: &RepositorySelector) -> EngineError {
-    EngineError::RepositoryMissing {
-        host: selector.host().as_str().to_owned(),
-        owner: selector.owner().to_owned(),
-        name: selector.name().to_owned(),
-    }
 }

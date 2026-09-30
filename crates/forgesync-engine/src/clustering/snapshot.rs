@@ -24,7 +24,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::clustering::ClusterBuildRequest;
 use crate::error::EngineError;
-use crate::inspect::resolve_repositories;
+use crate::query::resolve_repositories;
 
 /// Shared page budget for counting eligible threads and loading compatible vectors.
 const CLUSTER_PAGE_SIZE: u32 = 500;

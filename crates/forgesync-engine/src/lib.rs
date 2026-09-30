@@ -64,6 +64,7 @@ pub mod enumeration;
 pub mod error;
 pub mod exact_search;
 pub mod inspect;
+mod query;
 pub mod reference;
 pub mod refresh;
 pub mod runs;

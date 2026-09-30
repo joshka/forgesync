@@ -29,7 +29,7 @@ use super::snapshot::ClusterSnapshot;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
 use crate::documents::now_utc;
 use crate::error::EngineError;
-use crate::inspect::{checked_page, resolve_repositories};
+use crate::query::{checked_page, resolve_repositories};
 
 /// Process-wide bound on simultaneous CPU-heavy graph builds.
 const CLUSTER_WORKER_LIMIT: usize = 1;

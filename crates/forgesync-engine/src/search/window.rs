@@ -12,7 +12,7 @@
 //! Conversion and addition failures have the same public classification as an oversized window.
 
 use crate::error::EngineError;
-use crate::inspect::checked_page;
+use crate::query::checked_page;
 
 /// Largest offset-plus-page-size accepted by exact ranked retrieval.
 const MAX_SEARCH_WINDOW: usize = 10_000;

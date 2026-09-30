@@ -2741,3 +2741,14 @@ repository/kind/state/order/window conversion, and rejection of zero and excessi
 parser flattens the real argument type; assertions inspect the resulting engine request rather than
 using behavior helpers to calculate expectations. Shared sort help includes relevance. All four
 focused tests pass after correcting the expected selector construction to its FromStr API.
+
+### Private query adaptation boundary
+
+Repository resolution, page validation, and engine-to-store state/sort mappings move from the public
+inspection module into a private engine query module. Shared functions use ordinary public
+visibility inside that private boundary, replacing four crate-restricted inspection helpers.
+Inspection, search, and clustering import that owner directly. The public inspection vocabulary and
+operation API remain under inspection; no SQL resources are exposed. Engine compilation passes.
+
+All 88 engine unit scenarios pass. Engine Clippy across all targets/features, strict private-item
+Rustdoc, nightly formatting, rumdl, and changed-page Markdown linting pass.

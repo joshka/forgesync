@@ -20,9 +20,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
-use crate::inspect::{
-    ThreadFilters, ThreadSort, checked_page, resolve_repositories, store_sort, store_state_filter,
-};
+use crate::inspect::{ThreadFilters, ThreadSort};
+use crate::query::{checked_page, resolve_repositories, store_sort, store_state_filter};
 
 /// Search mode selected by an application caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
