@@ -774,6 +774,7 @@ name = "forgesync-store"
 version = "0.1.0"
 dependencies = [
  "forgesync-core",
+ "rstest",
  "serde",
  "serde_json",
  "sha2 0.11.0",

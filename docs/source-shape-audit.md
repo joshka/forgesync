@@ -702,6 +702,14 @@ independent.
 
 ### Acceptance pass and stopping rules
 
+Child-family publication now has shallow independent replay, partial, incomplete-empty,
+head-snapshot, and supersession suites. Review and review-thread snapshots use named rstest inputs
+with the same explicit public operations. Replacement cases construct their own complete membership
+baseline; unrelated review operations no longer intervene before comment assertions. Each scenario
+shows reservation, staging, and completion without behavior helpers. File sizes range from 98 to 166
+lines. Store adds the existing workspace-selected rstest version as a test-only dependency. Parent
+file grouping and remaining assertion acceptance are still open.
+
 Parent replay and tied-conflict rejection now have independent scenarios with retained-title
 assertions. Malformed-clock rejection additionally checks that the original title survives.
 Revision-sequence precedence moved to the ordering suite as a direct fixed-value test, eliminating
