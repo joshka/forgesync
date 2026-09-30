@@ -3132,3 +3132,20 @@ read contracts. The outer work projection keeps its scalar counters and report a
 
 All six lifecycle scenarios, store all-target/all-feature Clippy, nightly formatting, rumdl, and
 changed-page Markdown linting pass.
+
+### Shared store clock conversion
+
+Archive creation, lease expiry checks, and diagnostics now import checked process-clock conversion
+from a private store module. The owner documents truncation, range errors, wall-clock limitations,
+and the distinction from observation ordering and fencing. Existing caller error mappings remain
+unchanged; no public clock API or configuration dependency is added.
+
+All 26 store unit tests, two lease scenarios, and six lifecycle scenarios pass. Nightly formatting,
+rumdl, and changed-page Markdown linting pass.
+
+### Store adapter navigation and clock gates
+
+The architecture guide includes store clock ownership, health probe cleanup, and diagnostic count
+units alongside the SQL adapters. Store all-target/all-feature Clippy and strict private-item
+Rustdoc pass after the shared clock move (`/tmp/forgesync-store-clock-clippy.log` and
+`/tmp/forgesync-store-clock-doc.log`). Rumdl and changed-page Markdown linting pass.

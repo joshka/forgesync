@@ -11,7 +11,7 @@
 
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
@@ -19,6 +19,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
+use crate::clock::now_utc;
 use crate::error::StoreError;
 use crate::migration::{
     MIGRATOR, MigrationReport, apply_pending_migrations, current_schema_version,
@@ -361,16 +362,6 @@ async fn connect_writer(path: &Path) -> Result<SqlitePool, StoreError> {
         .max_connections(1)
         .connect_with(options)
         .await?)
-}
-
-/// Validates the system clock before storing archive creation time.
-fn now_utc() -> Result<UtcTimestamp, StoreError> {
-    let elapsed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| StoreError::ClockOutOfRange)?;
-    let microseconds =
-        i64::try_from(elapsed.as_micros()).map_err(|_| StoreError::ClockOutOfRange)?;
-    UtcTimestamp::from_unix_microseconds(microseconds).map_err(StoreError::InvalidCreatedAt)
 }
 
 /// Cleans up an incomplete newly created archive after setup fails.

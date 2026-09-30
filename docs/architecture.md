@@ -104,7 +104,7 @@ candidates, best-chunk filtering, bounded merging, and stable identity ordering 
 clustering. Vector eligibility remains with the workflow/store selection boundary. Arithmetic and
 scoring tests live beside their respective owners so fixtures and policy assertions do not mix.
 
-## Private store SQL adapters
+## Private store adapters
 
 `observation_sql` owns clock-column conversion, checked SQLite integers, canonical row lookup, and
 coverage persistence shared by parent observations, child families, and run records. Public domain
@@ -115,6 +115,16 @@ lease checks, and transaction commit remain with the archive operation.
 staleness without changing durable coverage. Thread reads, embedding eligibility, and cluster
 members import it directly. `query_sql` supplies bound repository/kind/state predicates shared by
 those reads; each query still owns aliases, joins, ordering, page windows, and decoding.
+
+Store `clock` owns checked process wall-clock conversion shared by archive creation, diagnostics,
+and lease expiry checks. It truncates to archive microseconds and rejects pre-epoch or overflowing
+values. It supplies observations only: transaction fences and observation sequences still establish
+writer validity and acquisition ordering.
+
+`health` keeps operator-facing check construction above named connection-local probes. Constraint
+and FTS execution borrow the acquired connection, while their coordinators attempt final cleanup
+before combining results. `diagnostics` keeps job/run/failure units distinct and reads known-family
+counts through its named projection; these separate reads do not establish a frozen snapshot.
 
 These private modules make implementation dependencies visible without adding SQL resources to
 public library APIs. Start in the workflow or public archive method, then follow its named adapter

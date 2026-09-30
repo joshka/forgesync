@@ -24,13 +24,14 @@
 //! automatic heartbeat or release runs in this module. The workflow must maintain its lease and
 //! release it on completion, while expiry allows a later owner to recover abandoned work.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
 use crate::archive::Archive;
+use crate::clock::unix_microseconds;
 use crate::error::StoreError;
 
 /// Opaque owner and fencing identity returned by successful lease acquisition.
@@ -169,7 +170,7 @@ pub(crate) async fn require_active_archive_lease(
     connection: &mut SqliteConnection,
     token: &ArchiveLeaseToken,
 ) -> Result<(), StoreError> {
-    let now = current_unix_microseconds()?;
+    let now = unix_microseconds()?;
     let active: i64 = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM archive_lease WHERE singleton = 1 AND owner_id = ? AND fencing_token = ? AND expires_at_us > ?)",
     )
@@ -191,14 +192,6 @@ fn duration_microseconds(duration: Duration) -> Result<i64, StoreError> {
         return Err(StoreError::InvalidArchiveLeaseDuration);
     }
     i64::try_from(duration.as_micros()).map_err(|_| StoreError::InvalidArchiveLeaseDuration)
-}
-
-/// Reads a checked local clock value for lease expiry.
-fn current_unix_microseconds() -> Result<i64, StoreError> {
-    let elapsed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| StoreError::ClockOutOfRange)?;
-    i64::try_from(elapsed.as_micros()).map_err(|_| StoreError::ClockOutOfRange)
 }
 
 #[cfg(test)]

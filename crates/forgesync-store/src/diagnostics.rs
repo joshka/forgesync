@@ -22,14 +22,13 @@
 //! snapshot. Failures without a family are counted separately; the unresolved total includes every
 //! unresolved ledger entry, even one with a family label this binary does not recognize.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::Serialize;
 use sqlx::Row;
 
 use crate::archive::Archive;
+use crate::clock::now_utc;
 use crate::error::StoreError;
 use crate::migration::{
     MIGRATOR, current_schema_version, supported_schema_version, validate_migration_history,
@@ -185,12 +184,7 @@ impl Archive {
         };
         let expires_at = UtcTimestamp::from_unix_microseconds(expires_at_us)
             .map_err(StoreError::InvalidCreatedAt)?;
-        let elapsed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| StoreError::ClockOutOfRange)?;
-        let now_us = i64::try_from(elapsed.as_micros()).map_err(|_| StoreError::ClockOutOfRange)?;
-        let now =
-            UtcTimestamp::from_unix_microseconds(now_us).map_err(StoreError::InvalidCreatedAt)?;
+        let now = now_utc()?;
         let held = owner_id.is_some() && expires_at > now;
         let fencing_token =
             u64::try_from(fencing_token).map_err(|_| StoreError::InvalidStoredCount)?;
