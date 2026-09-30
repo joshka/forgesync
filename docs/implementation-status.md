@@ -2794,3 +2794,13 @@ messages without claiming additional redaction. The exhaustive value mapping is 
 
 Engine Clippy across all targets/features, strict private-item Rustdoc, nightly formatting, rumdl,
 and changed-page Markdown linting pass.
+
+### Provider classification contract scenarios
+
+Ten named typed-input scenarios establish specific failure categories and protocol/cancellation
+fallbacks. A separate linear scenario asserts the exact typed GraphQL diagnostic retained by the
+adapter. The nearby suite explains that cancellation classification does not decide whether an
+acquisition workflow should record a failure; that remains workflow policy.
+
+All 11 classification scenarios pass; the filter also runs one existing provider-failure scenario
+for 12 passing tests. Nightly formatting, rumdl, and changed-page Markdown linting pass.

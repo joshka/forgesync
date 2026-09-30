@@ -52,3 +52,7 @@ pub fn github_failure(error: &GitHubError) -> Failure {
         message: error.to_string(),
     }
 }
+
+#[cfg(test)]
+#[path = "provider_failure/tests.rs"]
+mod tests;
