@@ -1,0 +1,414 @@
+[
+  {
+    "sample": "cold",
+    "run_id": 36765720395,
+    "url": "https://github.com/joshka/forgesync/actions/runs/36765720395",
+    "head_sha": "4f397f17a134aae1a9731558f83e94f5f2a9fa30",
+    "conclusion": "success",
+    "created_at": "2026-09-30T19:26:47Z",
+    "completed_at": "2026-09-30T19:29:10Z",
+    "workflow_seconds": 143,
+    "jobs": [
+      {
+        "name": "cache-experiment (smoke)",
+        "conclusion": "success",
+        "seconds": 110,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 1,
+          "Compile or link": 86,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 9,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (clippy)",
+        "conclusion": "success",
+        "seconds": 102,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 10,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 3,
+          "Compile or link": 76,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (check)",
+        "conclusion": "success",
+        "seconds": 95,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 1,
+          "Compile or link": 72,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Post Run actions/checkout@v7": 1,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (minimal)",
+        "conclusion": "success",
+        "seconds": 79,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 2,
+          "Select pinned toolchain": 7,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Compile or link": 58,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 8,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (tests)",
+        "conclusion": "success",
+        "seconds": 137,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 2,
+          "Compile or link": 103,
+          "Execute coverage": 13,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Post Run actions/checkout@v7": 1,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (docs)",
+        "conclusion": "success",
+        "seconds": 84,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 1,
+          "Compile or link": 65,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 6,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      }
+    ]
+  },
+  {
+    "sample": "warm",
+    "run_id": 36766050619,
+    "url": "https://github.com/joshka/forgesync/actions/runs/36766050619",
+    "head_sha": "4f397f17a134aae1a9731558f83e94f5f2a9fa30",
+    "conclusion": "success",
+    "created_at": "2026-09-30T19:29:38Z",
+    "completed_at": "2026-09-30T19:30:52Z",
+    "workflow_seconds": 74,
+    "jobs": [
+      {
+        "name": "cache-experiment (clippy)",
+        "conclusion": "success",
+        "seconds": 27,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 3,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 4,
+          "Compile or link": 8,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (check)",
+        "conclusion": "success",
+        "seconds": 30,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 2,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Compile or link": 8,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (smoke)",
+        "conclusion": "success",
+        "seconds": 30,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 5,
+          "Compile or link": 11,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 1,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (minimal)",
+        "conclusion": "success",
+        "seconds": 31,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Compile or link": 10,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (tests)",
+        "conclusion": "success",
+        "seconds": 68,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 8,
+          "Compile or link": 31,
+          "Execute coverage": 13,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (docs)",
+        "conclusion": "success",
+        "seconds": 23,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 4,
+          "Compile or link": 8,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      }
+    ]
+  },
+  {
+    "sample": "expanded",
+    "run_id": 36766378829,
+    "url": "https://github.com/joshka/forgesync/actions/runs/36766378829",
+    "head_sha": "b9b1666687ebbd4ea5375be75d5979235d9b22cd",
+    "conclusion": "success",
+    "created_at": "2026-09-30T19:32:25Z",
+    "completed_at": "2026-09-30T19:34:50Z",
+    "workflow_seconds": 145,
+    "jobs": [
+      {
+        "name": "cache-experiment (smoke)",
+        "conclusion": "success",
+        "seconds": 26,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 6,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 4,
+          "Compile or link": 9,
+          "Execute coverage": 3,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 1,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (fast)",
+        "conclusion": "success",
+        "seconds": 140,
+        "steps": {
+          "Set up job": 2,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 1,
+          "Compile or link": 116,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 8,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (clippy)",
+        "conclusion": "success",
+        "seconds": 23,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 7,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 4,
+          "Compile or link": 7,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (check)",
+        "conclusion": "success",
+        "seconds": 24,
+        "steps": {
+          "Set up job": 0,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 4,
+          "Compile or link": 8,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (focused)",
+        "conclusion": "success",
+        "seconds": 85,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 2,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 1,
+          "Compile or link": 61,
+          "Execute coverage": 3,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (minimal)",
+        "conclusion": "success",
+        "seconds": 31,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 7,
+          "Compile or link": 10,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (tests)",
+        "conclusion": "success",
+        "seconds": 65,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 8,
+          "Compile or link": 30,
+          "Execute coverage": 12,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      },
+      {
+        "name": "cache-experiment (docs)",
+        "conclusion": "success",
+        "seconds": 27,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 8,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 5,
+          "Compile or link": 8,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      }
+    ]
+  },
+  {
+    "sample": "fast-warm",
+    "run_id": 36766750569,
+    "url": "https://github.com/joshka/forgesync/actions/runs/36766750569",
+    "head_sha": "c017c51137ab6f1a134174caad4fbe43ae901894",
+    "conclusion": "success",
+    "created_at": "2026-09-30T19:35:38Z",
+    "completed_at": "2026-09-30T19:36:25Z",
+    "workflow_seconds": 47,
+    "jobs": [
+      {
+        "name": "cache-experiment (fast)",
+        "conclusion": "success",
+        "seconds": 41,
+        "steps": {
+          "Set up job": 1,
+          "Run actions/checkout@v7": 2,
+          "Select pinned toolchain": 9,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 9,
+          "Compile or link": 17,
+          "Execute coverage": 0,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      }
+    ]
+  },
+  {
+    "sample": "focused-warm",
+    "run_id": 36766754118,
+    "url": "https://github.com/joshka/forgesync/actions/runs/36766754118",
+    "head_sha": "c017c51137ab6f1a134174caad4fbe43ae901894",
+    "conclusion": "success",
+    "created_at": "2026-09-30T19:35:40Z",
+    "completed_at": "2026-09-30T19:36:17Z",
+    "workflow_seconds": 37,
+    "jobs": [
+      {
+        "name": "cache-experiment (focused)",
+        "conclusion": "success",
+        "seconds": 32,
+        "steps": {
+          "Set up job": 0,
+          "Run actions/checkout@v7": 1,
+          "Select pinned toolchain": 7,
+          "Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 5,
+          "Compile or link": 11,
+          "Execute coverage": 6,
+          "Post Run Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6": 0,
+          "Post Run actions/checkout@v7": 0,
+          "Complete job": 0
+        }
+      }
+    ]
+  }
+]
