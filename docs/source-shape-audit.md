@@ -187,15 +187,21 @@ import actual dependency owners; scoring limits live beside their scoring implem
 
 The coordinator retains a linear acquisition sequence: validate window, load optional keyword
 candidates, obtain semantic evidence, classify fallback, read coverage, and project. These explicit
-I/O inputs do not require an application-context wrapper. Final current-tree workspace validation is
-running. Broader documentation and test review remain in their respective bounded batches.
+I/O inputs do not require an application-context wrapper. Workspace validation passes. Broader
+documentation and test review remain in their respective bounded batches.
 
-### 4. Acquisition
+### 4. Acquisition — final validation
 
-Review engine `enumeration/scan`, sync metadata completion, store enumeration finalization, and
-nearby replay scenarios. Finish when scan completion and metadata outcome transitions expose their
-ordering, cancellation, and failure contracts, with linear replay cases. Preserve completeness and
-checkpoint invariants rather than simplifying them into last-write-wins behavior.
+Implemented: provider traversal and reserved persistence have separate modules, terminal scan
+outcomes distinguish cancellation and failure, metadata completion names staging/application/ledger
+resolution, and store finalization has a validated terminal state with named cursor and write
+phases. Replay tests show both acquisitions explicitly. Direct store cases protect pending-cursor
+rejection, empty terminal-page completion, and superseded-generation isolation.
+
+Retained: the scan loop's linear fetch/apply/cursor sequence, explicit fenced/unfenced single-call
+dispatch, and metadata reservation's linear ordering. Their contracts remain locally visible;
+forwarding wrappers would increase navigation. Final workspace gates are running. Broader item docs,
+visibility, and test-suite review remain in the bounded workspace batches.
 
 ### 5. Store operations
 

@@ -1664,3 +1664,17 @@ empty terminal page and completes successfully with one page and zero threads. E
 visible in the scenario; no provider fixture or behavioral helper establishes the state implicitly.
 The integration case, workspace Clippy, nightly formatting, rumdl, and changed-page Markdown linting
 pass. Superseded-generation coverage and acquisition acceptance remain open.
+
+## Continued maintenance: superseded scan isolation
+
+A second direct store scenario records an old generation's terminal page, starts a newer scan, and
+tries to finalize the old generation. It expects the existing missing-active-generation error and
+checks the new sequence, cursor, zero counts, active status, and absent failure remain unchanged.
+The shared repository fixture builds only static data; every acquisition transition stays visible.
+
+Acquisition implementation review now covers traversal versus persistence, explicit terminal
+coverage, metadata staging/application/resolution, and linear failure/replay/checkpoint cases. The
+scan traversal remains a linear provider/apply/cursor loop. Fenced/unfenced store dispatch remains
+an explicit choice of one archive call per branch; additional forwarding abstractions would add
+navigation without changing the concept. Metadata reservation retains its linear ordering and SQL
+observation projection. Final acquisition validation is in progress.
