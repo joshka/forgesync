@@ -3341,3 +3341,13 @@ The three fixture owners contain 128, 135, and 189 lines including these explana
 
 All 15 sync workflow scenarios and focused warning-denying Clippy pass after the moves. Nightly
 formatting, rumdl, and linting of both changed Markdown pages pass.
+
+### Archive report dispatch
+
+Successful archive status and doctor branches now point to directly following named presenters.
+Status owns its CLI projection conversion; doctor owns report health-to-exit-status policy while
+retaining completed unhealthy checks as report data. Archive acquisition and close remain with the
+command operation, before presentation.
+
+All-target/all-feature CLI Clippy, all 15 CLI contract scenarios, nightly formatting, rumdl, and
+changed-page Markdown linting pass.

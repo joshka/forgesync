@@ -27,6 +27,8 @@ use std::process::ExitCode;
 use clap::Subcommand;
 use forgesync_engine::inspect::archive_status;
 use forgesync_store::archive::Archive;
+use forgesync_store::health::DoctorReport;
+use forgesync_store::reads::ArchiveStatus;
 
 use crate::output::ArchiveStatusOutput;
 use crate::reports::archive::{
@@ -101,17 +103,23 @@ impl ArchiveCommand {
         let result = archive_status(&archive).await;
         archive.close().await;
         match result {
-            Ok(status) => {
-                let data = ArchiveStatusOutput::from(&status);
-                render_success(
-                    output,
-                    "archive status",
-                    &data,
-                    ArchiveStatusOutput::summary,
-                )
-            }
+            Ok(status) => Self::present_status(output, &status),
             Err(error) => render_engine_error(output, "archive status", error),
         }
+    }
+
+    /// Presents an already-read status using the CLI schema and corresponding text summary.
+    ///
+    /// Conversion borrows the store report; no archive handle remains open and no additional
+    /// inspection is performed during presentation.
+    fn present_status(output: OutputMode, status: &ArchiveStatus) -> ExitCode {
+        let data = ArchiveStatusOutput::from(status);
+        render_success(
+            output,
+            "archive status",
+            &data,
+            ArchiveStatusOutput::summary,
+        )
     }
 
     /// Checks integrity and returns failure when the archive is unhealthy.
@@ -126,21 +134,28 @@ impl ArchiveCommand {
         let result = archive.doctor().await;
         archive.close().await;
         match result {
-            Ok(report) => {
-                let exit_status = if report.healthy {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::FAILURE
-                };
-                render_result(
-                    output,
-                    "archive doctor",
-                    &report,
-                    doctor_summary,
-                    exit_status,
-                )
-            }
+            Ok(report) => Self::present_doctor(output, &report),
             Err(error) => render_store_error(output, "archive doctor", error),
         }
+    }
+
+    /// Presents completed health checks as report data, preserving unhealthy failure status.
+    ///
+    /// An unhealthy report remains a successful report envelope rather than a command error;
+    /// its process status communicates health in both output modes. Rendering can itself fail
+    /// through the shared output layer.
+    fn present_doctor(output: OutputMode, report: &DoctorReport) -> ExitCode {
+        let exit_status = if report.healthy {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+        render_result(
+            output,
+            "archive doctor",
+            report,
+            doctor_summary,
+            exit_status,
+        )
     }
 }
