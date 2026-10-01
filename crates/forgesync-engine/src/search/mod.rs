@@ -1,19 +1,11 @@
-//! # Archived keyword, semantic, and hybrid search
+//! Archived keyword, semantic, and hybrid search.
 //!
-//! `SearchRequest` selects scope, mode, ranking, and pagination. `SearchHit` and
-//! `SearchResultPage` include provenance so callers can distinguish keyword, semantic, and
-//! combined evidence. `search_threads` and `retrieve_threads` are the engine entry points.
-//!
-//! `keyword` supplies text candidates, `semantic` scores compatible vectors, and `ranking`
-//! pages results and classifies fallback, while `fusion` owns combined source ranks and provenance.
-//! Search reads archived discussions and stored document vectors. Keyword search stays offline;
-//! semantic and hybrid search send query text to the configured embedding service. They never
-//! refresh source discussions or persist new document vectors. Mode and fallback policy remain
-//! explicit so callers can explain availability and network use.
+//! Keyword search stays offline. Semantic and hybrid search send query text to the configured
+//! embedding service; none of them refresh source discussions or persist vectors. Mode and fallback
+//! policy stay explicit so callers can explain availability and network use.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_store::archive::Archive;
-use forgesync_store::error::StoreError;
 use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadQuery, ThreadSummary};
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
@@ -21,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 use crate::embedding_client::EmbeddingClient;
 use crate::error::EngineError;
 use crate::inspect::{ThreadFilters, ThreadSort};
-use crate::query::{checked_page, resolve_repositories, store_sort, store_state_filter};
+use crate::query::{checked_page, resolve_repositories};
 
 /// Search mode selected by an application caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -143,20 +135,14 @@ pub async fn search_threads(
     let query = ThreadQuery {
         repositories,
         kind: request.filters.kind,
-        state: store_state_filter(request.filters.state),
+        state: request.filters.state,
         match_expression: Some(match_expression),
         updated_since: None,
-        sort: store_sort(request.filters.sort.unwrap_or(ThreadSort::Relevance)),
+        sort: request.filters.sort.unwrap_or(ThreadSort::Relevance),
         limit,
         offset,
     };
-    archive
-        .query_threads(&query)
-        .await
-        .map_err(|error| match error {
-            StoreError::InvalidSearchQuery => EngineError::InvalidSearchQuery,
-            error => EngineError::Store(error),
-        })
+    Ok(archive.query_threads(&query).await?)
 }
 
 /// Runs keyword, semantic, or hybrid retrieval through one read-only application operation.

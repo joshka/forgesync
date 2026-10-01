@@ -27,7 +27,8 @@ pub enum ThreadStateFilter {
 }
 
 /// Sort order for local discussion queries.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ThreadSort {
     /// Rank full-text matches first; without a query, use update order.
     #[default]

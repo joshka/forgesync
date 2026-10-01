@@ -1,46 +1,12 @@
-//! # Shared local-query adaptation
-//!
-//! Inspection, search, and cluster browsing share repository resolution, bounded pagination,
-//! and conversion from engine filter vocabulary to store query vocabulary. These helpers perform
-//! that boundary adaptation without defining a second public inspection API.
-//!
-//! Repository resolution reads registered display names and returns durable identities in first
-//! selection order. Pagination checks protect SQLite's integer range and the engine's page bound.
-//! Pure enum mappings remain exhaustive so their complete vocabulary is visible in one place.
-//!
-//! The module is private to the engine; its functions are public within that boundary for sibling
-//! workflows. Callers retain archive lifetime, operation defaults, snapshot consistency, and
-//! projection policy. Resolution does not acquire provider data or guarantee a frozen query scope.
+//! Repository resolution and page validation shared by inspection, search, and cluster browsing.
 
 use std::num::NonZeroU32;
 
 use forgesync_core::identity::RepositoryId;
 use forgesync_store::archive::Archive;
-use forgesync_store::reads::{
-    ThreadSort as StoreThreadSort, ThreadStateFilter as StoreThreadStateFilter,
-};
 
 use crate::error::EngineError;
-use crate::inspect::{ThreadSort, ThreadStateFilter};
 use crate::reference::RepositorySelector;
-
-/// Maps a read request state to the store query representation.
-pub fn store_state_filter(state: ThreadStateFilter) -> StoreThreadStateFilter {
-    match state {
-        ThreadStateFilter::All => StoreThreadStateFilter::All,
-        ThreadStateFilter::Open => StoreThreadStateFilter::Open,
-        ThreadStateFilter::Closed => StoreThreadStateFilter::Closed,
-    }
-}
-
-/// Maps presentation sort policy to the store's stable ordering.
-pub fn store_sort(sort: ThreadSort) -> StoreThreadSort {
-    match sort {
-        ThreadSort::Relevance => StoreThreadSort::Relevance,
-        ThreadSort::Updated => StoreThreadSort::Updated,
-        ThreadSort::Created => StoreThreadSort::Created,
-    }
-}
 
 /// Resolves current local display names to distinct durable repository identities.
 ///

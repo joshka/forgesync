@@ -1,26 +1,16 @@
-//! # Reciprocal-rank fusion with retained source evidence
+//! Reciprocal-rank fusion with retained source evidence.
 //!
-//! `fuse_hybrid` combines keyword and semantic candidates by durable discussion identity. Each
-//! source contributes its reciprocal rank, rather than mixing a text score with cosine similarity.
-//! `HybridRanking` owns the combined identity map; `FusionEntry` owns one discussion's evidence.
-//!
-//! Keyword summaries are inserted first and retained when the semantic source finds the same
-//! discussion. Semantic rank and cosine evidence travel together as `SemanticEvidence`. Results
-//! expose keyword provenance before semantic provenance, keeping their separate explanations.
-//!
-//! Ranking ties use stable thread identity, so hash-map iteration cannot change output order.
-//! Explicit created/updated sorting still retains fused scores and provenance. Truncation follows
-//! ordering; final pagination remains in `ranking`. This module performs no archive or provider
-//! I/O.
+//! Each source contributes its reciprocal rank rather than mixing a text score with cosine
+//! similarity. Keyword summaries are inserted first and kept when the semantic source finds the
+//! same discussion; provenance lists keyword before semantic evidence.
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use forgesync_core::identity::ThreadId;
 use forgesync_store::reads::ThreadSummary;
 
 use crate::inspect::ThreadSort;
-use crate::scoring::{ScoredThread, stable_thread_id_cmp};
+use crate::scoring::{ScoredThread, compare_ranked};
 use crate::search::{SearchHit, SearchProvenance};
 
 /// Rank smoothing constant shared by both sources; a first-place hit contributes `1 / 61`.
@@ -39,7 +29,15 @@ pub fn fuse_hybrid(
     ranking.add_keyword(keyword);
     ranking.add_semantic(semantic);
     let mut hits = ranking.into_hits();
-    hits.sort_by(|left, right| hit_order(left, right, sort));
+    hits.sort_by(|left, right| {
+        compare_ranked(
+            sort,
+            &left.summary,
+            left.score.unwrap_or_default(),
+            &right.summary,
+            right.score.unwrap_or_default(),
+        )
+    });
     hits.truncate(limit);
     hits
 }
@@ -137,27 +135,6 @@ struct SemanticEvidence {
     rank: u32,
     /// Original cosine score preserved for explanation, not added to the rank score.
     cosine_score: f64,
-}
-
-/// Orders by the requested primary field and then stable discussion identity.
-fn hit_order(left: &SearchHit, right: &SearchHit, sort: ThreadSort) -> Ordering {
-    let primary = match sort {
-        ThreadSort::Relevance => right
-            .score
-            .unwrap_or_default()
-            .total_cmp(&left.score.unwrap_or_default()),
-        ThreadSort::Updated => right
-            .summary
-            .discussion
-            .updated_at
-            .cmp(&left.summary.discussion.updated_at),
-        ThreadSort::Created => right
-            .summary
-            .discussion
-            .created_at
-            .cmp(&left.summary.discussion.created_at),
-    };
-    primary.then_with(|| stable_thread_id_cmp(&left.summary, &right.summary))
 }
 
 /// Converts a zero-based candidate position into the bounded one-based rank representation.

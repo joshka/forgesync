@@ -1,15 +1,7 @@
-//! # Coordinate semantic and hybrid retrieval
+//! Coordinate semantic and hybrid retrieval.
 //!
-//! This module acquires the candidate prefix required by a validated search window. Hybrid
-//! retrieval loads keyword candidates first so permitted fallback can reuse that work; semantic
-//! retrieval needs only vector evidence. Provider failures pass through the explicit fallback
-//! policy before any result page is constructed.
-//!
-//! `RankedSearch` keeps request interpretation and pagination together during projection. Its two
-//! named projections preserve cosine evidence or fuse source ranks, then page the ranked prefix.
-//! Coverage is read after successful semantic acquisition, matching the archive read ordering.
-//! Candidate scoring belongs to `semantic`, source merging to `fusion`, and pagination to
-//! `ranking`.
+//! Hybrid retrieval loads keyword candidates first so permitted fallback can reuse that work.
+//! Provider failures pass through the explicit fallback policy before any page is built.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_store::archive::Archive;
@@ -93,23 +85,16 @@ impl RankedSearch<'_> {
         .await
     }
 
-    /// Selects the named projection for the already-acquired evidence.
+    /// Fuses with keyword candidates when hybrid retrieval loaded them, else projects cosine hits.
     fn project(
         self,
         keyword: Option<KeywordCandidates>,
         semantic: Vec<ScoredThread>,
         coverage: Vec<FamilyCoverageSummary>,
     ) -> SearchResultPage {
-        match self.request.mode {
-            SearchMode::Semantic => self.semantic(semantic, coverage),
-            SearchMode::Hybrid => self.hybrid(
-                keyword.expect("hybrid mode loaded keyword candidates"),
-                semantic,
-                coverage,
-            ),
-            SearchMode::Keyword | SearchMode::AdvancedFts => {
-                unreachable!("ranked retrieval requires vector evidence")
-            }
+        match keyword {
+            Some(keyword) => self.hybrid(keyword, semantic, coverage),
+            None => self.semantic(semantic, coverage),
         }
     }
 

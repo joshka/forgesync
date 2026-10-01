@@ -1,14 +1,8 @@
-//! # Select sparse pairwise evidence
+//! Select sparse pairwise evidence.
 //!
-//! `CandidateEvidence` prepares references and title tokens once, scores eligible document pairs,
-//! and retains bounded neighbors. Its single scoring rule serves both neighbor selection and final
-//! edges. This keeps threshold, title support, and cross-kind safeguards consistent.
-//!
-//! `candidates` validates and orders input; `references` interprets explicit thread mentions;
-//! `components` applies cluster-size policy after edges are selected. Cancellation is checked
-//! during pair traversal. Selected edges are sorted deterministically before grouping.
-//!
-//! This is derived analysis over stored vectors, without archive writes or provider requests.
+//! One scoring rule serves neighbor selection, and selected edges reuse the scores computed then,
+//! so threshold, title support, and cross-kind safeguards cannot drift between phases. Chunk
+//! vectors are normalized once, making each pairwise cosine a dot product.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
@@ -21,7 +15,6 @@ use super::references::{
     MIN_TITLE_OVERLAP, deterministic_reference_edges, overlap_ratio, title_tokens,
 };
 use crate::error::EngineError;
-use crate::exact_search::cosine_similarity;
 
 /// Vector score above which same-kind edges need no additional title-token support.
 /// Cross-kind edges still need the independently configured cross-kind threshold.
@@ -34,6 +27,8 @@ const HIGH_CONFIDENCE_SCORE: f64 = 0.90;
 pub struct CandidateEvidence<'a> {
     /// Stable ordered vector/document snapshot shared by all pairwise indexes.
     documents: &'a [EmbeddingSearchDocument],
+    /// Unit-length chunk vectors per document; zero-magnitude chunks are omitted.
+    unit_chunks: Vec<Vec<Vec<f64>>>,
     /// Eligible explicit mention weights keyed by increasing source/target indexes.
     reference_edges: HashMap<(usize, usize), f64>,
     /// Precomputed title token sets in exactly the document snapshot order.
@@ -51,6 +46,16 @@ impl<'a> CandidateEvidence<'a> {
     ) -> Self {
         Self {
             documents,
+            unit_chunks: documents
+                .iter()
+                .map(|document| {
+                    document
+                        .chunks
+                        .iter()
+                        .filter_map(|chunk| unit_vector(chunk.vector.values()))
+                        .collect()
+                })
+                .collect(),
             reference_edges: deterministic_reference_edges(documents, repository),
             title_overlaps: documents
                 .iter()
@@ -67,21 +72,16 @@ impl<'a> CandidateEvidence<'a> {
     ) -> Result<Vec<CandidateEdge>, EngineError> {
         let neighbors = self.neighbors(cancellation)?;
         let mut selected =
-            HashSet::with_capacity(self.documents.len().saturating_mul(self.options.fanout));
+            HashMap::with_capacity(self.documents.len().saturating_mul(self.options.fanout));
         for (left, list) in neighbors.iter().enumerate() {
             for neighbor in list {
-                selected.insert((left.min(neighbor.node_index), left.max(neighbor.node_index)));
+                let key = (left.min(neighbor.node_index), left.max(neighbor.node_index));
+                selected.insert(key, neighbor.score);
             }
         }
         let mut edges = selected
             .into_iter()
-            .map(|(left, right)| CandidateEdge {
-                left,
-                right,
-                score: self
-                    .score(left, right)
-                    .expect("selected edge has a candidate score"),
-            })
+            .map(|((left, right), score)| CandidateEdge { left, right, score })
             .collect::<Vec<_>>();
         edges.sort_by(compare_edges);
         Ok(edges)
@@ -130,7 +130,7 @@ impl<'a> CandidateEvidence<'a> {
     /// Combines explicit references with similarity that satisfies title and kind safeguards.
     fn score(&self, left: usize, right: usize) -> Option<f64> {
         let similarity =
-            document_similarity(&self.documents[left], &self.documents[right]).filter(|score| {
+            max_dot(&self.unit_chunks[left], &self.unit_chunks[right]).filter(|score| {
                 *score >= self.options.threshold
                     && (*score >= HIGH_CONFIDENCE_SCORE
                         || overlap_ratio(&self.title_overlaps[left], &self.title_overlaps[right])
@@ -164,17 +164,32 @@ fn offer_neighbor(heap: &mut BinaryHeap<Neighbor>, candidate: Neighbor, capacity
     }
 }
 
-/// Scores compatible discussion vectors for a candidate edge.
-fn document_similarity(
-    left: &EmbeddingSearchDocument,
-    right: &EmbeddingSearchDocument,
-) -> Option<f64> {
-    left.chunks
+/// Scales a vector to unit length in f64, or `None` for zero magnitude.
+fn unit_vector(values: &[f32]) -> Option<Vec<f64>> {
+    let norm = values
         .iter()
-        .flat_map(|left_chunk| {
-            right.chunks.iter().filter_map(move |right_chunk| {
-                cosine_similarity(&left_chunk.vector, &right_chunk.vector)
-            })
+        .map(|&value| f64::from(value) * f64::from(value))
+        .sum::<f64>()
+        .sqrt();
+    (norm > 0.0).then(|| {
+        values
+            .iter()
+            .map(|&value| f64::from(value) / norm)
+            .collect()
+    })
+}
+
+/// Best cosine between any two equal-dimension unit chunks of two discussions.
+fn max_dot(left: &[Vec<f64>], right: &[Vec<f64>]) -> Option<f64> {
+    left.iter()
+        .flat_map(|left| {
+            right
+                .iter()
+                .filter(|right| right.len() == left.len())
+                .map(move |right| {
+                    let dot: f64 = left.iter().zip(right).map(|(l, r)| l * r).sum();
+                    dot.clamp(-1.0, 1.0)
+                })
         })
         .filter(|score| score.is_finite())
         .max_by(f64::total_cmp)

@@ -1,15 +1,4 @@
-//! # Ranked-candidate policy scenarios
-//!
-//! These tests establish best-chunk relevance, stable identity ties, positive-score filtering,
-//! and cancellation before candidate scoring. Construction fixtures supply fixed valid records,
-//! not expected ranking calculations. Equal timestamps mean these cases cover relevance rather
-//! than created/updated ordering.
-//!
-//! Ranking is called directly on constructed candidates. The fixture assigns stable provider
-//! identities and consecutive chunk coordinates without computing expected scores or ordering.
-//! Separate scenarios isolate best-chunk selection, identity ties, and zero-score exclusion.
-//! Cancellation is already signaled before entry; it does not simulate cancellation during work.
-//! Store hydration, model calls, and approximate retrieval are outside this unit boundary.
+//! Best-chunk relevance, stable identity ties, positive-score filtering, and cancellation.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::Coverage;
@@ -21,13 +10,13 @@ use forgesync_store::embeddings::{EmbeddingSearchDocument, StoredEmbeddingChunk}
 use forgesync_store::reads::{ThreadSort, ThreadSummary};
 use tokio_util::sync::CancellationToken;
 
-use crate::scoring::score_embedding_page;
+use crate::scoring::{ScoredThread, TopScored};
 
 #[test]
 fn relevance_uses_the_best_chunk_in_each_document() {
     let query = vector(&[1.0, 0.0]);
-    let results = score_embedding_page(
-        &query,
+    let results = rank(
+        query,
         vec![
             candidate(3, &[&[0.2, 0.8], &[1.0, 0.0]]),
             candidate(1, &[&[0.8, 0.6]]),
@@ -52,8 +41,8 @@ fn relevance_uses_the_best_chunk_in_each_document() {
 #[test]
 fn equal_scores_are_ordered_by_stable_identity() {
     let query = vector(&[1.0, 0.0]);
-    let results = score_embedding_page(
-        &query,
+    let results = rank(
+        query,
         vec![candidate(2, &[&[0.8, 0.6]]), candidate(1, &[&[0.8, 0.6]])],
         ThreadSort::Relevance,
         10,
@@ -70,8 +59,8 @@ fn equal_scores_are_ordered_by_stable_identity() {
 #[test]
 fn zero_similarity_candidates_are_excluded() {
     let query = vector(&[1.0, 0.0]);
-    let results = score_embedding_page(
-        &query,
+    let results = rank(
+        query,
         vec![candidate(1, &[&[0.0, 1.0]])],
         ThreadSort::Relevance,
         10,
@@ -86,8 +75,8 @@ fn zero_similarity_candidates_are_excluded() {
 fn already_cancelled_scoring_returns_cancellation() {
     let cancellation = CancellationToken::new();
     cancellation.cancel();
-    let error = score_embedding_page(
-        &vector(&[1.0, 0.0]),
+    let error = rank(
+        vector(&[1.0, 0.0]),
         vec![candidate(1, &[&[1.0, 0.0]])],
         ThreadSort::Relevance,
         10,
@@ -95,6 +84,19 @@ fn already_cancelled_scoring_returns_cancellation() {
     )
     .expect_err("cancelled ranking");
     assert_eq!(error.code(), "operation_cancelled");
+}
+
+/// Ranks one batch of documents through the bounded scorer.
+fn rank(
+    query: EmbeddingVector,
+    documents: Vec<EmbeddingSearchDocument>,
+    sort: ThreadSort,
+    limit: usize,
+    cancellation: &CancellationToken,
+) -> Result<Vec<ScoredThread>, crate::error::EngineError> {
+    let mut ranking = TopScored::new(query, sort, limit);
+    ranking.add(documents, cancellation)?;
+    Ok(ranking.finish().0)
 }
 
 /// Validates supplied components without normalizing or calculating expected similarity.
