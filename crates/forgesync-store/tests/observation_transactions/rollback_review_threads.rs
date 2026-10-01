@@ -47,13 +47,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     };
     archive
         .apply_thread_observation(
-            &thread_observation(
-                parent,
-                "2026-09-20T10:00:00Z",
-                "2026-09-20T10:00:00Z",
-                thread_sequence,
-                CollectionCompleteness::Complete,
-            ),
+            &thread_observation(parent, "2026-09-20T10:00:00Z", thread_sequence),
             None,
         )
         .await
@@ -66,7 +60,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
             ChildFamilyRequest {
                 thread: &thread_id,
                 family: EvidenceFamily::ReviewThreads,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:01Z"),
                 request_scope: "review threads",
             },
@@ -110,7 +104,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
             ChildFamilyRequest {
                 thread: &thread_id,
                 family: EvidenceFamily::ReviewThreads,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:03Z"),
                 request_scope: "review threads",
             },
@@ -178,7 +172,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .pull_request_family_is_current_for_head(
             &thread_id,
             EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &head,
         )
         .await
@@ -187,7 +181,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .pull_request_family_is_current_for_head(
             &thread_id,
             EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &replacement_head,
         )
         .await

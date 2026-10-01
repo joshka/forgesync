@@ -1,18 +1,8 @@
-//! # Parent replay and conflicting source evidence
+//! # Parent replay and conflicting payloads
 //!
-//! Independent cases cover exact replay, tied payload conflict, and incompatible malformed clocks.
-//! Rejection compares the specific error and checks that the entire canonical discussion remains
-//! unchanged. Archive creation, repository registration, reservation, and observation writes are
-//! explicit. Construction fixtures provide checked identities and payloads without executing
-//! transitions.
-//!
-//! The archive is on disk so committed state and transaction rollback are directly observable.
-//! Fixed clocks separate provider time, acquisition time, and durable sequence without live timing.
-//! Assertions describe this invariant rather than provider traversal or workflow scheduling.
-//! Scenario cleanup follows closure of archive and raw inspection handles.
+//! Rejection compares the specific error and checks that the canonical discussion is unchanged.
 
 use forgesync_core::identity::ThreadReference;
-use forgesync_core::observation::CollectionCompleteness;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::observations::ObservationDisposition;
@@ -39,9 +29,7 @@ async fn identical_observation_replay_preserves_canonical_content() {
     let observation = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "same"),
         "2026-09-20T10:00:00Z",
-        "2026-09-20T10:00:00Z",
         sequence,
-        CollectionCompleteness::Complete,
     );
 
     archive
@@ -59,7 +47,7 @@ async fn identical_observation_replay_preserves_canonical_content() {
         .thread_detail(&reference)
         .await
         .expect("read retained discussion");
-    assert_eq!(&current.summary.discussion, observation.payload());
+    assert_eq!(&current.summary.discussion, &observation.discussion);
     archive.close().await;
     remove_archive(&path);
 }
@@ -81,9 +69,7 @@ async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
     let observation = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "same"),
         "2026-09-20T10:00:00Z",
-        "2026-09-20T10:00:00Z",
         sequence,
-        CollectionCompleteness::Complete,
     );
 
     archive
@@ -93,9 +79,7 @@ async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
     let conflicting = thread_observation(
         discussion(&thread_id, "2026-09-20T10:00:00Z", "conflict"),
         "2026-09-20T10:00:00Z",
-        "2026-09-20T10:00:00Z",
         sequence,
-        CollectionCompleteness::Complete,
     );
     let rejected = archive.apply_thread_observation(&conflicting, None).await;
     assert!(matches!(rejected, Err(StoreError::ConflictingObservation)));
@@ -105,59 +89,7 @@ async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
         .thread_detail(&reference)
         .await
         .expect("read retained discussion");
-    assert_eq!(&current.summary.discussion, observation.payload());
-    archive.close().await;
-    remove_archive(&path);
-}
-
-#[tokio::test]
-async fn different_malformed_source_clocks_are_rejected_without_replacing_content() {
-    let path = temporary_archive_path();
-    let archive = Archive::create(&path).await.expect("create archive");
-    let repository = repository();
-    archive
-        .upsert_repository(&repository)
-        .await
-        .expect("register repository");
-    let thread_id = thread_id(&repository.id);
-    let first_sequence = archive
-        .reserve_observation_sequence(timestamp("2026-09-20T10:00:00Z"))
-        .await
-        .expect("reserve observation sequence");
-    let second_sequence = archive
-        .reserve_observation_sequence(timestamp("2026-09-20T10:00:01Z"))
-        .await
-        .expect("reserve observation sequence");
-    let first = thread_observation(
-        discussion(&thread_id, "2026-09-20T10:00:00Z", "first"),
-        "not-a-time-a",
-        "2026-09-20T10:00:00Z",
-        first_sequence,
-        CollectionCompleteness::Complete,
-    );
-    archive
-        .apply_thread_observation(&first, None)
-        .await
-        .expect("apply malformed source clock");
-    let second = thread_observation(
-        discussion(&thread_id, "2026-09-20T10:00:00Z", "second"),
-        "not-a-time-b",
-        "2026-09-20T10:00:01Z",
-        second_sequence,
-        CollectionCompleteness::Complete,
-    );
-    let rejected = archive.apply_thread_observation(&second, None).await;
-    assert!(matches!(
-        rejected,
-        Err(StoreError::AmbiguousObservationClocks { .. })
-    ));
-
-    let reference = ThreadReference::new(repository.id.clone(), thread_id.number());
-    let current = archive
-        .thread_detail(&reference)
-        .await
-        .expect("read retained discussion");
-    assert_eq!(&current.summary.discussion, first.payload());
+    assert_eq!(&current.summary.discussion, &observation.discussion);
     archive.close().await;
     remove_archive(&path);
 }

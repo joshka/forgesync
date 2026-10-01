@@ -15,10 +15,9 @@
 use std::time::Duration;
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
 use forgesync_store::clusters::{
@@ -46,14 +45,11 @@ async fn restoration_clears_dismissal_and_preserves_generated_membership() {
         .reserve_observation_sequence(at)
         .await
         .expect("reserve observation");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        discussion.clone(),
-        SourceClock::Valid(at),
-        at,
+    let observation = ThreadObservation {
+        discussion: discussion.clone(),
+        observed_at: at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await

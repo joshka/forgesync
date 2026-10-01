@@ -13,9 +13,15 @@ fn sequence(value: u64) -> ObservationSequence {
     ObservationSequence::new(value).expect("positive sequence")
 }
 
-/// Preserves valid, missing, and malformed source spellings as comparison inputs.
+/// Builds a stored source clock: absent is missing, unparseable text is invalid.
 fn clock(value: Option<&str>) -> SourceClock {
-    SourceClock::from_raw(value)
+    match value {
+        None => SourceClock::Missing,
+        Some(value) => forgesync_core::timestamp::UtcTimestamp::parse(value).map_or_else(
+            |_| SourceClock::Invalid(value.to_owned()),
+            SourceClock::Valid,
+        ),
+    }
 }
 
 #[test]

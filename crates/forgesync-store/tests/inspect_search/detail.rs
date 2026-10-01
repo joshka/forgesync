@@ -17,7 +17,7 @@
 use forgesync_core::content::{Comment, SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::{CommentId, ProviderId, ThreadNumber, ThreadReference};
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::{CollectionCompleteness, SourceClock, ThreadObservation};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::archive::Archive;
 use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
@@ -52,14 +52,11 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await
@@ -69,7 +66,7 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
             ChildFamilyRequest {
                 thread: &thread,
                 family: EvidenceFamily::Comments,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:01Z"),
                 request_scope: "GET /issues/9/comments",
             },

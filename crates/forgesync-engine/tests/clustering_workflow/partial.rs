@@ -2,10 +2,9 @@
 
 use std::time::Duration;
 
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_engine::clustering::{
     ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters, list_clusters,
 };
@@ -37,14 +36,11 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(first_updated)
         .await
         .expect("reserve first observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(first_updated),
-        first_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: first_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await
@@ -54,14 +50,11 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(second_updated)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(second_updated),
-        second_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: second_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await
@@ -151,14 +144,11 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(newer_update)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(newer_update),
-        newer_update,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: newer_update,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await

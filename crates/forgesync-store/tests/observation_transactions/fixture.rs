@@ -1,11 +1,8 @@
 //! Observation scenario value builders; shared path, pool, and lease helpers live in `common`.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::{ObservationSequence, ProviderId, RepositoryId, ThreadId};
-use forgesync_core::observation::{
-    CollectionCompleteness, IncompleteReason, Observation, SourceClock,
-};
+use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, ThreadObservation};
 use forgesync_core::provider_data::ProviderData;
 use forgesync_store::observations::StagedItem;
 
@@ -43,23 +40,17 @@ pub fn discussion(thread_id: &ThreadId, updated_at: &str, title: &str) -> Discus
     }
 }
 
-/// Constructs thread evidence while keeping source time, acquisition time, sequence, and
-/// completeness independently controlled by the scenario. No sequence is reserved here.
+/// Constructs complete thread evidence acquired at `observed_at` under `sequence`.
 pub fn thread_observation(
     discussion: Discussion,
-    source_clock: &str,
     observed_at: &str,
     sequence: ObservationSequence,
-    completeness: CollectionCompleteness,
-) -> Observation<Discussion> {
-    Observation::new(
-        EvidenceFamily::Threads,
+) -> ThreadObservation {
+    ThreadObservation {
         discussion,
-        SourceClock::from_raw(Some(source_clock)),
-        timestamp(observed_at),
+        observed_at: timestamp(observed_at),
         sequence,
-        completeness,
-    )
+    }
 }
 
 /// Marks a received collection as unfinished because pagination did not complete.

@@ -194,18 +194,9 @@ pub struct SourceClockColumns {
     pub unix_microseconds: Option<i64>,
 }
 
-/// Trims an invalid clock's spelling, treating a blank spelling as missing.
-pub fn normalize_source_clock(clock: &SourceClock) -> SourceClock {
-    match clock {
-        SourceClock::Invalid(raw) if raw.trim().is_empty() => SourceClock::Missing,
-        SourceClock::Invalid(raw) => SourceClock::Invalid(raw.trim().to_owned()),
-        clock => clock.clone(),
-    }
-}
-
-/// Splits a normalized source clock into its stored columns.
+/// Splits a source clock into its stored columns.
 pub fn source_clock_columns(clock: &SourceClock) -> SourceClockColumns {
-    match normalize_source_clock(clock) {
+    match clock {
         SourceClock::Missing => SourceClockColumns {
             state: "missing",
             raw: String::new(),
@@ -218,7 +209,7 @@ pub fn source_clock_columns(clock: &SourceClock) -> SourceClockColumns {
         },
         SourceClock::Invalid(raw) => SourceClockColumns {
             state: "invalid",
-            raw,
+            raw: raw.clone(),
             unix_microseconds: None,
         },
     }

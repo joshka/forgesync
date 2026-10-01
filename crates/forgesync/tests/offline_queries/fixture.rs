@@ -14,9 +14,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assert_cmd::Command;
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_core::provider_data::ProviderData;
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::archive::Archive;
@@ -71,14 +70,11 @@ pub async fn seed_archive(path: &PathBuf) {
     };
     archive
         .apply_thread_observation(
-            &Observation::new(
-                EvidenceFamily::Threads,
+            &ThreadObservation {
                 discussion,
-                SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-                updated_at,
+                observed_at: updated_at,
                 sequence,
-                CollectionCompleteness::Complete,
-            ),
+            },
             None,
         )
         .await

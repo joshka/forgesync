@@ -43,9 +43,7 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
             &thread_observation(
                 discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
                 "2026-09-20T10:00:00Z",
-                "2026-09-20T10:00:00Z",
                 thread_sequence,
-                CollectionCompleteness::Complete,
             ),
             None,
         )
@@ -56,7 +54,7 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
             ChildFamilyRequest {
                 thread: &thread_id,
                 family: EvidenceFamily::Comments,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:01Z"),
                 request_scope: "comments",
             },
@@ -98,7 +96,7 @@ async fn failed_membership_and_coverage_transaction_keeps_both_old_values() {
             ChildFamilyRequest {
                 thread: &thread_id,
                 family: EvidenceFamily::Comments,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:03Z"),
                 request_scope: "comments",
             },

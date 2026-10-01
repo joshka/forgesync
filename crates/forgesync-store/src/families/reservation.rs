@@ -16,8 +16,8 @@ use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::FamilyReservation;
 use crate::ordering::compare_observation_order;
 use crate::sql::{
-    family_name, normalize_source_clock, sequence_from_sql, source_clock_columns,
-    source_clock_from_columns, thread_row_id, to_sql_sequence,
+    family_name, sequence_from_sql, source_clock_columns, source_clock_from_columns, thread_row_id,
+    to_sql_sequence,
 };
 
 impl Archive {
@@ -45,8 +45,7 @@ impl Archive {
         }
 
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let source_clock = normalize_source_clock(source_clock);
-        let columns = source_clock_columns(&source_clock);
+        let columns = source_clock_columns(source_clock);
         let family = family_name(family);
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
@@ -78,12 +77,8 @@ impl Archive {
                     row.try_get("source_clock_us")?,
                 )?;
                 let current_sequence = sequence_from_sql(row.try_get("sequence")?)?;
-                compare_observation_order(
-                    &source_clock,
-                    sequence,
-                    &current_clock,
-                    current_sequence,
-                )? == Ordering::Greater
+                compare_observation_order(source_clock, sequence, &current_clock, current_sequence)?
+                    == Ordering::Greater
             }
         };
         if reserved {

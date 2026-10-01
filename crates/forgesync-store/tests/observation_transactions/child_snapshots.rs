@@ -48,13 +48,7 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
     };
     archive
         .apply_thread_observation(
-            &thread_observation(
-                parent,
-                "2026-09-20T10:00:00Z",
-                "2026-09-20T10:00:00Z",
-                thread_sequence,
-                CollectionCompleteness::Complete,
-            ),
+            &thread_observation(parent, "2026-09-20T10:00:00Z", thread_sequence),
             None,
         )
         .await
@@ -65,7 +59,7 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
             ChildFamilyRequest {
                 thread: &thread_id,
                 family,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:05Z"),
                 request_scope: "fixture empty snapshot",
             },
@@ -112,7 +106,7 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
         .pull_request_family_is_current_for_head(
             &thread_id,
             family,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &review_head,
         )
         .await
@@ -123,7 +117,7 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
         .pull_request_family_is_current_for_head(
             &thread_id,
             family,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &other_head,
         )
         .await

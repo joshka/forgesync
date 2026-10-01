@@ -15,7 +15,7 @@ use std::num::NonZeroU32;
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 
@@ -52,14 +52,11 @@ async fn repository_scoped_search_paginates_by_updated_time() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await
@@ -77,14 +74,11 @@ async fn repository_scoped_search_paginates_by_updated_time() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await
@@ -102,14 +96,11 @@ async fn repository_scoped_search_paginates_by_updated_time() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
         .apply_thread_observation(&observation, None)
         .await

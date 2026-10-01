@@ -60,8 +60,6 @@ pub enum StoreError {
     ThreadMissing,
     #[error("unsupported observation family: {0}")]
     UnsupportedObservationFamily(String),
-    #[error("observation family does not match the operation")]
-    ObservationFamilyMismatch,
     #[error("observation identity or sequence is outside the SQLite integer range")]
     IntegerOutOfRange,
     #[error("source clock is invalid: {0}")]
@@ -172,7 +170,6 @@ impl StoreError {
             Self::RepositoryMissing => "repository_missing",
             Self::ThreadMissing => "thread_missing",
             Self::UnsupportedObservationFamily(_) => "observation_family_unsupported",
-            Self::ObservationFamilyMismatch => "observation_family_mismatch",
             Self::IntegerOutOfRange => "observation_integer_out_of_range",
             Self::InvalidSourceClock(_) => "observation_source_clock_invalid",
             Self::AmbiguousObservationClocks { .. } => "observation_clock_ambiguous",

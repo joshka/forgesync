@@ -11,8 +11,7 @@
 //! The optional fence is checked by each store write; it does not change ordering or content
 //! semantics. Each observation and cursor write retains its independent transaction boundary.
 
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::leases::ArchiveLeaseToken;
@@ -57,15 +56,11 @@ impl ScanPersistence<'_> {
     ) -> Result<(), EngineError> {
         let context = self.context;
         for discussion in discussions {
-            let source_clock = SourceClock::Valid(discussion.updated_at);
-            let observation = Observation::new(
-                EvidenceFamily::Threads,
+            let observation = ThreadObservation {
                 discussion,
-                source_clock,
-                context.started_at,
-                context.sequence,
-                CollectionCompleteness::Complete,
-            );
+                observed_at: context.started_at,
+                sequence: context.sequence,
+            };
             self.archive
                 .apply_thread_observation(&observation, self.lease)
                 .await?;

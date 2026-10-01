@@ -43,9 +43,7 @@ async fn replaying_a_staged_page_preserves_complete_membership() {
             &thread_observation(
                 discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
                 "2026-09-20T10:00:00Z",
-                "2026-09-20T10:00:00Z",
                 thread_sequence,
-                CollectionCompleteness::Complete,
             ),
             None,
         )
@@ -57,7 +55,7 @@ async fn replaying_a_staged_page_preserves_complete_membership() {
             ChildFamilyRequest {
                 thread: &thread_id,
                 family: EvidenceFamily::Comments,
-                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
                 started_at: timestamp("2026-09-20T10:00:01Z"),
                 request_scope: "GET /issues/1/comments",
             },
