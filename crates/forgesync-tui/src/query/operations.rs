@@ -45,16 +45,16 @@ impl Operation {
 impl QueryDispatch<'_> {
     /// Spawns the writer unless one is already running.
     pub(super) fn start_operation(&mut self, operation: Operation, app: &mut App) {
-        let Some(generation) = app.begin_operation(operation.label()) else {
+        if !app.begin_operation(operation.label()) {
             return;
-        };
+        }
         let archive = Arc::clone(self.archive);
         let clients = Arc::clone(self.clients);
         let sender = self.sender.clone();
         let cancellation = CancellationToken::new();
         let operation_cancellation = cancellation.clone();
         let handle = self.runtime.spawn(async move {
-            let progress = ProgressForwarder::start(generation, sender.clone());
+            let progress = ProgressForwarder::start(sender.clone());
             let result = execute(
                 &operation,
                 &archive,
@@ -65,9 +65,7 @@ impl QueryDispatch<'_> {
             .await;
             // Buffered progress must reach the app before the terminal result.
             progress.finish().await;
-            let _ = sender
-                .send(QueryMessage::OperationFinished { generation, result })
-                .await;
+            let _ = sender.send(QueryMessage::OperationFinished(result)).await;
         });
         self.tasks.track_operation(handle, cancellation);
     }

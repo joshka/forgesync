@@ -1,7 +1,7 @@
 //! Applying background results and coordinating transitions that span panels.
 
-use super::App;
 use super::messages::QueryMessage;
+use super::{App, RunningOperation};
 use crate::query::{QueryAction, Read};
 
 impl App {
@@ -85,14 +85,14 @@ impl App {
                     pane.loaded();
                 }
             }
-            QueryMessage::OperationProgress {
-                generation,
-                progress,
-            } => self.operation.update_progress(generation, progress),
-            QueryMessage::OperationFinished { generation, result } => {
-                if let Some(finished) = self.operation.finish(generation, result) {
-                    *status = Some(finished);
+            QueryMessage::OperationProgress(progress) => {
+                if let Some(operation) = &mut self.operation {
+                    operation.progress = Some(progress);
                 }
+            }
+            QueryMessage::OperationFinished(result) => {
+                self.operation = None;
+                *status = Some(result.unwrap_or_else(|error| format!("Failed: {error}")));
             }
         }
     }
@@ -104,10 +104,16 @@ impl App {
         self.thread_list.begin()
     }
 
-    /// Reserves the single writer slot; `None` while another operation runs.
-    pub fn begin_operation(&mut self, label: &str) -> Option<u64> {
-        let generation = self.operation.begin(label)?;
-        self.status = Some(format!("Starting {label}…"));
-        Some(generation)
+    /// Reserves the single writer slot; `false` while another operation runs.
+    pub fn begin_operation(&mut self, label: &'static str) -> bool {
+        if self.operation.is_some() {
+            return false;
+        }
+        self.operation = Some(RunningOperation {
+            label,
+            progress: None,
+            cancelling: false,
+        });
+        true
     }
 }

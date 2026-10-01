@@ -158,8 +158,8 @@ impl App {
 
     /// Quitting with a running writer requests cancellation and waits for its result instead.
     fn request_quit(&mut self) -> Vec<QueryAction> {
-        if self.operation.busy() {
-            self.status = Some("Cancellation requested; waiting for the active action…".to_owned());
+        if let Some(operation) = &mut self.operation {
+            operation.cancelling = true;
             vec![QueryAction::CancelOperation]
         } else {
             self.quit = true;

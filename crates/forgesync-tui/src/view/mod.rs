@@ -71,14 +71,14 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let text = if app.searching {
         format!(" Search: {}▏  Enter search · Esc cancel", app.search_input)
-    } else if app.operation.busy() {
-        let label = app.operation.label().unwrap_or("action");
-        let cancel_hint = app
-            .status
-            .as_deref()
-            .filter(|status| status.starts_with("Cancellation requested"))
-            .unwrap_or("q cancel");
-        if let Some(progress) = app.operation.progress() {
+    } else if let Some(operation) = &app.operation {
+        let label = operation.label;
+        let cancel_hint = if operation.cancelling {
+            "Cancellation requested; waiting for the active action…"
+        } else {
+            "q cancel"
+        };
+        if let Some(progress) = &operation.progress {
             format!(
                 " {label} · {:?} · {}/{} jobs · {} threads · {} comments · {} · {cancel_hint}",
                 progress.status,

@@ -99,7 +99,7 @@ impl<'a> EventLoop<'a> {
     /// Applies available results before drawing, refreshing panels after operation completion.
     fn drain_messages(&mut self) {
         while let Ok(message) = self.receiver.try_recv() {
-            let operation_finished = matches!(message, QueryMessage::OperationFinished { .. });
+            let operation_finished = matches!(message, QueryMessage::OperationFinished(_));
             self.app.apply(message);
             if operation_finished {
                 let actions = self.app.refresh_after_operation();

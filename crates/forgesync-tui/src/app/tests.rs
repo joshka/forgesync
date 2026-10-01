@@ -11,7 +11,6 @@ use ratatui::widgets::ListState;
 
 use crate::app::loadable::Loadable;
 use crate::app::messages::QueryMessage;
-use crate::app::operation::{OperationDisplay, OperationState};
 use crate::app::panels::{ClusterList, FailureList, RepositoryPicker};
 use crate::app::test_data::{loaded_cluster_detail_pane, sample_cluster_detail, sample_repository};
 use crate::app::{App, Focus, Screen};
@@ -315,27 +314,36 @@ fn retry_targets_the_selected_failed_run() {
 }
 
 #[test]
+fn second_writer_is_refused_while_one_runs() {
+    let mut app = App::default();
+
+    assert!(app.begin_operation("sync"));
+    assert!(!app.begin_operation("refresh"));
+
+    assert_eq!(
+        app.operation.as_ref().map(|operation| operation.label),
+        Some("sync")
+    );
+}
+
+#[test]
 fn quit_cancels_active_action_and_failed_result_stays_visible() {
-    let mut app = App {
-        operation: OperationDisplay {
-            generation: 4,
-            state: OperationState::Running {
-                label: "sync".to_owned(),
-                progress: None,
-            },
-        },
-        ..App::default()
-    };
+    let mut app = App::default();
+    app.begin_operation("sync");
 
     let action = app.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
     assert!(matches!(action.as_slice(), [QueryAction::CancelOperation]));
     assert!(!app.quit);
+    assert!(
+        app.operation
+            .as_ref()
+            .is_some_and(|operation| operation.cancelling)
+    );
 
-    app.apply(QueryMessage::OperationFinished {
-        generation: 4,
-        result: Err("archive writer lease is held".to_owned()),
-    });
-    assert!(!app.operation.busy());
+    app.apply(QueryMessage::OperationFinished(Err(
+        "archive writer lease is held".to_owned(),
+    )));
+    assert!(app.operation.is_none());
     assert_eq!(
         app.status.as_deref(),
         Some("Failed: archive writer lease is held")
@@ -345,17 +353,7 @@ fn quit_cancels_active_action_and_failed_result_stays_visible() {
 }
 
 #[test]
-fn stale_operation_progress_cannot_replace_current_progress() {
-    let mut app = App {
-        operation: OperationDisplay {
-            generation: 3,
-            state: OperationState::Running {
-                label: "sync".to_owned(),
-                progress: None,
-            },
-        },
-        ..App::default()
-    };
+fn progress_updates_only_a_running_operation() {
     let progress = SyncProgress {
         run_id: RunId::new(1).expect("positive run ID"),
         completed_jobs: 1,
@@ -368,10 +366,13 @@ fn stale_operation_progress_cannot_replace_current_progress() {
         repository: Some("https://github.com/owner/repo".to_owned()),
         status: SyncProgressStatus::InProgress,
     };
+    let mut app = App::default();
 
-    app.apply(QueryMessage::OperationProgress {
-        generation: 2,
-        progress,
-    });
-    assert!(app.operation.progress().is_none());
+    app.apply(QueryMessage::OperationProgress(progress.clone()));
+    assert!(app.operation.is_none());
+
+    app.begin_operation("sync");
+    app.apply(QueryMessage::OperationProgress(progress.clone()));
+    let running = app.operation.as_ref().expect("running operation");
+    assert_eq!(running.progress.as_ref(), Some(&progress));
 }

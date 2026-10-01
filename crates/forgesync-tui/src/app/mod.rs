@@ -3,6 +3,7 @@
 //! Input methods (`input`) return [`QueryAction`](crate::query::QueryAction)s for the event loop
 //! to dispatch; `state` applies their results. Drawing only reads this state.
 
+use forgesync_engine::sync::SyncProgress;
 use forgesync_store::reads::ArchiveStatus;
 
 /// Discussion page size used for previous-page offsets.
@@ -38,7 +39,8 @@ pub struct App {
     pub failure_list: panels::FailureList,
     pub cluster_list: panels::ClusterList,
     pub cluster_detail_pane: panels::ClusterDetailPane,
-    pub operation: operation::OperationDisplay,
+    /// The single running writer; shown in the footer in place of `status`.
+    pub operation: Option<RunningOperation>,
     /// Submitted keyword query applied to thread reads.
     pub search_query: Option<String>,
     /// Unsubmitted search text; editing it does not change results.
@@ -50,10 +52,17 @@ pub struct App {
     pub quit: bool,
 }
 
+#[derive(Debug)]
+pub struct RunningOperation {
+    pub label: &'static str,
+    pub progress: Option<SyncProgress>,
+    /// Set once quitting has requested cancellation.
+    pub cancelling: bool,
+}
+
 mod input;
 pub mod loadable;
 pub mod messages;
-pub mod operation;
 pub mod panels;
 mod state;
 

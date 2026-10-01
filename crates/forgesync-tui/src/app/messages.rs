@@ -41,12 +41,10 @@ pub enum QueryMessage {
         result: Result<Box<ClusterDetail>, String>,
     },
     /// Advisory counters from the running writer; never implies success.
-    OperationProgress {
-        generation: u64,
-        progress: SyncProgress,
-    },
-    OperationFinished {
-        generation: u64,
-        result: Result<String, String>,
-    },
+    ///
+    /// Writer messages need no generation: a second writer cannot start until the first one's
+    /// `OperationFinished` is applied, and its progress is drained into this ordered channel
+    /// before that message is sent.
+    OperationProgress(SyncProgress),
+    OperationFinished(Result<String, String>),
 }
