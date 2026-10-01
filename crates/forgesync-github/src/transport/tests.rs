@@ -1,10 +1,4 @@
-//! # HTTP retry and credential behavior
-//!
-//! These tests use a local mock server to establish which failures are retryable, which are
-//! terminal, and when a provider wait exceeds the available budget. They also observe bearer-token
-//! handling on requests. Retry policy belongs at transport rather than in sync jobs because all
-//! GitHub resources share it. Keep status and timing expectations explicit when changing backoff
-//! or rate-limit behavior.
+//! HTTP retry, redirect, and credential behavior against a local mock server.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -33,14 +27,13 @@ impl Respond for RetryThenSuccess {
             ResponseTemplate::new(503).set_body_json(serde_json::json!({"message": "retry"}))
         } else {
             ResponseTemplate::new(200)
-                .insert_header("Link", "<?page=2>; title=\"next, page\"; rel=\"next\"")
+                .insert_header("Link", "<?page=1>; rel=\"prev\", <?page=2>; rel=\"next\"")
                 .set_body_json(serde_json::json!({"message": "ok"}))
         }
     }
 }
 
 /// Loopback configuration with three immediate attempts inside a two-second retry budget.
-/// Client construction and requests remain explicit in each scenario; this only prepares settings.
 fn config(server: &MockServer) -> GitHubClientConfig {
     let mut config = ClientConfig::new(Url::parse(&format!("{}/", server.uri())).unwrap());
     config.retry = RetryPolicy {
@@ -99,8 +92,9 @@ async fn generic_forbidden_response_is_not_retried() {
 
     assert_eq!(
         client
-            .get_json::<Message>(&url, &CancellationToken::new())
-            .await,
+            .get_json_page::<Message>(&url, &CancellationToken::new())
+            .await
+            .map(|page| page.value),
         Err(GitHubError::Api {
             status: 403,
             kind: ApiFailureKind::PermissionDenied
@@ -128,8 +122,9 @@ async fn provider_wait_beyond_budget_is_reported_as_deferred() {
 
     assert_eq!(
         client
-            .get_json::<Message>(&url, &CancellationToken::new())
-            .await,
+            .get_json_page::<Message>(&url, &CancellationToken::new())
+            .await
+            .map(|page| page.value),
         Err(GitHubError::Deferred {
             retry_after: Some(std::time::Duration::from_secs(20))
         })
@@ -151,9 +146,10 @@ async fn generic_rate_limit_403_retries_but_permission_403_does_not() {
 
     assert_eq!(
         client
-            .get_json::<Message>(&url, &CancellationToken::new())
+            .get_json_page::<Message>(&url, &CancellationToken::new())
             .await
-            .unwrap(),
+            .unwrap()
+            .value,
         Message {
             message: "ok".to_owned()
         }
@@ -203,8 +199,9 @@ async fn cross_origin_redirect_is_rejected_without_contacting_destination() {
 
     assert_eq!(
         client
-            .get_json::<Message>(&url, &CancellationToken::new())
-            .await,
+            .get_json_page::<Message>(&url, &CancellationToken::new())
+            .await
+            .map(|page| page.value),
         Err(GitHubError::UntrustedOrigin)
     );
 }
@@ -239,9 +236,10 @@ async fn same_origin_redirect_can_follow_a_renamed_repository() {
 
     assert_eq!(
         client
-            .get_json::<Message>(&url, &CancellationToken::new())
+            .get_json_page::<Message>(&url, &CancellationToken::new())
             .await
             .unwrap()
+            .value
             .message,
         "renamed"
     );
@@ -257,10 +255,7 @@ async fn endpoint_paths_keep_enterprise_base_paths_and_encode_segments() {
         .endpoint_url(&["repos", "owner name", "repo"])
         .unwrap();
     assert_eq!(endpoint.path(), "/api/v3/repos/owner%20name/repo");
-    assert_eq!(
-        client.graphql_endpoint_url().unwrap().path(),
-        "/api/graphql"
-    );
+    assert_eq!(client.graphql_endpoint_url().path(), "/api/graphql");
 }
 
 #[tokio::test]
@@ -269,37 +264,49 @@ async fn public_graphql_endpoint_uses_the_configured_origin() {
     let base_url = Url::parse(&format!("{}/", server.uri())).unwrap();
     let client = GitHubClient::new(ClientConfig::new(base_url), None).unwrap();
 
-    let graphql = client.graphql_endpoint_url().unwrap();
+    let graphql = client.graphql_endpoint_url();
     assert_eq!(graphql.origin().ascii_serialization(), server.uri());
     assert_eq!(graphql.path(), "/graphql");
 }
 
 #[tokio::test]
-async fn pagination_destination_must_match_the_api_origin() {
+async fn untrusted_continuation_is_rejected_before_any_request() {
     let server = MockServer::start().await;
-    let client = GitHubClient::new(config(&server), None).unwrap();
-    let trusted = Url::parse(&format!(
-        "{}/repos/example/repo/issues?page=2",
-        server.uri()
-    ))
+    let client = GitHubClient::new(
+        config(&server),
+        Some(GitHubToken::new("test-secret").unwrap()),
+    )
     .unwrap();
     let untrusted = Url::parse("https://example.invalid/page/2").unwrap();
 
-    assert!(client.validate_destination(&trusted).is_ok());
-    assert_eq!(
-        client.validate_destination(&untrusted),
-        Err(GitHubError::UntrustedOrigin)
-    );
     assert_eq!(
         client
-            .resolve_pagination_url(&trusted, "?page=3")
-            .unwrap()
-            .query(),
-        Some("page=3")
-    );
-    assert_eq!(
-        client.resolve_pagination_url(&trusted, "https://example.invalid/page/3"),
+            .get_json_page::<Message>(&untrusted, &CancellationToken::new())
+            .await
+            .map(|page| page.value),
         Err(GitHubError::UntrustedOrigin)
+    );
+}
+
+#[tokio::test]
+async fn redirect_loop_is_rejected_after_the_hop_limit() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/loop"))
+        .respond_with(
+            ResponseTemplate::new(302).insert_header("Location", format!("{}/loop", server.uri())),
+        )
+        .mount(&server)
+        .await;
+    let client = GitHubClient::new(config(&server), None).unwrap();
+    let url = Url::parse(&format!("{}/loop", server.uri())).unwrap();
+
+    assert_eq!(
+        client
+            .get_json_page::<Message>(&url, &CancellationToken::new())
+            .await
+            .map(|page| page.value),
+        Err(GitHubError::RedirectRejected)
     );
 }
 
@@ -321,8 +328,9 @@ async fn cancellation_interrupts_an_in_flight_request() {
     let request_cancellation = cancellation.clone();
     let request = tokio::spawn(async move {
         client
-            .get_json::<Message>(&url, &request_cancellation)
+            .get_json_page::<Message>(&url, &request_cancellation)
             .await
+            .map(|page| page.value)
     });
     tokio::time::sleep(std::time::Duration::from_millis(40)).await;
     cancellation.cancel();

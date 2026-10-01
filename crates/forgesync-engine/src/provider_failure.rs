@@ -42,7 +42,6 @@ pub fn github_failure(error: &GitHubError) -> Failure {
         | GitHubError::ResponseTooLarge
         | GitHubError::InvalidJson
         | GitHubError::GraphqlErrors { .. }
-        | GitHubError::ConcurrencyUnavailable
         | GitHubError::InvalidApiBaseUrl
         | GitHubError::InvalidConfiguration
         | GitHubError::ClientInitialization => FailureKind::ProviderResponse,

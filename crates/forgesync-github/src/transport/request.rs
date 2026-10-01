@@ -1,14 +1,4 @@
-//! # Run a budgeted provider request
-//!
-//! `ProviderRequest` binds immutable request data to the client and cancellation scope. Its loop
-//! owns the retry budget; attempt and wait methods expose the phases that consume that budget.
-//! A single attempt retains its concurrency permit through redirects and response-body reading.
-//!
-//! Redirect traversal validates every destination before adding credentials. It detects cycles,
-//! bounds hops, and validates pagination metadata before returning a body. Retry policy can then
-//! distinguish terminal failures, retryable failures, and deferrals without interpreting payloads.
-//!
-//! `client` constructs the trusted transport; resource modules decode the returned typed JSON.
+//! Budgeted request loop: permits, attempts, retry waits, and bounded body reading.
 
 use std::time::Instant;
 
@@ -23,27 +13,23 @@ use crate::error::GitHubError;
 use crate::transport::pagination::next_page_from_headers;
 use crate::transport::response::{
     ResponseBody, acquire_request_slot, classify_api_response, classify_transport_error, read_body,
-    redirect_target,
 };
 use crate::transport::retry::retry_backoff;
 use crate::transport::{
-    BodyReadError, GitHubClient, GitHubResponse, MAX_REDIRECTS, MAX_SUCCESS_BODY_BYTES,
-    RequestFailure,
+    BodyReadError, GitHubClient, GitHubResponse, MAX_SUCCESS_BODY_BYTES, RequestFailure,
 };
 
 /// Immutable request data shared by all budgeted attempts.
 pub struct ProviderRequest<'a> {
-    /// Shared configured transport whose origin, retry policy, and concurrency bound apply.
     pub client: &'a GitHubClient,
-    /// Initial destination validated against the client origin before any authorization is sent.
+    /// Destination already validated against the client origin.
     pub url: &'a Url,
-    /// HTTP method retained across the bounded request attempt sequence.
     pub method: Method,
-    /// Optional already encoded JSON body, borrowed for repeated attempts.
+    /// Encoded JSON body, borrowed for repeated attempts.
     pub body: Option<&'a [u8]>,
-    /// Caller cancellation scope observed while waiting for permits, requests, and retries.
     pub cancellation: &'a CancellationToken,
 }
+
 impl ProviderRequest<'_> {
     /// Retries within the configured budget and decodes the first successful response.
     pub async fn run<T: DeserializeOwned>(&self) -> Result<GitHubResponse<T>, GitHubError> {
@@ -62,9 +48,7 @@ impl ProviderRequest<'_> {
                 return Err(GitHubError::Deferred { retry_after: None });
             }
 
-            let outcome = self.attempt(remaining, attempt).await?;
-
-            match outcome {
+            match self.attempt(remaining, attempt).await? {
                 Ok(response) => return response.decode(),
                 Err(failure) if failure.retryable => {
                     self.wait_to_retry(failure, attempt, start).await?;
@@ -76,7 +60,7 @@ impl ProviderRequest<'_> {
         Err(GitHubError::Deferred { retry_after: None })
     }
 
-    /// Acquires a slot and bounds a single attempt, including trusted redirects.
+    /// Acquires a slot and bounds a single attempt within the remaining budget.
     async fn attempt(
         &self,
         remaining: std::time::Duration,
@@ -147,53 +131,30 @@ impl ProviderRequest<'_> {
         Ok(())
     }
 
-    /// Holds the permit through redirect traversal and bounded response reading.
+    /// Holds the permit through the request, client-followed redirects, and body reading.
     async fn perform_once(
         &self,
         _permit: OwnedSemaphorePermit,
     ) -> Result<ResponseBody, RequestFailure> {
-        let mut current_url = self.url.clone();
-        let mut visited = std::collections::HashSet::new();
-        for redirect_count in 0..=MAX_REDIRECTS {
-            if !visited.insert(current_url.as_str().to_owned()) {
-                return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
-            }
-            self.client
-                .origin
-                .validate(&current_url)
-                .map_err(RequestFailure::terminal)?;
-            let response = self.send(&current_url).await?;
-            let status = response.status();
-            tracing::debug!(
-                status = status.as_u16(),
-                redirect_count,
-                "GitHub response received"
-            );
+        let response = self.send().await?;
+        let status = response.status();
+        tracing::debug!(status = status.as_u16(), "GitHub response received");
 
-            if status.is_redirection() {
-                if redirect_count == MAX_REDIRECTS {
-                    return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
-                }
-                current_url = redirect_target(&response, &self.client.origin)
-                    .map_err(RequestFailure::terminal)?;
-                continue;
-            }
-            if !status.is_success() {
-                return classify_api_response(response, status).await;
-            }
-
-            return self.read_success(response).await;
+        // The redirect policy follows trusted redirects; one left here had no usable Location.
+        if status.is_redirection() {
+            return Err(RequestFailure::terminal(GitHubError::RedirectRejected));
         }
-
-        Err(RequestFailure::terminal(GitHubError::RedirectRejected))
+        if !status.is_success() {
+            return classify_api_response(response, status).await;
+        }
+        self.read_success(response).await
     }
 
-    /// Sends credentials only after the traversal has validated the destination origin.
-    async fn send(&self, current_url: &Url) -> Result<reqwest::Response, RequestFailure> {
+    async fn send(&self) -> Result<reqwest::Response, RequestFailure> {
         let mut request = self
             .client
             .http
-            .request(self.method.clone(), current_url.clone())
+            .request(self.method.clone(), self.url.clone())
             .header(ACCEPT, "application/vnd.github+json")
             .header(USER_AGENT, "forgesync");
         if let Some(body) = self.body {
@@ -211,14 +172,13 @@ impl ProviderRequest<'_> {
         }
     }
 
-    /// Validates pagination metadata and reads a bounded successful response body.
+    /// Parses pagination metadata and reads a bounded successful response body.
     async fn read_success(
         &self,
         response: reqwest::Response,
     ) -> Result<ResponseBody, RequestFailure> {
-        let next_page =
-            next_page_from_headers(response.url(), response.headers(), &self.client.origin)
-                .map_err(RequestFailure::terminal)?;
+        let next_page = next_page_from_headers(response.url(), response.headers())
+            .map_err(RequestFailure::terminal)?;
         let body =
             read_body(response, MAX_SUCCESS_BODY_BYTES)
                 .await

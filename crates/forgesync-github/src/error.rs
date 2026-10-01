@@ -1,17 +1,7 @@
 //! Typed failures at the provider and transport boundary.
 //!
-//! [`GitHubError`] distinguishes configuration, origin, transport, HTTP, pagination, GraphQL, and
-//! provider-data failures. [`ApiFailureKind`] classifies an API response for retry and reporting
-//! without requiring callers to inspect response text.
-//!
-//! The transport creates errors from requests and responses; resource modules add context when a
-//! provider payload lacks required fields or violates a relationship. The engine turns these
-//! errors into structured family failures and partial run reports. A failure after earlier pages
-//! have been committed does not imply that the whole run had no useful result.
-//!
-//! Error values deliberately avoid storing credentials, headers, discussion bodies, or raw
-//! payloads. Match variants or categories when making a retry decision; displayed messages are
-//! diagnostics, not a stable machine protocol.
+//! Error values never store credentials, headers, discussion bodies, or raw payloads. Match
+//! variants when making a retry decision; displayed messages are diagnostics only.
 
 use std::time::Duration;
 
@@ -37,7 +27,7 @@ pub enum ApiFailureKind {
 }
 
 /// Provider transport and API failures without response payloads or credentials.
-#[derive(Debug, Error, Eq, PartialEq)]
+#[derive(Clone, Debug, Error, Eq, PartialEq)]
 pub enum GitHubError {
     /// The operation was cancelled by its caller.
     #[error("GitHub request was cancelled")]
@@ -62,14 +52,14 @@ pub enum GitHubError {
         /// Delay requested by GitHub, when supplied.
         retry_after: Option<Duration>,
     },
-    /// A request or pagination link points outside the configured API origin.
+    /// A request or redirect points outside the configured API origin.
     #[error("GitHub URL is outside the configured API origin")]
     UntrustedOrigin,
     /// A GitHub pagination Link header cannot be parsed safely.
     #[error("GitHub pagination link is invalid")]
     InvalidPaginationLink,
-    /// The provider returned a redirect which must be followed explicitly after validation.
-    #[error("GitHub redirected the request; validate the destination and retry explicitly")]
+    /// A redirect exceeded the hop limit or had no usable destination.
+    #[error("GitHub redirect was rejected")]
     RedirectRejected,
     /// A successful API response exceeded the local response size limit.
     #[error("GitHub response exceeded the configured body limit")]
@@ -86,9 +76,6 @@ pub enum GitHubError {
     /// Provider data could not be normalized into the selected core model.
     #[error("GitHub response contains invalid provider data")]
     InvalidProviderData,
-    /// The configured request concurrency limit could not be acquired.
-    #[error("GitHub request capacity is unavailable")]
-    ConcurrencyUnavailable,
     /// The API base URL was invalid or unsafe.
     #[error("GitHub API base URL must be HTTPS (loopback HTTP is allowed for local fixtures)")]
     InvalidApiBaseUrl,

@@ -218,7 +218,6 @@ fn github_error_code(error: &GitHubError) -> &'static str {
         GitHubError::InvalidJson => "github_response_invalid_json",
         GitHubError::GraphqlErrors { .. } => "github_graphql_errors",
         GitHubError::InvalidProviderData => "github_provider_data_invalid",
-        GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
         GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
         GitHubError::InvalidConfiguration => "github_configuration_invalid",
         GitHubError::ClientInitialization => "github_client_initialization_failed",

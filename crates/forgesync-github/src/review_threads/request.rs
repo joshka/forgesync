@@ -85,7 +85,7 @@ impl<V: Serialize> GraphqlRequest<'_, V> {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let url = client.graphql_endpoint_url()?;
+        let url = client.graphql_endpoint_url();
         let body = serde_json::to_vec(self).map_err(|_| GitHubError::InvalidProviderData)?;
         let response: GraphqlEnvelope<T> = client.post_json(&url, &body, cancellation).await?;
         if !response.errors.is_empty() {

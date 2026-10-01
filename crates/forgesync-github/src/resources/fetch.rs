@@ -50,7 +50,7 @@ pub async fn fetch_repository(
     cancellation: &CancellationToken,
 ) -> Result<Repository, GitHubError> {
     let url = client.endpoint_url(&["repos", owner, name])?;
-    let response: RestRepository = client.get_json(&url, cancellation).await?;
+    let response: RestRepository = client.get_json_page(&url, cancellation).await?.value;
     normalize_repository(host, response)
 }
 
@@ -100,10 +100,7 @@ pub async fn fetch_thread_page_in_scope(
     cancellation: &CancellationToken,
 ) -> Result<RestThreadPage, GitHubError> {
     let url = match next_page {
-        Some(url) => {
-            client.validate_destination(url)?;
-            url.clone()
-        }
+        Some(url) => url.clone(),
         None => initial_thread_list_url(client, repository, state, since)?,
     };
     let response: GitHubResponse<Vec<RestIssue>> = client.get_json_page(&url, cancellation).await?;
@@ -141,10 +138,7 @@ pub async fn fetch_issue_comment_page(
         return Err(GitHubError::InvalidProviderData);
     }
     let url = match next_page {
-        Some(url) => {
-            client.validate_destination(url)?;
-            url.clone()
-        }
+        Some(url) => url.clone(),
         None => initial_issue_comment_url(client, repository, thread)?,
     };
     let response: GitHubResponse<Vec<RestComment>> =
@@ -184,7 +178,7 @@ pub async fn fetch_pull_request_metadata(
         "pulls",
         &number,
     ])?;
-    let response: RestPullRequest = client.get_json(&url, cancellation).await?;
+    let response: RestPullRequest = client.get_json_page(&url, cancellation).await?.value;
     normalize_pull_request(repository, response)
 }
 
@@ -206,10 +200,7 @@ pub async fn fetch_pull_request_review_page(
 ) -> Result<RestReviewPage, GitHubError> {
     require_thread_scope(repository, thread)?;
     let url = match next_page {
-        Some(url) => {
-            client.validate_destination(url)?;
-            url.clone()
-        }
+        Some(url) => url.clone(),
         None => initial_pull_request_review_url(client, repository, thread)?,
     };
     let response: GitHubResponse<Vec<RestReview>> =
