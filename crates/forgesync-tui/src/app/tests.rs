@@ -20,7 +20,7 @@ use crate::app::repositories::RepositoryPicker;
 use crate::app::test_data::{sample_cluster_detail, sample_repository};
 use crate::app::threads::{ThreadList, ThreadReply};
 use crate::app::{App, Focus, Screen};
-use crate::query::requests::QueryAction;
+use crate::query::{Operation, QueryAction, Read};
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {
@@ -85,11 +85,11 @@ fn search_keys_build_a_local_query_until_enter() {
     assert_eq!(app.search_query.as_deref(), Some("tui search"));
     assert_eq!(
         actions,
-        [QueryAction::Threads {
+        [QueryAction::Read(Read::Threads {
             query: Some("tui search".to_owned()),
             repositories: Vec::new(),
             offset: 0,
-        }]
+        })]
     );
 }
 
@@ -131,11 +131,11 @@ fn repository_picker_applies_the_highlighted_repository() {
         .expect("repository selector");
     assert_eq!(
         actions,
-        [QueryAction::Threads {
+        [QueryAction::Read(Read::Threads {
             query: None,
             repositories: vec![repository],
             offset: 0,
-        }]
+        })]
     );
 }
 
@@ -170,7 +170,10 @@ fn exclude_targets_the_selected_cluster_member() {
 
     assert_eq!(
         actions,
-        [QueryAction::ExcludeClusterMember { id: 17, reference }]
+        [QueryAction::Operation(Operation::ExcludeClusterMember {
+            id: 17,
+            reference
+        })]
     );
 }
 
@@ -192,7 +195,9 @@ fn canonical_targets_the_selected_cluster_member() {
 
     assert_eq!(
         actions,
-        [QueryAction::SetCanonicalClusterMember { id: 17, reference }]
+        [QueryAction::Operation(
+            Operation::SetCanonicalClusterMember { id: 17, reference }
+        )]
     );
 }
 
@@ -215,9 +220,9 @@ fn sync_uses_the_applied_repository_scope() {
 
     assert_eq!(
         actions,
-        [QueryAction::Sync {
+        [QueryAction::Operation(Operation::Sync {
             repositories: vec![repository]
-        }]
+        })]
     );
 }
 
@@ -240,9 +245,9 @@ fn refresh_uses_the_applied_repository_scope() {
 
     assert_eq!(
         actions,
-        [QueryAction::Refresh {
+        [QueryAction::Operation(Operation::Refresh {
             repositories: vec![repository]
-        }]
+        })]
     );
 }
 
@@ -260,7 +265,10 @@ fn dismissal_targets_the_selected_cluster() {
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
 
-    assert_eq!(actions, [QueryAction::DismissCluster { id: 17 }]);
+    assert_eq!(
+        actions,
+        [QueryAction::Operation(Operation::DismissCluster { id: 17 })]
+    );
 }
 
 #[test]
@@ -282,7 +290,9 @@ fn retry_targets_the_selected_failed_run() {
 
     assert_eq!(
         actions,
-        [QueryAction::Retry(RunId::new(23).expect("run ID"))]
+        [QueryAction::Operation(Operation::Retry(
+            RunId::new(23).expect("run ID")
+        ))]
     );
 }
 

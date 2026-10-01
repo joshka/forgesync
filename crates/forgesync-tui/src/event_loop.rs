@@ -26,9 +26,8 @@ use tokio::sync::mpsc;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
-use crate::query::QueryDispatch;
-use crate::query::requests::QueryAction;
 use crate::query::tasks::QueryTasks;
+use crate::query::{QueryAction, QueryDispatch};
 use crate::view;
 
 /// Session state and dispatch resources shared by input and completed background messages.

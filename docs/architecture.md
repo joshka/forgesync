@@ -57,8 +57,8 @@ coverage inside the transaction opened by `families/finish`. These owners borrow
 never commit it.
 
 Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its stage
-methods preserve independent reports. TUI `query/operations` owns task and message lifetimes, while
-`query/action` owns the selected action request and terminal status.
+methods preserve independent reports. TUI `query/operations` owns the writer task, its engine
+request, and its terminal status.
 
 Clustering `candidates` validates stable input, `evidence` selects sparse eligible edges,
 `references` interprets title/body mentions, and `components` applies bounded grouping and

@@ -52,9 +52,8 @@ cancellation. The TUI waits for the engine to record and report its interrupted 
 open so that the result remains visible. Press `q` again to exit. Failed actions, partial reports,
 and cancellation are shown with their actual outcome, never as successful completion.
 
-Before starting sync, refresh, or retry, the TUI checks the archive writer lease and displays its
-owner and expiry when another process holds it. A lease race after that check is also reported using
-the latest available owner information. Local cluster decisions use the same archive fencing and
+When sync, refresh, or retry cannot take the archive writer lease because another process holds it,
+the TUI reports the lease owner and expiry. Local cluster decisions use the same archive fencing and
 show lease contention as an action failure.
 
 The layout stacks its panes on narrow terminals and uses side-by-side panes on wider terminals.

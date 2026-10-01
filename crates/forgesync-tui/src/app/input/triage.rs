@@ -26,7 +26,7 @@ use forgesync_core::identity::RunId;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 use crate::app::{App, move_index};
-use crate::query::requests::QueryAction;
+use crate::query::{Operation, QueryAction, Read};
 
 impl App {
     /// Maps failure-view keys to run selection and retry actions.
@@ -45,7 +45,7 @@ impl App {
             .items
             .get(self.failure_list.selected)
             .and_then(|run| RunId::new(run.id).ok())
-            .map(|run_id| vec![QueryAction::Retry(run_id)])
+            .map(|run_id| vec![QueryAction::Operation(Operation::Retry(run_id))])
             .unwrap_or_default()
     }
 
@@ -77,9 +77,9 @@ impl App {
             .get(self.cluster_list.selected)
             .map(|cluster| {
                 let action = if cluster.dismissed {
-                    QueryAction::RestoreCluster { id: cluster.id }
+                    QueryAction::Operation(Operation::RestoreCluster { id: cluster.id })
                 } else {
-                    QueryAction::DismissCluster { id: cluster.id }
+                    QueryAction::Operation(Operation::DismissCluster { id: cluster.id })
                 };
                 vec![action]
             })
@@ -96,10 +96,11 @@ impl App {
         Vec::new()
     }
 
-    /// Starts a generation-tracked detail request for the selected cluster.
     fn open_selected_cluster(&mut self) -> Vec<QueryAction> {
-        self.begin_cluster_detail()
-            .map(|(generation, id)| vec![QueryAction::ClusterDetail { generation, id }])
+        self.cluster_list
+            .items
+            .get(self.cluster_list.selected)
+            .map(|cluster| vec![QueryAction::Read(Read::ClusterDetail(cluster.id))])
             .unwrap_or_default()
     }
 
@@ -121,13 +122,13 @@ impl App {
             .as_ref()
             .map(|detail| {
                 let action = if detail.cluster.dismissed {
-                    QueryAction::RestoreCluster {
+                    QueryAction::Operation(Operation::RestoreCluster {
                         id: detail.cluster.id,
-                    }
+                    })
                 } else {
-                    QueryAction::DismissCluster {
+                    QueryAction::Operation(Operation::DismissCluster {
                         id: detail.cluster.id,
-                    }
+                    })
                 };
                 vec![action]
             })
@@ -168,18 +169,18 @@ impl App {
             member.summary.discussion.id.number(),
         );
         let action = match code {
-            KeyCode::Char('e') => QueryAction::ExcludeClusterMember {
+            KeyCode::Char('e') => QueryAction::Operation(Operation::ExcludeClusterMember {
                 id: detail.cluster.id,
                 reference,
-            },
-            KeyCode::Char('i') => QueryAction::IncludeClusterMember {
+            }),
+            KeyCode::Char('i') => QueryAction::Operation(Operation::IncludeClusterMember {
                 id: detail.cluster.id,
                 reference,
-            },
-            KeyCode::Char('k') => QueryAction::SetCanonicalClusterMember {
+            }),
+            KeyCode::Char('k') => QueryAction::Operation(Operation::SetCanonicalClusterMember {
                 id: detail.cluster.id,
                 reference,
-            },
+            }),
             _ => return Vec::new(),
         };
         vec![action]
@@ -200,7 +201,7 @@ mod tests {
     use crate::app::App;
     use crate::app::clusters::ClusterDetailPane;
     use crate::app::test_data::sample_cluster_detail;
-    use crate::query::requests::QueryAction;
+    use crate::query::{Operation, QueryAction};
 
     #[test]
     fn dismissing_an_already_dismissed_cluster_requests_restore() {
@@ -216,7 +217,10 @@ mod tests {
 
         let actions = app.toggle_open_cluster();
 
-        assert_eq!(actions, vec![QueryAction::RestoreCluster { id: 17 }]);
+        assert_eq!(
+            actions,
+            vec![QueryAction::Operation(Operation::RestoreCluster { id: 17 })]
+        );
     }
 
     #[test]
@@ -234,7 +238,10 @@ mod tests {
         let reference = "owner/repo#7".parse().expect("thread selector");
         assert_eq!(
             actions,
-            vec![QueryAction::IncludeClusterMember { id: 17, reference }]
+            vec![QueryAction::Operation(Operation::IncludeClusterMember {
+                id: 17,
+                reference
+            })]
         );
     }
 }

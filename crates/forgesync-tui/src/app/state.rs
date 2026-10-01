@@ -27,33 +27,30 @@ use forgesync_store::reads::{ArchiveStatus, ThreadDetail};
 use super::App;
 use super::failures::RunFailureSummary;
 use super::messages::QueryMessage;
-use crate::query::requests::QueryAction;
+use crate::query::{QueryAction, Read};
 
 impl App {
     /// Starts the repository picker and first discussion page on browser entry.
     pub fn initial_actions(&self) -> [QueryAction; 2] {
-        [QueryAction::Repositories, self.thread_action(None, 0)]
+        [
+            QueryAction::Read(Read::Repositories),
+            self.thread_action(None, 0),
+        ]
     }
 
     /// Schedules reads needed to show archive changes after a writer completes.
     pub fn refresh_after_operation(&mut self) -> Vec<QueryAction> {
-        let cluster_detail_id = self
-            .cluster_detail_pane
-            .data
-            .as_ref()
-            .map(|detail| detail.cluster.id);
         let mut actions = vec![
-            QueryAction::Repositories,
+            QueryAction::Read(Read::Repositories),
             self.thread_action(self.search_query.clone(), self.thread_list.offset),
-            QueryAction::Coverage,
-            QueryAction::Failures,
-            QueryAction::Clusters {
+            QueryAction::Read(Read::Coverage),
+            QueryAction::Read(Read::Failures),
+            QueryAction::Read(Read::Clusters {
                 repositories: self.repository_scope(),
-            },
+            }),
         ];
-        if let Some(id) = cluster_detail_id {
-            let generation = self.cluster_detail_pane.begin(id);
-            actions.push(QueryAction::ClusterDetail { generation, id });
+        if let Some(detail) = &self.cluster_detail_pane.data {
+            actions.push(QueryAction::Read(Read::ClusterDetail(detail.cluster.id)));
         }
         actions
     }
@@ -159,13 +156,6 @@ impl App {
         let generation = self.thread_list.begin();
         self.detail_pane.invalidate();
         generation
-    }
-
-    /// Requests the selected cluster only when a valid selection exists.
-    pub fn begin_cluster_detail(&mut self) -> Option<(u64, u64)> {
-        let cluster_id = self.cluster_list.items.get(self.cluster_list.selected)?.id;
-        let generation = self.cluster_detail_pane.begin(cluster_id);
-        Some((generation, cluster_id))
     }
 
     /// Reserves the single active writer slot. `None` leaves existing progress untouched when an

@@ -25,7 +25,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_engine::reference::RepositorySelector;
 
 use crate::app::{App, Focus, Screen};
-use crate::query::requests::QueryAction;
+use crate::query::{Operation, QueryAction, Read};
 
 mod browser;
 mod triage;
@@ -73,37 +73,37 @@ impl App {
     fn show_coverage(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Coverage;
         self.status = None;
-        vec![QueryAction::Coverage]
+        vec![QueryAction::Read(Read::Coverage)]
     }
 
     /// Requests the durable failure ledger for the failure screen.
     fn show_failures(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Failures;
         self.status = None;
-        vec![QueryAction::Failures]
+        vec![QueryAction::Read(Read::Failures)]
     }
 
     /// Requests clusters within the applied browser scope.
     fn show_clusters(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Clusters;
         self.status = None;
-        vec![QueryAction::Clusters {
+        vec![QueryAction::Read(Read::Clusters {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
     /// Starts acquisition using the applied repository filter rather than the picker highlight.
     fn sync_scope(&self) -> Vec<QueryAction> {
-        vec![QueryAction::Sync {
+        vec![QueryAction::Operation(Operation::Sync {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
     /// Starts the composed refresh workflow using the same scope as browsing.
     fn refresh_scope(&self) -> Vec<QueryAction> {
-        vec![QueryAction::Refresh {
+        vec![QueryAction::Operation(Operation::Refresh {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
     /// Opens a local query draft; editing does not request archive or provider work.
@@ -172,11 +172,11 @@ impl App {
     /// repository does not change the query scope.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self.repository_scope();
-        QueryAction::Threads {
+        QueryAction::Read(Read::Threads {
             query,
             repositories,
             offset,
-        }
+        })
     }
 
     /// Returns the applied repository filter for actions that need the same scope as browsing.

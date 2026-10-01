@@ -23,7 +23,7 @@ use crossterm::event::KeyCode;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 use crate::app::{App, Focus, PAGE_SIZE, move_index};
-use crate::query::requests::QueryAction;
+use crate::query::{QueryAction, Read};
 
 /// A navigation intent interpreted against the active pane's own bounds.
 #[derive(Clone, Copy)]
@@ -193,6 +193,6 @@ impl App {
         let repository = RepositorySelector::from_repository(&summary.repository);
         let selector = ThreadSelector::new(repository, summary.discussion.id.number());
         self.focus = Focus::Detail;
-        vec![QueryAction::Detail(selector)]
+        vec![QueryAction::Read(Read::Detail(selector))]
     }
 }
