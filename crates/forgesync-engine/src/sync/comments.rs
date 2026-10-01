@@ -14,7 +14,7 @@ use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::ObservationSequence;
 use forgesync_core::observation::{CollectionCompleteness, IncompleteReason, SourceClock};
 use forgesync_github::error::GitHubError;
-use forgesync_github::resources::{RestCommentPage, fetch_issue_comment_page};
+use forgesync_github::resources::{Page, fetch_issue_comment_page};
 use forgesync_store::error::StoreError;
 use forgesync_store::families::{ChildFamilyObservation, ChildFamilyPage, ChildFamilyRequest};
 use forgesync_store::observations::{ObservationDisposition, StagedItem};
@@ -116,7 +116,7 @@ impl<'a> CommentCollection<'a> {
                 Err(error) => return self.fail(error).await,
             };
             next_page = page.next_page;
-            self.stage(page.comments).await?;
+            self.stage(page.items).await?;
             if next_page.is_none() {
                 return self.complete().await;
             }
@@ -124,7 +124,7 @@ impl<'a> CommentCollection<'a> {
     }
 
     /// Requests the next page for this discussion with the run's cancellation scope.
-    async fn page(&self, next: Option<&Url>) -> Result<RestCommentPage, GitHubError> {
+    async fn page(&self, next: Option<&Url>) -> Result<Page<Comment>, GitHubError> {
         fetch_issue_comment_page(
             self.work.client,
             self.work.repository,

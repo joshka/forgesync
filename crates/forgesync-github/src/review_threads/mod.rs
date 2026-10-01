@@ -24,6 +24,7 @@ use forgesync_core::identity::{CommitSha, ProviderId, ThreadId};
 use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
+use crate::resources::require_thread_scope;
 use crate::review_threads::comments::CommentPages;
 use crate::review_threads::normalize::normalize_review_thread;
 use crate::review_threads::request::{GraphqlRequest, REVIEW_THREADS_QUERY};
@@ -99,7 +100,7 @@ pub async fn fetch_review_thread_page(
     after: Option<&GraphqlCursor>,
     cancellation: &CancellationToken,
 ) -> Result<GraphqlReviewThreadPage, GitHubError> {
-    validate_scope(repository, thread)?;
+    require_thread_scope(repository, thread)?;
     let variables = ReviewThreadsVariables {
         owner: &repository.owner,
         repo: &repository.name,
@@ -134,14 +135,6 @@ pub async fn fetch_review_thread_page(
         review_threads,
         next_cursor,
     })
-}
-
-/// Rejects a review-thread request for a thread outside the selected repository.
-fn validate_scope(repository: &Repository, thread: &ThreadId) -> Result<(), GitHubError> {
-    if thread.repository() != &repository.id {
-        return Err(GitHubError::InvalidProviderData);
-    }
-    Ok(())
 }
 
 /// Finishes the nested comment connection before normalization. A partially paged review thread

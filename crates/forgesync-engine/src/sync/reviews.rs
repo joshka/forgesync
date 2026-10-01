@@ -48,7 +48,7 @@ impl ReviewCollection<'_> {
                 Err(error) => return self.fail(error).await,
             };
             next_page = page.next_page;
-            self.stage_reviews(page.reviews).await?;
+            self.stage_reviews(page.items).await?;
             if next_page.is_none() {
                 return self.complete().await;
             }

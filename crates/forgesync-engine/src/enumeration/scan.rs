@@ -85,8 +85,8 @@ pub(crate) async fn enumerate_repository_thread_pages(
             Err(error) => return persistence.finish(ScanOutcome::from(error)).await,
         };
 
-        let page_thread_count = page.discussions.len() as u64;
-        if persistence.apply(page.discussions).await.is_err() {
+        let page_thread_count = page.items.len() as u64;
+        if persistence.apply(page.items).await.is_err() {
             return persistence
                 .finish(ScanOutcome::Failed(Failure {
                     kind: FailureKind::Archive,
