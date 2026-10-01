@@ -73,7 +73,7 @@ impl QueryDispatch<'_> {
                 })
             }
             Read::Failures => {
-                let generation = app.failure_list.runs.begin();
+                let generation = app.failure_list.rows.begin();
                 Box::pin(async move {
                     let result = recent_failures(&archive).await;
                     QueryMessage::Failures { generation, result }

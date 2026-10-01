@@ -20,13 +20,13 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
-use ratatui::widgets::Widget;
+use ratatui::widgets::{ListState, Widget};
 
 use super::draw;
 use crate::app::loadable::Loadable;
 use crate::app::panels::{ClusterDetailPane, ClusterList, RepositoryPicker, ThreadList};
 use crate::app::{App, Focus, Screen};
-use crate::view::PaneEmphasis;
+use crate::view::pane;
 
 #[rstest::rstest]
 #[case::repositories_focused(Focus::Repositories, Focus::Repositories, Color::Cyan)]
@@ -37,12 +37,12 @@ use crate::view::PaneEmphasis;
 #[case::detail_unfocused(Focus::Repositories, Focus::Detail, Color::DarkGray)]
 fn pane_border_preserves_the_focus_palette(
     #[case] current: Focus,
-    #[case] pane: Focus,
+    #[case] focus: Focus,
     #[case] expected: Color,
 ) {
     let area = Rect::new(0, 0, 8, 3);
     let mut buffer = Buffer::empty(area);
-    let block = PaneEmphasis::for_focus(current, pane).block("Pane");
+    let block = pane("Pane", current == focus);
 
     block.render(area, &mut buffer);
 
@@ -143,13 +143,13 @@ fn sample_app() -> App {
         },
         thread_list: ThreadList {
             rows: Loadable::loaded(vec![summary.clone()]),
-            selected: Some(0),
+            state: ListState::default().with_selected(Some(0)),
             ..Default::default()
         },
         ..App::default()
     };
     app.repository_picker.applied = Some(summary.repository.clone());
-    app.repository_picker.cursor = 1;
+    app.repository_picker.state.select(Some(1));
     app
 }
 

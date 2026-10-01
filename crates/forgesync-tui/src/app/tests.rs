@@ -7,12 +7,13 @@ use forgesync_core::provider_data::ProviderData;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
 use forgesync_store::reads::ThreadPage;
+use ratatui::widgets::ListState;
 
 use crate::app::loadable::Loadable;
 use crate::app::messages::QueryMessage;
 use crate::app::operation::{OperationDisplay, OperationState};
-use crate::app::panels::{ClusterDetailPane, ClusterList, FailureList, RepositoryPicker};
-use crate::app::test_data::{sample_cluster_detail, sample_repository};
+use crate::app::panels::{ClusterList, FailureList, RepositoryPicker};
+use crate::app::test_data::{loaded_cluster_detail_pane, sample_cluster_detail, sample_repository};
 use crate::app::{App, Focus, Screen};
 use crate::query::failures::RunFailureSummary;
 use crate::query::{Operation, QueryAction, Read};
@@ -67,7 +68,7 @@ fn current_thread_page_selects_its_first_row_and_continuation() {
     });
 
     assert_eq!(app.thread_list.rows.data.len(), 1);
-    assert_eq!(app.thread_list.selected, Some(0));
+    assert_eq!(app.thread_list.state.selected(), Some(0));
     assert_eq!(app.thread_list.offset, 100);
     assert_eq!(app.thread_list.next_offset, Some(200));
 }
@@ -133,7 +134,7 @@ fn repository_picker_applies_the_highlighted_repository() {
     let mut app = App {
         repository_picker: RepositoryPicker {
             rows: Loadable::loaded(vec![repository]),
-            cursor: 1,
+            state: ListState::default().with_selected(Some(1)),
             ..RepositoryPicker::default()
         },
         ..App::default()
@@ -179,10 +180,7 @@ fn opening_keyword_search_returns_to_the_browser() {
 fn exclude_targets_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
-        cluster_detail_pane: ClusterDetailPane {
-            detail: Loadable::loaded(Some(sample_cluster_detail())),
-            ..Default::default()
-        },
+        cluster_detail_pane: loaded_cluster_detail_pane(sample_cluster_detail()),
         ..App::default()
     };
     let reference = "owner/repo#7"
@@ -204,10 +202,7 @@ fn exclude_targets_the_selected_cluster_member() {
 fn canonical_targets_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
-        cluster_detail_pane: ClusterDetailPane {
-            detail: Loadable::loaded(Some(sample_cluster_detail())),
-            ..Default::default()
-        },
+        cluster_detail_pane: loaded_cluster_detail_pane(sample_cluster_detail()),
         ..App::default()
     };
     let reference = "owner/repo#7"
@@ -281,7 +276,7 @@ fn dismissal_targets_the_selected_cluster() {
         screen: Screen::Clusters,
         cluster_list: ClusterList {
             rows: Loadable::loaded(vec![detail.cluster]),
-            ..Default::default()
+            state: ListState::default().with_selected(Some(0)),
         },
         ..App::default()
     };
@@ -299,12 +294,12 @@ fn retry_targets_the_selected_failed_run() {
     let mut app = App {
         screen: Screen::Failures,
         failure_list: FailureList {
-            runs: Loadable::loaded(vec![RunFailureSummary {
+            rows: Loadable::loaded(vec![RunFailureSummary {
                 id: RunId::new(23).expect("run ID"),
                 status: forgesync_store::runs::RunStatus::Failed,
                 entries: vec!["owner/repo: threads failed".to_owned()],
             }]),
-            ..Default::default()
+            state: ListState::default().with_selected(Some(0)),
         },
         ..App::default()
     };

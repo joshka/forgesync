@@ -1,16 +1,5 @@
-//! # Draw duplicate clusters and their decisions
-//!
-//! Cluster renderers show a page of suggested groups and the selected group's members, roles, and
-//! local triage state. They consume stored projections already loaded into `App`.
-//!
-//! A proposal and a maintainer decision should look distinguishable. Layout here explains the
-//! current cluster state; key handling and persistence remain in app input and query operations.
-//!
-//! `cluster_item` owns list-row wording. A borrowed `ClusterDetailView` keeps the loaded members
-//! and selection together for heading and member-line rendering. Roles and inclusion states remain
-//! distinct, scores are omitted when absent, and the marker and highlight identify the same member.
-//! Drawing functions own loading/error precedence and widget placement; these projections start no
-//! query and record no maintainer decision.
+//! Cluster list and the selected cluster's members. Member roles, inclusion, and dismissal stay
+//! visually distinct so a generated suggestion never reads as a maintainer decision.
 
 use forgesync_store::clusters::{
     ClusterDetail, ClusterLifecycle, ClusterMember, ClusterMemberRole, ClusterMemberState,
@@ -23,51 +12,41 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{PaneEmphasis, selected_style};
+use crate::view::{pane, selected_style};
 
-/// Draws the cluster list and its current selection.
-pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut items: Vec<ListItem<'_>> = app
-        .cluster_list
-        .rows
-        .data
-        .iter()
-        .map(cluster_item)
-        .collect();
-    if app.cluster_list.rows.loading && items.is_empty() {
-        items.push(ListItem::new("Loading clusters…"));
-    } else if let Some(error) = &app.cluster_list.rows.error {
-        items = vec![ListItem::new(error.clone())];
-    } else if items.is_empty() {
-        items.push(ListItem::new(
-            "No generated clusters in this repository scope",
-        ));
-    }
-    let mut state = ListState::default();
-    if app.cluster_list.rows.error.is_none() && !app.cluster_list.rows.data.is_empty() {
-        state.select(Some(app.cluster_list.selected));
-    }
-    frame.render_stateful_widget(
-        List::new(items)
-            .block(PaneEmphasis::Strong.block("Generated clusters · neighbors"))
-            .highlight_style(selected_style()),
-        area,
-        &mut state,
-    );
+pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let list = &mut app.cluster_list;
+    let rows = &list.rows;
+    let mut placeholder = ListState::default();
+    let (items, state) = if rows.loading && rows.data.is_empty() {
+        (vec![ListItem::new("Loading clusters…")], &mut placeholder)
+    } else if let Some(error) = &rows.error {
+        (vec![ListItem::new(error.clone())], &mut placeholder)
+    } else if rows.data.is_empty() {
+        let empty = "No generated clusters in this repository scope";
+        (vec![ListItem::new(empty)], &mut placeholder)
+    } else {
+        (
+            rows.data.iter().map(cluster_item).collect(),
+            &mut list.state,
+        )
+    };
+    let list = List::new(items)
+        .block(pane("Generated clusters · neighbors", true))
+        .highlight_style(selected_style());
+    frame.render_stateful_widget(list, area, state);
 }
 
-/// Draws one cluster and its member decisions.
 pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut lines = if app.cluster_detail_pane.detail.loading
-        && app.cluster_detail_pane.detail.data.is_none()
-    {
+    let detail = &app.cluster_detail_pane.detail;
+    let mut lines = if detail.loading && detail.data.is_none() {
         vec![Line::from("Loading cluster neighbors…")]
-    } else if let Some(error) = &app.cluster_detail_pane.detail.error {
+    } else if let Some(error) = &detail.error {
         vec![Line::from(error.clone())]
-    } else if let Some(detail) = &app.cluster_detail_pane.detail.data {
+    } else if let Some(data) = &detail.data {
         let view = ClusterDetailView {
-            detail,
-            selected_member: app.cluster_detail_pane.selected_member,
+            detail: data,
+            selected_member: app.cluster_detail_pane.members.selected(),
         };
         view.lines()
     } else {
@@ -75,18 +54,17 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
             "Select a cluster to inspect its members and neighbor scores.",
         )]
     };
-    if app.cluster_detail_pane.detail.loading && app.cluster_detail_pane.detail.data.is_some() {
+    if detail.loading && detail.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(PaneEmphasis::Strong.block("Cluster members and neighbors"))
+            .block(pane("Cluster members and neighbors", true))
             .wrap(Wrap { trim: false }),
         area,
     );
 }
 
-/// Formats one generated suggestion without confusing dismissal with generation lifecycle.
 fn cluster_item(cluster: &ClusterSummary) -> ListItem<'static> {
     let lifecycle = match cluster.lifecycle {
         ClusterLifecycle::Active => "active",
@@ -103,19 +81,13 @@ fn cluster_item(cluster: &ClusterSummary) -> ListItem<'static> {
     ))
 }
 
-/// Loaded cluster and its selected member, borrowed for one frame's presentation.
-///
-/// Selection is an index in this detail's ordered member projection. Application state validates
-/// whether that selection can authorize an action; drawing only adds the visual marker and style.
+/// The member list is part of a wrapped paragraph, so selection is drawn as a marker and style.
 struct ClusterDetailView<'a> {
-    /// Loaded metadata and members, with their existing role and evidence score.
     detail: &'a ClusterDetail,
-    /// Index whose line receives the selection marker and highlight.
-    selected_member: usize,
+    selected_member: Option<usize>,
 }
 
 impl ClusterDetailView<'_> {
-    /// Places the cluster heading before members in the projection's existing order.
     fn lines(&self) -> Vec<Line<'static>> {
         let mut lines = self.heading_lines();
         lines.extend(
@@ -128,7 +100,6 @@ impl ClusterDetailView<'_> {
         lines
     }
 
-    /// Explains generated identity, repository scope, and local inclusion counts.
     fn heading_lines(&self) -> Vec<Line<'static>> {
         let cluster = &self.detail.cluster;
         vec![
@@ -154,11 +125,10 @@ impl ClusterDetailView<'_> {
         ]
     }
 
-    /// Shows one member's role, inclusion, optional score, and selection cue.
     fn member_line(&self, index: usize, member: &ClusterMember) -> Line<'static> {
         let state = member_state_name(member.state);
         let role = member_role_name(member.role);
-        let selected = index == self.selected_member;
+        let selected = Some(index) == self.selected_member;
         let score = member
             .score_to_representative
             .map(|score| format!(" · score {score:.3}"))
@@ -178,7 +148,6 @@ impl ClusterDetailView<'_> {
     }
 }
 
-/// Uses inclusion wording for active members, independently of their role in the cluster.
 fn member_state_name(state: ClusterMemberState) -> &'static str {
     match state {
         ClusterMemberState::Active => "included",
@@ -187,7 +156,6 @@ fn member_state_name(state: ClusterMemberState) -> &'static str {
     }
 }
 
-/// Labels explicit canonical choice separately from generated representative and related members.
 fn member_role_name(role: ClusterMemberRole) -> &'static str {
     match role {
         ClusterMemberRole::Canonical => "canonical",

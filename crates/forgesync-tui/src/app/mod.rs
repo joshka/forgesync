@@ -57,15 +57,6 @@ pub mod operation;
 pub mod panels;
 mod state;
 
-/// Moves a bounded selection by one row without underflow or overshoot.
-fn move_index(current: usize, max: usize, direction: i8) -> usize {
-    if direction < 0 {
-        current.saturating_sub(1)
-    } else {
-        current.saturating_add(1).min(max)
-    }
-}
-
 #[cfg(test)]
 mod tests;
 

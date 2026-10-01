@@ -63,7 +63,7 @@ impl App {
             }
             QueryMessage::Failures { generation, result } => {
                 let list = &mut self.failure_list;
-                if list.runs.apply(generation, result, status) {
+                if list.rows.apply(generation, result, status) {
                     list.loaded();
                 }
             }

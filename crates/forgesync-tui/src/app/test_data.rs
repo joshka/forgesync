@@ -1,13 +1,4 @@
-//! # Fixed domain data for interactive transition tests
-//!
-//! These constructors supply complete repository, cluster, and run values for app and read-state
-//! scenarios. They contain static data rather than behavior: no loops, conditional setup, provider
-//! access, or terminal operations are hidden behind the fixture names.
-//!
-//! The selected cluster has one representative member so actions can prove their exact target.
-//! Tests change the fields relevant to their scenario directly after constructing the fixture.
-//! Rendering fixtures remain with the view tests because their body and label data serve a
-//! different purpose from keyboard and generation transitions.
+//! Fixed domain values for app and query tests.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
@@ -18,6 +9,9 @@ use forgesync_store::clusters::{
     ClusterSummary,
 };
 use forgesync_store::reads::ThreadSummary;
+
+use crate::app::loadable::Loadable;
+use crate::app::panels::ClusterDetailPane;
 
 /// One GitHub repository used by selected-scope and cluster-member fixtures.
 pub fn sample_repository() -> Repository {
@@ -82,6 +76,16 @@ pub fn sample_cluster_detail() -> ClusterDetail {
             score_to_representative: Some(1.0),
         }],
     }
+}
+
+/// A cluster detail pane that has loaded `detail` and selected its first member.
+pub fn loaded_cluster_detail_pane(detail: ClusterDetail) -> ClusterDetailPane {
+    let mut pane = ClusterDetailPane {
+        detail: Loadable::loaded(Some(detail)),
+        ..ClusterDetailPane::default()
+    };
+    pane.loaded();
+    pane
 }
 
 /// One unfinished run used to test ledger selection and failure presentation without database I/O.

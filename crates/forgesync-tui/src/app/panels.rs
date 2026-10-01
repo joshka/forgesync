@@ -3,26 +3,87 @@
 use forgesync_core::content::Repository;
 use forgesync_store::clusters::{ClusterDetail, ClusterSummary};
 use forgesync_store::reads::{ThreadDetail, ThreadSummary};
+use ratatui::widgets::ListState;
 
 use crate::app::loadable::Loadable;
 use crate::query::failures::RunFailureSummary;
 
-#[derive(Debug, Default)]
+/// Keeps a selection on an existing row, selecting the first row when nothing was selected.
+fn clamp_selection(state: &mut ListState, len: usize) {
+    let selected = state.selected().unwrap_or(0);
+    state.select((len > 0).then(|| selected.min(len - 1)));
+}
+
+/// A loaded list and its highlighted row.
+#[derive(Debug)]
+pub struct ListPanel<T> {
+    pub rows: Loadable<Vec<T>>,
+    pub state: ListState,
+}
+
+impl<T> Default for ListPanel<T> {
+    fn default() -> Self {
+        Self {
+            rows: Loadable::default(),
+            state: ListState::default(),
+        }
+    }
+}
+
+impl<T> ListPanel<T> {
+    pub fn selected(&self) -> Option<&T> {
+        self.state
+            .selected()
+            .and_then(|index| self.rows.data.get(index))
+    }
+
+    pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
+        step(&mut self.state);
+        clamp_selection(&mut self.state, self.rows.data.len());
+    }
+
+    pub fn loaded(&mut self) {
+        clamp_selection(&mut self.state, self.rows.data.len());
+    }
+}
+
+#[derive(Debug)]
 pub struct RepositoryPicker {
     pub rows: Loadable<Vec<Repository>>,
-    /// Highlighted row; zero is the synthetic all-repositories row before `rows`.
-    pub cursor: usize,
+    /// Highlighted row; row zero is the synthetic all-repositories row before `rows`.
+    pub state: ListState,
     /// Scope for thread reads and writer actions; `None` selects every repository.
     pub applied: Option<Repository>,
 }
 
+impl Default for RepositoryPicker {
+    fn default() -> Self {
+        Self {
+            rows: Loadable::default(),
+            state: ListState::default().with_selected(Some(0)),
+            applied: None,
+        }
+    }
+}
+
 impl RepositoryPicker {
-    /// Clamps the cursor and refreshes the applied repository by provider identity.
+    /// The highlighted repository; `None` for the all-repositories row.
+    pub fn highlighted(&self) -> Option<&Repository> {
+        let index = self.state.selected()?.checked_sub(1)?;
+        self.rows.data.get(index)
+    }
+
+    pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
+        step(&mut self.state);
+        clamp_selection(&mut self.state, self.rows.data.len() + 1);
+    }
+
+    /// Clamps the highlight and refreshes the applied repository by provider identity.
     ///
     /// The applied repository stays applied when it is missing from the new rows, so a refresh
     /// can neither retarget a writer nor broaden its scope to every repository.
     pub fn loaded(&mut self) {
-        self.cursor = self.cursor.min(self.rows.data.len());
+        clamp_selection(&mut self.state, self.rows.data.len() + 1);
         if let Some(applied) = &mut self.applied
             && let Some(current) = self.rows.data.iter().find(|row| row.id == applied.id)
         {
@@ -34,7 +95,7 @@ impl RepositoryPicker {
 #[derive(Debug, Default)]
 pub struct ThreadList {
     pub rows: Loadable<Vec<ThreadSummary>>,
-    pub selected: Option<usize>,
+    pub state: ListState,
     /// Offset of the latest applied page, reused when reloading it.
     pub offset: u64,
     pub next_offset: Option<u64>,
@@ -44,7 +105,7 @@ impl ThreadList {
     /// Starts a read and clears the old rows: a new query or scope must not show stale results.
     pub fn begin(&mut self) -> u64 {
         self.rows.data.clear();
-        self.selected = None;
+        self.state.select(None);
         self.next_offset = None;
         self.rows.begin()
     }
@@ -52,7 +113,18 @@ impl ThreadList {
     pub fn loaded(&mut self, offset: u64, next_offset: Option<u64>) {
         self.offset = offset;
         self.next_offset = next_offset;
-        self.selected = (!self.rows.data.is_empty()).then_some(0);
+        clamp_selection(&mut self.state, self.rows.data.len());
+    }
+
+    pub fn selected(&self) -> Option<&ThreadSummary> {
+        self.state
+            .selected()
+            .and_then(|index| self.rows.data.get(index))
+    }
+
+    pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
+        step(&mut self.state);
+        clamp_selection(&mut self.state, self.rows.data.len());
     }
 }
 
@@ -76,34 +148,13 @@ impl DetailPane {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct FailureList {
-    pub runs: Loadable<Vec<RunFailureSummary>>,
-    pub selected: usize,
-}
-
-impl FailureList {
-    pub fn loaded(&mut self) {
-        self.selected = self.selected.min(self.runs.data.len().saturating_sub(1));
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ClusterList {
-    pub rows: Loadable<Vec<ClusterSummary>>,
-    pub selected: usize,
-}
-
-impl ClusterList {
-    pub fn loaded(&mut self) {
-        self.selected = self.selected.min(self.rows.data.len().saturating_sub(1));
-    }
-}
+pub type FailureList = ListPanel<RunFailureSummary>;
+pub type ClusterList = ListPanel<ClusterSummary>;
 
 #[derive(Debug, Default)]
 pub struct ClusterDetailPane {
     pub detail: Loadable<Option<ClusterDetail>>,
-    pub selected_member: usize,
+    pub members: ListState,
 }
 
 impl ClusterDetailPane {
@@ -119,14 +170,26 @@ impl ClusterDetailPane {
             .is_none_or(|detail| detail.cluster.id != cluster_id)
         {
             self.detail.data = None;
-            self.selected_member = 0;
+            self.members.select(None);
         }
         self.detail.begin()
     }
 
+    fn member_count(&self) -> usize {
+        self.detail
+            .data
+            .as_ref()
+            .map_or(0, |detail| detail.members.len())
+    }
+
     pub fn loaded(&mut self) {
-        let members = self.detail.data.as_ref().map_or(0, |d| d.members.len());
-        self.selected_member = self.selected_member.min(members.saturating_sub(1));
+        let count = self.member_count();
+        clamp_selection(&mut self.members, count);
+    }
+
+    pub fn select_member(&mut self, step: impl FnOnce(&mut ListState)) {
+        step(&mut self.members);
+        self.loaded();
     }
 }
 
