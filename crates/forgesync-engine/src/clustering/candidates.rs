@@ -37,7 +37,7 @@ pub fn build_cluster_candidates(
 ) -> Result<(Vec<ClusterCandidate>, usize), EngineError> {
     documents.sort_by(|left, right| stable_thread_id_cmp(&left.summary, &right.summary));
     if cancellation.is_cancelled() {
-        return Err(EngineError::ClusteringCancelled);
+        return Err(EngineError::Cancelled);
     }
 
     let thread_index = documents

@@ -97,11 +97,11 @@ impl<'a> CandidateEvidence<'a> {
             .collect::<Vec<_>>();
         for left in 0..self.documents.len() {
             if cancellation.is_cancelled() {
-                return Err(EngineError::ClusteringCancelled);
+                return Err(EngineError::Cancelled);
             }
             for right in left + 1..self.documents.len() {
                 if right % 1024 == 0 && cancellation.is_cancelled() {
-                    return Err(EngineError::ClusteringCancelled);
+                    return Err(EngineError::Cancelled);
                 }
                 let Some(score) = self.score(left, right) else {
                     continue;

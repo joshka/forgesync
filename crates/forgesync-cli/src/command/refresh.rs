@@ -12,7 +12,7 @@ use forgesync_core::identity::GitHubHost;
 use forgesync_engine::clustering::ClusterOptions;
 use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::reference::RepositorySelector;
-use forgesync_engine::refresh::{RefreshAnalysisStage, RefreshRequest, refresh};
+use forgesync_engine::refresh::{RefreshRequest, RefreshStageKind, refresh};
 use forgesync_github::transport::GitHubClient;
 use forgesync_store::archive::Archive;
 use tokio_util::sync::CancellationToken;
@@ -103,16 +103,16 @@ impl RefreshArgs {
             .analyze
             .into_iter()
             .map(|stage| match stage {
-                RefreshAnalysisArg::Embeddings => RefreshAnalysisStage::Embeddings,
-                RefreshAnalysisArg::Clusters => RefreshAnalysisStage::Clusters,
+                RefreshAnalysisArg::Embeddings => RefreshStageKind::Embeddings,
+                RefreshAnalysisArg::Clusters => RefreshStageKind::Clusters,
             })
             .collect::<Vec<_>>();
         let embedding_client = analysis
-            .contains(&RefreshAnalysisStage::Embeddings)
+            .contains(&RefreshStageKind::Embeddings)
             .then(|| config.embeddings.client().ok())
             .flatten();
         let embedding_identity = analysis
-            .contains(&RefreshAnalysisStage::Clusters)
+            .contains(&RefreshStageKind::Clusters)
             .then(|| config.embeddings.identity().ok())
             .flatten();
         let request = RefreshRequest {

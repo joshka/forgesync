@@ -1,18 +1,9 @@
-//! # Add cluster analysis to a refresh
+//! Add cluster analysis to a refresh.
 //!
-//! `build_repository_clusters` visits the selected repository scope after acquisition, retaining
-//! one outcome for each attempted repository. `ClusterStage` keeps service identity, recipe, and
-//! graph policy consistent across requests and owns aggregate coverage/failure accounting.
-//!
-//! Missing service identity becomes a per-repository failure without attempting a generation.
-//! Other repository failures are isolated so later repositories can still succeed. Cancellation
-//! stops traversal; previously completed generations remain durable and represented in the report.
-//!
-//! The first failure remains the primary diagnostic. That diagnostic's cancellation code determines
-//! interruption; otherwise mixed success/failure or incomplete vector coverage produces a partial
-//! stage. This preserves the existing report policy rather than deriving status from the last
-//! result. Candidate analysis and fencing remain in `clustering`, and this adapter never rewrites
-//! source observations. Nearby cases isolate stage accounting from archive and provider setup.
+//! Each repository's outcome is retained; a failure does not stop later repositories, while
+//! cancellation stops traversal and keeps completed generations. The first failure is the primary
+//! diagnostic and decides interruption; otherwise mixed results or incomplete vector coverage make
+//! the stage partial.
 
 use std::ops::ControlFlow;
 
@@ -22,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::clustering::{ClusterBuildReport, ClusterBuildRequest, ClusterOptions, build_clusters};
 use crate::reference::RepositorySelector;
-use crate::refresh::status::{keep_first_failure, stage_failure};
+use crate::refresh::status::{StageFailure, keep_first_failure};
 use crate::refresh::{
     EmbeddingServiceIdentity, RefreshClusterRepository, RefreshStage, RefreshStageFailure,
     RefreshStageStatus,
@@ -73,7 +64,7 @@ struct ClusterStage<'a> {
     /// Outcomes of attempted repositories in traversal order, excluding untouched cancelled work.
     results: Vec<RefreshClusterRepository>,
     /// First primary diagnostic, retained even when later repositories fail differently.
-    first_failure: Option<RefreshStageFailure>,
+    first_failure: Option<StageFailure>,
     /// Whether any successful generation had incomplete compatible-vector coverage.
     has_partial_coverage: bool,
 }
@@ -105,8 +96,10 @@ impl ClusterStage<'_> {
         archive: &Archive,
         repository: &RepositorySelector,
         cancellation: &CancellationToken,
-    ) -> Result<ClusterBuildReport, RefreshStageFailure> {
-        let identity = self.identity.ok_or_else(missing_identity)?;
+    ) -> Result<ClusterBuildReport, StageFailure> {
+        let identity = self
+            .identity
+            .ok_or_else(|| StageFailure::failed(missing_identity()))?;
         let request = ClusterBuildRequest {
             repository: repository.clone(),
             endpoint: identity.endpoint.clone(),
@@ -116,7 +109,7 @@ impl ClusterStage<'_> {
         };
         build_clusters(archive, &request, cancellation)
             .await
-            .map_err(|error| stage_failure(&error))
+            .map_err(|error| StageFailure::from_error(&error))
     }
 
     /// Retains a successful generation and its coverage contribution to aggregate status.
@@ -131,13 +124,13 @@ impl ClusterStage<'_> {
 
     /// Records a repository failure without discarding previous successes or replacing the first
     /// diagnostic.
-    fn record_failure(&mut self, repository: &RepositorySelector, failure: RefreshStageFailure) {
-        keep_first_failure(&mut self.first_failure, failure.clone());
+    fn record_failure(&mut self, repository: &RepositorySelector, failure: StageFailure) {
         self.results.push(RefreshClusterRepository {
             repository: repository.as_url(),
             report: None,
-            failure: Some(failure),
+            failure: Some(failure.failure.clone()),
         });
+        keep_first_failure(&mut self.first_failure, failure);
     }
 
     /// Records caller interruption before the next repository without inventing an attempted
@@ -145,9 +138,12 @@ impl ClusterStage<'_> {
     fn interrupt(&mut self) {
         keep_first_failure(
             &mut self.first_failure,
-            RefreshStageFailure {
-                code: "operation_cancelled",
-                message: "clustering was cancelled with repositories remaining".to_owned(),
+            StageFailure {
+                failure: RefreshStageFailure {
+                    code: "operation_cancelled",
+                    message: "clustering was cancelled with repositories remaining".to_owned(),
+                },
+                cancelled: true,
             },
         );
     }
@@ -163,7 +159,7 @@ impl ClusterStage<'_> {
         if self
             .first_failure
             .as_ref()
-            .is_some_and(|failure| failure.code == "operation_cancelled")
+            .is_some_and(|failure| failure.cancelled)
         {
             RefreshStageStatus::Interrupted
         } else if self.first_failure.is_some() {

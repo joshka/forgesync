@@ -22,10 +22,9 @@ use crate::inspect::{
 };
 use crate::lease::with_writer_lease;
 use crate::reference::RepositorySelector;
-use crate::refresh::status::{keep_first_failure, stage_failure};
+use crate::refresh::status::{StageFailure, keep_first_failure};
 use crate::refresh::{
-    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStage, RefreshStageFailure,
-    RefreshStageStatus,
+    RefreshDocumentFailure, RefreshEmbeddingReport, RefreshStage, RefreshStageStatus,
 };
 
 /// Materializes and embeds each repository, retaining successful pages and the first failure.
@@ -64,7 +63,7 @@ pub async fn embed_repositories(
     )
     .await;
     if let Err(error) = leased {
-        keep_first_failure(&mut stage.first_failure, stage_failure(&error));
+        keep_first_failure(&mut stage.first_failure, StageFailure::from_error(&error));
     }
     let status = embedding_status(&stage.report, stage.first_failure.as_ref());
     RefreshStage::with_report(status, stage.report, stage.first_failure)
@@ -77,7 +76,7 @@ struct EmbeddingStage<'a> {
     policy: EmbeddingPolicy,
     report: RefreshEmbeddingReport,
     /// Earliest page-read or embedding failure; per-document failures stay in `report`.
-    first_failure: Option<RefreshStageFailure>,
+    first_failure: Option<StageFailure>,
 }
 
 impl EmbeddingStage<'_> {
@@ -94,7 +93,7 @@ impl EmbeddingStage<'_> {
             {
                 Ok(page) => page,
                 Err(error) => {
-                    keep_first_failure(&mut self.first_failure, stage_failure(&error));
+                    keep_first_failure(&mut self.first_failure, StageFailure::from_error(&error));
                     break;
                 }
             };
@@ -179,7 +178,9 @@ impl EmbeddingStage<'_> {
         .await
         {
             Ok(report) => self.report.embeddings.add(report),
-            Err(error) => keep_first_failure(&mut self.first_failure, stage_failure(&error)),
+            Err(error) => {
+                keep_first_failure(&mut self.first_failure, StageFailure::from_error(&error))
+            }
         }
     }
 }
@@ -199,13 +200,11 @@ fn repository_page(repository: &RepositorySelector, offset: u64) -> ThreadListRe
 }
 
 /// Derives stage status from document and vector failures.
-pub fn embedding_status(
+fn embedding_status(
     report: &RefreshEmbeddingReport,
-    failure: Option<&RefreshStageFailure>,
+    failure: Option<&StageFailure>,
 ) -> RefreshStageStatus {
-    if report.embeddings.cancelled
-        || failure.is_some_and(|failure| failure.code == "operation_cancelled")
-    {
+    if report.embeddings.cancelled || failure.is_some_and(|failure| failure.cancelled) {
         RefreshStageStatus::Interrupted
     } else if failure.is_some()
         || !report.document_failures.is_empty()

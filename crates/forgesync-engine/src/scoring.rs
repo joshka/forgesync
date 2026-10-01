@@ -55,7 +55,7 @@ impl TopScored {
     ) -> Result<(), EngineError> {
         for document in documents {
             if cancellation.is_cancelled() {
-                return Err(EngineError::SearchCancelled);
+                return Err(EngineError::Cancelled);
             }
             let dimensions = self.query.dimensions();
             if document

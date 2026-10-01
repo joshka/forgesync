@@ -58,7 +58,7 @@ pub async fn build_clusters(
         return Err(EngineError::InvalidClusterInput);
     }
     if cancellation.is_cancelled() {
-        return Err(EngineError::ClusteringCancelled);
+        return Err(EngineError::Cancelled);
     }
 
     with_writer_lease(
@@ -108,10 +108,9 @@ async fn execute_cluster_build(
     )
     .await?;
     if cancellation.is_cancelled() {
-        return Err(EngineError::ClusteringCancelled);
+        return Err(EngineError::Cancelled);
     }
-    let candidate_edges = u64::try_from(candidate_edges)
-        .map_err(|_| forgesync_store::error::StoreError::IntegerOutOfRange)?;
+    let candidate_edges = candidate_edges as u64;
     let clusters = candidates.into_iter().map(cluster_input).collect();
     let input = ClusterGenerationInput {
         repository: snapshot.repository,

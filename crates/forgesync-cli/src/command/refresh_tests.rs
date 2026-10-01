@@ -4,7 +4,7 @@
 //! report it, rather than silently dropping that stage. Cluster-only preparation needs no
 //! embedding client or credential lookup.
 
-use forgesync_engine::refresh::RefreshAnalysisStage;
+use forgesync_engine::refresh::RefreshStageKind;
 use forgesync_engine::sync::SyncThreadScope;
 
 use crate::command::refresh::RefreshArgs;
@@ -29,7 +29,7 @@ fn cluster_only_preparation_uses_stored_vector_identity_without_a_client() {
     let prepared = args.prepare(config);
 
     assert!(prepared.request.sync.is_none());
-    assert_eq!(prepared.request.analysis, [RefreshAnalysisStage::Clusters]);
+    assert_eq!(prepared.request.analysis, [RefreshStageKind::Clusters]);
     assert!(prepared.embedding_client.is_none());
     let identity = prepared
         .request
@@ -81,10 +81,7 @@ fn unusable_optional_service_preserves_selected_stages_and_force_policy() {
 
     assert_eq!(
         prepared.request.analysis,
-        [
-            RefreshAnalysisStage::Clusters,
-            RefreshAnalysisStage::Embeddings
-        ]
+        [RefreshStageKind::Clusters, RefreshStageKind::Embeddings]
     );
     assert!(prepared.request.force_embeddings);
     assert!(prepared.embedding_client.is_none());

@@ -17,8 +17,7 @@ use forgesync_core::document::DocumentRecipe;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::refresh::{
-    RefreshAnalysisStage, RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions,
-    refresh,
+    RefreshRequest, RefreshStageKind, RefreshStageStatus, RefreshSyncOptions, refresh,
 };
 use forgesync_engine::sync::SyncThreadScope;
 use forgesync_store::archive::Archive;
@@ -107,7 +106,7 @@ async fn refresh_retains_sync_when_an_optional_embedding_stage_is_unavailable() 
             include_reviews: false,
             include_review_threads: false,
         }),
-        analysis: vec![RefreshAnalysisStage::Embeddings],
+        analysis: vec![RefreshStageKind::Embeddings],
         recipe: DocumentRecipe::OriginalBody,
         embedding_identity: None,
         force_embeddings: false,

@@ -16,9 +16,11 @@ use forgesync_store::clusters::ClusterGenerationResult;
 use rstest::rstest;
 
 use crate::clustering::{ClusterBuildReport, ClusterOptions};
+use crate::error::EngineError;
 use crate::reference::RepositorySelector;
+use crate::refresh::RefreshStageStatus;
 use crate::refresh::clusters::{ClusterStage, missing_identity};
-use crate::refresh::{RefreshStageFailure, RefreshStageStatus};
+use crate::refresh::status::StageFailure;
 
 #[test]
 fn empty_repository_scope_completes_without_invented_work() {
@@ -74,22 +76,25 @@ fn incomplete_vector_coverage_keeps_a_successful_generation_but_marks_the_stage_
 }
 
 #[rstest]
-#[case::missing_identity("embedding_service_identity_missing", RefreshStageStatus::Failed)]
-#[case::interrupted("operation_cancelled", RefreshStageStatus::Interrupted)]
+#[case::missing_identity(
+    StageFailure::failed(missing_identity()),
+    "embedding_service_identity_missing",
+    RefreshStageStatus::Failed
+)]
+#[case::interrupted(
+    StageFailure::from_error(&EngineError::Cancelled),
+    "operation_cancelled",
+    RefreshStageStatus::Interrupted
+)]
 fn primary_failure_selects_the_stage_status(
+    #[case] failure: StageFailure,
     #[case] code: &'static str,
     #[case] expected: RefreshStageStatus,
 ) {
     let mut stage = test_stage();
     let repository = "owner/repo".parse().expect("repository");
 
-    stage.record_failure(
-        &repository,
-        RefreshStageFailure {
-            code,
-            message: "fixture diagnostic".to_owned(),
-        },
-    );
+    stage.record_failure(&repository, failure);
     let report = stage.finish();
 
     assert_eq!(report.status, expected);
@@ -104,7 +109,7 @@ fn later_failure_preserves_an_earlier_successful_repository() {
     let second = "owner/second".parse().expect("second repository");
 
     stage.record_success(&first, complete_report());
-    stage.record_failure(&second, missing_identity());
+    stage.record_failure(&second, StageFailure::failed(missing_identity()));
     let report = stage.finish();
     let results = report.report.expect("stage report");
 
@@ -120,7 +125,7 @@ fn cancellation_does_not_replace_an_earlier_primary_failure_or_invent_an_attempt
     let mut stage = test_stage();
     let repository = "owner/repo".parse().expect("repository");
 
-    stage.record_failure(&repository, missing_identity());
+    stage.record_failure(&repository, StageFailure::failed(missing_identity()));
     stage.interrupt();
     let report = stage.finish();
 

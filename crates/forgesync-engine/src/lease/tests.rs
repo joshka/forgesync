@@ -70,7 +70,7 @@ async fn renewal_failure_drains_cleanup_without_cancelling_the_caller() {
 
 #[rstest]
 #[case::invalid_input(EngineError::InvalidClusterInput)]
-#[case::cancelled(EngineError::ClusteringCancelled)]
+#[case::cancelled(EngineError::Cancelled)]
 #[tokio::test]
 async fn failed_operation_preserves_the_error_and_releases_the_fence(#[case] error: EngineError) {
     let (directory, archive) = fixture_archive().await;

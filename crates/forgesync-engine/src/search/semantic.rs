@@ -43,7 +43,7 @@ pub async fn semantic_candidates(
     cancellation: &CancellationToken,
 ) -> Result<Vec<ScoredThread>, EngineError> {
     if cancellation.is_cancelled() {
-        return Err(EngineError::SearchCancelled);
+        return Err(EngineError::Cancelled);
     }
     let source = SemanticSource {
         archive,
@@ -96,7 +96,7 @@ impl SemanticSource<'_> {
     /// Reads one raw keyset page under this search's compatibility and filter scope.
     async fn page(&self, cursor: Option<i64>) -> Result<EmbeddingDocumentPage, EngineError> {
         if self.cancellation.is_cancelled() {
-            return Err(EngineError::SearchCancelled);
+            return Err(EngineError::Cancelled);
         }
         let query = EmbeddingDocumentQuery {
             repositories: &self.repositories,

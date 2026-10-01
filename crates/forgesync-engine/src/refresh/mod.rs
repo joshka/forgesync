@@ -1,14 +1,7 @@
-//! # Coordinate sync and optional local analysis
+//! Compose sync with optional local analysis.
 //!
-//! `RefreshRequest` combines repository scope, sync options, and selected analysis stages.
-//! `RefreshStage`, status, kind, and failure types describe each stage separately, so a caller can
-//! see which work completed, failed, or remained unstarted.
-//!
-//! `coordinator` runs the workflow, `embeddings` selects embedding scope and aggregates reports,
-//! `clusters` invokes cluster generation, and `status` keeps stage-outcome rules together.
-//! Acquisition and derived work are distinct: successful sync evidence survives a later analysis
-//! failure. The CLI presents this structured report rather than inferring an overall result from a
-//! single boolean.
+//! Each selected stage reports separately, so a caller can see which work completed, failed, or
+//! remained. Successful sync evidence survives a later analysis failure.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::outcome::OperationOutcome;
@@ -19,18 +12,8 @@ use crate::embeddings::EmbeddingReport;
 use crate::reference::RepositorySelector;
 use crate::sync::{SyncReport, SyncThreadScope};
 
-/// Selects the optional model-backed stages included in a refresh.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RefreshAnalysisStage {
-    /// Materialize current discussion documents and request missing embeddings.
-    Embeddings,
-    /// Build local clusters from compatible vectors already in the archive.
-    Clusters,
-}
-
 /// Names one stage in the composed refresh report.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RefreshStageKind {
     /// Acquire selected GitHub evidence.
@@ -80,25 +63,21 @@ pub struct RefreshStage<T> {
 }
 
 impl<T> RefreshStage<T> {
-    /// Constructs a failed stage without discarding the failure classification.
-    fn failed(failure: RefreshStageFailure) -> Self {
+    /// A stage that produced no report.
+    fn failed(failure: StageFailure) -> Self {
         Self {
-            status: status_for_failure(&failure),
+            status: failure.status(),
             report: None,
-            failure: Some(failure),
+            failure: Some(failure.failure),
         }
     }
 
-    /// Attaches a completed stage report and its outcome.
-    fn with_report(
-        status: RefreshStageStatus,
-        report: T,
-        failure: Option<RefreshStageFailure>,
-    ) -> Self {
+    /// A stage with a (possibly partial) report and its primary failure.
+    fn with_report(status: RefreshStageStatus, report: T, failure: Option<StageFailure>) -> Self {
         Self {
             status,
             report: Some(report),
-            failure,
+            failure: failure.map(|failure| failure.failure),
         }
     }
 }
@@ -137,8 +116,8 @@ pub struct RefreshRequest {
     pub repositories: Vec<RepositorySelector>,
     /// Run GitHub acquisition, or omit it for an archive-only analysis refresh.
     pub sync: Option<RefreshSyncOptions>,
-    /// Optional model-backed analysis stages in execution order.
-    pub analysis: Vec<RefreshAnalysisStage>,
+    /// Analysis stages (`Embeddings`, `Clusters`); they always run in that order.
+    pub analysis: Vec<RefreshStageKind>,
     /// Document recipe used by document materialization and vector matching.
     pub recipe: DocumentRecipe,
     /// Service identity used to select compatible stored vectors.
@@ -210,10 +189,6 @@ pub struct RefreshReport {
     pub outcome: OperationOutcome,
 }
 
-/// Runs sync and explicitly selected analysis stages while retaining every stage result.
-///
-/// Failures in one stage do not discard completed work or prevent later independent stages from
-/// running. Invalid top-level scope is rejected before any work starts.
 mod clusters;
 mod coordinator;
 mod embeddings;
@@ -221,4 +196,4 @@ mod status;
 
 pub use coordinator::refresh;
 pub use embeddings::embed_repositories;
-use status::status_for_failure;
+use status::StageFailure;
