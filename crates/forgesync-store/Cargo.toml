@@ -9,7 +9,7 @@ readme.workspace = true
 description = "SQLite archive lifecycle and persistence for Forgesync"
 
 [dependencies]
-forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
+forgesync-core = { version = "0.2.0", path = "../forgesync-core" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

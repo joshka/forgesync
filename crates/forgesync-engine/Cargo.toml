@@ -9,9 +9,9 @@ readme.workspace = true
 description = "Acquisition, search, and triage workflows for Forgesync"
 
 [dependencies]
-forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
-forgesync-github = { version = "0.1.2", path = "../forgesync-github" }
-forgesync-store = { version = "0.1.2", path = "../forgesync-store" }
+forgesync-core = { version = "0.2.0", path = "../forgesync-core" }
+forgesync-github = { version = "0.2.0", path = "../forgesync-github" }
+forgesync-store = { version = "0.2.0", path = "../forgesync-store" }
 reqwest.workspace = true
 regex.workspace = true
 sha2.workspace = true
