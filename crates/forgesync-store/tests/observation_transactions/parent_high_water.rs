@@ -50,13 +50,16 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
 
     let first = discussion(&thread_id, "2026-09-20T10:00:00Z", "first");
     let applied = archive
-        .apply_thread_observation(&thread_observation(
-            first.clone(),
-            "2026-09-20T10:00:00Z",
-            "2026-09-20T10:00:00Z",
-            first_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                first.clone(),
+                "2026-09-20T10:00:00Z",
+                "2026-09-20T10:00:00Z",
+                first_sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("apply initial complete observation");
     assert_eq!(applied.disposition, ObservationDisposition::Applied);
@@ -64,13 +67,16 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
     assert_eq!(applied.evidence_sequence, Some(first_sequence));
 
     let replayed_incomplete = archive
-        .apply_thread_observation(&thread_observation(
-            first.clone(),
-            "2026-09-20T10:00:00Z",
-            "2026-09-20T10:00:01Z",
-            third_sequence,
-            incomplete(1),
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                first.clone(),
+                "2026-09-20T10:00:00Z",
+                "2026-09-20T10:00:01Z",
+                third_sequence,
+                incomplete(1),
+            ),
+            None,
+        )
         .await
         .expect("apply same-payload incomplete generation");
     assert_eq!(
@@ -82,26 +88,32 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
 
     let newer_parent = discussion(&thread_id, "2026-09-20T10:00:01Z", "newer");
     let incomplete_newer = archive
-        .apply_thread_observation(&thread_observation(
-            newer_parent.clone(),
-            "2026-09-20T10:00:01Z",
-            "2026-09-20T10:00:02Z",
-            fourth_sequence,
-            incomplete(1),
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                newer_parent.clone(),
+                "2026-09-20T10:00:01Z",
+                "2026-09-20T10:00:02Z",
+                fourth_sequence,
+                incomplete(1),
+            ),
+            None,
+        )
         .await
         .expect("apply newer incomplete parent");
     assert_eq!(incomplete_newer.high_water_sequence, fourth_sequence);
     assert_eq!(incomplete_newer.evidence_sequence, Some(first_sequence));
 
     let hydrated = archive
-        .apply_thread_observation(&thread_observation(
-            newer_parent.clone(),
-            "2026-09-20T10:00:01Z",
-            "2026-09-20T10:00:03Z",
-            second_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                newer_parent.clone(),
+                "2026-09-20T10:00:01Z",
+                "2026-09-20T10:00:03Z",
+                second_sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("hydrate same source below the parent high-water mark");
     assert_eq!(hydrated.disposition, ObservationDisposition::Applied);
@@ -114,13 +126,16 @@ async fn parent_observations_keep_separate_source_and_evidence_high_waters() {
         "delayed conflicting payload",
     );
     let skipped = archive
-        .apply_thread_observation(&thread_observation(
-            delayed,
-            "2026-09-20T10:00:01Z",
-            "2026-09-20T10:00:04Z",
-            third_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                delayed,
+                "2026-09-20T10:00:01Z",
+                "2026-09-20T10:00:04Z",
+                third_sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("skip delayed conflicting hydration");
     assert_eq!(skipped.disposition, ObservationDisposition::Skipped);

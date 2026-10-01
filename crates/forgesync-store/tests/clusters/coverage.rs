@@ -47,7 +47,7 @@ async fn complete_generation_rejects_missing_vector_coverage_without_storing_clu
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");

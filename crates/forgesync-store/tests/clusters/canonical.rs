@@ -48,7 +48,7 @@ async fn canonical_selection_rejects_a_thread_outside_the_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let observed_at = timestamp("2026-09-20T10:00:00Z");
@@ -65,7 +65,7 @@ async fn canonical_selection_rejects_a_thread_outside_the_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");

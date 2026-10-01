@@ -45,11 +45,11 @@ async fn identical_observation_replay_preserves_canonical_content() {
     );
 
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let replay = archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("replay same observation");
     assert_eq!(replay.disposition, ObservationDisposition::Replayed);
@@ -87,7 +87,7 @@ async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
     );
 
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let conflicting = thread_observation(
@@ -97,7 +97,7 @@ async fn tied_conflicting_payload_is_rejected_without_replacing_content() {
         sequence,
         CollectionCompleteness::Complete,
     );
-    let rejected = archive.apply_thread_observation(&conflicting).await;
+    let rejected = archive.apply_thread_observation(&conflicting, None).await;
     assert!(matches!(rejected, Err(StoreError::ConflictingObservation)));
 
     let reference = ThreadReference::new(repository.id.clone(), thread_id.number());
@@ -136,7 +136,7 @@ async fn different_malformed_source_clocks_are_rejected_without_replacing_conten
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&first)
+        .apply_thread_observation(&first, None)
         .await
         .expect("apply malformed source clock");
     let second = thread_observation(
@@ -146,7 +146,7 @@ async fn different_malformed_source_clocks_are_rejected_without_replacing_conten
         second_sequence,
         CollectionCompleteness::Complete,
     );
-    let rejected = archive.apply_thread_observation(&second).await;
+    let rejected = archive.apply_thread_observation(&second, None).await;
     assert!(matches!(
         rejected,
         Err(StoreError::AmbiguousObservationClocks { .. })

@@ -8,7 +8,7 @@
 //! requires the traversal to have recorded its terminal page. Failed or cancelled scans retain
 //! earlier observations and incomplete coverage. This module performs no provider requests.
 //!
-//! The optional fence selects existing store operations; it does not change ordering or content
+//! The optional fence is checked by each store write; it does not change ordering or content
 //! semantics. Each observation and cursor write retains its independent transaction boundary.
 
 use forgesync_core::coverage::EvidenceFamily;
@@ -38,42 +38,24 @@ impl ScanPersistence<'_> {
     /// Records the first requested page before any provider I/O.
     pub async fn begin(&self, first_page: &url::Url) -> Result<(), EngineError> {
         let context = self.context;
-        let archive = self.archive;
-        let lease = self.lease;
-        match lease {
-            Some(lease) => {
-                archive
-                    .begin_repository_thread_scan_fenced(
-                        &context.repository.id,
-                        context.sequence,
-                        context.started_at,
-                        first_page.as_str(),
-                        lease,
-                    )
-                    .await?;
-            }
-            None => {
-                archive
-                    .begin_repository_thread_scan(
-                        &context.repository.id,
-                        context.sequence,
-                        context.started_at,
-                        first_page.as_str(),
-                    )
-                    .await?;
-            }
-        }
-
+        self.archive
+            .begin_repository_thread_scan(
+                &context.repository.id,
+                context.sequence,
+                context.started_at,
+                first_page.as_str(),
+                self.lease,
+            )
+            .await?;
         Ok(())
     }
+
     /// Commits every parent observation before the caller may advance the durable cursor.
     pub async fn apply(
         &self,
         discussions: Vec<forgesync_core::content::Discussion>,
     ) -> Result<(), EngineError> {
         let context = self.context;
-        let archive = self.archive;
-        let lease = self.lease;
         for discussion in discussions {
             let source_clock = SourceClock::Valid(discussion.updated_at);
             let observation = Observation::new(
@@ -84,18 +66,13 @@ impl ScanPersistence<'_> {
                 context.sequence,
                 CollectionCompleteness::Complete,
             );
-            let applied = match lease {
-                Some(lease) => {
-                    archive
-                        .apply_thread_observation_fenced(&observation, lease)
-                        .await
-                }
-                None => archive.apply_thread_observation(&observation).await,
-            };
-            applied?;
+            self.archive
+                .apply_thread_observation(&observation, self.lease)
+                .await?;
         }
         Ok(())
     }
+
     /// Advances the cursor after durable page application, including an empty terminal page.
     pub async fn record_page(
         &self,
@@ -103,47 +80,37 @@ impl ScanPersistence<'_> {
         next_page_url: Option<&str>,
     ) -> Result<(), EngineError> {
         let context = self.context;
-        let archive = self.archive;
-        let lease = self.lease;
-        match lease {
-            Some(lease) => {
-                archive
-                    .record_repository_thread_scan_page_fenced(
-                        &context.repository.id,
-                        context.sequence,
-                        page_thread_count,
-                        next_page_url,
-                        now_utc()?,
-                        lease,
-                    )
-                    .await?;
-            }
-            None => {
-                archive
-                    .record_repository_thread_scan_page(
-                        &context.repository.id,
-                        context.sequence,
-                        page_thread_count,
-                        next_page_url,
-                        now_utc()?,
-                    )
-                    .await?;
-            }
-        }
+        self.archive
+            .record_repository_thread_scan_page(
+                &context.repository.id,
+                context.sequence,
+                page_thread_count,
+                next_page_url,
+                now_utc()?,
+                self.lease,
+            )
+            .await?;
         Ok(())
     }
-}
 
-impl ScanPersistence<'_> {
     /// Records terminal coverage after page writes, retaining failure or interruption distinctly.
     pub async fn finish(
         &self,
         outcome: ScanOutcome,
     ) -> Result<ThreadEnumerationReport, EngineError> {
-        let archive = self.archive;
         let context = self.context;
-        self.record_outcome(&outcome).await?;
-        let scan = archive
+        self.archive
+            .finish_repository_thread_scan(
+                &context.repository.id,
+                context.sequence,
+                outcome.status(),
+                now_utc()?,
+                outcome.failure(),
+                self.lease,
+            )
+            .await?;
+        let scan = self
+            .archive
             .repository_thread_scan(&context.repository.id)
             .await?
             .ok_or(StoreError::RepositoryThreadScanMissing)?;
@@ -152,36 +119,5 @@ impl ScanPersistence<'_> {
             scan,
             interrupted: outcome.interrupted(),
         })
-    }
-
-    /// Writes terminal coverage with failure evidence only for an unsuccessful provider attempt.
-    async fn record_outcome(&self, outcome: &ScanOutcome) -> Result<(), EngineError> {
-        let context = self.context;
-        match self.lease {
-            Some(lease) => {
-                self.archive
-                    .finish_repository_thread_scan_fenced(
-                        &context.repository.id,
-                        context.sequence,
-                        outcome.status(),
-                        now_utc()?,
-                        outcome.failure(),
-                        lease,
-                    )
-                    .await?
-            }
-            None => {
-                self.archive
-                    .finish_repository_thread_scan(
-                        &context.repository.id,
-                        context.sequence,
-                        outcome.status(),
-                        now_utc()?,
-                        outcome.failure(),
-                    )
-                    .await?
-            }
-        }
-        Ok(())
     }
 }

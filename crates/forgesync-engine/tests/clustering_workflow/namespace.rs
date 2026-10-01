@@ -55,7 +55,7 @@ async fn unmatched_endpoint_rejects_otherwise_current_vectors() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -72,7 +72,7 @@ async fn unmatched_endpoint_rejects_otherwise_current_vectors() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";

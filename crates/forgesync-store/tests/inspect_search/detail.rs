@@ -32,6 +32,7 @@ use crate::fixture::{
 async fn thread_detail_returns_typed_current_evidence_and_coverage() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
+    let lease = crate::common::lease(&archive).await;
     let repository = repository("example", "detail", "repo-detail");
     archive
         .upsert_repository(&repository)
@@ -60,17 +61,20 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let reservation = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread,
-            family: EvidenceFamily::Comments,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:01Z"),
-            request_scope: "GET /issues/9/comments",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread,
+                family: EvidenceFamily::Comments,
+                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:01Z"),
+                request_scope: "GET /issues/9/comments",
+            },
+            &lease,
+        )
         .await
         .expect("reserve comments");
     let comment_id = ProviderId::new("comment-1").expect("comment provider ID");
@@ -84,28 +88,34 @@ async fn thread_detail_returns_typed_current_evidence_and_coverage() {
         provider_data: ProviderData::new(),
     };
     archive
-        .stage_child_family_page(ChildFamilyPage {
-            thread: &thread,
-            family: EvidenceFamily::Comments,
-            sequence: reservation.sequence,
-            page_index: 0,
-            items: &[StagedItem {
-                id: comment_id.clone(),
-                payload: comment.clone(),
-            }],
-        })
+        .stage_child_family_page_fenced(
+            ChildFamilyPage {
+                thread: &thread,
+                family: EvidenceFamily::Comments,
+                sequence: reservation.sequence,
+                page_index: 0,
+                items: &[StagedItem {
+                    id: comment_id.clone(),
+                    payload: comment.clone(),
+                }],
+            },
+            &lease,
+        )
         .await
         .expect("stage current comment");
     archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread,
-            family: EvidenceFamily::Comments,
-            sequence: reservation.sequence,
-            observed_at: timestamp("2026-09-20T10:00:02Z"),
-            completeness: &CollectionCompleteness::Complete,
-            expected_pages: Some(1),
-            head_sha: None,
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread,
+                family: EvidenceFamily::Comments,
+                sequence: reservation.sequence,
+                observed_at: timestamp("2026-09-20T10:00:02Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: None,
+            },
+            &lease,
+        )
         .await
         .expect("complete comments");
 

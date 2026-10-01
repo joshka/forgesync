@@ -61,7 +61,7 @@ async fn kind_and_state_select_the_closed_pull_request() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -86,7 +86,7 @@ async fn kind_and_state_select_the_closed_pull_request() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -111,7 +111,7 @@ async fn kind_and_state_select_the_closed_pull_request() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 

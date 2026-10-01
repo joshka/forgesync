@@ -13,6 +13,8 @@
 //! Scenario imports name that owner directly rather than depending on root imports.
 //! Provider traversal and workflow scheduling remain engine integration responsibilities.
 
+mod common;
+
 #[path = "observation_transactions/fixture.rs"]
 mod fixture;
 #[path = "observation_transactions/ordering.rs"]

@@ -28,6 +28,7 @@ use crate::fixture::{
 async fn partial_collection_preserves_prior_complete_membership() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
+    let lease = crate::common::lease(&archive).await;
     let repository = repository();
     archive
         .upsert_repository(&repository)
@@ -39,24 +40,30 @@ async fn partial_collection_preserves_prior_complete_membership() {
         .await
         .expect("reserve observation sequence");
     archive
-        .apply_thread_observation(&thread_observation(
-            discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
-            "2026-09-20T10:00:00Z",
-            "2026-09-20T10:00:00Z",
-            thread_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                discussion(&thread_id, "2026-09-20T10:00:00Z", "thread"),
+                "2026-09-20T10:00:00Z",
+                "2026-09-20T10:00:00Z",
+                thread_sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("apply parent thread");
 
     let comments = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:01Z"),
-            request_scope: "GET /issues/1/comments",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:01Z"),
+                request_scope: "GET /issues/1/comments",
+            },
+            &lease,
+        )
         .await
         .expect("reserve comments");
     assert!(comments.reserved);
@@ -65,25 +72,31 @@ async fn partial_collection_preserves_prior_complete_membership() {
         item("comment-2", json!({"body":"two"})),
     ];
     archive
-        .stage_child_family_page(ChildFamilyPage {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            sequence: comments.sequence,
-            page_index: 0,
-            items: &original_members,
-        })
+        .stage_child_family_page_fenced(
+            ChildFamilyPage {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                sequence: comments.sequence,
+                page_index: 0,
+                items: &original_members,
+            },
+            &lease,
+        )
         .await
         .expect("stage comments page");
     let complete = archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            sequence: comments.sequence,
-            observed_at: timestamp("2026-09-20T10:00:02Z"),
-            completeness: &CollectionCompleteness::Complete,
-            expected_pages: Some(1),
-            head_sha: None,
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                sequence: comments.sequence,
+                observed_at: timestamp("2026-09-20T10:00:02Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: None,
+            },
+            &lease,
+        )
         .await
         .expect("complete comments");
     assert_eq!(complete.item_count, 2);
@@ -94,36 +107,45 @@ async fn partial_collection_preserves_prior_complete_membership() {
     assert_eq!(members, original_members);
 
     let partial = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:03Z"),
-            request_scope: "GET /issues/1/comments",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:03Z"),
+                request_scope: "GET /issues/1/comments",
+            },
+            &lease,
+        )
         .await
         .expect("reserve partial comments");
     assert!(partial.reserved);
     archive
-        .stage_child_family_page(ChildFamilyPage {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            sequence: partial.sequence,
-            page_index: 0,
-            items: &[item("comment-3", json!({"body":"partial"}))],
-        })
+        .stage_child_family_page_fenced(
+            ChildFamilyPage {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                sequence: partial.sequence,
+                page_index: 0,
+                items: &[item("comment-3", json!({"body":"partial"}))],
+            },
+            &lease,
+        )
         .await
         .expect("stage partial page");
     let partial_result = archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread_id,
-            family: EvidenceFamily::Comments,
-            sequence: partial.sequence,
-            observed_at: timestamp("2026-09-20T10:00:04Z"),
-            completeness: &incomplete(1),
-            expected_pages: None,
-            head_sha: None,
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread_id,
+                family: EvidenceFamily::Comments,
+                sequence: partial.sequence,
+                observed_at: timestamp("2026-09-20T10:00:04Z"),
+                completeness: &incomplete(1),
+                expected_pages: None,
+                head_sha: None,
+            },
+            &lease,
+        )
         .await
         .expect("record incomplete collection");
     assert_eq!(partial_result.item_count, 1);

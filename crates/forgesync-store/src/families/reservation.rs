@@ -31,54 +31,13 @@ use crate::ordering::compare_observation_order;
 impl Archive {
     /// Allocates acquisition order before fetching one discussion's child evidence.
     ///
-    /// Call this before provider I/O, then stage pages and finalize with the returned sequence.
-    /// `request.family` must identify comments, metadata, reviews, or review threads; parent thread
-    /// scans use their own observation path. `request.request_scope` must contain a nonempty
-    /// description of the selected provider request, while `request.source_clock` describes
-    /// source freshness rather than the local start time.
-    ///
-    /// A result with `reserved == false` still consumes a sequence but leaves the newer reservation
-    /// intact. Do not fetch or stage that rejected generation. A successful reservation does not
-    /// replace canonical membership or declare complete coverage.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error for a read-only archive, unknown thread, unsupported family, invalid scope
-    /// or clock, or failed database transaction. Writes commit together before returning; no
-    /// transaction is held while the caller performs network I/O.
-    pub async fn reserve_child_family_observation(
-        &self,
-        request: ChildFamilyRequest<'_>,
-    ) -> Result<FamilyReservation, StoreError> {
-        self.reserve_child_family_observation_inner(request, None)
-            .await
-    }
-
-    /// Reserves child evidence under an archive writer fence.
-    ///
-    /// This has the ordering and staging contract of [`Self::reserve_child_family_observation`].
-    /// Use it for coordinated engine work: the token is checked in the reservation transaction so
-    /// an expired or replaced writer cannot allocate durable work. The caller must continue using
-    /// that fence when staging and finalizing the selected generation.
-    ///
-    /// # Errors
-    ///
-    /// Adds stale or expired lease errors to the unfenced operation's validation and storage
-    /// errors. A failed fence leaves the reservation unchanged.
+    /// Call this before provider I/O, then stage pages and finish with the returned sequence.
+    /// `reserved == false` still consumes a sequence but leaves the newer reservation intact; do
+    /// not fetch or stage that rejected generation.
     pub async fn reserve_child_family_observation_fenced(
         &self,
         request: ChildFamilyRequest<'_>,
         token: &ArchiveLeaseToken,
-    ) -> Result<FamilyReservation, StoreError> {
-        self.reserve_child_family_observation_inner(request, Some(token))
-            .await
-    }
-
-    /// Reserves a generation before provider pages arrive, under optional fencing.
-    async fn reserve_child_family_observation_inner(
-        &self,
-        request: ChildFamilyRequest<'_>,
-        token: Option<&ArchiveLeaseToken>,
     ) -> Result<FamilyReservation, StoreError> {
         let ChildFamilyRequest {
             thread,
@@ -102,9 +61,7 @@ impl Archive {
         let source_clock_fields = source_clock_columns(&source_clock)?;
         let family_name = evidence_family_name(family);
         let mut transaction = writer.begin().await?;
-        if let Some(token) = token {
-            require_active_archive_lease(&mut transaction, token).await?;
-        }
+        require_active_archive_lease(&mut transaction, token).await?;
         let thread_row_id = thread_row_id(&mut transaction, thread).await?;
 
         let raw_sequence: i64 = sqlx::query_scalar(

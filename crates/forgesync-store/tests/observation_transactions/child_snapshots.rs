@@ -31,6 +31,7 @@ use crate::fixture::{
 async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: EvidenceFamily) {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
+    let lease = crate::common::lease(&archive).await;
     let repository = repository();
     archive
         .upsert_repository(&repository)
@@ -46,39 +47,48 @@ async fn complete_empty_snapshot_is_current_for_its_head(#[case] family: Evidenc
         ..discussion(&thread_id, "2026-09-20T10:00:00Z", "thread")
     };
     archive
-        .apply_thread_observation(&thread_observation(
-            parent,
-            "2026-09-20T10:00:00Z",
-            "2026-09-20T10:00:00Z",
-            thread_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(
+                parent,
+                "2026-09-20T10:00:00Z",
+                "2026-09-20T10:00:00Z",
+                thread_sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("apply parent thread");
 
     let snapshot = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread_id,
-            family,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:05Z"),
-            request_scope: "fixture empty snapshot",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread_id,
+                family,
+                source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:05Z"),
+                request_scope: "fixture empty snapshot",
+            },
+            &lease,
+        )
         .await
         .expect("reserve reviews independently");
     assert!(snapshot.reserved);
     let review_head =
         CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review head SHA");
     archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread_id,
-            family,
-            sequence: snapshot.sequence,
-            observed_at: timestamp("2026-09-20T10:00:06Z"),
-            completeness: &CollectionCompleteness::Complete,
-            expected_pages: Some(0),
-            head_sha: Some(&review_head),
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread_id,
+                family,
+                sequence: snapshot.sequence,
+                observed_at: timestamp("2026-09-20T10:00:06Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(0),
+                head_sha: Some(&review_head),
+            },
+            &lease,
+        )
         .await
         .expect("complete empty reviews");
     let members = archive

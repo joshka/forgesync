@@ -57,7 +57,7 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     archive.close().await;

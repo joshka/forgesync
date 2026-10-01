@@ -59,7 +59,7 @@ async fn complete_vector_coverage_creates_a_durable_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -76,7 +76,7 @@ async fn complete_vector_coverage_creates_a_durable_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";

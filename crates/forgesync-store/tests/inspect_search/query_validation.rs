@@ -53,7 +53,7 @@ async fn malformed_search_expression_has_a_typed_error() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 

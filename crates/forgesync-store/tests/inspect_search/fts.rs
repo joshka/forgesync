@@ -54,7 +54,7 @@ async fn fts_index_replaces_removed_body_with_current_title() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 
@@ -86,7 +86,7 @@ async fn fts_index_replaces_removed_body_with_current_title() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let obsolete = archive

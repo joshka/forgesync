@@ -70,14 +70,17 @@ pub async fn seed_archive(path: &PathBuf) {
         provider_data: ProviderData::new(),
     };
     archive
-        .apply_thread_observation(&Observation::new(
-            EvidenceFamily::Threads,
-            discussion,
-            SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            updated_at,
-            sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &Observation::new(
+                EvidenceFamily::Threads,
+                discussion,
+                SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+                updated_at,
+                sequence,
+                CollectionCompleteness::Complete,
+            ),
+            None,
+        )
         .await
         .expect("apply thread observation");
     archive.close().await;

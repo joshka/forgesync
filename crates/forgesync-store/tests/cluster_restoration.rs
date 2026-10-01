@@ -55,7 +55,7 @@ async fn restoration_clears_dismissal_and_preserves_generated_membership() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply discussion");
     let lease = archive

@@ -41,6 +41,7 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
             sequence,
             now,
             "https://api.github.com/page/1",
+            None,
         )
         .await
         .expect("begin scan");
@@ -56,6 +57,7 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
             sequence,
             RepositoryThreadScanStatus::Complete,
             now,
+            None,
             None,
         )
         .await;
@@ -77,7 +79,7 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
     );
 
     archive
-        .record_repository_thread_scan_page(&repository.id, sequence, 0, None, now)
+        .record_repository_thread_scan_page(&repository.id, sequence, 0, None, now, None)
         .await
         .expect("record empty terminal page");
     archive
@@ -86,6 +88,7 @@ async fn completion_requires_a_durably_recorded_terminal_page() {
             sequence,
             RepositoryThreadScanStatus::Complete,
             now,
+            None,
             None,
         )
         .await
@@ -121,11 +124,11 @@ async fn superseded_generation_cannot_finalize_the_current_scan() {
         .await
         .expect("reserve old scan");
     archive
-        .begin_repository_thread_scan(&repository.id, old, now, "https://api.github.com/old")
+        .begin_repository_thread_scan(&repository.id, old, now, "https://api.github.com/old", None)
         .await
         .expect("begin old scan");
     archive
-        .record_repository_thread_scan_page(&repository.id, old, 1, None, now)
+        .record_repository_thread_scan_page(&repository.id, old, 1, None, now, None)
         .await
         .expect("old terminal page");
 
@@ -139,6 +142,7 @@ async fn superseded_generation_cannot_finalize_the_current_scan() {
             current,
             now,
             "https://api.github.com/current",
+            None,
         )
         .await
         .expect("supersede old scan");
@@ -153,6 +157,7 @@ async fn superseded_generation_cannot_finalize_the_current_scan() {
             old,
             RepositoryThreadScanStatus::Complete,
             now,
+            None,
             None,
         )
         .await;

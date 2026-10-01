@@ -33,28 +33,13 @@ use crate::ordering::compare_observation_order;
 
 impl Archive {
     /// Applies one issue or pull-request snapshot using source clock and acquisition ordering.
+    ///
+    /// Canonical content, evidence clocks, and coverage change in one transaction, which also
+    /// checks `lease` when supplied.
     pub async fn apply_thread_observation(
         &self,
         observation: &Observation<Discussion>,
-    ) -> Result<ThreadObservationResult, StoreError> {
-        self.apply_thread_observation_inner(observation, None).await
-    }
-
-    /// Applies a thread snapshot only while the supplied archive lease remains current.
-    pub async fn apply_thread_observation_fenced(
-        &self,
-        observation: &Observation<Discussion>,
-        token: &ArchiveLeaseToken,
-    ) -> Result<ThreadObservationResult, StoreError> {
-        self.apply_thread_observation_inner(observation, Some(token))
-            .await
-    }
-
-    /// Keeps canonical content, evidence clocks, and coverage in one optionally fenced transaction.
-    async fn apply_thread_observation_inner(
-        &self,
-        observation: &Observation<Discussion>,
-        token: Option<&ArchiveLeaseToken>,
+        lease: Option<&ArchiveLeaseToken>,
     ) -> Result<ThreadObservationResult, StoreError> {
         if observation.family() != EvidenceFamily::Threads {
             return Err(StoreError::ObservationFamilyMismatch);
@@ -62,8 +47,8 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let incoming = IncomingThread::new(observation)?;
         let mut transaction = writer.begin().await?;
-        if let Some(token) = token {
-            require_active_archive_lease(&mut transaction, token).await?;
+        if let Some(lease) = lease {
+            require_active_archive_lease(&mut transaction, lease).await?;
         }
         let result = incoming.apply(&mut transaction).await?;
         transaction.commit().await?;

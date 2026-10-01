@@ -33,48 +33,19 @@ use crate::observation_sql::{evidence_family_name, is_child_family, to_sql_seque
 use crate::observations::FamilyObservationResult;
 
 impl Archive {
-    /// Finalizes the declared child collection without enforcing an archive lease.
+    /// Finalizes a staged child collection under the archive writer fence.
     ///
-    /// The declaration supplies completeness, expected page count, and optional head context
-    /// together. Complete reviews and review threads require a head; other families reject head
-    /// context. Validation precedes the transaction, while reservation ownership and staged
-    /// membership are checked inside it. Inspect the returned disposition because superseded
-    /// reservations skip application. Use the fenced variant for a workflow holding a writer
-    /// token.
-    pub async fn finish_child_family_observation(
-        &self,
-        observation: ChildFamilyObservation<'_>,
-    ) -> Result<FamilyObservationResult, StoreError> {
-        self.finish_child_family_observation_inner(observation, None)
-            .await
-    }
-
-    /// Finalizes a child family only while the supplied archive lease remains current.
-    ///
-    /// Authority is checked inside the finalization transaction. It does not prove provider
-    /// freshness or reservation ownership; the application checks the reservation separately.
+    /// Inspect the returned disposition: a superseded reservation is skipped rather than failing.
     pub async fn finish_child_family_observation_fenced(
         &self,
         observation: ChildFamilyObservation<'_>,
         token: &ArchiveLeaseToken,
     ) -> Result<FamilyObservationResult, StoreError> {
-        self.finish_child_family_observation_inner(observation, Some(token))
-            .await
-    }
-
-    /// Applies the terminal family result under one transaction and optional lease fencing.
-    async fn finish_child_family_observation_inner(
-        &self,
-        observation: ChildFamilyObservation<'_>,
-        token: Option<&ArchiveLeaseToken>,
-    ) -> Result<FamilyObservationResult, StoreError> {
         observation.validate()?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence_value = to_sql_sequence(observation.sequence)?;
         let mut transaction = writer.begin().await?;
-        if let Some(token) = token {
-            require_active_archive_lease(&mut transaction, token).await?;
-        }
+        require_active_archive_lease(&mut transaction, token).await?;
         let finalization =
             FamilyApplication::prepare(&mut transaction, observation, sequence_value).await?;
         let result = match finalization {

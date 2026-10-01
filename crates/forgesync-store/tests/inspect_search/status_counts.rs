@@ -59,7 +59,7 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -84,7 +84,7 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -109,7 +109,7 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 

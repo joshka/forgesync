@@ -61,7 +61,7 @@ async fn unmatched_search_preserves_scope_coverage() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -86,7 +86,7 @@ async fn unmatched_search_preserves_scope_coverage() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -111,7 +111,7 @@ async fn unmatched_search_preserves_scope_coverage() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 

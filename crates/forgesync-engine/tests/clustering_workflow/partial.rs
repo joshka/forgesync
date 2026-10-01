@@ -58,7 +58,7 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -75,7 +75,7 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";
@@ -172,7 +172,7 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         CollectionCompleteness::Complete,
     );
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
 
