@@ -10,10 +10,10 @@ description = "Interactive terminal browsing and local triage for Forgesync"
 
 [dependencies]
 crossterm.workspace = true
-forgesync-core = { version = "0.1.1", path = "../forgesync-core" }
-forgesync-engine = { version = "0.1.1", path = "../forgesync-engine" }
-forgesync-github = { version = "0.1.1", path = "../forgesync-github" }
-forgesync-store = { version = "0.1.1", path = "../forgesync-store" }
+forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.2", path = "../forgesync-engine" }
+forgesync-github = { version = "0.1.2", path = "../forgesync-github" }
+forgesync-store = { version = "0.1.2", path = "../forgesync-store" }
 ratatui.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

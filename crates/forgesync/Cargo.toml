@@ -31,10 +31,10 @@ name = "offline_queries"
 required-features = ["cli"]
 
 [dependencies]
-forgesync-cli = { version = "0.1.1", path = "../forgesync-cli", optional = true, default-features = false }
-forgesync-core = { version = "0.1.1", path = "../forgesync-core" }
-forgesync-engine = { version = "0.1.1", path = "../forgesync-engine" }
-forgesync-store = { version = "0.1.1", path = "../forgesync-store" }
+forgesync-cli = { version = "0.1.2", path = "../forgesync-cli", optional = true, default-features = false }
+forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
+forgesync-engine = { version = "0.1.2", path = "../forgesync-engine" }
+forgesync-store = { version = "0.1.2", path = "../forgesync-store" }
 
 [dev-dependencies]
 assert_cmd = "2"

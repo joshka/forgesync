@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/joshka/forgesync/compare/forgesync-cli-v0.1.1...forgesync-cli-v0.1.2) - 2026-10-01
+
+### Fixed
+
+- show acquisition progress by default ([#7](https://github.com/joshka/forgesync/pull/7))
+
+### Other
+
+- release v0.1.1
+- Fix CLI runtime IO and signal drivers
+
 ## [0.1.1](https://github.com/joshka/forgesync/compare/forgesync-cli-v0.1.0...forgesync-cli-v0.1.1) - 2026-09-30
 
 ### Other
