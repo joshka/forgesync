@@ -13,8 +13,8 @@
 
 use std::collections::HashMap;
 
-use crate::clusters::generation_input::PreparedCluster;
-use crate::clusters::generation_matching::{ExistingCluster, match_cluster_identities};
+use crate::clusters::generation::PreparedCluster;
+use crate::clusters::matching::{ExistingCluster, match_cluster_identities};
 
 #[test]
 fn strongest_absolute_overlap_claims_the_durable_identity() {

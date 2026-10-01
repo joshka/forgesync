@@ -1,26 +1,17 @@
-//! # Aggregate archive counts and evidence coverage
+//! Aggregate archive counts and family coverage totals.
 //!
-//! `Archive::coverage_summary` counts explicit family coverage states across the selected
-//! repository scope. Pull-request-only families exclude issues from their denominator. Missing
-//! coverage rows contribute to missing evidence; member counts never substitute for a recorded
-//! complete state.
-//!
-//! `Archive::archive_status` combines repository/thread totals, family summaries, and diagnostics.
-//! These operations read the archive without refreshing sources or rewriting evidence. Each query
-//! observes its own read snapshot; the assembled status is diagnostic rather than one
-//! transactionally frozen view of concurrent writers.
-//!
-//! `FamilyCoverageSummary::record_count` owns checked accumulation and stored-status validation.
-//! Individual discussion coverage and stale-head projection remain in `coverage`.
+//! Missing coverage rows count as missing evidence; member counts never substitute for a recorded
+//! complete state. Pull-request-only families exclude issues from their denominator.
 
 use forgesync_core::identity::RepositoryId;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::archive::Archive;
-use crate::coverage_projection::{ALL_FAMILIES, evidence_family_name, is_pull_request_family};
 use crate::error::StoreError;
-use crate::query_sql::push_repository_scope;
 use crate::reads::{ArchiveStatus, FamilyCoverageSummary};
+use crate::sql::{
+    ALL_FAMILIES, count_from_sql, family_name, is_pull_request_family, push_repository_scope,
+};
 
 impl Archive {
     /// Returns coverage counts for all families, optionally limited to resolved repositories.
@@ -28,33 +19,42 @@ impl Archive {
         &self,
         repositories: &[RepositoryId],
     ) -> Result<Vec<FamilyCoverageSummary>, StoreError> {
-        let mut summaries = Vec::with_capacity(ALL_FAMILIES.len());
-        for family in ALL_FAMILIES {
-            let mut statement = QueryBuilder::<Sqlite>::new(
-                "SELECT COALESCE(c.status, 'missing') AS status, COUNT(*) AS item_count FROM threads t JOIN repositories r ON r.id = t.repository_id LEFT JOIN family_coverage c ON c.thread_id = t.id AND c.family = ",
-            );
-            statement
-                .push_bind(evidence_family_name(family))
-                .push(" WHERE 1 = 1");
-            push_repository_scope(&mut statement, repositories);
-            if is_pull_request_family(family) {
-                statement.push(" AND t.kind = 'pull_request'");
-            }
-            statement.push(" GROUP BY COALESCE(c.status, 'missing')");
-            let rows = statement.build().fetch_all(&self.reader).await?;
-            let mut summary = FamilyCoverageSummary {
+        // Family labels are fixed identifiers, so inlining them in the CTE binds no user input.
+        let families = ALL_FAMILIES
+            .into_iter()
+            .map(|family| {
+                format!(
+                    "('{}', {})",
+                    family_name(family),
+                    u8::from(is_pull_request_family(family))
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut statement = QueryBuilder::<Sqlite>::new(format!(
+            "WITH families (name, pull_request_only) AS (VALUES {families}) SELECT f.name AS family, COALESCE(c.status, 'missing') AS status, COUNT(*) AS item_count FROM families f JOIN threads t ON f.pull_request_only = 0 OR t.kind = 'pull_request' JOIN repositories r ON r.id = t.repository_id LEFT JOIN family_coverage c ON c.thread_id = t.id AND c.family = f.name WHERE 1 = 1"
+        ));
+        push_repository_scope(&mut statement, repositories);
+        statement.push(" GROUP BY f.name, COALESCE(c.status, 'missing')");
+        let rows = statement.build().fetch_all(&self.reader).await?;
+        let mut summaries = ALL_FAMILIES
+            .into_iter()
+            .map(|family| FamilyCoverageSummary {
                 family,
                 applicable_threads: 0,
                 missing: 0,
                 incomplete: 0,
                 complete: 0,
-            };
-            for row in rows {
-                let status: String = row.try_get("status")?;
-                let count: i64 = row.try_get("item_count")?;
-                summary.record_count(&status, count)?;
-            }
-            summaries.push(summary);
+            })
+            .collect::<Vec<_>>();
+        for row in rows {
+            let family: String = row.try_get("family")?;
+            let summary = summaries
+                .iter_mut()
+                .find(|summary| family_name(summary.family) == family)
+                .ok_or(StoreError::Corrupt("archive_coverage_invalid"))?;
+            let status: String = row.try_get("status")?;
+            summary.record_count(&status, count_from_sql(row.try_get("item_count")?)?)?;
         }
         Ok(summaries)
     }
@@ -71,22 +71,19 @@ impl Archive {
         let mut pull_requests = 0_u64;
         for row in rows {
             let kind: String = row.try_get("kind")?;
-            let count: i64 = row.try_get("item_count")?;
-            let count = u64::try_from(count).map_err(|_| StoreError::InvalidStoredCount)?;
+            let count = count_from_sql(row.try_get("item_count")?)?;
             match kind.as_str() {
                 "issue" => issues = count,
                 "pull_request" => pull_requests = count,
-                _ => return Err(StoreError::InvalidStoredThreadKind(kind)),
+                _ => return Err(StoreError::Corrupt("archive_thread_kind_invalid")),
             }
         }
-        let repositories =
-            u64::try_from(repositories).map_err(|_| StoreError::InvalidStoredCount)?;
         let threads = issues
             .checked_add(pull_requests)
             .ok_or(StoreError::IntegerOutOfRange)?;
         Ok(ArchiveStatus {
             archive: self.info().clone(),
-            repositories,
+            repositories: count_from_sql(repositories)?,
             threads,
             issues,
             pull_requests,
@@ -97,12 +94,8 @@ impl Archive {
 }
 
 impl FamilyCoverageSummary {
-    /// Accumulates one grouped SQL count and rejects unknown coverage labels or invalid counts.
-    ///
-    /// SQL produces one row per status, so each bucket is assigned once. The denominator sums
-    /// every bucket with checked arithmetic before the summary becomes visible to callers.
-    fn record_count(&mut self, status: &str, count: i64) -> Result<(), StoreError> {
-        let count = u64::try_from(count).map_err(|_| StoreError::InvalidStoredCount)?;
+    /// Accumulates one grouped status count into its bucket and the denominator.
+    fn record_count(&mut self, status: &str, count: u64) -> Result<(), StoreError> {
         self.applicable_threads = self
             .applicable_threads
             .checked_add(count)
@@ -111,7 +104,7 @@ impl FamilyCoverageSummary {
             "missing" => self.missing = count,
             "incomplete" => self.incomplete = count,
             "complete" => self.complete = count,
-            _ => return Err(StoreError::InvalidStoredCoverage),
+            _ => return Err(StoreError::Corrupt("archive_coverage_invalid")),
         }
         Ok(())
     }
@@ -119,19 +112,6 @@ impl FamilyCoverageSummary {
 
 #[cfg(test)]
 mod tests {
-    //! # Coverage bucket accumulation at the SQL boundary
-    //!
-    //! Explicit grouped counts establish missing, incomplete, complete, and denominator totals.
-    //! Negative counts and unknown status spellings have separate typed rejection cases.
-    //! The empty fixture supplies only initial state; each accumulation remains visible in its
-    //! test. The successful sequence is one aggregate contract rather than unrelated query
-    //! scenarios.
-    //!
-    //! These tests call row-conversion policy directly without opening SQLite or executing a query.
-    //! Archive read tests establish which rows are grouped and which repositories are selected.
-    //! This suite protects checked conversion and accounting after those rows have been returned.
-    //! Keep exact bucket assertions here so an invalid status cannot quietly alter the denominator.
-
     use forgesync_core::coverage::EvidenceFamily;
 
     use crate::error::StoreError;
@@ -152,20 +132,11 @@ mod tests {
     }
 
     #[test]
-    fn negative_stored_count_is_rejected() {
-        let mut summary = empty_summary();
-        assert!(matches!(
-            summary.record_count("complete", -1),
-            Err(StoreError::InvalidStoredCount)
-        ));
-    }
-
-    #[test]
     fn unknown_stored_status_is_rejected() {
         let mut summary = empty_summary();
         assert!(matches!(
             summary.record_count("unexpected", 1),
-            Err(StoreError::InvalidStoredCoverage)
+            Err(StoreError::Corrupt("archive_coverage_invalid"))
         ));
     }
 

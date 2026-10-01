@@ -1,13 +1,7 @@
-//! # Durable workflow runs, jobs, and failures
+//! Durable workflow ledger: runs, sync jobs, and isolated failures.
 //!
-//! A `RunRecord` describes an engine invocation; `SyncJobRecord` describes one unit of sync work
-//! within it. `RunDetail` and `RunFailureRecord` expose what succeeded or failed. Completion and
-//! failure input types carry the fields needed for a terminal update.
-//!
-//! `lifecycle` creates and finishes records, `failures` stores isolated errors, and `query` serves
-//! run history and retry planning. This ledger is separate from source observations: a failed job
-//! can be retried without pretending that its missing evidence was acquired. CLI reports and
-//! engine retry logic use these records to explain partial success.
+//! The ledger is separate from source observations: a failed job can be retried without
+//! pretending its missing evidence was acquired.
 
 use forgesync_core::content::Repository;
 use forgesync_core::coverage::{EvidenceFamily, Failure};
@@ -18,10 +12,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::StoreError;
+use crate::sql::to_sql_integer;
 
 /// Durable terminal or active state of one sync run.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
 pub enum RunStatus {
     /// The operation owns pending work or has recoverable work in progress.
     InProgress,
@@ -38,8 +34,9 @@ pub enum RunStatus {
 }
 
 /// Durable status for one repository and evidence-family job in a run.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
 pub enum SyncJobStatus {
     /// Selected work is waiting to begin.
     Pending,
@@ -77,10 +74,6 @@ pub struct RunRecord {
 }
 
 /// Selected work recorded when a repository-family job begins.
-///
-/// This declaration identifies one attempt within a parent run. Starting the job initializes its
-/// ledger state and zero counters; it does not acquire content or establish family completeness.
-/// The writer token stays separate so durable work data does not carry archive authority.
 pub struct SyncJobStart<'a> {
     /// Parent run under which this attempt is recorded.
     pub run_id: RunId,
@@ -236,52 +229,15 @@ fn run_status(outcome: &OperationOutcome) -> RunStatus {
     }
 }
 
-/// Returns the persisted label of one run state.
-fn run_status_name(status: RunStatus) -> &'static str {
-    match status {
-        RunStatus::InProgress => "in_progress",
-        RunStatus::Complete => "complete",
-        RunStatus::Partial => "partial",
-        RunStatus::Failed => "failed",
-        RunStatus::Interrupted => "interrupted",
-        RunStatus::Deferred => "deferred",
-    }
-}
-
-/// Returns the persisted label of one job state.
-fn job_status_name(status: SyncJobStatus) -> &'static str {
-    match status {
-        SyncJobStatus::Pending => "pending",
-        SyncJobStatus::InProgress => "in_progress",
-        SyncJobStatus::Complete => "complete",
-        SyncJobStatus::Failed => "failed",
-        SyncJobStatus::Deferred => "deferred",
-        SyncJobStatus::Interrupted => "interrupted",
-    }
-}
-
-/// Rejects a nonpositive archive-local run identity.
+/// Rejects a nonpositive stored run identity.
 fn checked_run_id(value: i64) -> Result<RunId, StoreError> {
-    let value = u64::try_from(value).map_err(|_| StoreError::InvalidRunData)?;
-    RunId::new(value).map_err(|_| StoreError::InvalidRunData)
+    u64::try_from(value)
+        .ok()
+        .and_then(|value| RunId::new(value).ok())
+        .ok_or(StoreError::Corrupt("sync_run_invalid"))
 }
 
 /// Checks a run identity before binding it to SQLite.
 fn to_sql_id(value: RunId) -> Result<i64, StoreError> {
-    i64::try_from(value.get()).map_err(|_| StoreError::IntegerOutOfRange)
-}
-
-/// Checks an unsigned archive identity before binding it to SQLite.
-fn to_sql_id_u64(value: u64) -> Result<i64, StoreError> {
-    i64::try_from(value).map_err(|_| StoreError::IntegerOutOfRange)
-}
-
-/// Rejects a negative or overflowing stored count.
-fn decode_count(value: i64) -> Result<u64, StoreError> {
-    u64::try_from(value).map_err(|_| StoreError::InvalidSyncCount)
-}
-
-/// Converts a stored instant to the checked UTC representation.
-fn decode_timestamp(value: i64) -> Result<UtcTimestamp, StoreError> {
-    UtcTimestamp::from_unix_microseconds(value).map_err(StoreError::InvalidCreatedAt)
+    to_sql_integer(value.get())
 }

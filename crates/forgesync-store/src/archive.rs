@@ -1,13 +1,7 @@
-//! # Archive lifecycle and database handles
+//! Archive lifecycle: explicit create, read-only open, writable open, and migration.
 //!
-//! `Archive` owns the SQLite pools used by every store operation. `ArchiveInfo` describes an
-//! opened archive for status output. Create, read-only open, writable open, and migration are
-//! separate calls so a command can choose its side effects deliberately.
-//!
-//! Use the read-only handle for inspection paths and a writable handle for observations, derived
-//! data, or local decisions. Other modules add focused `impl Archive` methods; this file owns
-//! connection setup and the rules shared by all of them. SQLite pragmas and pool behavior belong
-//! here because they affect every transaction, including concurrency and foreign-key integrity.
+//! Opening never creates, migrates, or refreshes an archive. SQLite pragmas and pool settings live
+//! here because they affect every transaction.
 
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
@@ -25,6 +19,7 @@ use crate::migration::{
     MIGRATOR, MigrationReport, apply_pending_migrations, current_schema_version,
     supported_schema_version, validate_migration_history,
 };
+use crate::sql::timestamp_from_sql;
 
 /// Format identity stored in each native Forgesync archive.
 pub const ARCHIVE_FORMAT_ID: &str = "forgesync";
@@ -53,11 +48,6 @@ pub struct ArchiveInfo {
 
 /// Open archive pools. Reads use a read-only pool; writes use a serialized writer pool.
 ///
-/// Lifecycle operations are explicit: [`Self::create`] creates a new file, the two `open` methods
-/// validate an existing file, and [`Self::migrate`] upgrades an older schema. Opening never
-/// acquires provider data or applies pending migrations. Keep a handle open while running local
-/// reads or workflows, and call [`Self::close`] for orderly pool shutdown.
-///
 /// # Examples
 ///
 /// ```no_run
@@ -75,16 +65,11 @@ pub struct ArchiveInfo {
 /// # }
 /// ```
 pub struct Archive {
-    /// Validated read pool shared by store operations, hidden from archive consumers.
     pub(crate) reader: SqlitePool,
-    /// Writable capability present only for explicitly writable handles.
-    ///
-    /// Store operations check this capability before mutation; exposing the pool publicly would
-    /// bypass lifecycle, fencing, and transaction APIs.
+    /// Present only for writable handles; mutations fail with `ReadOnlyArchive` without it.
     pub(crate) writer: Option<SqlitePool>,
-    /// Validated archive file path retained for diagnostics and handle identity.
     path: PathBuf,
-    /// Metadata captured when this handle opened, rather than a live query on every access.
+    /// Metadata captured when this handle opened.
     info: ArchiveInfo,
 }
 
@@ -115,7 +100,7 @@ impl Archive {
         result
     }
 
-    /// Initializes schema and metadata after exclusive file creation.
+    /// Migrates and stamps metadata on a freshly created file, returning the opened handle.
     async fn create_new_archive(path: &Path) -> Result<Self, StoreError> {
         let writer = connect_writer(path).await?;
         let setup_result = async {
@@ -131,8 +116,7 @@ impl Archive {
             .execute(&writer)
             .await?;
 
-            let schema_version = current_schema_version(&writer).await?;
-            let info = load_info(path, &writer, schema_version).await?;
+            let info = validate_and_load_info(path, &writer, true).await?;
             let reader = connect_reader(path).await?;
             Ok::<_, StoreError>((reader, info))
         }
@@ -156,7 +140,7 @@ impl Archive {
     pub async fn open_read_only(path: impl AsRef<Path>) -> Result<Self, StoreError> {
         let path = existing_archive_file(path.as_ref())?;
         let reader = connect_reader(&path).await?;
-        let open_result = validate_and_load_info(&path, &reader).await;
+        let open_result = validate_and_load_info(&path, &reader, true).await;
         match open_result {
             Ok(info) => Ok(Self {
                 reader,
@@ -176,9 +160,8 @@ impl Archive {
         let path = existing_archive_file(path.as_ref())?;
         let writer = connect_writer(&path).await?;
         let open_result = async {
-            validate_and_load_info(&path, &writer).await?;
+            let info = validate_and_load_info(&path, &writer, true).await?;
             let reader = connect_reader(&path).await?;
-            let info = validate_and_load_info(&path, &reader).await?;
             Ok::<_, StoreError>((reader, info))
         }
         .await;
@@ -202,11 +185,8 @@ impl Archive {
         let path = existing_archive_file(path.as_ref())?;
         let writer = connect_writer(&path).await?;
         let result = async {
-            load_metadata(&writer).await?;
-            let previous_schema_version = current_schema_version(&writer).await?;
-            validate_migration_history(&writer, previous_schema_version).await?;
-            load_info(&path, &writer, previous_schema_version).await?;
-            apply_pending_migrations(&writer, previous_schema_version).await
+            let info = validate_and_load_info(&path, &writer, false).await?;
+            apply_pending_migrations(&writer, info.schema_version).await
         }
         .await;
         writer.close().await;
@@ -223,11 +203,6 @@ impl Archive {
         &self.info
     }
 
-    /// Returns whether this handle can write to the archive.
-    pub fn is_read_only(&self) -> bool {
-        self.writer.is_none()
-    }
-
     /// Closes all pools owned by this archive.
     pub async fn close(self) {
         self.reader.close().await;
@@ -237,37 +212,20 @@ impl Archive {
     }
 }
 
-/// Checks archive format and migration history before exposing a handle.
-///
-/// Shared by lifecycle and diagnostics but crate-only because it accepts a raw pool. Consumers
-/// choose explicit archive opening operations rather than validating arbitrary SQL resources.
-pub(crate) async fn validate_and_load_info(
+/// Checks archive metadata and migration history, optionally requiring the current schema.
+async fn validate_and_load_info(
     path: &Path,
     pool: &SqlitePool,
+    require_current_schema: bool,
 ) -> Result<ArchiveInfo, StoreError> {
-    load_metadata(pool).await?;
-    let current = current_schema_version(pool).await?;
-    let supported = supported_schema_version();
-    if current > supported {
-        return Err(StoreError::SchemaTooNew {
-            found: current,
-            supported,
-        });
+    let has_metadata_table: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archive_meta')",
+    )
+    .fetch_one(pool)
+    .await?;
+    if !has_metadata_table {
+        return Err(StoreError::MetadataMissing);
     }
-    validate_migration_history(pool, current).await?;
-    if current < supported {
-        return Err(StoreError::MigrationRequired { current, supported });
-    }
-
-    load_info(path, pool, current).await
-}
-
-/// Loads validated archive identity and SQLite metadata for status output.
-async fn load_info(
-    path: &Path,
-    pool: &SqlitePool,
-    schema_version: i64,
-) -> Result<ArchiveInfo, StoreError> {
     let row = sqlx::query(
         "SELECT archive_id, format_id, created_at_us FROM archive_meta WHERE singleton = 1",
     )
@@ -275,14 +233,22 @@ async fn load_info(
     .await?
     .ok_or(StoreError::MetadataMissing)?;
     let archive_id: String = row.try_get("archive_id")?;
-    Uuid::parse_str(&archive_id).map_err(StoreError::InvalidArchiveId)?;
+    Uuid::parse_str(&archive_id).map_err(|_| StoreError::Corrupt("archive_id_invalid"))?;
     let format_id: String = row.try_get("format_id")?;
     if format_id != ARCHIVE_FORMAT_ID {
         return Err(StoreError::UnsupportedFormat(format_id));
     }
-    let created_at_us: i64 = row.try_get("created_at_us")?;
-    let created_at = UtcTimestamp::from_unix_microseconds(created_at_us)
-        .map_err(StoreError::InvalidCreatedAt)?;
+    let created_at = timestamp_from_sql(row.try_get("created_at_us")?)?;
+
+    let schema_version = current_schema_version(pool).await?;
+    validate_migration_history(pool, schema_version).await?;
+    let supported = supported_schema_version();
+    if require_current_schema && schema_version < supported {
+        return Err(StoreError::MigrationRequired {
+            current: schema_version,
+            supported,
+        });
+    }
     let sqlite_version: String = sqlx::query_scalar("SELECT sqlite_version()")
         .fetch_one(pool)
         .await?;
@@ -297,32 +263,8 @@ async fn load_info(
     })
 }
 
-/// Reads the singleton metadata row without creating it.
-async fn load_metadata(pool: &SqlitePool) -> Result<(), StoreError> {
-    let has_metadata_table: i64 = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archive_meta')",
-    )
-    .fetch_one(pool)
-    .await?;
-    if has_metadata_table == 0 {
-        return Err(StoreError::MetadataMissing);
-    }
-
-    let has_metadata_row: i64 =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM archive_meta WHERE singleton = 1)")
-            .fetch_one(pool)
-            .await?;
-    if has_metadata_row == 0 {
-        return Err(StoreError::MetadataMissing);
-    }
-    Ok(())
-}
-
 /// Rejects absent paths and non-file paths before opening SQLite.
-///
-/// This lifecycle precondition is shared with explicit migration, not a public archive-opening
-/// alternative. It checks filesystem shape without creating, migrating, or validating schema.
-pub(crate) fn existing_archive_file(path: &Path) -> Result<PathBuf, StoreError> {
+fn existing_archive_file(path: &Path) -> Result<PathBuf, StoreError> {
     let metadata = std::fs::metadata(path).map_err(|source| {
         if source.kind() == std::io::ErrorKind::NotFound {
             StoreError::MissingArchive(path.to_path_buf())

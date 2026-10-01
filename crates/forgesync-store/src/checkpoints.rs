@@ -1,39 +1,17 @@
-//! # Durable positions for resumable acquisition
+//! Closed-sweep checkpoints that let the next sync resume from a committed source-time boundary.
 //!
-//! Checkpoint methods on `Archive` retain the position reached by provider enumeration. The engine
-//! reads these positions before resuming work and advances them only after the related archive
-//! updates have succeeded. This keeps a failed refresh from being mistaken for completed coverage.
-//!
-//! These methods store progress, not the discussion content itself. Thread observations and
-//! child-family staging live in their own modules; a checkpoint tells the next run where to begin
-//! looking again.
-//!
-//! [`Archive::closed_sweep_watermark`] reads the last committed source-time boundary. Absence is
-//! different from a zero timestamp: an unregistered repository or a repository without this
-//! checkpoint both return `None`. [`ClosedSweepCheckpoint`] names the publication input; it keeps
-//! source boundary and acquisition ordering distinct. The engine decides the overlap and source
-//! query for its next sweep; the store does not interpret provider clocks as acquisition order.
-//!
-//! [`Archive::commit_closed_sweep_watermark`] is the publication boundary. Within one transaction
-//! it checks the active writer lease, resolves the registered repository, verifies a completed
-//! scan with no continuation at the supplied acquisition sequence, and advances the checkpoint
-//! only when that sequence is newer. A failed check rolls back the checkpoint update. Source-time
-//! watermark values are retained as supplied; sequence ordering, not timestamp magnitude, fences
-//! an older acquisition from overwriting newer progress.
+//! Acquisition sequence, not watermark magnitude, fences an older scan from overwriting newer
+//! progress; the store never interprets provider clocks as acquisition order.
 
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
 use forgesync_core::timestamp::UtcTimestamp;
-use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::sql::{repository_row_id, timestamp_from_sql, to_sql_sequence};
 
 /// A closed-sweep source boundary tied to the scan that permits its publication.
-///
-/// This value names one checkpoint update, not proof that acquisition completed. The archive checks
-/// the matching scan and writer fence in its transaction. Keeping sequence and source boundary
-/// together makes their independent meanings explicit at the workflow publication point.
 #[derive(Clone, Copy, Debug)]
 pub struct ClosedSweepCheckpoint<'a> {
     /// Registered repository whose closed-sweep progress is being published.
@@ -49,14 +27,7 @@ pub struct ClosedSweepCheckpoint<'a> {
 impl Archive {
     /// Returns the committed closed-sweep source-time boundary, if one exists.
     ///
-    /// Returns `None` for both an unregistered repository and a registered repository without a
-    /// closed-sweep checkpoint. This read does not claim a lease or begin another scan. A later
-    /// writer may advance the checkpoint after the query.
-    ///
-    /// # Errors
-    ///
-    /// Returns database errors when the lookup fails and [`StoreError::InvalidCreatedAt`] when
-    /// the stored microsecond value cannot be represented as a domain timestamp.
+    /// Returns `None` for an unregistered repository as well as one without a checkpoint.
     pub async fn closed_sweep_watermark(
         &self,
         repository: &RepositoryId,
@@ -68,32 +39,13 @@ impl Archive {
         .bind(repository.provider_id().as_str())
         .fetch_optional(&self.reader)
         .await?;
-        value
-            .map(|value| {
-                UtcTimestamp::from_unix_microseconds(value).map_err(StoreError::InvalidCreatedAt)
-            })
-            .transpose()
+        value.map(timestamp_from_sql).transpose()
     }
 
     /// Publishes a closed-sweep boundary after the same-sequence scan is complete.
     ///
-    /// The checkpoint sequence identifies the durable scan; its watermark is the provider source
-    /// boundary selected by the workflow, and its update time records publication. The
-    /// store does not derive or compare these two timestamps. The scan must have status `complete`
-    /// and no next-page URL; this check does not independently prove which source query was used.
-    ///
-    /// The active lease check, scan check, and checkpoint upsert share one transaction. Replaying
-    /// an equal sequence is rejected rather than treated as an idempotent success. Any error
-    /// leaves the previous checkpoint intact.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`StoreError::ReadOnlyArchive`] without a writer pool, lease errors when the token
-    /// no longer authorizes writing, [`StoreError::RepositoryMissing`] for an unknown repository,
-    /// and [`StoreError::IntegerOutOfRange`] for a sequence outside SQLite's signed range. An
-    /// unfinished or absent scan returns [`StoreError::InvalidRepositoryThreadScan`]; an equal or
-    /// older checkpoint sequence returns [`StoreError::StaleRepositoryThreadScan`]. Database
-    /// failures are propagated.
+    /// The scan must be complete with no next-page cursor, and the sequence must be newer than the
+    /// stored checkpoint; replaying an equal sequence is rejected as stale.
     pub async fn commit_closed_sweep_watermark(
         &self,
         token: &ArchiveLeaseToken,
@@ -106,7 +58,7 @@ impl Archive {
             updated_at,
         } = checkpoint;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let sequence = i64::try_from(sequence.get()).map_err(|_| StoreError::IntegerOutOfRange)?;
+        let sequence = to_sql_sequence(sequence)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let repository_row_id = repository_row_id(&mut transaction, repository).await?;
@@ -135,17 +87,4 @@ impl Archive {
         transaction.commit().await?;
         Ok(())
     }
-}
-
-/// Resolves a registered repository to its SQLite key before checkpoint mutation.
-async fn repository_row_id(
-    connection: &mut SqliteConnection,
-    repository: &RepositoryId,
-) -> Result<i64, StoreError> {
-    sqlx::query_scalar("SELECT id FROM repositories WHERE host = ? AND provider_id = ?")
-        .bind(repository.host().as_str())
-        .bind(repository.provider_id().as_str())
-        .fetch_optional(&mut *connection)
-        .await?
-        .ok_or(StoreError::RepositoryMissing)
 }

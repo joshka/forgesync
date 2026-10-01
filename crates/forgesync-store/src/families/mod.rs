@@ -29,14 +29,6 @@ pub struct ChildFamilyRequest<'a> {
     pub request_scope: &'a str,
 }
 
-/// One staged page decoded for page-set validation and membership merging.
-struct StagedPage {
-    /// Zero-based position within the reserved generation.
-    index: i64,
-    /// Provider identities and payloads awaiting family-specific decoding.
-    items: Vec<StagedItem<serde_json::Value>>,
-}
-
 /// One provisional provider page belonging to a reserved child acquisition.
 ///
 /// `page_index` follows provider traversal order from zero. Empty pages are valid; only the
@@ -73,8 +65,7 @@ pub struct ChildFamilyObservation<'a> {
     pub head_sha: Option<&'a CommitSha>,
 }
 
-mod application;
 mod finish;
-mod query;
+pub(crate) mod query;
 mod reservation;
 mod staging;

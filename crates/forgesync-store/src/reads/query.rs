@@ -1,27 +1,7 @@
-//! # Filter and page archived threads
+//! Filtered, paged thread lists and repository lookup.
 //!
-//! `Archive` list methods build bounded SQL queries over repository scope, state, and sort
-//! criteria. Query-builder helpers apply common discussion filters consistently across list and
-//! search paths.
-//!
-//! Pagination and counts belong here so the engine receives stable `ThreadPage` values rather than
-//! database cursors. The caller chooses filters; this module owns SQL parameter binding and row
-//! conversion.
-//!
-//! [`Archive::query_threads`] reads aggregate coverage first, then the ordered discussion rows,
-//! then per-thread coverage for the visible page. These reads do not share a snapshot: concurrent
-//! writers may advance between them. Stable ordering means deterministic tie rules for the rows
-//! observed, not a frozen result set across offset pages.
-//!
-//! [`ThreadQuery`] owns bound SQL construction and selects relevance only when an FTS expression
-//! is present; ordinary relevance requests use updated-time ordering. One extra row acts as a
-//! continuation sentinel and is removed before coverage hydration. A blank supplied expression
-//! returns an empty page with aggregate coverage rather than executing invalid FTS syntax.
-//!
-//! Repository scope and discussion-filter helpers are shared with other local read paths. They
-//! require the same `r`/`t` SQL aliases and bind external values rather than interpolating them.
-//! Repository display-name lookup is separate from stable repository identity used for scope.
-//! No read acquires a writer lease, refreshes providers, or changes completeness records.
+//! Aggregate coverage, page rows, and per-thread coverage are separate reads; deterministic tie
+//! ordering does not freeze a result set across offset pages.
 
 use forgesync_core::content::Repository;
 use forgesync_core::identity::GitHubHost;
@@ -30,8 +10,8 @@ use sqlx::{QueryBuilder, Row, Sqlite};
 use crate::archive::Archive;
 use crate::coverage_projection::{coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
-use crate::query_sql::{push_discussion_filters, push_repository_scope};
 use crate::reads::{StoredThreadSummary, ThreadPage, ThreadQuery, ThreadSort, ThreadSummary};
+use crate::sql::{push_discussion_filters, push_repository_scope, to_sql_integer};
 
 impl Archive {
     /// Returns registered repositories in stable host, owner, and name order.
@@ -49,11 +29,7 @@ impl Archive {
             .collect()
     }
 
-    /// Finds a repository by stored host and case-insensitive current owner/name.
-    ///
-    /// Returns `None` when the display path is absent. This resolves a current display selector,
-    /// not historical rename aliases; stable scope uses the returned repository identity instead.
-    /// Database and persisted JSON decoding failures are propagated.
+    /// Finds a repository by host and case-insensitive current owner/name (not rename aliases).
     pub async fn find_repository(
         &self,
         host: &GitHubHost,
@@ -73,18 +49,10 @@ impl Archive {
             .transpose()
     }
 
-    /// Returns a deterministically ordered local page without modifying durable archive state.
+    /// Returns a deterministically ordered local page with aggregate scope coverage.
     ///
-    /// Reads aggregate coverage, discussion rows, and item coverage separately. Concurrent writers
-    /// can advance between those reads or between offset pages. A blank supplied FTS expression
-    /// returns no items or continuation while retaining aggregate coverage. A nonblank expression
-    /// is bound as FTS syntax; the engine owns literal-versus-advanced query interpretation.
-    ///
-    /// # Errors
-    ///
-    /// Propagates database, stored JSON, and integer conversion failures. FTS-related database
-    /// failures are classified as [`StoreError::InvalidSearchQuery`] by the local error predicate.
-    /// The nonzero query limit is trusted; upper page-size policy belongs to the engine.
+    /// A blank supplied FTS expression returns no items rather than executing invalid syntax;
+    /// malformed FTS syntax returns [`StoreError::InvalidSearchQuery`].
     pub async fn query_threads(&self, query: &ThreadQuery) -> Result<ThreadPage, StoreError> {
         let coverage = self.coverage_summary(&query.repositories).await?;
         if query
@@ -125,9 +93,8 @@ impl Archive {
         mut stored_summaries: Vec<StoredThreadSummary>,
         coverage: Vec<super::FamilyCoverageSummary>,
     ) -> Result<ThreadPage, StoreError> {
-        let has_more = i64::try_from(stored_summaries.len())
-            .map_err(|_| StoreError::IntegerOutOfRange)?
-            > i64::from(query.limit.get());
+        let has_more =
+            stored_summaries.len() > usize::try_from(query.limit.get()).unwrap_or(usize::MAX);
         if has_more {
             stored_summaries.pop();
         }
@@ -167,7 +134,7 @@ impl ThreadQuery {
     fn statement(&self) -> Result<QueryBuilder<Sqlite>, StoreError> {
         let limit = i64::from(self.limit.get());
         let fetch_limit = limit.checked_add(1).ok_or(StoreError::IntegerOutOfRange)?;
-        let offset = i64::try_from(self.offset).map_err(|_| StoreError::IntegerOutOfRange)?;
+        let offset = to_sql_integer(self.offset)?;
         let uses_fts = self.match_expression.is_some();
         let mut statement = QueryBuilder::<Sqlite>::new(if uses_fts {
             "SELECT t.id, r.payload_json AS repository_json, t.payload_json AS discussion_json FROM thread_search JOIN threads t ON t.id = thread_search.rowid JOIN repositories r ON r.id = t.repository_id WHERE thread_search MATCH "

@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 
 use sqlx::{Row, SqliteConnection};
 
-use crate::clusters::generation_input::PreparedCluster;
+use crate::clusters::generation::PreparedCluster;
 use crate::error::StoreError;
 
 /// Durable group with active or excluded membership used for identity overlap.
@@ -167,5 +167,5 @@ impl MembershipOverlap {
 }
 
 #[cfg(test)]
-#[path = "generation_matching_tests.rs"]
+#[path = "matching_tests.rs"]
 mod tests;

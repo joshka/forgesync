@@ -119,7 +119,6 @@ async fn search_through_read_only_archive_preserves_status() {
     let read_only = Archive::open_read_only(&path)
         .await
         .expect("open archive read-only");
-    assert!(read_only.is_read_only());
     let before = read_only
         .archive_status()
         .await

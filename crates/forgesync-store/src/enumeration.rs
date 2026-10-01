@@ -7,15 +7,20 @@ use forgesync_core::coverage::Failure;
 use forgesync_core::identity::{ObservationSequence, RepositoryId};
 use forgesync_core::timestamp::UtcTimestamp;
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqliteConnection};
+use sqlx::Row;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::sql::{
+    count_from_sql, repository_row_id, sequence_from_sql, timestamp_from_sql, to_sql_integer,
+    to_sql_sequence,
+};
 
 /// Durable state of one repository thread enumeration.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
 pub enum RepositoryThreadScanStatus {
     /// Pages are still being fetched and committed.
     InProgress,
@@ -66,7 +71,7 @@ impl Archive {
         lease: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let sequence = to_sql_integer(sequence.get())?;
+        let sequence = to_sql_sequence(sequence)?;
         let mut transaction = writer.begin().await?;
         if let Some(lease) = lease {
             require_active_archive_lease(&mut transaction, lease).await?;
@@ -111,7 +116,7 @@ impl Archive {
         lease: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError> {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let sequence = to_sql_integer(sequence.get())?;
+        let sequence = to_sql_sequence(sequence)?;
         let thread_count = to_sql_integer(thread_count)?;
         let mut transaction = writer.begin().await?;
         if let Some(lease) = lease {
@@ -148,9 +153,9 @@ impl Archive {
         failure: Option<&Failure>,
         lease: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError> {
-        let status = terminal_status_name(status, failure)?;
+        validate_terminal_status(status, failure)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let sequence = to_sql_integer(sequence.get())?;
+        let sequence = to_sql_sequence(sequence)?;
         let failure_json = failure.map(serde_json::to_string).transpose()?;
         let mut transaction = writer.begin().await?;
         if let Some(lease) = lease {
@@ -165,7 +170,7 @@ impl Archive {
         .fetch_optional(&mut *transaction)
         .await?;
         let next_page_url = next_page_url.ok_or(StoreError::RepositoryThreadScanMissing)?;
-        if status == "complete" && next_page_url.is_some() {
+        if status == RepositoryThreadScanStatus::Complete && next_page_url.is_some() {
             return Err(StoreError::InvalidRepositoryThreadScan);
         }
         sqlx::query(
@@ -195,12 +200,12 @@ impl Archive {
         .fetch_optional(&self.reader)
         .await?;
         row.map(|row| {
-            let sequence = checked_positive_sequence(row.try_get("sequence")?)?;
-            let status = decode_status(row.try_get("status")?)?;
-            let started_at = decode_timestamp(row.try_get("started_at_us")?)?;
-            let updated_at = decode_timestamp(row.try_get("updated_at_us")?)?;
-            let pages_completed = checked_count(row.try_get("pages_completed")?)?;
-            let threads_seen = checked_count(row.try_get("threads_seen")?)?;
+            let sequence = sequence_from_sql(row.try_get("sequence")?)?;
+            let status = row.try_get("status")?;
+            let started_at = timestamp_from_sql(row.try_get("started_at_us")?)?;
+            let updated_at = timestamp_from_sql(row.try_get("updated_at_us")?)?;
+            let pages_completed = count_from_sql(row.try_get("pages_completed")?)?;
+            let threads_seen = count_from_sql(row.try_get("threads_seen")?)?;
             let failure_json: Option<String> = row.try_get("failure_json")?;
             let failure = failure_json
                 .map(|json| serde_json::from_str(&json))
@@ -221,58 +226,14 @@ impl Archive {
     }
 }
 
-/// Resolves the repository key used by a durable scan.
-async fn repository_row_id(
-    connection: &mut SqliteConnection,
-    repository: &RepositoryId,
-) -> Result<i64, StoreError> {
-    sqlx::query_scalar("SELECT id FROM repositories WHERE host = ? AND provider_id = ?")
-        .bind(repository.host().as_str())
-        .bind(repository.provider_id().as_str())
-        .fetch_optional(connection)
-        .await?
-        .ok_or(StoreError::RepositoryMissing)
-}
-
-/// Checks a provider count before binding it to SQLite.
-fn to_sql_integer(value: u64) -> Result<i64, StoreError> {
-    i64::try_from(value).map_err(|_| StoreError::IntegerOutOfRange)
-}
-
-/// Rejects negative or overflowing stored scan counts.
-fn checked_count(value: i64) -> Result<u64, StoreError> {
-    u64::try_from(value).map_err(|_| StoreError::InvalidStoredCount)
-}
-
-/// Rejects an invalid stored observation sequence.
-fn checked_positive_sequence(value: i64) -> Result<ObservationSequence, StoreError> {
-    let value = u64::try_from(value).map_err(|_| StoreError::InvalidStoredSequence)?;
-    ObservationSequence::new(value).map_err(|_| StoreError::InvalidStoredSequence)
-}
-
-/// Converts a stored scan timestamp to checked UTC time.
-fn decode_timestamp(value: i64) -> Result<UtcTimestamp, StoreError> {
-    UtcTimestamp::from_unix_microseconds(value).map_err(StoreError::InvalidCreatedAt)
-}
-
 /// Validates a terminal status/failure pair: complete coverage cannot carry a failure.
-fn terminal_status_name(
+fn validate_terminal_status(
     status: RepositoryThreadScanStatus,
     failure: Option<&Failure>,
-) -> Result<&'static str, StoreError> {
+) -> Result<(), StoreError> {
     match (status, failure) {
-        (RepositoryThreadScanStatus::Complete, None) => Ok("complete"),
-        (RepositoryThreadScanStatus::Incomplete, _) => Ok("incomplete"),
-        _ => Err(StoreError::InvalidRepositoryThreadScan),
-    }
-}
-
-/// Rejects scan status labels unknown to this binary.
-fn decode_status(value: String) -> Result<RepositoryThreadScanStatus, StoreError> {
-    match value.as_str() {
-        "in_progress" => Ok(RepositoryThreadScanStatus::InProgress),
-        "incomplete" => Ok(RepositoryThreadScanStatus::Incomplete),
-        "complete" => Ok(RepositoryThreadScanStatus::Complete),
+        (RepositoryThreadScanStatus::Complete, None)
+        | (RepositoryThreadScanStatus::Incomplete, _) => Ok(()),
         _ => Err(StoreError::InvalidRepositoryThreadScan),
     }
 }
@@ -281,7 +242,7 @@ fn decode_status(value: String) -> Result<RepositoryThreadScanStatus, StoreError
 mod tests {
     use forgesync_core::coverage::{Failure, FailureKind};
 
-    use super::{RepositoryThreadScanStatus, terminal_status_name};
+    use super::{RepositoryThreadScanStatus, validate_terminal_status};
     use crate::error::StoreError;
 
     #[test]
@@ -291,20 +252,17 @@ mod tests {
             message: "request failed".to_owned(),
         };
         assert!(matches!(
-            terminal_status_name(RepositoryThreadScanStatus::InProgress, None),
+            validate_terminal_status(RepositoryThreadScanStatus::InProgress, None),
             Err(StoreError::InvalidRepositoryThreadScan)
         ));
         assert!(matches!(
-            terminal_status_name(RepositoryThreadScanStatus::Complete, Some(&failure)),
+            validate_terminal_status(RepositoryThreadScanStatus::Complete, Some(&failure)),
             Err(StoreError::InvalidRepositoryThreadScan)
         ));
-        assert_eq!(
-            terminal_status_name(RepositoryThreadScanStatus::Complete, None).ok(),
-            Some("complete")
-        );
-        assert_eq!(
-            terminal_status_name(RepositoryThreadScanStatus::Incomplete, None).ok(),
-            Some("incomplete")
+        assert!(validate_terminal_status(RepositoryThreadScanStatus::Complete, None).is_ok());
+        assert!(
+            validate_terminal_status(RepositoryThreadScanStatus::Incomplete, Some(&failure))
+                .is_ok()
         );
     }
 }

@@ -1,23 +1,7 @@
-//! # Stored duplicate clusters and maintainer decisions
+//! Derived duplicate clusters and local maintainer decisions.
 //!
-//! A cluster generation is a derived grouping of archived threads. `ClusterGenerationInput`,
-//! `ClusterInput`, and `ClusterMemberInput` describe what the engine proposes to store;
-//! `ClusterGenerationResult` reports the committed generation. Summary and detail types are read
-//! projections for CLI and TUI callers.
-//!
-//! Lifecycle, member state, and member role are separate because a proposed relationship and a
-//! maintainer decision have different meanings. `generation` writes proposed membership, `queries`
-//! reads it, and `decisions` records local triage actions. The engine owns candidate selection;
-//! this module owns persistence and the durable effect of decisions. `generation_input` validates
-//! proposals and resolves archived rows inside the write transaction; `generation_matching` retains
-//! durable identity through membership overlap. Their private representations stay beside those
-//! operations rather than appearing as another layer of API types here.
-//!
-//! `members` enriches selected member rows with discussion coverage and effective role coordinates.
-//! `member_decision` keeps durable inclusion, visible state, canonical cleanup, and audit labels
-//! consistent within an archive-owned transaction. Read projections remain distinct from write
-//! authority; later decisions validate their own fence and membership. `canonical` requires active
-//! membership and records local selection without replacing the generated representative.
+//! Generated membership and maintainer decisions are stored separately because a proposed
+//! relationship and an explicit choice mean different things; the engine owns candidate selection.
 
 use std::num::NonZeroU32;
 
@@ -88,8 +72,9 @@ pub struct ClusterGenerationResult {
 }
 
 /// Whether a generated cluster is current or retained as historical context.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
 pub enum ClusterLifecycle {
     /// The cluster belongs to the latest complete or partial generation.
     Active,
@@ -98,8 +83,9 @@ pub enum ClusterLifecycle {
 }
 
 /// Current state of one generated cluster membership.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(rename_all = "snake_case")]
 pub enum ClusterMemberState {
     /// Included in the visible generated membership.
     Active,
@@ -195,14 +181,7 @@ pub struct ClusterPage {
     pub next_offset: Option<u64>,
 }
 
-mod canonical;
-mod cluster_decision;
 mod decisions;
 mod generation;
-mod generation_apply;
-mod generation_input;
-mod generation_matching;
-mod generation_rows;
-mod member_decision;
-mod members;
+mod matching;
 mod queries;

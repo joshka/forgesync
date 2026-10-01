@@ -1,38 +1,15 @@
-//! # Record failures at the unit of work that failed
+//! Failure ledger writes, scoped to the unit of work that failed.
 //!
-//! These `Archive` methods persist provider or application failures with enough scope to identify
-//! the affected run, job, thread, and family. A failed child collection should not erase
-//! successful work elsewhere in the same run.
-//!
-//! The engine uses these records for partial reports and retries. Storing failure scope explicitly
-//! avoids inferring it from missing rows, which cannot distinguish an unrequested resource from
-//! one that was attempted and failed.
-//!
-//! [`Archive::record_run_failure`] accepts failures both before and after repository resolution.
-//! Thread scope requires a matching supplied repository, but recording the ledger entry does not
-//! acquire evidence, update coverage, or complete a job. The operation retains original failure
-//! JSON so later retries and history can explain the failed attempt.
-//!
-//! Selector-scoped retry/resolution targets unresolved rows without a resolved repository.
-//! Child-family retry/resolution uses registered repository and exact thread identity, family,
-//! and scope key. Both exclude entries created by the current run, preserving new failures from
-//! that same attempt. A successful mutation can affect zero prior rows.
-//!
-//! Retry marking increments counts and records the current retry run; repeated marking is not
-//! idempotent. Resolution timestamps matching unresolved rows without deleting history or proving
-//! provider completion. The engine must invoke resolution only after its matching work succeeds.
-//! All mutations validate the active archive lease within their transaction, but that fence alone
-//! does not prove that the workflow selected the correct failure scope.
+//! Retry/resolution of earlier failures always excludes entries created by the current run, so new
+//! failures from that same attempt are preserved. Retry marking is not idempotent.
 
 use forgesync_core::timestamp::UtcTimestamp;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observation_sql::{evidence_family_name, repository_row_id};
-use crate::runs::{
-    ChildFamilyFailureScope, RunFailureInput, RunFailureScope, to_sql_id, to_sql_id_u64,
-};
+use crate::runs::{ChildFamilyFailureScope, RunFailureInput, RunFailureScope, to_sql_id};
+use crate::sql::{family_name, repository_row_id, to_sql_integer};
 
 impl Archive {
     /// Increments retry counts for prior unresolved selector failures in the exact supplied scope.
@@ -55,7 +32,7 @@ impl Archive {
         )
         .bind(to_sql_id(scope.run_id)?)
         .bind(scope.target)
-        .bind(evidence_family_name(scope.family))
+        .bind(family_name(scope.family))
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -87,7 +64,7 @@ impl Archive {
         .bind(resolved_at.unix_microseconds())
         .bind(to_sql_id(scope.run_id)?)
         .bind(scope.target)
-        .bind(evidence_family_name(scope.family))
+        .bind(family_name(scope.family))
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -123,19 +100,12 @@ impl Archive {
         require_active_archive_lease(&mut transaction, token).await?;
         let failure_json = serde_json::to_string(failure.failure)?;
         let repository_id = match failure.repository {
-            Some(repository) => Some(
-                repository_row_id(
-                    &mut transaction,
-                    repository.host().as_str(),
-                    repository.provider_id().as_str(),
-                )
-                .await?,
-            ),
+            Some(repository) => Some(repository_row_id(&mut transaction, repository).await?),
             None => None,
         };
         let thread_number = failure
             .thread
-            .map(|thread| to_sql_id_u64(thread.number().get()))
+            .map(|thread| to_sql_integer(thread.number().get()))
             .transpose()?;
         let thread_provider_id = failure.thread.map(|thread| thread.provider_id().as_str());
         sqlx::query(
@@ -143,7 +113,7 @@ impl Archive {
         )
         .bind(to_sql_id(failure.run_id)?)
         .bind(repository_id)
-        .bind(failure.family.map(evidence_family_name))
+        .bind(failure.family.map(family_name))
         .bind(failure.target)
         .bind(failure.scope_key)
         .bind(failure_json)
@@ -176,20 +146,15 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let repository_id = repository_row_id(
-            &mut transaction,
-            scope.repository.host().as_str(),
-            scope.repository.provider_id().as_str(),
-        )
-        .await?;
+        let repository_id = repository_row_id(&mut transaction, scope.repository).await?;
         let result = sqlx::query(
             "UPDATE failures SET retry_count = retry_count + 1, retry_run_id = ? WHERE repository_id = ? AND thread_provider_id = ? AND thread_number = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
         )
         .bind(to_sql_id(scope.run_id)?)
         .bind(repository_id)
         .bind(scope.thread.provider_id().as_str())
-        .bind(to_sql_id_u64(scope.thread.number().get())?)
-        .bind(evidence_family_name(scope.family))
+        .bind(to_sql_integer(scope.thread.number().get())?)
+        .bind(family_name(scope.family))
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -218,12 +183,7 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let repository_id = repository_row_id(
-            &mut transaction,
-            scope.repository.host().as_str(),
-            scope.repository.provider_id().as_str(),
-        )
-        .await?;
+        let repository_id = repository_row_id(&mut transaction, scope.repository).await?;
         let result = sqlx::query(
             "UPDATE failures SET resolved_at_us = ?, retry_run_id = COALESCE(retry_run_id, ?) WHERE repository_id = ? AND thread_provider_id = ? AND thread_number = ? AND family = ? AND scope_key = ? AND resolved_at_us IS NULL AND run_id <> ?",
         )
@@ -231,8 +191,8 @@ impl Archive {
         .bind(to_sql_id(scope.run_id)?)
         .bind(repository_id)
         .bind(scope.thread.provider_id().as_str())
-        .bind(to_sql_id_u64(scope.thread.number().get())?)
-        .bind(evidence_family_name(scope.family))
+        .bind(to_sql_integer(scope.thread.number().get())?)
+        .bind(family_name(scope.family))
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)

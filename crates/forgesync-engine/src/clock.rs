@@ -27,6 +27,6 @@ pub fn now_utc() -> Result<UtcTimestamp, EngineError> {
     let microseconds =
         i64::try_from(elapsed.as_micros()).map_err(|_| StoreError::ClockOutOfRange)?;
     UtcTimestamp::from_unix_microseconds(microseconds)
-        .map_err(StoreError::InvalidCreatedAt)
+        .map_err(StoreError::InvalidTimestamp)
         .map_err(Into::into)
 }

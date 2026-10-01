@@ -1,24 +1,7 @@
-//! # Persist embedding chunks and select compatible work
+//! Embedding chunk persistence and compatible-vector selection.
 //!
-//! [`EmbeddingChunkInput`] declares one generated vector together with its service identity and
-//! deterministic chunk coordinates. Fenced persistence checks the stored document revision and
-//! returns [`EmbeddingWrite`], the accepted archive row identity. Each chunk commits separately;
-//! one accepted write does not establish a complete document embedding.
-//!
-//! [`StoredEmbeddingChunk`] is the decoded read form. [`Archive::embedding_chunks`] returns a
-//! service-scoped partial set for retry selection, which the engine compares with prepared inputs.
-//! Search instead supplies [`EmbeddingDocumentQuery`] to [`Archive::embedding_search_page`]. Its
-//! [`EmbeddingDocumentPage`] contains [`EmbeddingSearchDocument`] values only after current-source
-//! eligibility and whole-chunk-set validation; rejected raw candidates still advance its cursor.
-//!
-//! Document recipe/version/hash, endpoint/model, chunk count/hash, and vector dimensions establish
-//! different parts of compatibility. The reader in `read` checks complete archived sets; engine
-//! retrieval additionally checks query-vector dimensions and ranks similarity. Search reads are
-//! local projections across separate queries, not an atomic historical snapshot.
-//!
-//! The engine owns model requests, input splitting, batching, and retry policy. This module owns
-//! bound SQLite writes and decoded reads, performs no provider calls, and never infers successful
-//! acquisition from one chunk or one transport response.
+//! Each chunk commits separately, so one accepted write never establishes a complete document
+//! embedding; search only uses documents whose whole chunk set validates.
 
 use std::num::NonZeroU32;
 
@@ -34,6 +17,7 @@ use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::reads::{ThreadStateFilter, ThreadSummary};
+use crate::sql::find_thread_row_id;
 
 mod read;
 
@@ -118,17 +102,10 @@ pub struct EmbeddingWrite {
 }
 
 impl Archive {
-    /// Lists persisted chunks matching the current document and service identity.
+    /// Lists persisted chunks matching the current document and service identity, in index order.
     ///
-    /// Validate the supplied document recipe/hash, then match its stored hash and exact endpoint,
-    /// model, and declared chunk count. Blank service identity or zero count yields no chunks;
-    /// a different stored document hash returns `DocumentNotCurrent`. Rows arrive in chunk-index
-    /// order, with checked indexes/counts and validated vector bytes.
-    ///
-    /// The result can be a partial set for retry planning. It does not prove contiguous indexes,
-    /// uniform dimensions, caller recipe freshness against all source families, or compatibility
-    /// with a query vector. Semantic candidate reads perform complete-set checks separately.
-    /// Document, stored-value, conversion, and database failures propagate without changing state.
+    /// The result can be a partial set for retry planning; it does not prove a complete chunk set.
+    /// A different stored document hash returns [`StoreError::DocumentNotCurrent`].
     pub async fn embedding_chunks(
         &self,
         document: &Document,
@@ -144,13 +121,15 @@ impl Archive {
         if chunk_count == 0 || endpoint.trim().is_empty() || model.trim().is_empty() {
             return Ok(Vec::new());
         }
+        let Some(thread_row_id) =
+            find_thread_row_id(&self.reader, &document.source_identity).await?
+        else {
+            return Err(StoreError::DocumentNotCurrent);
+        };
         let current_hash: Option<String> = sqlx::query_scalar(
-            "SELECT d.content_hash FROM documents d JOIN threads t ON t.id = d.thread_id JOIN repositories r ON r.id = t.repository_id WHERE r.host = ? AND r.provider_id = ? AND t.provider_id = ? AND t.number = ? AND d.recipe = ? AND d.recipe_version = ?",
+            "SELECT content_hash FROM documents WHERE thread_id = ? AND recipe = ? AND recipe_version = ?",
         )
-        .bind(document.source_identity.repository().host().as_str())
-        .bind(document.source_identity.repository().provider_id().as_str())
-        .bind(document.source_identity.provider_id().as_str())
-        .bind(i64::try_from(document.source_identity.number().get()).map_err(|_| StoreError::IntegerOutOfRange)?)
+        .bind(thread_row_id)
         .bind(document.recipe.as_str())
         .bind(i64::from(document.recipe_version))
         .fetch_optional(&self.reader)
@@ -159,12 +138,9 @@ impl Archive {
             return Err(StoreError::DocumentNotCurrent);
         }
         let rows = sqlx::query(
-            "SELECT e.chunk_index, e.chunk_count, e.chunk_hash, e.dimensions, e.vector_le FROM embeddings e JOIN documents d ON d.id = e.document_id JOIN threads t ON t.id = d.thread_id JOIN repositories r ON r.id = t.repository_id WHERE r.host = ? AND r.provider_id = ? AND t.provider_id = ? AND t.number = ? AND d.recipe = ? AND d.content_hash = ? AND e.endpoint = ? AND e.model = ? AND e.document_hash = d.content_hash AND e.chunk_count = ? ORDER BY e.chunk_index",
+            "SELECT e.chunk_index, e.chunk_count, e.chunk_hash, e.dimensions, e.vector_le FROM embeddings e JOIN documents d ON d.id = e.document_id WHERE d.thread_id = ? AND d.recipe = ? AND d.content_hash = ? AND e.endpoint = ? AND e.model = ? AND e.document_hash = d.content_hash AND e.chunk_count = ? ORDER BY e.chunk_index",
         )
-        .bind(document.source_identity.repository().host().as_str())
-        .bind(document.source_identity.repository().provider_id().as_str())
-        .bind(document.source_identity.provider_id().as_str())
-        .bind(i64::try_from(document.source_identity.number().get()).map_err(|_| StoreError::IntegerOutOfRange)?)
+        .bind(thread_row_id)
         .bind(document.recipe.as_str())
         .bind(&document.content_hash)
         .bind(endpoint)
@@ -176,17 +152,9 @@ impl Archive {
         rows.into_iter().map(decode_embedding_chunk).collect()
     }
 
-    /// Stores a vector only while its source document and the archive writer fence are current.
+    /// Stores one chunk while its source document and the archive writer fence are current.
     ///
-    /// `chunk` already groups service identity, index/count, content hash, and checked vector
-    /// shape. This operation validates those fields and the document recipe/hash before writer
-    /// access, then checks the fence and stored document revision inside one transaction.
-    /// Endpoint/model strings are persisted exactly as supplied after rejecting blank identity.
-    ///
-    /// One chunk commits independently, preserving successful batches when later acquisition fails.
-    /// Replacing its existing index updates count/hash/vector and update time while retaining the
-    /// original creation time. This does not acquire embeddings or prove a complete chunk set.
-    /// Invalid input, read-only state, lost lease, noncurrent document, and SQL failures propagate.
+    /// Replacing an existing index keeps its original creation time.
     pub async fn upsert_embedding_chunk_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -258,13 +226,15 @@ async fn current_document_row_id(
     connection: &mut sqlx::SqliteConnection,
     document: &Document,
 ) -> Result<Option<i64>, StoreError> {
+    let Some(thread_row_id) =
+        find_thread_row_id(&mut *connection, &document.source_identity).await?
+    else {
+        return Ok(None);
+    };
     Ok(sqlx::query_scalar(
-        "SELECT d.id FROM documents d JOIN threads t ON t.id = d.thread_id JOIN repositories r ON r.id = t.repository_id WHERE r.host = ? AND r.provider_id = ? AND t.provider_id = ? AND t.number = ? AND d.recipe = ? AND d.recipe_version = ? AND d.content_hash = ?",
+        "SELECT id FROM documents WHERE thread_id = ? AND recipe = ? AND recipe_version = ? AND content_hash = ?",
     )
-    .bind(document.source_identity.repository().host().as_str())
-    .bind(document.source_identity.repository().provider_id().as_str())
-    .bind(document.source_identity.provider_id().as_str())
-    .bind(i64::try_from(document.source_identity.number().get()).map_err(|_| StoreError::IntegerOutOfRange)?)
+    .bind(thread_row_id)
     .bind(document.recipe.as_str())
     .bind(i64::from(document.recipe_version))
     .bind(&document.content_hash)
@@ -277,20 +247,20 @@ fn decode_embedding_chunk(
     row: sqlx::sqlite::SqliteRow,
 ) -> Result<StoredEmbeddingChunk, StoreError> {
     let index = u32::try_from(row.try_get::<i64, _>("chunk_index")?)
-        .map_err(|_| StoreError::InvalidEmbedding)?;
+        .map_err(|_| StoreError::Corrupt("embedding_invalid"))?;
     let count = u32::try_from(row.try_get::<i64, _>("chunk_count")?)
-        .map_err(|_| StoreError::InvalidEmbedding)?;
+        .map_err(|_| StoreError::Corrupt("embedding_invalid"))?;
     let dimensions = u32::try_from(row.try_get::<i64, _>("dimensions")?)
-        .map_err(|_| StoreError::InvalidEmbedding)?;
+        .map_err(|_| StoreError::Corrupt("embedding_invalid"))?;
     let bytes: Vec<u8> = row.try_get("vector_le")?;
     let vector = EmbeddingVector::from_little_endian(&bytes, dimensions)
-        .map_err(|_| StoreError::InvalidEmbedding)?;
+        .map_err(|_| StoreError::Corrupt("embedding_invalid"))?;
     if count == 0 || index >= count {
-        return Err(StoreError::InvalidEmbedding);
+        return Err(StoreError::Corrupt("embedding_invalid"));
     }
     let chunk_hash: String = row.try_get("chunk_hash")?;
     if !is_sha256_hex(&chunk_hash) {
-        return Err(StoreError::InvalidEmbedding);
+        return Err(StoreError::Corrupt("embedding_invalid"));
     }
     Ok(StoredEmbeddingChunk {
         index,

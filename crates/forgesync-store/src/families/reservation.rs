@@ -1,32 +1,24 @@
-//! # Reserve ordering before child-family I/O
+//! Reserving acquisition order before child-family provider I/O.
 //!
-//! Reservation allocates an observation sequence before the engine asks GitHub for pages. That
-//! sequence gives the later complete or incomplete result a stable acquisition position, even when
-//! provider calls finish out of order.
-//!
-//! The reservation is a durable precursor, not a declaration of complete coverage. `staging` adds
-//! pages and `finish` decides which result can change canonical membership.
-//!
-//! The archive methods validate the request and own the transaction. `ReservedGeneration` keeps
-//! the proposed identity and clocks together for comparison and persistence. Rejected proposals
-//! still consume acquisition order, but never replace a newer reservation or create a generation.
+//! A reservation gives the later result a stable acquisition position even when provider calls
+//! finish out of order. Rejected proposals still consume a sequence but never replace a newer
+//! reservation.
 
-use forgesync_core::identity::ObservationSequence;
-use forgesync_core::observation::SourceClock;
-use forgesync_core::timestamp::UtcTimestamp;
-use sqlx::{Row, SqliteConnection};
+use std::cmp::Ordering;
+
+use sqlx::Row;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::families::ChildFamilyRequest;
+use crate::families::query::require_child_family;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observation_sql::{
-    SourceClockColumns, checked_sequence, evidence_family_name, is_child_family,
-    normalize_source_clock, source_clock_columns, source_clock_from_columns, thread_row_id,
-    to_sql_sequence,
-};
 use crate::observations::FamilyReservation;
 use crate::ordering::compare_observation_order;
+use crate::sql::{
+    family_name, normalize_source_clock, sequence_from_sql, source_clock_columns,
+    source_clock_from_columns, thread_row_id, to_sql_sequence,
+};
 
 impl Archive {
     /// Allocates acquisition order before fetching one discussion's child evidence.
@@ -46,131 +38,84 @@ impl Archive {
             started_at,
             request_scope,
         } = request;
-        if !is_child_family(family) {
-            return Err(StoreError::UnsupportedObservationFamily(
-                evidence_family_name(family).to_owned(),
-            ));
-        }
+        require_child_family(family)?;
         let request_scope = request_scope.trim();
         if request_scope.is_empty() {
             return Err(StoreError::MissingRequestScope);
         }
 
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let source_clock = normalize_source_clock(source_clock)?;
-        let source_clock_fields = source_clock_columns(&source_clock)?;
-        let family_name = evidence_family_name(family);
+        let source_clock = normalize_source_clock(source_clock);
+        let columns = source_clock_columns(&source_clock);
+        let family = family_name(family);
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let thread_row_id = thread_row_id(&mut transaction, thread).await?;
+        let thread = thread_row_id(&mut transaction, thread).await?;
 
-        let raw_sequence: i64 = sqlx::query_scalar(
-            "UPDATE observation_sequence SET value = value + 1, last_started_at_us = ? WHERE singleton = 1 RETURNING value",
-        )
-        .bind(started_at.unix_microseconds())
-        .fetch_one(&mut *transaction)
-        .await?;
-        let sequence = checked_sequence(raw_sequence)?;
+        let sequence = sequence_from_sql(
+            sqlx::query_scalar(
+                "UPDATE observation_sequence SET value = value + 1, last_started_at_us = ? WHERE singleton = 1 RETURNING value",
+            )
+            .bind(started_at.unix_microseconds())
+            .fetch_one(&mut *transaction)
+            .await?,
+        )?;
 
-        let reservation = ReservedGeneration {
-            thread: thread_row_id,
-            family: family_name,
-            clock: source_clock,
-            columns: source_clock_fields,
-            sequence,
-            started_at,
-            scope: request_scope,
-        };
-        let reserved = reservation.supersedes_current(&mut transaction).await?;
-        if reserved {
-            reservation.persist(&mut transaction).await?;
-        }
-        transaction.commit().await?;
-        Ok(FamilyReservation { sequence, reserved })
-    }
-}
-
-/// One proposed durable family generation, including the source ordering that selects its owner.
-///
-/// The sequence has already been allocated in the caller's transaction. Even a rejected proposal
-/// commits that allocation, so later acquisition cannot reuse its ordering position. This type
-/// performs comparison and persistence on the same connection but never commits independently.
-struct ReservedGeneration<'a> {
-    /// Validated local parent row used in reservation and generation keys.
-    thread: i64,
-    /// Persisted name of the selected child evidence family, excluding parent scans.
-    family: &'static str,
-    /// Normalized source freshness used for ordering against the current reservation.
-    clock: SourceClock,
-    /// SQL representation of that same clock, reused for both durable records.
-    columns: SourceClockColumns,
-    /// Already allocated archive-local acquisition order, consumed even if this proposal loses.
-    sequence: ObservationSequence,
-    /// Local acquisition start recorded independently of source freshness.
-    started_at: UtcTimestamp,
-    /// Trimmed nonempty request description retained for recovery and inspection.
-    scope: &'a str,
-}
-
-impl ReservedGeneration<'_> {
-    /// Compares source freshness first and acquisition sequence second against the current owner.
-    async fn supersedes_current(
-        &self,
-        connection: &mut SqliteConnection,
-    ) -> Result<bool, StoreError> {
+        // Source freshness orders first and acquisition sequence second.
         let current = sqlx::query(
             "SELECT source_clock_state, source_clock_raw, source_clock_us, sequence FROM thread_family_reservations WHERE thread_id = ? AND family = ?",
         )
-        .bind(self.thread)
-        .bind(self.family)
-        .fetch_optional(&mut *connection)
+        .bind(thread)
+        .bind(family)
+        .fetch_optional(&mut *transaction)
         .await?;
-        if let Some(row) = current {
-            let state: String = row.try_get("source_clock_state")?;
-            let raw: String = row.try_get("source_clock_raw")?;
-            let microseconds: Option<i64> = row.try_get("source_clock_us")?;
-            let current_sequence: i64 = row.try_get("sequence")?;
-            let current_clock = source_clock_from_columns(&state, &raw, microseconds)?;
-            let order = compare_observation_order(
-                &self.clock,
-                self.sequence,
-                &current_clock,
-                checked_sequence(current_sequence)?,
-            )?;
-            return Ok(order == std::cmp::Ordering::Greater);
+        let reserved = match current {
+            None => true,
+            Some(row) => {
+                let current_clock = source_clock_from_columns(
+                    &row.try_get::<String, _>("source_clock_state")?,
+                    &row.try_get::<String, _>("source_clock_raw")?,
+                    row.try_get("source_clock_us")?,
+                )?;
+                let current_sequence = sequence_from_sql(row.try_get("sequence")?)?;
+                compare_observation_order(
+                    &source_clock,
+                    sequence,
+                    &current_clock,
+                    current_sequence,
+                )? == Ordering::Greater
+            }
+        };
+        if reserved {
+            let sql_sequence = to_sql_sequence(sequence)?;
+            sqlx::query(
+                "INSERT INTO thread_family_reservations (thread_id, family, source_clock_state, source_clock_raw, source_clock_us, sequence, started_at_us, request_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET source_clock_state = excluded.source_clock_state, source_clock_raw = excluded.source_clock_raw, source_clock_us = excluded.source_clock_us, sequence = excluded.sequence, started_at_us = excluded.started_at_us, request_scope = excluded.request_scope",
+            )
+            .bind(thread)
+            .bind(family)
+            .bind(columns.state)
+            .bind(&columns.raw)
+            .bind(columns.unix_microseconds)
+            .bind(sql_sequence)
+            .bind(started_at.unix_microseconds())
+            .bind(request_scope)
+            .execute(&mut *transaction)
+            .await?;
+            sqlx::query(
+                "INSERT INTO observation_generations (thread_id, family, sequence, source_clock_state, source_clock_raw, source_clock_us, started_at_us, request_scope, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reserved')",
+            )
+            .bind(thread)
+            .bind(family)
+            .bind(sql_sequence)
+            .bind(columns.state)
+            .bind(&columns.raw)
+            .bind(columns.unix_microseconds)
+            .bind(started_at.unix_microseconds())
+            .bind(request_scope)
+            .execute(&mut *transaction)
+            .await?;
         }
-
-        Ok(true)
-    }
-
-    /// Writes reservation ownership and its recoverable generation record atomically.
-    async fn persist(&self, connection: &mut SqliteConnection) -> Result<(), StoreError> {
-        sqlx::query(
-            "INSERT INTO thread_family_reservations (thread_id, family, source_clock_state, source_clock_raw, source_clock_us, sequence, started_at_us, request_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET source_clock_state = excluded.source_clock_state, source_clock_raw = excluded.source_clock_raw, source_clock_us = excluded.source_clock_us, sequence = excluded.sequence, started_at_us = excluded.started_at_us, request_scope = excluded.request_scope",
-        )
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(self.columns.state)
-        .bind(&self.columns.raw)
-        .bind(self.columns.unix_microseconds)
-        .bind(to_sql_sequence(self.sequence)?)
-        .bind(self.started_at.unix_microseconds())
-        .bind(self.scope)
-        .execute(&mut *connection)
-        .await?;
-        sqlx::query(
-            "INSERT INTO observation_generations (thread_id, family, sequence, source_clock_state, source_clock_raw, source_clock_us, started_at_us, request_scope, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reserved')",
-        )
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(to_sql_sequence(self.sequence)?)
-        .bind(self.columns.state)
-        .bind(&self.columns.raw)
-        .bind(self.columns.unix_microseconds)
-        .bind(self.started_at.unix_microseconds())
-        .bind(self.scope)
-        .execute(&mut *connection)
-        .await?;
-        Ok(())
+        transaction.commit().await?;
+        Ok(FamilyReservation { sequence, reserved })
     }
 }

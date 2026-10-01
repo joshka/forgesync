@@ -1,20 +1,14 @@
-//! Provisional child-family pages and the page-set checks used when finishing a collection.
-//!
-//! Staged pages never become canonical membership until a complete finish validates the whole set.
-
-use std::collections::BTreeMap;
+//! Provisional child-family pages; they never become canonical membership until a complete finish
+//! validates the whole page set.
 
 use serde::Serialize;
-use sqlx::{Row, SqliteConnection};
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::families::{ChildFamilyPage, StagedPage};
+use crate::families::ChildFamilyPage;
+use crate::families::query::require_child_family;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observation_sql::{
-    evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
-};
-use crate::observations::StagedItem;
+use crate::sql::{family_name, thread_row_id, to_sql_sequence};
 
 impl Archive {
     /// Persists a provisional page under the archive writer fence without changing canonical
@@ -37,13 +31,9 @@ impl Archive {
             page_index,
             items,
         } = page;
-        if !is_child_family(family) {
-            return Err(StoreError::UnsupportedObservationFamily(
-                evidence_family_name(family).to_owned(),
-            ));
-        }
+        require_child_family(family)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let family = evidence_family_name(family);
+        let family = family_name(family);
         let page_index = i64::from(page_index);
         let sequence = to_sql_sequence(sequence)?;
         let payload = serde_json::to_string(items)?;
@@ -114,81 +104,4 @@ impl Archive {
         transaction.commit().await?;
         Ok(())
     }
-}
-
-/// Loads pages for the reserved generation in page-number order.
-pub async fn load_staged_pages(
-    connection: &mut SqliteConnection,
-    thread_row_id: i64,
-    family: &str,
-    sequence: i64,
-) -> Result<Vec<StagedPage>, StoreError> {
-    let rows = sqlx::query(
-        "SELECT page_index, payload_json FROM observation_staging_pages WHERE thread_id = ? AND family = ? AND sequence = ? ORDER BY page_index",
-    )
-    .bind(thread_row_id)
-    .bind(family)
-    .bind(sequence)
-    .fetch_all(&mut *connection)
-    .await?;
-    rows.into_iter()
-        .map(|row| {
-            let index: i64 = row.try_get("page_index")?;
-            let payload_json: String = row.try_get("payload_json")?;
-            Ok(StagedPage {
-                index,
-                items: serde_json::from_str(&payload_json)?,
-            })
-        })
-        .collect()
-}
-
-/// Counts received staged items, including repeated IDs across pages, before finalization.
-pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
-    pages.iter().try_fold(0_u64, |count, page| {
-        let item_count =
-            u64::try_from(page.items.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-        count
-            .checked_add(item_count)
-            .ok_or(StoreError::IntegerOutOfRange)
-    })
-}
-
-/// Requires every declared page before a collection can become complete.
-pub fn validate_page_set(pages: &[StagedPage], expected_pages: u32) -> Result<(), StoreError> {
-    let found = u32::try_from(pages.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-    if found != expected_pages {
-        return Err(StoreError::IncompletePageSet {
-            expected: expected_pages,
-            found,
-        });
-    }
-    for (index, page) in pages.iter().enumerate() {
-        let expected_index = i64::try_from(index).map_err(|_| StoreError::IntegerOutOfRange)?;
-        if page.index != expected_index {
-            return Err(StoreError::IncompletePageSet {
-                expected: expected_pages,
-                found,
-            });
-        }
-    }
-    Ok(())
-}
-
-/// Rejects conflicting duplicate provider IDs within one generation.
-pub fn merge_staged_items(
-    pages: &[StagedPage],
-) -> Result<BTreeMap<String, StagedItem<serde_json::Value>>, StoreError> {
-    let mut items = BTreeMap::new();
-    for item in pages.iter().flat_map(|page| &page.items) {
-        let key = item.id.as_str().to_owned();
-        if let Some(existing) = items.get(&key) {
-            if existing != item {
-                return Err(StoreError::StagedItemConflict);
-            }
-        } else {
-            items.insert(key, item.clone());
-        }
-    }
-    Ok(items)
 }
