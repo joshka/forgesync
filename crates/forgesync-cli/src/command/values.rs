@@ -1,22 +1,7 @@
-//! # CLI value vocabulary at the parsing boundary
+//! Named choices accepted by Clap.
 //!
-//! These enums define named choices accepted by Clap: evidence families, discussion kinds and
-//! states, ordering, search modes, acquisition scope, refresh analysis, color, and log encoding.
-//! Their variant comments describe the user's choice; command adapters convert those choices into
-//! core or engine request types without making those libraries depend on Clap.
-//!
-//! [`RunFamilyArg`] has a direct evidence-family conversion because each variant names a ledger
-//! scope. Other choices are interpreted by their command or presentation owner, where defaults and
-//! operation-specific restrictions are visible. A parsed value does not prove that the selected
-//! operation is valid for the archive, configured service, or available evidence.
-//!
-//! Query filters and acquisition scope are distinct vocabularies: a local state filter selects
-//! retained rows, while a sync state selects provider acquisition. Similarly, search mode chooses
-//! an execution policy as well as query interpretation. Semantic and hybrid modes can request a
-//! query embedding from the configured service even though discussion evidence is read locally.
-//!
-//! Pure variant-to-variant conversions stay exhaustive and inline so readers can inspect the whole
-//! vocabulary mapping. Behavioral work belongs with the selected command, not inside these enums.
+//! Commands convert these into core or engine request types so those libraries stay independent
+//! of Clap. A local state filter selects retained rows, while a sync state selects what to acquire.
 
 use clap::ValueEnum;
 use forgesync_core::coverage::EvidenceFamily;
@@ -37,8 +22,6 @@ pub enum RunFamilyArg {
 }
 
 impl From<RunFamilyArg> for EvidenceFamily {
-    /// Maps parsed retry-family selection to domain evidence, retaining metadata and review
-    /// families as distinct ledger scopes.
     fn from(value: RunFamilyArg) -> Self {
         match value {
             RunFamilyArg::Threads => Self::Threads,
@@ -131,12 +114,12 @@ pub enum RefreshAnalysisArg {
 /// Terminal color selection.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum ColorChoice {
-    /// Detect whether stdout is a terminal and respect NO_COLOR.
+    /// Color diagnostics unless NO_COLOR is set.
     #[default]
     Auto,
-    /// Always use terminal colors for human output.
+    /// Always color diagnostics.
     Always,
-    /// Never use terminal colors.
+    /// Never color diagnostics.
     Never,
 }
 

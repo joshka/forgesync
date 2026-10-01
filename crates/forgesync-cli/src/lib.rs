@@ -30,7 +30,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use command::CliArgs;
-use command::values::LogFormat;
+use command::values::{ColorChoice, LogFormat};
 use config::ForgesyncConfig;
 use error::CliError;
 use output::{Output, OutputMode, render_argument_error};
@@ -118,13 +118,15 @@ fn initialize_tracing(args: &CliArgs) {
         2 => LevelFilter::DEBUG,
         _ => LevelFilter::TRACE,
     };
+    let ansi = tracing_ansi(args.color, std::env::var_os("NO_COLOR"));
 
     let result = match args.log_format {
         LogFormat::Text if !args.json && std::io::stderr().is_terminal() => {
-            initialize_progress_tracing(max_level)
+            initialize_progress_tracing(max_level, ansi)
         }
         LogFormat::Text => tracing_subscriber::fmt()
             .compact()
+            .with_ansi(ansi)
             .with_writer(std::io::stderr)
             .with_max_level(max_level)
             .try_init(),
@@ -140,16 +142,29 @@ fn initialize_tracing(args: &CliArgs) {
     }
 }
 
+/// Selects ANSI styling for human diagnostics.
+///
+/// `auto` keeps tracing-subscriber's default: styled unless `NO_COLOR` is set to a nonempty value.
+fn tracing_ansi(color: ColorChoice, no_color: Option<OsString>) -> bool {
+    match color {
+        ColorChoice::Auto => no_color.is_none_or(|value| value.is_empty()),
+        ColorChoice::Always => true,
+        ColorChoice::Never => false,
+    }
+}
+
 /// Coordinates human logs with opt-in acquisition spans on interactive stderr.
 ///
 /// Only spans that opt in create progress bars. Filtering diagnostics independently keeps progress
 /// visible at default verbosity without enabling informational logs.
 fn initialize_progress_tracing(
     max_level: LevelFilter,
+    ansi: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let progress = IndicatifLayer::new();
     let diagnostics = tracing_subscriber::fmt::layer()
         .compact()
+        .with_ansi(ansi)
         .with_writer(progress.get_stderr_writer())
         .with_filter(max_level);
     tracing_subscriber::registry()
@@ -157,4 +172,26 @@ fn initialize_progress_tracing(
         .with(progress.with_filter(IndicatifFilter::new(false)))
         .try_init()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsString;
+
+    use crate::command::values::ColorChoice;
+    use crate::tracing_ansi;
+
+    #[rstest::rstest]
+    #[case::auto(ColorChoice::Auto, None, true)]
+    #[case::auto_no_color(ColorChoice::Auto, Some("1"), false)]
+    #[case::auto_empty_no_color(ColorChoice::Auto, Some(""), true)]
+    #[case::always_overrides_no_color(ColorChoice::Always, Some("1"), true)]
+    #[case::never(ColorChoice::Never, None, false)]
+    fn color_choice_selects_diagnostic_styling(
+        #[case] color: ColorChoice,
+        #[case] no_color: Option<&str>,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(tracing_ansi(color, no_color.map(OsString::from)), expected);
+    }
 }
