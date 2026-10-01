@@ -2,15 +2,53 @@
 
 ## Current position
 
-The selected Forgesync implementation and maintainability cleanup are **complete**. All eight
-implementation/review batches have fixed or retained dispositions, and all applicable local gates
-passed on the cleanup baseline. That workspace run passed 525 tests across 27 suites, with no
-failures or ignored cases. The follow-ups below have separate validation evidence, including the
-initial registry release and hosted native execution.
+A simplification pass removed duplicated pipelines, single-use wrapper types, repeated validation,
+speculative vocabulary, and restating comments across every crate (`src` went from about 43.5k to
+31k lines). Behavior, persisted archive data, and CLI JSON are unchanged, apart from the deliberate
+changes listed below. The guidance that encouraged the bloat was rewritten: see "Keep it small" in
+[Rust conventions](rust-conventions.md) and the [documentation guide](documentation.md).
+
+Next: review the stacked changes, publish them as a PR, and let CI run its compilation check.
 
 This file describes current status; the [module map](architecture.md) explains the crate layout.
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
+
+## Simplification pass
+
+Deliberate behavior changes:
+
+- `run retry` cancelled during credential discovery now writes the shared `operation_cancelled`
+  error envelope with exit 130, instead of a success envelope.
+- `--color` now controls diagnostic styling; it was previously parsed and ignored.
+- Embedding responses whose `model` echo differs from the request (aliased or versioned names) are
+  accepted instead of rejected.
+- A failed writer-lease release after an operation is logged rather than returned; every write was
+  fenced, so the operation's result or partial report stays accurate.
+- Child-family collections count staged pages uniformly on failure. A superseded complete comment
+  observation now reports `StaleObservationGeneration`, like reviews and metadata.
+- Pressing Enter on a TUI cluster opens its members screen. The TUI redraws only after input or a
+  background message, and keeps list scroll position between frames.
+- GitHub redirects use reqwest's policy (same origin, five hops). A redirected GraphQL `POST` that
+  receives a 301, 302, or 303 is retried as a `GET`. Review-thread queries no longer request
+  token-dependent `viewerCan*` fields.
+- Several malformed-input cases now surface clap usage errors or a decode error rather than custom
+  messages; codes and exit statuses are unchanged.
+
+Deferred: dropping duplicated thread and repository columns and the write-only `cluster_runs` and
+`cluster_events` tables needs a migration. The same applies to folding `forgesync-cli` into the
+`forgesync` package, which changes publication.
+
+Validation on the final stack:
+
+- `cargo +nightly fmt --all -- --check`
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
+- `cargo test --workspace --locked`: 518 tests passed across 28 suites
+- the minimal CLI build
+- strict private Rustdoc
+- markdownlint on the changed docs
+
+Hosted CI has not run yet.
 
 ## Lease renewal follow-up
 
@@ -141,10 +179,8 @@ helpers now explain their contracts.
 
 ## Remaining work
 
-No work remains in this maintainability cleanup or the initial registry release setup. The
-source-shape audit records explicit retained exceptions rather than future cleanup tasks. The
-registry follow-up records hosted validation; the cleanup baseline below records its earlier local
-acceptance scope.
+See the simplification pass above for deferred schema and packaging work. The cleanup baseline
+below records the earlier local acceptance scope.
 
 ## Cleanup baseline validation record
 
@@ -160,7 +196,7 @@ fingerprint is SHA-256 `7c1a22c7a6657e63874f01ac14d665e4d1864d85da3bae67219de9ec
 | Minimal CLI build               | Pass on final presentation source                        |
 | Strict public/private Rustdoc   | Pass on final presentation source                        |
 | rumdl and changed Markdown lint | Pass after final record reconciliation                   |
-| Dependency/tool freshness       | Reviewed 2026-09-29; evidence in source-shape audit      |
+| Dependency/tool freshness       | Reviewed 2026-09-29                                      |
 | Hosted native matrix            | Separate release evidence; not run in this cleanup       |
 
 The final local gates are:

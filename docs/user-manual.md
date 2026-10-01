@@ -236,9 +236,6 @@ forgesync thread show 'ratatui/ratatui#1'
 | Complete         | The selected collection was acquired completely; it may be empty    |
 | Incomplete       | Acquisition did not establish the entire collection                 |
 | Missing          | No accepted collection is available for that family                 |
-| Failed           | Acquisition recorded a failure; retained content may still exist    |
-| Deferred         | The family was intentionally not attempted; inspect its reason      |
-| Unavailable      | The family is not available in the applicable source context        |
 | Stale            | Retained evidence no longer matches the current source/head context |
 
 Staleness is a freshness indication, not another collection size. A complete empty collection means
