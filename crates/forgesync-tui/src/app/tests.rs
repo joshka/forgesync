@@ -289,6 +289,24 @@ fn dismissal_targets_the_selected_cluster() {
 }
 
 #[test]
+fn enter_opens_the_selected_cluster_members() {
+    let detail = sample_cluster_detail();
+    let mut app = App {
+        screen: Screen::Clusters,
+        cluster_list: ClusterList {
+            rows: Loadable::loaded(vec![detail.cluster]),
+            state: ListState::default().with_selected(Some(0)),
+        },
+        ..App::default()
+    };
+
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+    assert_eq!(app.screen, Screen::ClusterDetail);
+    assert_eq!(actions, [QueryAction::Read(Read::ClusterDetail(17))]);
+}
+
+#[test]
 fn retry_targets_the_selected_failed_run() {
     let mut app = App {
         screen: Screen::Failures,

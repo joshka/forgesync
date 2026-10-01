@@ -5,7 +5,7 @@ use crossterm::event::KeyCode;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use ratatui::widgets::ListState;
 
-use crate::app::App;
+use crate::app::{App, Screen};
 use crate::query::{Operation, QueryAction, Read};
 
 impl App {
@@ -55,10 +55,12 @@ impl App {
     }
 
     fn open_selected_cluster(&mut self) -> Vec<QueryAction> {
-        self.cluster_list
-            .selected()
-            .map(|cluster| vec![Read::ClusterDetail(cluster.id).into()])
-            .unwrap_or_default()
+        let Some(cluster) = self.cluster_list.selected() else {
+            return Vec::new();
+        };
+        let read = Read::ClusterDetail(cluster.id);
+        self.screen = Screen::ClusterDetail;
+        vec![read.into()]
     }
 
     pub fn handle_cluster_detail_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
