@@ -46,7 +46,7 @@ pub fn normalize_review_thread(
     })
 }
 
-/// Converts a GraphQL review comment without losing provider identity.
+/// Converts a GraphQL review comment, keeping its provider identity.
 fn normalize_comment(thread: &ThreadId, comment: GraphqlComment) -> Result<Comment, GitHubError> {
     let mut provider_data = ProviderData::from(comment.extra);
     if let Some(database_id) = comment.database_id {

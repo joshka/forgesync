@@ -1,10 +1,4 @@
-//! # Review-thread collection shape
-//!
-//! These tests cover nested review comments, thread resolution state, and complete pagination
-//! results. Review threads have a separate family boundary from reviews and parent pull-request
-//! metadata. A normalization change should preserve comment membership and completeness so the
-//! store does not commit a misleading canonical family. The fixture makes provider nesting
-//! explicit without asking readers to infer it from DTO declarations.
+//! Review-thread acquisition: nested comment paging, resolution state, and partial-error rejection.
 
 use forgesync_core::content::Repository;
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadNumber};
@@ -18,9 +12,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use crate::review_threads::fetch_review_thread_page;
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
-/// Constructs the enterprise repository and parent pull-request identity used by these payloads.
-///
-/// It performs no requests; the mock paths and request bodies stay visible in each scenario.
+/// Enterprise repository and parent pull-request identity used by these payloads.
 fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
     let repository_id = RepositoryId::new(
         GitHubHost::parse("ghe.example.test").expect("host"),
@@ -43,10 +35,7 @@ fn scope() -> (Repository, forgesync_core::identity::ThreadId) {
     (repository, thread)
 }
 
-/// Builds one nested comment payload with explicit node identity and creation order.
-///
-/// Other fields intentionally stay constant across pages. Assertions about differing comments
-/// use node IDs rather than the shared database ID or body.
+/// One nested comment payload; only the node ID and creation time vary.
 fn review_comment(id: &str, created_at: &str) -> serde_json::Value {
     json!({
         "id": id,

@@ -1,24 +1,11 @@
-//! Credential value passed from the application boundary to GitHub transport.
-//!
-//! [`GitHubToken`] rejects an empty or whitespace-containing value. Its `Debug` implementation
-//! redacts the secret, while [`GitHubToken::expose`] deliberately returns it for an authorization
-//! header. Redacted debug output does not make other formatting or accidental logging safe.
-//!
-//! The CLI resolves credentials from its configured sources and constructs this type. The
-//! transport attaches it only to destinations accepted by its trusted-origin checks. Resource
-//! fetching never reads process environment variables directly.
-//!
-//! Use this module when building a provider client, not when deciding which credential source
-//! wins. Keep token handling separate from repository and host identity in
-//! `forgesync-core::identity`.
+//! Credential passed from the application boundary to the GitHub transport.
 
 use std::fmt;
 
 /// A GitHub credential that is redacted from debug output.
 ///
-/// Create this at the application boundary and pass it to the transport client. Debug formatting
-/// hides the secret; [`Self::expose`] deliberately returns it for an authorization header, so
-/// callers must keep that value out of logs and error messages.
+/// [`Self::expose`] returns the secret for the authorization header; keep that value out of logs
+/// and error messages.
 ///
 /// # Examples
 ///
@@ -53,7 +40,7 @@ impl GitHubToken {
 }
 
 impl fmt::Debug for GitHubToken {
-    /// Writes a fixed redaction marker so formatting a token cannot reveal its credential contents.
+    /// Writes a fixed redaction marker so formatting never reveals the token.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("GitHubToken([REDACTED])")
     }

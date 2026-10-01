@@ -1,18 +1,7 @@
 //! Convert REST response shapes into checked domain content.
 //!
-//! Repository and discussion normalization establish provider identity, current paths, source
-//! state, and timestamps. Child normalizers attach comments, reviews, reviewer identities, and
-//! pull-request head/base metadata to their checked parent thread. Unknown review states remain
-//! explicit rather than being guessed into approval or dismissal.
-//!
-//! Normalization happens before an observation reaches the store. It validates required provider
-//! fields and retains unmapped fields in `ProviderData`, but it does not decide source ordering,
-//! collection completeness, or canonical archive membership. A JSON decoding failure becomes a
-//! typed provider error without exposing a raw response body.
-//!
-//! When GitHub adds a field, decide whether it changes a domain invariant or is merely retained
-//! provider data. A new resource family also needs engine acquisition and store coverage handling;
-//! adding a DTO alone does not make the archive complete.
+//! Unknown source and review states stay explicit rather than being guessed. Ordering,
+//! completeness, and archive membership are decided by the engine and store, not here.
 
 use forgesync_core::content::{
     BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
@@ -64,7 +53,7 @@ pub fn normalize_repository(
     })
 }
 
-/// Converts an issue or pull-request issue record to normalized discussion content.
+/// Converts an issues-endpoint item (issue or pull request) to a discussion.
 pub fn normalize_issue(
     repository: &Repository,
     mut issue: RestIssue,
@@ -114,11 +103,8 @@ pub fn normalize_issue(
 }
 
 impl RestIssue {
-    /// Moves raw extension fields and selected source objects into retained provider evidence.
-    ///
-    /// Labels and assignees must be projected before calling this method: it takes those fields,
-    /// along with user and pull-request markers, while leaving scalar discussion fields available
-    /// for domain construction. No archive write or completeness decision occurs here.
+    /// Moves extension fields and source objects into provider data. Project labels and
+    /// assignees first: this takes those fields.
     fn take_provider_data(&mut self) -> Result<ProviderData, GitHubError> {
         let mut retained = ProviderData::from(std::mem::take(&mut self.extra));
         if let Some(user) = self.user.take() {
@@ -143,7 +129,7 @@ impl RestIssue {
     }
 }
 
-/// Converts a REST comment while preserving source fields needed by the archive.
+/// Converts a REST comment, retaining the source fields the archive keeps.
 pub fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comment, GitHubError> {
     let provider_id =
         ProviderId::new(comment.id.to_string()).map_err(|_| GitHubError::InvalidProviderData)?;
@@ -261,7 +247,7 @@ pub fn normalize_reviewer(user: &Value) -> Option<ReviewerIdentity> {
     })
 }
 
-/// Reads a provider-issued opaque identity from a JSON value.
+/// Reads a numeric or string provider ID.
 pub fn provider_id_from_value(value: &Value) -> Option<ProviderId> {
     let value = value
         .as_u64()
@@ -287,7 +273,7 @@ pub fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
 }
 
-/// Hides raw provider payloads when converting a JSON decoding failure.
+/// Drops the serde error so raw provider payloads never reach error messages.
 pub fn json_error(_: serde_json::Error) -> GitHubError {
     GitHubError::InvalidProviderData
 }

@@ -23,7 +23,7 @@ const MAX_REDIRECTS: usize = 5;
 pub struct RetryPolicy {
     /// Maximum requests, including the first attempt.
     pub max_attempts: NonZeroU32,
-    /// Total time allowed for the initial request and automatic retries.
+    /// Total time for the initial request and automatic retries.
     pub total_budget: Duration,
     /// Delay before the first retry when the provider supplied no wait hint.
     pub initial_backoff: Duration,
@@ -32,8 +32,7 @@ pub struct RetryPolicy {
 }
 
 impl Default for RetryPolicy {
-    /// Allows five attempts within a two-minute total budget, starting backoff at 250 milliseconds.
-    /// The ten-second cap applies to automatic backoff; provider-directed waits use the remaining
+    /// The ten-second cap applies to local backoff; provider-directed waits may use the remaining
     /// budget.
     fn default() -> Self {
         Self {
@@ -48,13 +47,12 @@ impl Default for RetryPolicy {
 /// Configuration for the shared GitHub API client.
 #[derive(Clone, Debug)]
 pub struct GitHubClientConfig {
-    /// REST or GraphQL API base URL, such as `https://api.github.com/`.
+    /// REST API base URL, such as `https://api.github.com/` or `https://ghe.example/api/v3/`.
     pub api_base_url: Url,
     /// Timeout for one HTTP request and its response body.
     pub request_timeout: Duration,
     /// Maximum number of requests in flight at once.
     pub max_in_flight: NonZeroUsize,
-    /// Retry count, wait budget, and backoff behavior.
     pub retry: RetryPolicy,
 }
 
