@@ -128,6 +128,44 @@ async fn already_released_fence_preserves_completion_error_precedence(
     std::fs::remove_dir_all(directory).expect("remove fixture directory");
 }
 
+/// Models renewal waiting for a connection that the still-active build must return.
+#[tokio::test]
+async fn build_continues_while_renewal_waits_for_its_connection() {
+    let directory = archive_directory();
+    let archive = Archive::create(directory.join("archive.sqlite"))
+        .await
+        .expect("create archive");
+    let caller = CancellationToken::new();
+    let lease = ClusterBuildLease::acquire(&archive, &caller)
+        .await
+        .expect("acquire lease");
+    let waiting = tokio::sync::Notify::new();
+    let operation = async {
+        waiting.notified().await;
+        Err(EngineError::InvalidClusterInput)
+    };
+    let renewal = async {
+        waiting.notify_one();
+        std::future::pending::<EngineError>().await
+    };
+
+    let result = tokio::time::timeout(
+        Duration::from_secs(1),
+        lease.wait(operation, &caller, renewal),
+    )
+    .await
+    .expect("build is polled while renewal waits");
+
+    assert!(matches!(result, Err(EngineError::InvalidClusterInput)));
+    assert!(!lease.cancellation.is_cancelled());
+    assert!(!caller.is_cancelled());
+    finish_cluster_lease_result(&archive, &lease.token, result)
+        .await
+        .expect_err("preserve operation error while releasing");
+    archive.close().await;
+    std::fs::remove_dir_all(directory).expect("remove fixture directory");
+}
+
 /// Creates a unique directory containing only this test's archive and SQLite sidecars.
 fn archive_directory() -> PathBuf {
     let sequence = NEXT_ARCHIVE.fetch_add(1, Ordering::Relaxed);
