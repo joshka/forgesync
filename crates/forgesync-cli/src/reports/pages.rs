@@ -101,7 +101,7 @@ fn page_footer(coverage: &[FamilyCoverageSummary], next_offset: Option<u64>) -> 
 }
 
 /// Keeps complete, incomplete, missing, and applicable counts distinct for one evidence family.
-fn coverage_line(coverage: &FamilyCoverageSummary) -> String {
+pub(super) fn coverage_line(coverage: &FamilyCoverageSummary) -> String {
     format!(
         "  {}: {} complete, {} incomplete, {} missing of {}",
         family_name(coverage.family),

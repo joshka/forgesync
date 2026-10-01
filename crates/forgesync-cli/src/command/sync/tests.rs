@@ -1,18 +1,9 @@
-//! # Parsed acquisition scope remains explicit
-//!
-//! These cases exercise request conversion without credentials or an archive. Source-state cases
-//! name their expected domain scope; evidence selection remains visible as recorded request facts.
-//!
-//! `into_request` transfers parsed choices without resolving repositories or starting jobs. The
-//! all-repositories cases deliberately leave explicit selectors empty. The selected-family case
-//! includes comments and review threads while excluding reviews, guarding independent family flags.
-//! Provider setup, writer fencing, and durable progress belong to workflow/process suites; these
-//! cases establish the argument-to-engine mapping only.
+//! Parsed acquisition scope reaches the engine request unchanged.
 
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_engine::sync::SyncThreadScope;
 
-use crate::command::sync::SyncArgs;
+use crate::command::sync::{SyncArgs, SyncScopeArgs};
 use crate::command::values::{SyncIncludeArg, SyncThreadStateArg};
 
 #[rstest::rstest]
@@ -27,8 +18,10 @@ fn parsed_state_becomes_domain_scope(
     let args = SyncArgs {
         repositories: Vec::new(),
         all: true,
-        state,
-        with: Vec::new(),
+        scope: SyncScopeArgs {
+            state,
+            with: Vec::new(),
+        },
     };
 
     let request = args.into_request();
@@ -44,8 +37,10 @@ fn included_families_preserve_explicit_selection() {
     let args = SyncArgs {
         repositories: vec![repository.clone()],
         all: false,
-        state: None,
-        with: vec![SyncIncludeArg::Comments, SyncIncludeArg::ReviewThreads],
+        scope: SyncScopeArgs {
+            state: None,
+            with: vec![SyncIncludeArg::Comments, SyncIncludeArg::ReviewThreads],
+        },
     };
 
     let request = args.into_request();

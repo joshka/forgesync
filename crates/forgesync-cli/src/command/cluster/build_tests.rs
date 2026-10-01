@@ -1,26 +1,21 @@
-//! # Cluster request preparation without acquisition
+//! Cluster request preparation without acquisition.
 //!
-//! These cases exercise the parsed command's conversion to one engine build request. Endpoint
-//! and model overrides identify archived vectors; they do not require credentials or model I/O.
-//! Recipe and graph bounds remain explicit parts of the request sent to the engine.
-//!
-//! A static argument fixture keeps the scenarios independent of Clap parsing, which has its own
-//! command tests. Each case spells out the changed inputs and expected request or failure.
-//! Invalid service identity fails during preparation before any archive can be opened.
-//!
-//! Generation integration tests cover persistence and coverage-dependent retirement. Request
-//! preparation tests establish identity and policy conversion independently of that larger setup.
+//! Endpoint and model overrides identify archived vectors; they need no credentials or model I/O.
+//! Invalid service identity fails during preparation, before any archive is opened.
 
 use forgesync_core::document::DocumentRecipe;
 
 use crate::command::cluster::ClusterBuildArgs;
+use crate::command::embed::EmbeddingIdentityArgs;
 use crate::config::{ConfigError, EmbeddingServiceConfig};
 
 #[test]
 fn overrides_preserve_canonical_endpoint_and_trimmed_model_identity() {
     let args = ClusterBuildArgs {
-        endpoint: Some("https://vectors.example/v1/".to_owned()),
-        model: Some("  selected-model  ".to_owned()),
+        service: EmbeddingIdentityArgs {
+            endpoint: Some("https://vectors.example/v1/".to_owned()),
+            model: Some("  selected-model  ".to_owned()),
+        },
         ..test_args()
     };
 
@@ -65,7 +60,10 @@ fn graph_policy_overrides_reach_the_engine_request() {
 #[test]
 fn nonlocal_http_endpoint_is_rejected_before_archive_execution() {
     let args = ClusterBuildArgs {
-        endpoint: Some("http://vectors.example/v1".to_owned()),
+        service: EmbeddingIdentityArgs {
+            endpoint: Some("http://vectors.example/v1".to_owned()),
+            model: None,
+        },
         ..test_args()
     };
 
@@ -74,15 +72,16 @@ fn nonlocal_http_endpoint_is_rejected_before_archive_execution() {
         DocumentRecipe::OriginalBody,
     );
 
-    assert!(matches!(result, Err(ConfigError::InvalidEmbeddings)));
+    assert!(matches!(
+        result,
+        Err(ConfigError::InvalidEmbeddings { field: "endpoint" })
+    ));
 }
 
-/// Constructs one explicit parsed build scenario with the normal graph defaults.
 fn test_args() -> ClusterBuildArgs {
     ClusterBuildArgs {
         repository: "owner/repo".parse().expect("repository selector"),
-        endpoint: None,
-        model: None,
+        service: EmbeddingIdentityArgs::default(),
         threshold: 0.80,
         cross_kind_threshold: 0.93,
         fanout: 16,

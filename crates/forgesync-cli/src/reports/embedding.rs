@@ -17,6 +17,7 @@ use forgesync_engine::embeddings::EmbeddingReport;
 use forgesync_engine::refresh::{RefreshDocumentFailure, RefreshStageFailure, RefreshStageStatus};
 use serde::Serialize;
 
+use crate::error::Exit;
 use crate::reports::sync::refresh_status_name;
 
 /// Command projection of embedding service identity, materialization, and batch outcomes.
@@ -51,17 +52,12 @@ pub struct EmbeddingOutput {
 }
 
 impl EmbeddingOutput {
-    /// Returns the process result for the same structured stage state rendered in JSON and prose.
-    /// Partial or deferred work is retryable (`3`); interruption keeps the shell convention
-    /// (`130`).
-    pub fn exit_status(&self) -> std::process::ExitCode {
+    pub fn exit_status(&self) -> Exit {
         match self.status {
-            RefreshStageStatus::Complete => std::process::ExitCode::SUCCESS,
-            RefreshStageStatus::Partial | RefreshStageStatus::Deferred => {
-                std::process::ExitCode::from(3)
-            }
-            RefreshStageStatus::Interrupted => std::process::ExitCode::from(130),
-            RefreshStageStatus::Failed => std::process::ExitCode::FAILURE,
+            RefreshStageStatus::Complete => Exit::Success,
+            RefreshStageStatus::Partial | RefreshStageStatus::Deferred => Exit::Partial,
+            RefreshStageStatus::Interrupted => Exit::Interrupted,
+            RefreshStageStatus::Failed => Exit::Failure,
         }
     }
 }

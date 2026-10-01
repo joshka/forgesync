@@ -12,8 +12,6 @@
 //! failure. Named payload formatters handle acquisition, embedding, and cluster counts, while the
 //! shared stage formatter keeps their status/detail/failure ordering consistent.
 
-use std::process::ExitCode;
-
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::refresh::{
     RefreshClusterRepository, RefreshEmbeddingReport, RefreshReport, RefreshStage,
@@ -21,13 +19,14 @@ use forgesync_engine::refresh::{
 };
 use forgesync_engine::sync::SyncReport;
 
-/// Maps a structured workflow outcome to the process status contract.
-pub fn outcome_exit_code(outcome: &OperationOutcome) -> ExitCode {
+use crate::error::Exit;
+
+pub fn outcome_exit_code(outcome: &OperationOutcome) -> Exit {
     match outcome {
-        OperationOutcome::Complete => ExitCode::SUCCESS,
-        OperationOutcome::Partial { .. } | OperationOutcome::Deferred { .. } => ExitCode::from(3),
-        OperationOutcome::Interrupted { .. } => ExitCode::from(130),
-        OperationOutcome::Failed { .. } => ExitCode::FAILURE,
+        OperationOutcome::Complete => Exit::Success,
+        OperationOutcome::Partial { .. } | OperationOutcome::Deferred { .. } => Exit::Partial,
+        OperationOutcome::Interrupted { .. } => Exit::Interrupted,
+        OperationOutcome::Failed { .. } => Exit::Failure,
     }
 }
 

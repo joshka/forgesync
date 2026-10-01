@@ -1,10 +1,4 @@
-//! # Command parsing contract
-//!
-//! These tests keep global options and command-specific selectors aligned with the CLI vocabulary.
-//! They focus on combinations that could silently change the requested workflow: selected sync
-//! families and explicit refresh analysis stages. The assertions inspect parsed values rather than
-//! running GitHub or opening an archive. When a new flag changes workflow scope, add a nearby
-//! direct parsing example so the mapping from user text to request stays legible.
+//! Command parsing contract: global options and selectors that could silently change scope.
 
 use std::path::Path;
 
@@ -62,7 +56,7 @@ fn sync_families_are_selected_with_with(
     let Command::Sync(sync) = args.command else {
         panic!("expected sync command");
     };
-    assert_eq!(sync.with, expected);
+    assert_eq!(sync.scope.with, expected);
 }
 
 #[rstest::rstest]
@@ -87,4 +81,29 @@ fn refresh_analysis_stages_are_explicit_and_comma_separated(
     };
     assert_eq!(refresh.no_sync, expected_no_sync);
     assert_eq!(refresh.analyze, expected_analysis);
+}
+
+#[rstest::rstest]
+#[case::no_stage(&["forgesync", "refresh", "owner/repo", "--no-sync"])]
+#[case::state_without_sync(
+    &["forgesync", "refresh", "owner/repo", "--no-sync", "--analyze", "clusters", "--state", "open"]
+)]
+#[case::families_without_sync(
+    &["forgesync", "refresh", "owner/repo", "--no-sync", "--analyze", "clusters", "--with", "comments"]
+)]
+fn refresh_rejects_inconsistent_stage_selection(#[case] arguments: &[&str]) {
+    let error = CliArgs::try_parse_from(arguments).expect_err("inconsistent refresh selection");
+    assert_eq!(error.exit_code(), 2);
+}
+
+#[rstest::rstest]
+#[case::run_show(&["forgesync", "run", "show", "0"])]
+#[case::run_retry(&["forgesync", "run", "retry", "0"])]
+#[case::cluster_show(&["forgesync", "cluster", "show", "0"])]
+#[case::embed_chunk_below_validation(
+    &["forgesync", "embed", "owner/repo", "--max-input-bytes", "3"]
+)]
+fn non_positive_or_out_of_range_values_are_usage_errors(#[case] arguments: &[&str]) {
+    let error = CliArgs::try_parse_from(arguments).expect_err("invalid value");
+    assert_eq!(error.exit_code(), 2);
 }

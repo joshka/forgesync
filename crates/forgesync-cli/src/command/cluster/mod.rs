@@ -1,39 +1,32 @@
-//! # Cluster commands and their arguments
+//! Cluster generation, inspection, and local maintainer decisions.
 //!
-//! [`ClusterCommand`] selects derived analysis, stored-result inspection, or an explicit local
-//! maintainer decision. [`ClusterBuildArgs`] carries analysis scope and thresholds;
-//! [`ClusterListArgs`] carries repository and pagination choices. Clap validates argument syntax
-//! and selected numeric ranges; the engine validates the resulting operation against archive data.
-//!
-//! The private `build` module adapts settings into an engine generation request. It uses stored
-//! discussion documents and vectors rather than asking an embedding service to generate vectors.
-//! The `read` module presents persisted pages and detail without rebuilding analysis. The
-//! `decisions` module records dismissal, restoration, membership, and canonical choices.
-//!
-//! Generated proposals and maintainer decisions have different authorship and persistence rules.
-//! The engine and store own those rules, including how subsequent generations retain local choices;
-//! this command tree owns argument adaptation, cancellation setup, output selection, and shell
-//! results. All these operations stay local and none writes back to GitHub.
-//!
-//! Dispatch keeps each operation visible by name. Build alone consumes embedding configuration
-//! and the document recipe; inspection and decisions operate on existing archive records. The
-//! report modules own human-readable layouts and decision output DTOs.
+//! Generated proposals and maintainer decisions have different authorship and persistence rules,
+//! owned by the engine and store. Decisions are recorded locally and never written to GitHub.
 
+use std::num::NonZeroU64;
 use std::path::Path;
-use std::process::ExitCode;
 
+use clap::builder::RangedU64ValueParser;
 use clap::{ArgAction, Args, Subcommand};
+use forgesync_engine::clustering::{
+    ClusterListRequest, dismiss_cluster, exclude_cluster_member, include_cluster_member,
+    list_clusters, restore_cluster, set_canonical_cluster_member, show_cluster,
+};
+use forgesync_engine::error::EngineError;
+use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 
-use crate::OutputMode;
+use super::embed::EmbeddingIdentityArgs;
+use super::with_archive;
 use crate::config::ForgesyncConfig;
+use crate::error::{CliError, Exit};
+use crate::output::Output;
+use crate::reports::clusters::{
+    ClusterDecisionOutput, cluster_decision_summary, cluster_detail_summary, cluster_page_summary,
+};
 
 mod build;
-mod decisions;
-mod read;
-
-use decisions::{run_dismiss, run_exclude, run_include, run_restore, run_set_canonical};
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
-use read::run_show;
 
 /// Deterministic cluster generation, inspection, and local governance operations.
 #[derive(Clone, Debug, Subcommand)]
@@ -45,14 +38,12 @@ pub enum ClusterCommand {
     /// Show one generated cluster and its current member decisions.
     Show {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
     },
     /// Hide one generated cluster from local triage without changing GitHub.
     Dismiss {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
         /// Optional maintainer rationale retained in the archive.
         #[arg(long)]
         reason: Option<String>,
@@ -60,14 +51,12 @@ pub enum ClusterCommand {
     /// Clear a local cluster dismissal.
     Restore {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
     },
     /// Exclude one current member from a generated cluster.
     Exclude {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
         /// OWNER/REPO#NUMBER or a GitHub issue/pull-request URL.
         member: ThreadSelector,
         /// Optional maintainer rationale retained in the archive.
@@ -77,16 +66,14 @@ pub enum ClusterCommand {
     /// Include a previously excluded current member.
     Include {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
         /// OWNER/REPO#NUMBER or a GitHub issue/pull-request URL.
         member: ThreadSelector,
     },
     /// Select the canonical discussion for one generated cluster.
     Canonical {
         /// Positive archive-local cluster ID.
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
-        id: u64,
+        id: NonZeroU64,
         /// OWNER/REPO#NUMBER or a GitHub issue/pull-request URL.
         member: ThreadSelector,
     },
@@ -109,35 +96,24 @@ pub struct ClusterBuildArgs {
     /// Registered repository to cluster.
     #[arg(value_name = "OWNER/REPO")]
     pub repository: RepositorySelector,
-    /// Override the configured embedding base endpoint; no request is sent.
-    #[arg(long, value_name = "URL")]
-    pub endpoint: Option<String>,
-    /// Override the configured embedding model identity.
-    #[arg(long, value_name = "MODEL")]
-    pub model: Option<String>,
+    /// Select stored vectors by embedding service identity; no request is sent.
+    #[command(flatten)]
+    pub service: EmbeddingIdentityArgs,
     /// Minimum cosine similarity for a same-kind edge.
-    #[arg(
-        long,
-        default_value_t = 0.80,
-        value_parser = parse_unit_float
-    )]
+    #[arg(long, default_value_t = 0.80, value_parser = parse_unit_float)]
     pub threshold: f64,
     /// Minimum cosine similarity for an issue-to-pull-request edge.
-    #[arg(
-        long,
-        default_value_t = 0.93,
-        value_parser = parse_unit_float
-    )]
+    #[arg(long, default_value_t = 0.93, value_parser = parse_unit_float)]
     pub cross_kind_threshold: f64,
     /// Maximum retained neighbors per discussion (1-256).
-    #[arg(long, default_value_t = 16, value_parser = clap::value_parser!(u32).range(1..=256))]
-    pub fanout: u32,
+    #[arg(long, default_value_t = 16, value_parser = RangedU64ValueParser::<usize>::new().range(1..=256))]
+    pub fanout: usize,
     /// Maximum component size (1-10000).
-    #[arg(long, default_value_t = 40, value_parser = clap::value_parser!(u32).range(1..=10000))]
-    pub max_cluster_size: u32,
+    #[arg(long, default_value_t = 40, value_parser = RangedU64ValueParser::<usize>::new().range(1..=10000))]
+    pub max_cluster_size: usize,
     /// Minimum component size to persist (1-10000).
-    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=10000))]
-    pub min_cluster_size: u32,
+    #[arg(long, default_value_t = 1, value_parser = RangedU64ValueParser::<usize>::new().range(1..=10000))]
+    pub min_cluster_size: usize,
 }
 
 /// Filters for one cluster listing.
@@ -158,32 +134,84 @@ pub struct ClusterListArgs {
 }
 
 impl ClusterCommand {
-    /// Runs a cluster read, build, or local maintainer decision.
     pub async fn run(
         self,
         path: &Path,
-        json: OutputMode,
+        output: Output,
         verbose: u8,
         config: ForgesyncConfig,
-    ) -> ExitCode {
-        let interruption = super::interruption::CommandInterruption::new();
-        let cancellation = interruption.cancellation();
+        cancellation: &CancellationToken,
+    ) -> Result<Exit, CliError> {
         match self {
-            ClusterCommand::Build(args) => {
-                args.run_build(path, config, json, verbose, cancellation)
-                    .await
+            Self::Build(args) => args.run(path, output, verbose, config, cancellation).await,
+            Self::List(args) => {
+                let request = ClusterListRequest {
+                    repositories: args.repositories,
+                    include_retired: args.include_retired,
+                    limit: args.limit,
+                    offset: args.offset,
+                };
+                let page = with_archive(Archive::open_read_only(path), async |archive| {
+                    list_clusters(archive, &request).await
+                })
+                .await?;
+                Ok(output.success(&page, cluster_page_summary))
             }
-            ClusterCommand::List(args) => args.run_list(path, json).await,
-            ClusterCommand::Show { id } => run_show(id, path, json).await,
-            ClusterCommand::Dismiss { id, reason } => run_dismiss(id, reason, path, json).await,
-            ClusterCommand::Restore { id } => run_restore(id, path, json).await,
-            ClusterCommand::Exclude { id, member, reason } => {
-                run_exclude(id, member, reason, path, json).await
+            Self::Show { id } => {
+                let detail = with_archive(Archive::open_read_only(path), async |archive| {
+                    show_cluster(archive, id.get()).await
+                })
+                .await?;
+                Ok(output.success(&detail, cluster_detail_summary))
             }
-            ClusterCommand::Include { id, member } => run_include(id, member, path, json).await,
-            ClusterCommand::Canonical { id, member } => {
-                run_set_canonical(id, member, path, json).await
+            Self::Dismiss { id, reason } => {
+                let reason = reason.unwrap_or_default();
+                decide(path, output, id, "dismissed", async |archive| {
+                    dismiss_cluster(archive, id.get(), &reason).await
+                })
+                .await
+            }
+            Self::Restore { id } => {
+                decide(path, output, id, "restored", async |archive| {
+                    restore_cluster(archive, id.get()).await
+                })
+                .await
+            }
+            Self::Exclude { id, member, reason } => {
+                let reason = reason.unwrap_or_default();
+                decide(path, output, id, "member_excluded", async |archive| {
+                    exclude_cluster_member(archive, id.get(), &member, &reason).await
+                })
+                .await
+            }
+            Self::Include { id, member } => {
+                decide(path, output, id, "member_included", async |archive| {
+                    include_cluster_member(archive, id.get(), &member).await
+                })
+                .await
+            }
+            Self::Canonical { id, member } => {
+                decide(path, output, id, "canonical_set", async |archive| {
+                    set_canonical_cluster_member(archive, id.get(), &member).await
+                })
+                .await
             }
         }
     }
+}
+
+/// Records one local maintainer decision and acknowledges the action on success.
+async fn decide(
+    path: &Path,
+    output: Output,
+    id: NonZeroU64,
+    action: &'static str,
+    operation: impl AsyncFnOnce(&Archive) -> Result<(), EngineError>,
+) -> Result<Exit, CliError> {
+    with_archive(Archive::open_read_write(path), operation).await?;
+    let acknowledgment = ClusterDecisionOutput {
+        cluster_id: id.get(),
+        action,
+    };
+    Ok(output.success(&acknowledgment, cluster_decision_summary))
 }

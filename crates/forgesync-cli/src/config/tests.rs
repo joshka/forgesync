@@ -1,13 +1,4 @@
-//! Configuration parsing and service-boundary examples.
-//!
-//! These cases distinguish default selection, explicit document recipes, parse rejection, and
-//! semantic embedding validation. They construct settings directly rather than mutating process
-//! environment, keeping the expected input visible and safe under concurrent tests. Network and
-//! credential resolution belong to their own boundaries; successful validation makes no request.
-//!
-//! Recipe cases select explicit TOML and expected domain values. Invalid endpoint and capacity
-//! cases assert the configuration category rather than accepting any failure. Default checks
-//! establish selected public values and validation, not exhaustive coverage of every service limit.
+//! Configuration parsing and embedding validation examples.
 
 use forgesync_core::document::DocumentRecipe;
 
@@ -61,7 +52,10 @@ fn embedding_service_config_rejects_nonlocal_http() {
         ..EmbeddingServiceConfig::default()
     };
     let error = config.validate().expect_err("reject remote HTTP endpoint");
-    assert!(matches!(error, ConfigError::InvalidEmbeddings));
+    assert!(matches!(
+        error,
+        ConfigError::InvalidEmbeddings { field: "endpoint" }
+    ));
 }
 
 #[test]
@@ -73,5 +67,10 @@ fn embedding_service_config_rejects_batch_smaller_than_chunk() {
     let error = config
         .validate()
         .expect_err("reject incompatible input limits");
-    assert!(matches!(error, ConfigError::InvalidEmbeddings));
+    assert!(matches!(
+        error,
+        ConfigError::InvalidEmbeddings {
+            field: "max_batch_input_bytes"
+        }
+    ));
 }

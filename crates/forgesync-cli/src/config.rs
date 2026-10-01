@@ -1,72 +1,45 @@
-//! # Load local application configuration
+//! Load local application configuration.
 //!
-//! `ForgesyncConfig` groups archive, document, and embedding-service settings. Nested config types
-//! supply defaults and validation for the parts of the app that need them; `ConfigError` reports
-//! malformed or unusable configuration.
+//! [`ForgesyncConfig::load`] reads an explicit path (`--config` or `FORGESYNC_CONFIG`), or the
+//! user configuration file, falling back to defaults only when that automatic file is absent.
+//! Omitted fields receive defaults and unknown fields are rejected.
 //!
-//! The CLI resolves config before constructing requests. Store and engine libraries receive
-//! explicit values and never reach into the process environment, which makes their behavior
-//! repeatable for a given input.
-//!
-//! [`ForgesyncConfig::load`] chooses an explicit path first, then `FORGESYNC_CONFIG`, then the
-//! user configuration, then built-in defaults if that automatic file is absent. Explicitly selected
-//! files must exist; malformed automatic files are errors too. Relative database paths are anchored
-//! to the config file. Omitted fields receive defaults and unknown fields are rejected. GitHub
-//! credentials remain with credential resolution.
-//!
-//! Loading and semantic validation are separate boundaries. [`EmbeddingServiceConfig::validate`]
-//! checks endpoint shape and resource budgets when a workflow needs embeddings; parsing a config
-//! does not contact a service or prove model support. [`EmbeddingServiceConfig::client_config`]
-//! converts validated settings after the command resolves the API key from its named environment
-//! variable. Neither defaults nor validation reads the secret or creates an HTTP client.
-//!
-//! [`DocumentsConfig`] selects rendering inputs without initiating provider acquisition. Embedding
-//! chunk/batch limits govern UTF-8 bytes and request concurrency, not token counts or service
-//! capacity. The engine client owns request execution and repeats its own boundary validation.
+//! Embedding settings are validated only by workflows that need them, so local archive inspection
+//! does not require a usable service configuration. Store and engine libraries receive explicit
+//! values and never read the process environment.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use forgesync_core::document::DocumentRecipe;
-use forgesync_engine::embedding_client::EmbeddingClientConfig;
+use forgesync_engine::embedding_client::{EmbeddingClient, EmbeddingClientConfig};
+use forgesync_engine::refresh::EmbeddingServiceIdentity;
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
 
 use crate::credentials::valid_environment_variable_name;
+use crate::error::CliError;
 
 pub mod archive;
 
 use archive::{ArchiveConfig, default_config_path};
 
-/// Parsed archive, document, and embedding preferences with defaults for omitted fields.
-///
-/// Deserialization rejects unknown settings but does not validate endpoint or budget semantics.
-/// Validate embedding settings only at the workflows that need them, so local archive inspection
-/// does not require a usable remote service configuration.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ForgesyncConfig {
-    /// Normal archive location, with per-invocation overrides resolved by the CLI.
     pub archive: ArchiveConfig,
-    /// Inputs used to create retrieval documents and embeddings.
     pub documents: DocumentsConfig,
-    /// Independent OpenAI-compatible embedding service settings.
     pub embeddings: EmbeddingServiceConfig,
 }
 
-/// Document recipe selected by embedding and analysis operations.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct DocumentsConfig {
-    /// Recipe that supplies the current discussion text.
     pub recipe: DocumentRecipe,
 }
 
 impl Default for DocumentsConfig {
-    /// Selects enriched discussion documents as the default derived-text recipe.
-    /// This choice does not request provider acquisition; workflows select acquisition
-    /// independently.
     fn default() -> Self {
         Self {
             recipe: DocumentRecipe::DiscussionEnriched,
@@ -74,38 +47,33 @@ impl Default for DocumentsConfig {
     }
 }
 
-/// Endpoint, model, key reference, and bounded request settings for embeddings.
+/// OpenAI-compatible embedding service settings.
+///
+/// Byte limits govern UTF-8 input size, not token counts or service capacity.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct EmbeddingServiceConfig {
     /// Base URL before the standard `/embeddings` path is appended.
     pub endpoint: String,
-    /// Model name sent with embedding requests.
     pub model: String,
     /// Environment variable containing the API key; the key itself is never stored in TOML.
     pub api_key_env: String,
-    /// Expected output dimensions, when configured for the selected model.
     pub dimensions: Option<u32>,
-    /// Maximum UTF-8 bytes in one deterministic input chunk.
+    /// Maximum UTF-8 bytes in one input chunk.
     pub max_input_bytes: usize,
     /// Maximum UTF-8 bytes across one request batch.
     pub max_batch_input_bytes: usize,
     /// Maximum chunks sent in one request.
     pub batch_size: usize,
-    /// Maximum requests in flight for this service.
+    /// Maximum requests in flight.
     pub concurrency: usize,
-    /// Timeout per request, in seconds.
     pub request_timeout_seconds: u64,
-    /// Total retry budget per request, in seconds.
+    /// Total retry budget per request.
     pub retry_budget_seconds: u64,
-    /// Maximum attempts for transient failures.
     pub max_attempts: u32,
 }
 
 impl Default for EmbeddingServiceConfig {
-    /// Selects the default OpenAI-compatible endpoint and model with bounded request settings.
-    /// The key remains an environment-variable reference; constructing defaults reads no
-    /// credential.
     fn default() -> Self {
         Self {
             endpoint: "https://api.openai.com/v1".to_owned(),
@@ -124,69 +92,67 @@ impl Default for EmbeddingServiceConfig {
 }
 
 impl EmbeddingServiceConfig {
-    /// Checks endpoint shape, key-reference spelling, and bounded embedding resources.
+    /// Checks every setting and returns the parsed endpoint.
     ///
-    /// Requires HTTPS except for HTTP to a literal loopback IP or `localhost`. Credentials, query,
-    /// and fragment in the URL are rejected; no DNS lookup or endpoint/model capability check runs.
-    /// Dimensions, chunk/batch sizes, concurrency, timeout, retry budget, and attempts must fit the
-    /// supported nonzero ranges. This reads no environment variable and changes no settings.
+    /// Requires HTTPS except for HTTP to `localhost` or a loopback IP, and rejects URL
+    /// credentials, query, and fragment. No request is sent and no environment is read.
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::InvalidEmbeddings`] for any invalid setting. Successful validation
-    /// does not prove credential validity, connectivity, or provider acceptance of the request.
-    pub fn validate(&self) -> Result<(), ConfigError> {
-        let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
-        let secure = endpoint.scheme() == "https";
-        let local_http =
-            endpoint.scheme() == "http" && endpoint.host_str().is_some_and(is_loopback_host);
-        let valid_endpoint = (secure || local_http)
-            && endpoint.host_str().is_some()
-            && endpoint.username().is_empty()
-            && endpoint.password().is_none()
-            && endpoint.query().is_none()
-            && endpoint.fragment().is_none();
-        if !valid_endpoint
-            || self.model.trim().is_empty()
-            || !valid_environment_variable_name(&self.api_key_env)
-            || self.dimensions == Some(0)
-            || self
-                .dimensions
-                .is_some_and(|dimensions| dimensions > 65_536)
-            || self.max_input_bytes < 4
-            || self.max_batch_input_bytes < self.max_input_bytes
-            || self.max_batch_input_bytes > 300_000
-            || self.batch_size == 0
-            || self.batch_size > 2048
-            || self.concurrency == 0
-            || self.concurrency > 64
-            || self.request_timeout_seconds == 0
-            || self.request_timeout_seconds > 600
-            || self.retry_budget_seconds == 0
-            || self.retry_budget_seconds > 3600
-            || self.max_attempts == 0
-            || self.max_attempts > 8
-        {
-            return Err(ConfigError::InvalidEmbeddings);
+    /// Returns [`ConfigError::InvalidEmbeddings`] naming the first invalid setting.
+    pub fn validate(&self) -> Result<Url, ConfigError> {
+        let invalid = |field| ConfigError::InvalidEmbeddings { field };
+        let endpoint = Url::parse(&self.endpoint)
+            .ok()
+            .filter(valid_endpoint)
+            .ok_or(invalid("endpoint"))?;
+        let checks = [
+            ("model", !self.model.trim().is_empty()),
+            (
+                "api_key_env",
+                valid_environment_variable_name(&self.api_key_env),
+            ),
+            (
+                "dimensions",
+                self.dimensions
+                    .is_none_or(|dimensions| (1..=65_536).contains(&dimensions)),
+            ),
+            ("max_input_bytes", self.max_input_bytes >= 4),
+            (
+                "max_batch_input_bytes",
+                (self.max_input_bytes..=300_000).contains(&self.max_batch_input_bytes),
+            ),
+            ("batch_size", (1..=2048).contains(&self.batch_size)),
+            ("concurrency", (1..=64).contains(&self.concurrency)),
+            (
+                "request_timeout_seconds",
+                (1..=600).contains(&self.request_timeout_seconds),
+            ),
+            (
+                "retry_budget_seconds",
+                (1..=3600).contains(&self.retry_budget_seconds),
+            ),
+            ("max_attempts", (1..=8).contains(&self.max_attempts)),
+        ];
+        match checks.into_iter().find(|(_, valid)| !valid) {
+            Some((field, _)) => Err(invalid(field)),
+            None => Ok(endpoint),
         }
-        Ok(())
     }
 
-    /// Converts validated preferences into engine client settings using a resolved API key.
-    ///
-    /// Trims the model name and converts timeout/budget seconds into durations. The supplied key
-    /// is moved into the result without reading environment or checking it with a service. This
-    /// constructs settings only; the engine client validates its own boundary and creates
-    /// transport.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::InvalidEmbeddings`] when validation or endpoint parsing fails.
+    /// Endpoint and model identity that selects compatible stored vectors; reads no key.
+    pub fn identity(&self) -> Result<EmbeddingServiceIdentity, ConfigError> {
+        let endpoint = self.validate()?;
+        Ok(EmbeddingServiceIdentity {
+            endpoint: endpoint.as_str().trim_end_matches('/').to_owned(),
+            model: self.model.trim().to_owned(),
+        })
+    }
+
+    /// Converts validated settings into engine client settings with a resolved API key.
     pub fn client_config(&self, api_key: String) -> Result<EmbeddingClientConfig, ConfigError> {
-        self.validate()?;
-        let endpoint = Url::parse(&self.endpoint).map_err(|_| ConfigError::InvalidEmbeddings)?;
         Ok(EmbeddingClientConfig {
-            endpoint,
+            endpoint: self.validate()?,
             model: self.model.trim().to_owned(),
             api_key,
             dimensions: self.dimensions,
@@ -199,28 +165,28 @@ impl EmbeddingServiceConfig {
             max_attempts: self.max_attempts,
         })
     }
+
+    /// Reads the API key from the named environment variable and prepares a client.
+    ///
+    /// A missing key is reported by the client when it first sends a request.
+    pub fn client(&self) -> Result<EmbeddingClient, CliError> {
+        let api_key = std::env::var(&self.api_key_env).unwrap_or_default();
+        Ok(EmbeddingClient::new(self.client_config(api_key)?)?)
+    }
 }
 
 impl ForgesyncConfig {
-    /// Loads an explicit file, `FORGESYNC_CONFIG`, or the automatically discovered user file.
+    /// Loads `explicit_path`, or the user config file when none is given.
     ///
-    /// Explicit selection wins even if the environment points elsewhere. A selected path is read
-    /// as UTF-8 TOML with defaults for omitted fields and rejection of unknown fields. The
-    /// user config is optional only when automatically selected. No file creation occurs.
-    /// Relative archive paths are anchored to the file's directory. Embedding validation is
-    /// deferred to the workflow; loading does not resolve credentials or initiate network
-    /// requests.
+    /// Relative archive paths are anchored to the config file's directory.
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::Read`] for a selected file that cannot be read as text, including a
-    /// missing file, or [`ConfigError::Parse`] for malformed TOML or incompatible settings.
+    /// Returns [`ConfigError::Read`] for a selected file that cannot be read, including a missing
+    /// explicit file, or [`ConfigError::Parse`] for malformed TOML or unknown settings.
     pub fn load(explicit_path: Option<&Path>) -> Result<Self, ConfigError> {
-        let path = explicit_path
-            .map(Path::to_path_buf)
-            .or_else(config_path_from_environment);
-        if let Some(path) = path {
-            return Self::load_file(&path);
+        if let Some(path) = explicit_path {
+            return Self::load_file(path);
         }
         let path = default_config_path()?;
         match Self::load_file(&path) {
@@ -233,8 +199,6 @@ impl ForgesyncConfig {
         }
     }
 
-    /// Parses one required file and anchors its database setting before returning preferences.
-    /// Missing, unreadable, and malformed files retain typed errors and their selected path.
     fn load_file(path: &Path) -> Result<Self, ConfigError> {
         let source = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
             path: path.to_path_buf(),
@@ -249,36 +213,26 @@ impl ForgesyncConfig {
     }
 }
 
-/// Error reading or parsing the user configuration.
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    /// No home directory could be discovered for automatic config/data selection.
     #[error("could not locate the user's configuration/data directories")]
     UserDirectories(#[source] etcetera::HomeDirError),
-    /// An explicitly supplied archive location was empty.
     #[error("archive path must not be empty")]
     EmptyArchivePath,
-    /// The selected config file could not be read.
     #[error("could not read config file {path}")]
     Read {
-        /// Config path used by the caller.
         path: PathBuf,
-        /// Filesystem error.
         #[source]
         source: std::io::Error,
     },
-    /// The selected config file contains invalid TOML or unknown settings.
     #[error("config file {path} is invalid")]
     Parse {
-        /// Config path used by the caller.
         path: PathBuf,
-        /// TOML error.
         #[source]
         source: toml::de::Error,
     },
-    /// The embedding service has an invalid endpoint or request budget.
-    #[error("embedding service configuration is invalid")]
-    InvalidEmbeddings,
+    #[error("embedding service setting `{field}` is invalid")]
+    InvalidEmbeddings { field: &'static str },
 }
 
 impl ConfigError {
@@ -286,20 +240,26 @@ impl ConfigError {
     pub const fn code(&self) -> &'static str {
         match self {
             Self::UserDirectories(_) => "config_directory_unavailable",
-            Self::EmptyArchivePath => "config_invalid",
             Self::Read { .. } => "config_read_failed",
-            Self::Parse { .. } | Self::InvalidEmbeddings => "config_invalid",
+            Self::EmptyArchivePath | Self::Parse { .. } | Self::InvalidEmbeddings { .. } => {
+                "config_invalid"
+            }
         }
     }
 }
 
-/// Reads the optional process override for the configuration file path.
-fn config_path_from_environment() -> Option<PathBuf> {
-    std::env::var_os("FORGESYNC_CONFIG").map(PathBuf::from)
+fn valid_endpoint(endpoint: &Url) -> bool {
+    let local_http =
+        endpoint.scheme() == "http" && endpoint.host_str().is_some_and(is_loopback_host);
+    (endpoint.scheme() == "https" || local_http)
+        && endpoint.host_str().is_some()
+        && endpoint.username().is_empty()
+        && endpoint.password().is_none()
+        && endpoint.query().is_none()
+        && endpoint.fragment().is_none()
 }
 
-/// Accepts a local model endpoint by host identity, including bracketed IPv6, for the relaxed
-/// local HTTP configuration path.
+/// Accepts `localhost` or a loopback IP, including bracketed IPv6.
 fn is_loopback_host(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost")
         || host

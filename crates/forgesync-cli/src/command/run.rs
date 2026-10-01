@@ -1,33 +1,26 @@
-//! # Inspect run history and retry unresolved work
+//! Inspect durable run history and retry unresolved work.
 //!
-//! [`RunCommand`] groups three operations around the durable workflow ledger. List and show are
-//! local inspections: they open an existing archive read-only, request projections from
-//! `forgesync_engine::runs`, and close the archive before rendering text or JSON. Show validates
-//! its positive archive-local run ID before opening the archive.
-//!
-//! Retry crosses a different boundary. It delegates to the retry command's request owner, which
-//! prepares cancellation-aware acquisition for unresolved failures, optionally restricted to
-//! selected evidence families. Inspecting a run does not implicitly retry it or contact GitHub.
-//!
-//! Run records describe workflow attempts, jobs, and failures. They are distinct from discussion
-//! coverage, which describes acquired source evidence. A successful command result therefore does
-//! not imply that every discussion family is complete. Human summaries live in the run report
-//! modules; the engine owns ledger selection and retry policy rather than these CLI variants.
+//! Retry is driven by unresolved failure records, never by absent content, because a family may
+//! never have been requested. Planning therefore precedes credential discovery and acquisition.
 
 use std::path::Path;
-use std::process::ExitCode;
 
 use clap::Subcommand;
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;
-use forgesync_engine::runs::{list_runs, show_run};
+use forgesync_engine::runs::{list_runs, plan_run_retry, run_retry, show_run};
 use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 
-use crate::command::retry::RetryRequest;
+use super::github::github_clients_for_selectors;
+use super::progress::ProgressReporter;
+use super::with_archive;
 use crate::command::values::RunFamilyArg;
+use crate::error::{CliError, Exit};
+use crate::output::Output;
 use crate::reports::run_detail::run_detail_summary;
-use crate::reports::runs::run_list_summary;
-use crate::{OutputMode, render_engine_error, render_store_error, render_success, usage_error};
+use crate::reports::runs::{retry_summary, run_list_summary};
+use crate::reports::sync::outcome_exit_code;
 
 /// Durable sync-run operations.
 #[derive(Clone, Debug, Subcommand)]
@@ -45,79 +38,81 @@ pub enum RunCommand {
     /// Show one run with its jobs and failure ledger.
     Show {
         /// Positive archive-local run ID.
-        id: u64,
+        #[arg(value_parser = parse_run_id)]
+        id: RunId,
     },
     /// Retry unresolved failures from one run.
     Retry {
         /// Positive archive-local run ID.
-        id: u64,
+        #[arg(value_parser = parse_run_id)]
+        id: RunId,
         /// Limit retries to selected evidence families; repeat or comma-separate values.
         #[arg(long, value_enum, value_delimiter = ',')]
         family: Vec<RunFamilyArg>,
     },
 }
 
+fn parse_run_id(value: &str) -> Result<RunId, String> {
+    value
+        .parse()
+        .ok()
+        .and_then(|id| RunId::new(id).ok())
+        .ok_or_else(|| "run ID must be a positive integer".to_owned())
+}
+
 impl RunCommand {
-    /// Runs a local read or retries the selected unresolved work.
-    pub async fn run(self, path: &Path, output: OutputMode, verbose: u8) -> ExitCode {
-        match self {
-            Self::List { limit } => Self::list(path, output, limit).await,
-            Self::Show { id } => Self::show(path, output, id).await,
-            Self::Retry { id, family } => Self::retry(path, output, verbose, id, family).await,
-        }
-    }
-
-    /// Reads recent durable runs without changing the archive.
-    async fn list(path: &Path, output: OutputMode, limit: u32) -> ExitCode {
-        let archive = match Archive::open_read_only(path).await {
-            Ok(archive) => archive,
-            Err(error) => return render_store_error(output, "run list", error),
-        };
-        let result = list_runs(&archive, limit).await;
-        archive.close().await;
-        match result {
-            Ok(runs) => render_success(output, "run list", &runs, run_list_summary),
-            Err(error) => render_engine_error(output, "run list", error),
-        }
-    }
-
-    /// Reads a run's job and failure ledger after validating its archive-local ID.
-    async fn show(path: &Path, output: OutputMode, id: u64) -> ExitCode {
-        let id = match RunId::new(id) {
-            Ok(id) => id,
-            Err(_) => return usage_error("run ID must be a positive integer"),
-        };
-        let archive = match Archive::open_read_only(path).await {
-            Ok(archive) => archive,
-            Err(error) => return render_store_error(output, "run show", error),
-        };
-        let result = show_run(&archive, id).await;
-        archive.close().await;
-        match result {
-            Ok(detail) => render_success(output, "run show", &detail, run_detail_summary),
-            Err(error) => render_engine_error(output, "run show", error),
-        }
-    }
-
-    /// Starts cancellation-aware acquisition for unresolved family failures.
-    async fn retry(
+    pub async fn run(
+        self,
         path: &Path,
-        output: OutputMode,
+        output: Output,
         verbose: u8,
-        id: u64,
-        family: Vec<RunFamilyArg>,
-    ) -> ExitCode {
-        let id = match RunId::new(id) {
-            Ok(id) => id,
-            Err(_) => return usage_error("run ID must be a positive integer"),
-        };
-        let interruption = super::interruption::CommandInterruption::new();
-        let cancellation = interruption.cancellation();
-        let families = family.into_iter().map(EvidenceFamily::from).collect();
-        let request = RetryRequest {
-            run_id: id,
-            families,
-        };
-        request.run(path, output, verbose, cancellation).await
+        cancellation: &CancellationToken,
+    ) -> Result<Exit, CliError> {
+        match self {
+            Self::List { limit } => {
+                let runs = with_archive(Archive::open_read_only(path), async |archive| {
+                    list_runs(archive, limit).await
+                })
+                .await?;
+                Ok(output.success(&runs, run_list_summary))
+            }
+            Self::Show { id } => {
+                let detail = with_archive(Archive::open_read_only(path), async |archive| {
+                    show_run(archive, id).await
+                })
+                .await?;
+                Ok(output.success(&detail, run_detail_summary))
+            }
+            Self::Retry { id, family } => {
+                let families = family
+                    .into_iter()
+                    .map(EvidenceFamily::from)
+                    .collect::<Vec<_>>();
+                let report = with_archive(Archive::open_read_write(path), async |archive| {
+                    let progress = ProgressReporter::start("retry", output.mode, verbose);
+                    let plan = plan_run_retry(archive, id, &families).await?;
+                    let repositories = plan
+                        .scopes
+                        .iter()
+                        .map(|scope| scope.repository.clone())
+                        .collect::<Vec<_>>();
+                    let clients =
+                        github_clients_for_selectors(&repositories, verbose, cancellation).await?;
+                    let result =
+                        run_retry(archive, &clients, plan, cancellation, progress.sender()).await;
+                    progress.finish().await;
+                    Ok::<_, CliError>(result?)
+                })
+                .await?;
+                // The first non-success child run, in engine execution order, sets the status.
+                let exit = report
+                    .runs
+                    .iter()
+                    .map(|run| outcome_exit_code(&run.outcome))
+                    .find(|exit| *exit != Exit::Success)
+                    .unwrap_or(Exit::Success);
+                Ok(output.report(&report, retry_summary, exit))
+            }
+        }
     }
 }

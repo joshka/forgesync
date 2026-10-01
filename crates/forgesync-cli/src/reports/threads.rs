@@ -1,25 +1,7 @@
-//! # Present archived discussions and search results
+//! Discussion and search presentation, plus shared display vocabulary.
 //!
-//! [`render_thread_page`], [`render_search_page`], and [`render_thread_detail`] adapt existing
-//! engine or store projections into the public CLI output DTOs. The shared renderer selects text
-//! or JSON and translates rendering failures into a process result. These adapters perform no
-//! archive reads, provider calls, ranking, or filtering of their own.
-//!
-//! Page and search summaries belong to their output DTOs; the larger detail layout lives in the
-//! sibling detail report module. Search output retains the effective retrieval mode and provenance
-//! so users can interpret keyword, vector, or fused results. Detail retains source content and
-//! evidence coverage rather than treating every displayed child collection as complete.
-//!
-//! The remaining helpers provide shared display vocabulary for discussion kinds, source and review
-//! states, family coverage, repository identities, and timestamps. Unknown provider state strings
-//! are preserved. Coverage labels describe the state variant only: they do not include staleness,
-//! failure details, or acquisition provenance, which callers must present separately when needed.
-//!
-//! Repository diagnostics use stable host/provider identity rather than an owner/name selector;
-//! absent identity has an explicit fallback. Timestamp formatting likewise has a defensive display
-//! fallback. These human labels are presentation choices, not parsers or durable identity formats.
-
-use std::process::ExitCode;
+//! Unknown provider state strings are preserved. Coverage labels name the state variant only;
+//! staleness and failure details must be presented separately when needed.
 
 use forgesync_core::content::{ReviewState, SourceState, ThreadKind as DiscussionKind};
 use forgesync_core::coverage::CoverageState;
@@ -27,26 +9,20 @@ use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::search::SearchResultPage;
 use forgesync_store::reads::{ThreadDetail, ThreadPage};
 
-use crate::output::{SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
+use crate::error::Exit;
+use crate::output::{Output, SearchPageOutput, ThreadDetailOutput, ThreadPageOutput};
 use crate::reports::detail::thread_detail_summary;
-use crate::{OutputMode, render_success};
 
-/// Renders a local discussion page in human or JSON form.
-pub fn render_thread_page(json: OutputMode, command: &str, page: &ThreadPage) -> ExitCode {
-    let output = ThreadPageOutput::from(page);
-    render_success(json, command, &output, ThreadPageOutput::summary)
+pub fn render_thread_page(output: Output, page: &ThreadPage) -> Exit {
+    output.success(&ThreadPageOutput::from(page), ThreadPageOutput::summary)
 }
 
-/// Renders ranked results with their effective retrieval mode.
-pub fn render_search_page(json: OutputMode, page: &SearchResultPage) -> ExitCode {
-    let output = SearchPageOutput::from(page);
-    render_success(json, "search", &output, SearchPageOutput::summary)
+pub fn render_search_page(output: Output, page: &SearchResultPage) -> Exit {
+    output.success(&SearchPageOutput::from(page), SearchPageOutput::summary)
 }
 
-/// Renders one archived discussion and its selected evidence.
-pub fn render_thread_detail(json: OutputMode, detail: &ThreadDetail) -> ExitCode {
-    let output = ThreadDetailOutput::from(detail);
-    render_success(json, "thread show", &output, thread_detail_summary)
+pub fn render_thread_detail(output: Output, detail: &ThreadDetail) -> Exit {
+    output.success(&ThreadDetailOutput::from(detail), thread_detail_summary)
 }
 
 /// Returns the display name for a normalized discussion kind.

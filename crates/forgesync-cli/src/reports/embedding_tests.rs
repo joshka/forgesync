@@ -9,24 +9,23 @@
 //! success and failure results. No message parsing, provider fixture, or hidden scenario helper
 //! selects the expected policy; the state-to-result mapping is visible in the case table.
 
-use std::process::ExitCode;
-
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embeddings::{EmbeddingBatchFailure, EmbeddingReport};
 use forgesync_engine::refresh::{RefreshDocumentFailure, RefreshStageFailure, RefreshStageStatus};
 use rstest::{fixture, rstest};
 
+use crate::error::Exit;
 use crate::reports::embedding::EmbeddingOutput;
 
 #[rstest]
-#[case::complete(RefreshStageStatus::Complete, ExitCode::SUCCESS)]
-#[case::partial(RefreshStageStatus::Partial, ExitCode::from(3))]
-#[case::deferred(RefreshStageStatus::Deferred, ExitCode::from(3))]
-#[case::interrupted(RefreshStageStatus::Interrupted, ExitCode::from(130))]
-#[case::failed(RefreshStageStatus::Failed, ExitCode::FAILURE)]
+#[case::complete(RefreshStageStatus::Complete, Exit::Success)]
+#[case::partial(RefreshStageStatus::Partial, Exit::Partial)]
+#[case::deferred(RefreshStageStatus::Deferred, Exit::Partial)]
+#[case::interrupted(RefreshStageStatus::Interrupted, Exit::Interrupted)]
+#[case::failed(RefreshStageStatus::Failed, Exit::Failure)]
 fn report_state_selects_exit_policy(
     #[case] status: RefreshStageStatus,
-    #[case] expected: ExitCode,
+    #[case] expected: Exit,
     mut output: EmbeddingOutput,
 ) {
     output.status = status;
