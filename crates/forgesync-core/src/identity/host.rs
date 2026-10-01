@@ -1,22 +1,12 @@
 //! Validated GitHub API authority used in provider and archive identity.
 //!
-//! [`GitHubHost::parse`] accepts a host or HTTPS origin and stores a normalized authority.
-//! Rejecting credentials, paths, invalid labels, and unusable ports keeps host-qualified
-//! repository IDs stable and prevents a caller from treating an arbitrary URL as a trusted API
-//! destination.
-//!
-//! The GitHub transport independently validates request and pagination URLs against its configured
-//! origin; this type is the domain identity, not the transport authorization check. A repository
-//! selector uses a host with owner and name, while the store pairs it with the provider repository
-//! ID.
-//!
-//! Use [`GitHubHost::https_origin`] when a displayable origin is needed. Keep token handling in
-//! `forgesync-github::token` and process credential discovery in the CLI.
+//! This is the domain identity, not the transport authorization check: the GitHub transport
+//! independently validates request and pagination URLs against its configured origin.
 
 use std::fmt;
 use std::net::Ipv6Addr;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use super::IdentityError;
 
@@ -24,11 +14,9 @@ use super::IdentityError;
 ///
 /// Accepts `github.com`, `https://github.com`, and HTTPS enterprise authorities with an optional
 /// port. It rejects paths so an API base path cannot accidentally create a second host identity.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct GitHubHost(
-    /// Canonical authority with normalized host spelling and any non-default HTTPS port.
-    String,
-);
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct GitHubHost(String);
 
 impl GitHubHost {
     /// Checks and canonicalizes a public or enterprise HTTPS authority without contacting it.
@@ -37,9 +25,6 @@ impl GitHubHost {
     /// A single trailing slash is accepted on the origin form. DNS spelling becomes ASCII
     /// lowercase, a trailing DNS dot is removed, and port 443 is omitted. Bracketed IPv6
     /// addresses use their canonical address spelling. Non-default positive ports are retained.
-    ///
-    /// Host identity is not a credential or request authorization decision. Transport code still
-    /// validates every request and pagination URL against its configured origin.
     ///
     /// # Errors
     ///
@@ -95,43 +80,29 @@ impl GitHubHost {
         &self.0
     }
 
-    /// Builds the HTTPS origin from this canonical authority, without an API path or trailing
-    /// slash.
-    ///
-    /// A retained non-default port and IPv6 brackets remain part of the origin. This creates text;
-    /// it does not resolve the host or prove a GitHub API is available there.
+    /// Builds the HTTPS origin, without an API path or trailing slash.
     pub fn https_origin(&self) -> String {
         format!("https://{}", self.0)
     }
 }
 
 impl fmt::Display for GitHubHost {
-    /// Displays the normalized host identity; HTTPS origins are constructed by the URL helper.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
 }
 
-impl Serialize for GitHubHost {
-    /// Encodes the normalized host as text so persisted identity does not retain alternate
-    /// spellings.
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.0)
+impl TryFrom<String> for GitHubHost {
+    type Error = IdentityError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::parse(&value)
     }
 }
 
-impl<'de> Deserialize<'de> for GitHubHost {
-    /// Validates and normalizes persisted host text through the same parser used for provider
-    /// input.
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::parse(&value).map_err(serde::de::Error::custom)
+impl From<GitHubHost> for String {
+    fn from(value: GitHubHost) -> Self {
+        value.0
     }
 }
 
