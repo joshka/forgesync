@@ -69,12 +69,14 @@ pub async fn recent_failures(archive: &Archive) -> Result<Vec<RunFailureSummary>
     Ok(summaries)
 }
 
+/// Unfinished runs in newest-first order, bounded after complete runs are skipped.
 fn unfinished_runs(runs: Vec<RunRecord>) -> impl Iterator<Item = RunRecord> {
     runs.into_iter()
         .filter(|run| run.status != RunStatus::Complete)
         .take(RUNS_TO_DETAIL)
 }
 
+/// Keeps a run whose detail could not be read visible under its own identity.
 fn unavailable_summary(run: RunRecord, error: EngineError) -> RunFailureSummary {
     RunFailureSummary {
         id: run.id,

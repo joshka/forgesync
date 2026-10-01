@@ -14,6 +14,7 @@ mod browser;
 mod triage;
 
 impl App {
+    /// Routes a key by the precedence above and returns the work it requests.
     pub fn handle_key(&mut self, key: KeyEvent) -> Vec<QueryAction> {
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             return self.request_quit();
@@ -36,6 +37,7 @@ impl App {
         }
     }
 
+    /// Handles keys that mean the same on every screen; `None` for screen-specific keys.
     fn handle_global_key(&mut self, code: KeyCode) -> Option<Vec<QueryAction>> {
         let actions = match code {
             KeyCode::Char('q') => self.request_quit(),
@@ -50,18 +52,21 @@ impl App {
         Some(actions)
     }
 
+    /// Shows coverage and reloads it, clearing the status line.
     fn show_coverage(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Coverage;
         self.status = None;
         vec![QueryAction::Read(Read::Coverage)]
     }
 
+    /// Shows recent failed runs and reloads them, clearing the status line.
     fn show_failures(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Failures;
         self.status = None;
         vec![QueryAction::Read(Read::Failures)]
     }
 
+    /// Shows clusters for the applied scope and reloads them, clearing the status line.
     fn show_clusters(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Clusters;
         self.status = None;
@@ -70,18 +75,21 @@ impl App {
         })]
     }
 
+    /// Syncs the applied repository, or every registered repository when none is applied.
     fn sync_scope(&self) -> Vec<QueryAction> {
         vec![QueryAction::Operation(Operation::Sync {
             repositories: self.repository_scope(),
         })]
     }
 
+    /// Refreshes the applied repository, or every registered repository when none is applied.
     fn refresh_scope(&self) -> Vec<QueryAction> {
         vec![QueryAction::Operation(Operation::Refresh {
             repositories: self.repository_scope(),
         })]
     }
 
+    /// Opens the search draft on the browser, prefilled with the applied query.
     fn edit_search(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Browser;
         self.searching = true;
@@ -89,6 +97,8 @@ impl App {
         Vec::new()
     }
 
+    /// Escape: cluster detail returns to the list and other screens to the browser; on the
+    /// browser it clears an applied search, then moves focus from detail back to the list.
     fn leave_current_view(&mut self) -> Vec<QueryAction> {
         if self.screen == Screen::ClusterDetail {
             self.screen = Screen::Clusters;
@@ -103,6 +113,7 @@ impl App {
         Vec::new()
     }
 
+    /// Edits the search draft; results change only when it is submitted.
     fn handle_search_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Esc => self.cancel_search(),
@@ -113,6 +124,7 @@ impl App {
         }
     }
 
+    /// Discards the draft and keeps the applied query.
     fn cancel_search(&mut self) -> Vec<QueryAction> {
         self.searching = false;
         self.search_input.clear();
@@ -138,6 +150,7 @@ impl App {
         Vec::new()
     }
 
+    /// A thread read scoped to the applied repository.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self.repository_scope();
         QueryAction::Read(Read::Threads {
@@ -147,6 +160,7 @@ impl App {
         })
     }
 
+    /// The applied repository as a selector list; empty selects every repository.
     pub fn repository_scope(&self) -> Vec<RepositorySelector> {
         self.repository_picker
             .applied

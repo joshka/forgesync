@@ -1,15 +1,4 @@
-//! # Prepare discussion detail sections for the terminal
-//!
-//! `detail_lines` resolves unloaded, loading, and failed detail state before building sections.
-//! `DetailPresentation` borrows a loaded projection and renders source, body, coverage, and current
-//! timeline. The browser uses these exact lines both for rendering and for scroll limits.
-//!
-//! Section methods keep display context local without changing the underlying evidence. The
-//! timeline comes from store projections and describes current content rather than revision
-//! history. No section fetches data, starts operations, or changes selection; `app` owns those
-//! transitions.
-//!
-//! Terminal rendering cases exercise compact and wide layouts; resize tests protect scroll bounds.
+//! Discussion detail lines, also used by the browser to bound scrolling.
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_store::reads::ThreadDetail;
@@ -20,7 +9,7 @@ use crate::app::App;
 use crate::view::family_name;
 use crate::view::timeline::timeline_line;
 
-/// Builds the ordered summary and timeline lines for one discussion.
+/// The detail pane's lines, or one placeholder line while loading, failed, or unselected.
 pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
     let pane = &app.detail_pane.detail;
     let Some(detail) = pane.data.as_deref() else {
@@ -36,10 +25,9 @@ pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
     DetailPresentation(detail).lines()
 }
 
-/// Prepared discussion sections; loading and errors are resolved before constructing this view.
+/// Sections of one loaded discussion.
 struct DetailPresentation<'a>(&'a ThreadDetail);
 impl DetailPresentation<'_> {
-    /// Builds sections in the same order used for scroll bounds and terminal rendering.
     fn lines(&self) -> Vec<Line<'static>> {
         let mut lines = self.source_lines();
         lines.extend(self.body_lines());
@@ -47,7 +35,6 @@ impl DetailPresentation<'_> {
         lines.extend(self.timeline_lines());
         lines
     }
-    /// Shows identity and source state before acquired evidence.
     fn source_lines(&self) -> Vec<Line<'static>> {
         let summary = &self.0.summary;
         let discussion = &summary.discussion;
@@ -77,7 +64,6 @@ impl DetailPresentation<'_> {
         lines.push(Line::from(""));
         lines
     }
-    /// Shows source body and labels with their section spacing.
     fn body_lines(&self) -> Vec<Line<'static>> {
         let discussion = &self.0.summary.discussion;
         let mut lines = Vec::new();
@@ -94,7 +80,6 @@ impl DetailPresentation<'_> {
         }
         lines
     }
-    /// Shows family completeness and freshness before the timeline.
     fn coverage_lines(&self) -> Vec<Line<'static>> {
         let summary = &self.0.summary;
         let mut lines = Vec::new();
@@ -109,7 +94,6 @@ impl DetailPresentation<'_> {
         }));
         lines
     }
-    /// Formats current evidence in the archive projection order.
     fn timeline_lines(&self) -> Vec<Line<'static>> {
         let detail = self.0;
         let mut lines = Vec::new();

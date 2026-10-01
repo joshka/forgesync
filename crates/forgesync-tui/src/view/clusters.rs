@@ -148,6 +148,7 @@ impl ClusterDetailView<'_> {
     }
 }
 
+/// Active members read as "included", keeping inclusion distinct from the member's role.
 fn member_state_name(state: ClusterMemberState) -> &'static str {
     match state {
         ClusterMemberState::Active => "included",

@@ -37,11 +37,13 @@ impl App {
         }
     }
 
+    /// Reloads the current page and clears the status line.
     fn reload_threads(&mut self) -> Vec<QueryAction> {
         self.status = None;
         vec![self.thread_action(self.search_query.clone(), self.thread_list.offset)]
     }
 
+    /// Requests the next page reported by the store, if any.
     fn next_thread_page(&mut self) -> Vec<QueryAction> {
         self.thread_list
             .next_offset
@@ -49,6 +51,7 @@ impl App {
             .unwrap_or_default()
     }
 
+    /// Requests the preceding page; does nothing on the first page.
     fn previous_thread_page(&mut self) -> Vec<QueryAction> {
         if self.thread_list.offset == 0 {
             return Vec::new();
@@ -90,6 +93,7 @@ impl App {
         Vec::new()
     }
 
+    /// Enter: applies the highlighted repository or opens the selected discussion.
     fn select(&mut self) -> Vec<QueryAction> {
         match self.focus {
             Focus::Repositories => self.select_repository(),
@@ -111,6 +115,7 @@ impl App {
         vec![self.thread_action(self.search_query.clone(), 0)]
     }
 
+    /// Requests detail for the selected discussion and focuses the detail pane.
     fn select_thread(&mut self) -> Vec<QueryAction> {
         let Some(summary) = self.thread_list.selected() else {
             return Vec::new();

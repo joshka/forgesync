@@ -31,22 +31,26 @@ impl<T> Default for ListPanel<T> {
 }
 
 impl<T> ListPanel<T> {
+    /// The highlighted row, if any.
     pub fn selected(&self) -> Option<&T> {
         self.state
             .selected()
             .and_then(|index| self.rows.data.get(index))
     }
 
+    /// Moves the highlight with a `ListState` step, keeping it on a loaded row.
     pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
         step(&mut self.state);
         clamp_selection(&mut self.state, self.rows.data.len());
     }
 
+    /// Keeps the highlight on a row after new rows arrive, starting at the first row.
     pub fn loaded(&mut self) {
         clamp_selection(&mut self.state, self.rows.data.len());
     }
 }
 
+/// Repository rows, the highlighted row, and the applied browsing scope.
 #[derive(Debug)]
 pub struct RepositoryPicker {
     pub rows: Loadable<Vec<Repository>>,
@@ -73,6 +77,7 @@ impl RepositoryPicker {
         self.rows.data.get(index)
     }
 
+    /// Moves the highlight, counting the synthetic all-repositories row.
     pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
         step(&mut self.state);
         clamp_selection(&mut self.state, self.rows.data.len() + 1);
@@ -92,6 +97,7 @@ impl RepositoryPicker {
     }
 }
 
+/// One page of discussions and the selected row.
 #[derive(Debug, Default)]
 pub struct ThreadList {
     pub rows: Loadable<Vec<ThreadSummary>>,
@@ -110,18 +116,21 @@ impl ThreadList {
         self.rows.begin()
     }
 
+    /// Records the applied page coordinates and selects the first row.
     pub fn loaded(&mut self, offset: u64, next_offset: Option<u64>) {
         self.offset = offset;
         self.next_offset = next_offset;
         clamp_selection(&mut self.state, self.rows.data.len());
     }
 
+    /// The selected discussion, if any.
     pub fn selected(&self) -> Option<&ThreadSummary> {
         self.state
             .selected()
             .and_then(|index| self.rows.data.get(index))
     }
 
+    /// Moves the selection with a `ListState` step, keeping it on a loaded row.
     pub fn select(&mut self, step: impl FnOnce(&mut ListState)) {
         step(&mut self.state);
         clamp_selection(&mut self.state, self.rows.data.len());
@@ -137,11 +146,13 @@ pub struct DetailPane {
 }
 
 impl DetailPane {
+    /// Clears the detail and rejects its pending reply.
     pub fn invalidate(&mut self) {
         self.detail.reset();
         self.scroll = 0;
     }
 
+    /// Starts a read without showing the previous discussion meanwhile.
     pub fn begin(&mut self) -> u64 {
         self.invalidate();
         self.detail.begin()
@@ -151,6 +162,7 @@ impl DetailPane {
 pub type FailureList = ListPanel<RunFailureSummary>;
 pub type ClusterList = ListPanel<ClusterSummary>;
 
+/// The opened cluster's members and the highlighted member.
 #[derive(Debug, Default)]
 pub struct ClusterDetailPane {
     pub detail: Loadable<Option<ClusterDetail>>,
@@ -182,11 +194,13 @@ impl ClusterDetailPane {
             .map_or(0, |detail| detail.members.len())
     }
 
+    /// Keeps the member highlight on a loaded member.
     pub fn loaded(&mut self) {
         let count = self.member_count();
         clamp_selection(&mut self.members, count);
     }
 
+    /// Moves the member highlight with a `ListState` step.
     pub fn select_member(&mut self, step: impl FnOnce(&mut ListState)) {
         step(&mut self.members);
         self.loaded();

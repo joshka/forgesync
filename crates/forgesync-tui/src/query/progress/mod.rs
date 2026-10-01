@@ -11,6 +11,7 @@ use tokio::task::JoinHandle;
 
 use crate::app::messages::QueryMessage;
 
+/// The engine-facing progress channel and the task delivering it to the app.
 pub struct ProgressForwarder {
     sender: Option<mpsc::Sender<SyncProgress>>,
     /// Kept while finishing so dropping an unfinished forwarder aborts delivery.
@@ -30,6 +31,7 @@ impl ProgressForwarder {
         }
     }
 
+    /// A producer for the engine; drop it before [`Self::finish`].
     pub fn sender(&self) -> mpsc::Sender<SyncProgress> {
         self.sender
             .as_ref()

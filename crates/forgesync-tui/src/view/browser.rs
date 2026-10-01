@@ -61,6 +61,7 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     frame.render_stateful_widget(list, area, state);
 }
 
+/// Placeholder rows (loading, error, empty) are drawn without a highlight.
 fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let threads = &mut app.thread_list;
     let rows = &threads.rows;

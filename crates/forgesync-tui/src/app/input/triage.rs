@@ -24,6 +24,7 @@ impl App {
         }
     }
 
+    /// Retries the unresolved work of the highlighted run.
     fn retry_selected_run(&self) -> Vec<QueryAction> {
         self.failure_list
             .selected()
@@ -47,6 +48,7 @@ impl App {
         }
     }
 
+    /// Dismisses the highlighted cluster, or restores it when already dismissed.
     fn toggle_selected_cluster(&self) -> Vec<QueryAction> {
         self.cluster_list
             .selected()
@@ -54,6 +56,7 @@ impl App {
             .unwrap_or_default()
     }
 
+    /// Shows the highlighted cluster's members and loads them.
     fn open_selected_cluster(&mut self) -> Vec<QueryAction> {
         let Some(cluster) = self.cluster_list.selected() else {
             return Vec::new();
@@ -81,6 +84,7 @@ impl App {
         }
     }
 
+    /// Dismisses the open cluster, or restores it when already dismissed.
     fn toggle_open_cluster(&self) -> Vec<QueryAction> {
         self.cluster_detail_pane
             .detail
@@ -95,6 +99,8 @@ impl App {
             .unwrap_or_default()
     }
 
+    /// Builds the exclude (`e`), include (`i`), or set-canonical (`k`) decision for the
+    /// highlighted member.
     fn cluster_member_action(&self, code: KeyCode) -> Vec<QueryAction> {
         let pane = &self.cluster_detail_pane;
         let Some(detail) = &pane.detail.data else {
@@ -122,6 +128,7 @@ impl App {
     }
 }
 
+/// Restores a dismissed cluster; otherwise dismisses it.
 fn dismissal_toggle(id: u64, dismissed: bool) -> QueryAction {
     if dismissed {
         Operation::RestoreCluster { id }.into()

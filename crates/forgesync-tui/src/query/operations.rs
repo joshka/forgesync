@@ -204,6 +204,8 @@ fn outcome_name(outcome: &OperationOutcome) -> &'static str {
     }
 }
 
+/// Reports the most significant outcome across the retried runs: all complete, any
+/// interrupted, all failed, all deferred, otherwise partial.
 fn retry_summary(report: &RetryReport) -> String {
     let runs = &report.runs;
     let status = if runs

@@ -5,6 +5,7 @@ use super::{App, RunningOperation};
 use crate::query::{QueryAction, Read};
 
 impl App {
+    /// Reads issued when the browser opens.
     pub fn initial_actions(&self) -> [QueryAction; 2] {
         [Read::Repositories.into(), self.thread_action(None, 0)]
     }

@@ -66,6 +66,7 @@ impl<'a> EventLoop<'a> {
         Ok(())
     }
 
+    /// Starts each action with this session's resources.
     fn dispatch(&mut self, actions: impl IntoIterator<Item = QueryAction>) {
         let mut dispatch = QueryDispatch {
             archive: &self.archive,

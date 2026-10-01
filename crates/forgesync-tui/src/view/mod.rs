@@ -21,10 +21,10 @@ use clusters::{draw_cluster_detail, draw_clusters};
 use coverage::draw_coverage;
 use failures::draw_failures;
 
-/// Switches panes to a vertical layout below the width needed for two readable columns.
+/// Below this width, panes stack vertically.
 const COMPACT_WIDTH: u16 = 100;
 
-/// Selects the active screen renderer and keeps header and footer visible.
+/// Draws the header, the active screen, and the footer.
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
@@ -45,7 +45,6 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     draw_footer(frame, sections[2], app);
 }
 
-/// Shows the active screen and submitted search scope.
 fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let view = match app.screen {
         Screen::Browser => "Browse",
@@ -67,7 +66,7 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(Paragraph::new(line), area);
 }
 
-/// Shows operation progress, status, or key hints according to current state.
+/// Footer precedence: search draft, running writer, status line, then key hints.
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let text = if app.searching {
         format!(" Search: {}▏  Enter search · Esc cancel", app.search_input)
@@ -108,7 +107,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-/// A titled pane border, cyan when emphasized (focused) and dark gray otherwise.
+/// A titled pane border; emphasized panes (the focused one) are cyan.
 fn pane(title: &str, emphasized: bool) -> Block<'_> {
     let color = if emphasized {
         Color::Cyan

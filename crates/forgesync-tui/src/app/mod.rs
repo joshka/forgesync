@@ -52,6 +52,7 @@ pub struct App {
     pub quit: bool,
 }
 
+/// The running writer as shown in the footer.
 #[derive(Debug)]
 pub struct RunningOperation {
     pub label: &'static str,

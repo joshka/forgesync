@@ -24,6 +24,8 @@ use crate::query::{QueryDispatch, Read};
 const READ_LIMIT: u32 = 100;
 
 impl QueryDispatch<'_> {
+    /// Begins the read's panel generation, then spawns the read; its reply arrives as a
+    /// [`QueryMessage`].
     pub(super) fn start_read(&mut self, read: Read, app: &mut App) {
         let archive = Arc::clone(self.archive);
         let task: Pin<Box<dyn Future<Output = QueryMessage> + Send>> = match read {
@@ -114,6 +116,7 @@ impl QueryDispatch<'_> {
     }
 }
 
+/// Engine errors reach the UI as display strings.
 fn display(error: EngineError) -> String {
     error.to_string()
 }
@@ -144,6 +147,7 @@ async fn thread_page(
     }
 }
 
+/// Filters shared by keyword and browse reads: every kind and state, one page.
 fn thread_filters(
     repositories: Vec<RepositorySelector>,
     offset: u64,

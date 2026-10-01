@@ -1,22 +1,10 @@
-//! # Present current discussion evidence as terminal lines
-//!
-//! `timeline_line` selects wording for the store's typed current-evidence events. Detail section
-//! assembly and scroll bounds remain in `view::detail`; this module explains one event at a time.
-//! It preserves the supplied body, author, path, and reviewer data and performs no archive read.
-//!
-//! Comment and review helpers name missing-author and missing-body fallbacks. `ReviewThreadView`
-//! keeps path, resolution, and outdated source facts together for review-thread wording. Those
-//! boolean fields describe provider facts, rather than switches that choose unrelated behavior.
-//! Review-comment wording uses only its path and comment, matching the existing display contract.
-//!
-//! These lines describe current acquired evidence, not source revision history. Event ordering
-//! comes from the store projection and is preserved by the caller's traversal.
+//! One line per current-evidence timeline event, with explicit fallbacks for missing data.
 
 use forgesync_core::content::{Comment, Review};
 use forgesync_store::reads::ThreadTimelineEvent;
 use ratatui::text::Line;
 
-/// Selects one event projection, leaving wording and fallback policy with named local owners.
+/// Formats one current-evidence event.
 pub fn timeline_line(event: &ThreadTimelineEvent) -> Line<'static> {
     match event {
         ThreadTimelineEvent::ThreadCreated { title, .. } => created_line(title),
@@ -42,23 +30,19 @@ pub fn timeline_line(event: &ThreadTimelineEvent) -> Line<'static> {
     }
 }
 
-/// Shows the observed title associated with discussion creation.
 fn created_line(title: &str) -> Line<'static> {
     Line::from(format!("Created: {title}"))
 }
 
-/// Marks closure independently of comment or review evidence.
 fn closed_line() -> Line<'static> {
     Line::from("Discussion closed")
 }
 
-/// Preserves comment body text and marks an absent author explicitly.
 fn comment_line(comment: &Comment) -> Line<'static> {
     let author = comment.author.as_deref().unwrap_or("unknown author");
     Line::from(format!("Comment · {author}: {}", comment.body))
 }
 
-/// Shows reviewer identity and body, retaining distinct missing-reviewer and missing-body labels.
 fn review_line(review: &Review) -> Line<'static> {
     let reviewer = review
         .reviewer
@@ -69,7 +53,6 @@ fn review_line(review: &Review) -> Line<'static> {
     Line::from(format!("Review · {reviewer} · {body}"))
 }
 
-/// Associates a review comment with its source path without inferring thread resolution.
 fn review_comment_line(comment: &Comment, path: Option<&str>) -> Line<'static> {
     let path = path.unwrap_or("unknown path");
     let author = comment.author.as_deref().unwrap_or("unknown author");
@@ -79,18 +62,13 @@ fn review_comment_line(comment: &Comment, path: Option<&str>) -> Line<'static> {
     ))
 }
 
-/// Source facts retained together while presenting one review thread.
 struct ReviewThreadView<'a> {
-    /// Source file path; absent paths receive an explicit display fallback.
     path: Option<&'a str>,
-    /// Provider-reported resolution, independent of whether the source location is outdated.
     is_resolved: bool,
-    /// Provider-reported outdated location, independent of local acquisition completeness.
     is_outdated: bool,
 }
 
 impl ReviewThreadView<'_> {
-    /// Keeps resolution, location freshness, and path as three distinct display facts.
     fn line(&self) -> Line<'static> {
         let resolution = if self.is_resolved {
             "resolved"
@@ -111,8 +89,6 @@ impl ReviewThreadView<'_> {
 
 #[cfg(test)]
 mod tests {
-    //! Independent source facts retain their labels and explicit missing-path fallback.
-
     use ratatui::text::Line;
 
     use crate::view::timeline::ReviewThreadView;

@@ -10,6 +10,7 @@ use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage};
 
 use crate::query::failures::RunFailureSummary;
 
+/// A background result for the app.
 pub enum QueryMessage {
     Repositories {
         generation: u64,

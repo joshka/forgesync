@@ -29,6 +29,7 @@ pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     draw_failure_detail(frame, panes[1], app);
 }
 
+/// Placeholder rows (loading, error, empty) are drawn without a highlight.
 fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let list = &mut app.failure_list;
     let rows = &list.rows;

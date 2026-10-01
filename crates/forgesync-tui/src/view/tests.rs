@@ -1,13 +1,4 @@
-//! # Terminal rendering bounds
-//!
-//! These tests render browser and maintainer screens at different terminal sizes and check
-//! scrolling after resize. They protect layout behavior that is difficult to infer from widget
-//! construction alone. Sample app data supplies a visible discussion and cluster state for the
-//! renderer. Add a focused size or state case when changing geometry, clipping, or selection cues
-//! so failures name the affected screen.
-//!
-//! Focus-cue cases render a standalone border and inspect its foreground color. They establish
-//! visual emphasis independently of navigation, asynchronous results, or writer authority.
+//! Rendering at narrow and wide sizes, focus borders, and detail scroll clamping.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
@@ -131,9 +122,7 @@ fn maintainer_view_renders_at_terminal_size(
         .expect("draw maintainer view");
 }
 
-/// Browser state with one applied repository and selected discussion, without querying an archive.
-/// The picker cursor includes its all-repositories row, so the concrete repository occupies index
-/// one.
+/// Row one is the repository, after the synthetic all-repositories row.
 fn sample_app() -> App {
     let summary = sample_summary();
     let mut app = App {
@@ -153,7 +142,6 @@ fn sample_app() -> App {
     app
 }
 
-/// Detail for the fixed discussion with no child evidence or timeline, isolating body scrolling.
 fn sample_detail() -> ThreadDetail {
     ThreadDetail {
         summary: sample_summary(),
@@ -165,8 +153,6 @@ fn sample_detail() -> ThreadDetail {
     }
 }
 
-/// One open issue with fixed identities, source time, and body text for deterministic rendering.
-/// Construction supplies display content only; it establishes no acquisition or coverage state.
 fn sample_summary() -> ThreadSummary {
     let repository = Repository {
         id: RepositoryId::new(

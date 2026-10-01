@@ -13,7 +13,6 @@ use forgesync_store::reads::ThreadSummary;
 use crate::app::loadable::Loadable;
 use crate::app::panels::ClusterDetailPane;
 
-/// One GitHub repository used by selected-scope and cluster-member fixtures.
 pub fn sample_repository() -> Repository {
     Repository {
         id: RepositoryId::new(
@@ -29,7 +28,7 @@ pub fn sample_repository() -> Repository {
     }
 }
 
-/// One active cluster with a representative member, suitable for target and cursor transitions.
+/// Cluster 17 with one representative member, `owner/repo#7`.
 pub fn sample_cluster_detail() -> ClusterDetail {
     let repository = sample_repository();
     let timestamp = UtcTimestamp::parse("2026-09-29T00:00:00Z").expect("timestamp");
@@ -88,7 +87,6 @@ pub fn loaded_cluster_detail_pane(detail: ClusterDetail) -> ClusterDetailPane {
     pane
 }
 
-/// One unfinished run used to test ledger selection and failure presentation without database I/O.
 pub fn sample_run_record() -> forgesync_store::runs::RunRecord {
     let timestamp = UtcTimestamp::parse("2026-09-29T00:00:00Z").expect("timestamp");
     forgesync_store::runs::RunRecord {
