@@ -12,6 +12,10 @@ and the [module map](docs/architecture.md) when changing their respective surfac
 [epage's Rust style guide](https://epage.github.io/dev/rust-style/) where they improve this app's
 reader locality, correctness, and API clarity. Local rules resolve conflicting layout preferences.
 
+Prefer the smallest design that is correct. Do not add single-use wrapper types, duplicate
+pipelines, repeated validation, or speculative variants; see "Keep it small" in the Rust
+conventions. Comments explain what the code cannot, never restate it.
+
 ## Maintaining project guidance
 
 - When maintainer feedback or a recurring review finding establishes a reusable rule, record it in

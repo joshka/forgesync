@@ -8,8 +8,7 @@ passed on the cleanup baseline. That workspace run passed 525 tests across 27 su
 failures or ignored cases. The follow-ups below have separate validation evidence, including the
 initial registry release and hosted native execution.
 
-This file describes current status. The [source-shape audit](source-shape-audit.md) records review
-findings and their dispositions; the [module map](architecture.md) explains the implemented owners.
+This file describes current status; the [module map](architecture.md) explains the crate layout.
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.
 
