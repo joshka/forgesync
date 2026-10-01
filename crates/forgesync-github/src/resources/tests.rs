@@ -19,7 +19,7 @@ use crate::resources::{
 };
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
-/// Loads a synthetic provider payload by its catalog filename.
+/// Loads a synthetic provider payload from `fixtures/github`.
 fn fixture(name: &str) -> serde_json::Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/github")
