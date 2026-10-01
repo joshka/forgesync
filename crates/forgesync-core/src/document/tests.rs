@@ -1,14 +1,4 @@
-//! # Retrieval document content identity
-//!
-//! These cases establish which inputs change a document hash and which metadata stays outside it.
-//! Provider timestamp changes preserve identity; recipe and rendered-text changes invalidate it.
-//! The fixture fixes one source discussion and title so each scenario changes one selected input.
-//!
-//! Text is supplied directly to the core constructor. No engine recipe rendering, archive writes,
-//! or embedding service calls are hidden in setup. Engine/store suites separately validate rendered
-//! evidence and persisted freshness. These tests protect the core deterministic hash boundary with
-//! direct comparisons rather than a workflow fixture. A fixed version-one digest protects field
-//! order and length framing during receiver or constructor refactors.
+//! Which inputs change a document hash; a fixed digest protects field order and framing.
 
 use rstest::rstest;
 

@@ -1,20 +1,8 @@
 //! Structured terminal status for local and provider-backed workflows.
 //!
-//! [`OperationOutcome`] distinguishes complete, partial, deferred, interrupted, and failed work. A
-//! workflow can commit useful pages and still report a partial result; reducing that state to an
-//! `Err` or a success boolean would lose the retry and presentation information.
-//!
-//! Engine reports carry this value with counts and per-family failures. CLI and TUI map it to
-//! human text, JSON, and process status without parsing diagnostic strings. Store run records
-//! preserve the same distinction for later inspection and retry planning.
-//!
-//! Use this enum to describe the outcome of an operation as a whole. Use [`crate::coverage`] for
-//! the state of each evidence family, and typed errors for a call that cannot return a report.
-//!
-//! Counts describe the owning workflow's work units; this enum does not impose a universal unit
-//! across acquisition, derived documents, or retries. Constructing or deserializing a variant does
-//! not verify those counts against durable rows. Engine accounting chooses the truthful terminal
-//! outcome, while store records and presentation retain it without reclassifying diagnostic text.
+//! A workflow can commit useful pages and still report a partial result; reducing that state to an
+//! `Err` or a success boolean would lose the retry and presentation information. Counts describe
+//! the owning workflow's work units.
 
 use serde::{Deserialize, Serialize};
 
@@ -65,19 +53,7 @@ impl OperationOutcome {
 
 #[cfg(test)]
 mod tests {
-    //! # Terminal outcome JSON contracts
-    //!
-    //! Named cases cover complete, partial, deferred, failed, and interrupted operation outcomes.
-    //! Each case supplies the entire expected JSON value, including its status and associated data.
-    //! Deserializing that same value verifies preservation of the selected variant and its fields.
-    //! Partial counts, deferred reasons, failure details, and pending counts remain separate
-    //! concepts.
-    //!
-    //! These tests construct outcomes directly; they do not execute a workflow or derive an outcome
-    //! from job results. Engine suites own that policy, and CLI suites own the surrounding
-    //! envelope. Keep representation expectations here so changing an enum cannot silently
-    //! alter JSON shape. Named data cases make every variant visible without loops or branching
-    //! assertions.
+    //! Every outcome variant has a distinct JSON status and round-trips.
 
     use serde_json::json;
 

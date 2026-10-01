@@ -1,13 +1,4 @@
-//! # UTC representation and archive precision contracts
-//!
-//! These cases cover equal instants with different offsets, JSON representation, invalid input,
-//! signed archive range, and microsecond truncation. Precision cases name both sides of Unix epoch,
-//! where division toward zero matters to the retained instant.
-//!
-//! Parsing source text and reconstructing stored integers exercise separate boundaries. Tests use
-//! fixed instants rather than a process clock so expectations remain deterministic. Archive clock
-//! acquisition and lease validity belong to store tests; this suite only validates the value and
-//! its representation. Add a named boundary case when those conversion contracts change.
+//! UTC normalization, JSON representation, archive range, and microsecond truncation.
 
 use serde_json::json;
 

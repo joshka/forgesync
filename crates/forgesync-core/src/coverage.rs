@@ -15,13 +15,9 @@ use crate::timestamp::UtcTimestamp;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceFamily {
-    /// Repository thread listing and issue/PR metadata.
     Threads,
-    /// Discussion comments.
     Comments,
-    /// Pull request base/head metadata.
     PullRequestMetadata,
-    /// Pull request reviews.
     Reviews,
     /// Current pull request review threads and their comments.
     ReviewThreads,
@@ -40,12 +36,7 @@ impl EvidenceFamily {
     }
 }
 
-/// Stable failure category retained in structured operation reports.
-///
-/// Classification supports presentation and workflow-specific recovery decisions; it is not a
-/// retry policy by itself. Authentication or permission failures may require changed credentials,
-/// while lease/archive failures require local recovery context. The engine interprets a category
-/// together with the selected operation and ledger evidence.
+/// Stable failure category retained in structured operation reports; not a retry policy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureKind {
@@ -65,22 +56,13 @@ pub enum FailureKind {
     InvalidData,
 }
 
-/// Durable failure summary intended for terminal output and archive reporting.
+/// Durable failure summary for terminal output and archive reporting.
 ///
-/// Producers must supply a message safe for persistence and presentation. Public fields and Serde
-/// construction do not redact credentials, validate provider payloads, or sanitize arbitrary text.
-/// Provider adapters and workflow boundaries own that responsibility before constructing a value.
-///
-/// The category remains separate from the message: consumers choose recovery from typed policy
-/// and ledger context, never by parsing prose. Retaining a failure does not prove the work is
-/// automatically retryable or that previous successful writes were rolled back.
+/// Consumers choose recovery from `kind`, never by parsing `message`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Failure {
-    /// Stable machine-readable failure class.
     pub kind: FailureKind,
-    /// Producer-supplied human-readable summary that must exclude credentials and raw payloads.
-    ///
-    /// This field performs no automatic redaction; construct it only from safe boundary errors.
+    /// Producers must exclude credentials and raw payloads; nothing here redacts them.
     pub message: String,
 }
 
@@ -102,24 +84,17 @@ pub enum CoverageState {
     Missing,
     /// Some data was acquired, but the collection did not finish.
     Incomplete {
-        /// Time when this collection attempt was acquired.
         observed_at: UtcTimestamp,
-        /// Acquisition sequence reserved before the request.
         sequence: ObservationSequence,
-        /// Why acquisition did not finish the requested collection.
         reason: IncompleteReason,
-        /// Number of items safely received before the incomplete result.
         received_items: u64,
-        /// Failure that stopped collection, when known.
         failure: Option<Failure>,
     },
     /// A full collection completed, including a valid empty result.
     Complete {
-        /// Time when this complete collection was acquired.
         observed_at: UtcTimestamp,
-        /// Acquisition sequence reserved before the request.
         sequence: ObservationSequence,
-        /// Number of items in the complete collection; zero means complete empty.
+        /// Zero means complete empty.
         item_count: u64,
     },
 }
@@ -138,22 +113,15 @@ impl CoverageState {
 /// Per-family coverage state for a repository or discussion.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Coverage {
-    /// Independently acquired resource whose completeness this value describes.
     family: EvidenceFamily,
-    /// Acquisition result retained separately from freshness against the current parent context.
     state: CoverageState,
-    /// Whether retained evidence belongs to an earlier parent or interpretation context.
-    /// Missing serialized markers default to fresh; fresh projections omit the marker entirely.
+    /// Retained evidence belongs to an earlier parent context; omitted from JSON when false.
     #[serde(default, skip_serializing_if = "is_not_stale")]
     stale: bool,
 }
 
 impl Coverage {
-    /// Creates coverage for one evidence family with no stale-context marker.
-    ///
-    /// Construction preserves the supplied state without claiming that any rows were acquired or
-    /// committed. The store supplies the appropriate state and marks retained evidence stale when
-    /// parent context no longer agrees.
+    /// Creates fresh (not stale) coverage for one evidence family.
     ///
     /// ```
     /// use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
@@ -172,28 +140,20 @@ impl Coverage {
         }
     }
 
-    /// Marks this evidence as belonging to an older parent or interpretation context.
-    ///
-    /// Staleness is independent of completeness: retained complete membership can still be stale.
-    /// This operation preserves the family and state. Constructing a new coverage projection starts
-    /// with fresh context; callers do not clear stale evidence merely because it was displayed.
+    /// Marks this evidence as belonging to an older parent context, independent of completeness.
     pub fn mark_stale(mut self) -> Self {
         self.stale = true;
         self
     }
 
-    /// Returns the evidence family this coverage describes.
     pub fn family(&self) -> EvidenceFamily {
         self.family
     }
 
-    /// Returns the current state for this family.
     pub fn state(&self) -> &CoverageState {
         &self.state
     }
 
-    /// Returns whether this family's evidence predates its current parent or interpretation
-    /// context.
     pub fn is_stale(&self) -> bool {
         self.stale
     }
@@ -206,18 +166,7 @@ fn is_not_stale(stale: &bool) -> bool {
 
 #[cfg(test)]
 mod tests {
-    //! # Coverage completeness and freshness contracts
-    //!
-    //! Complete acquisition with zero members is distinguishable from missing acquisition evidence.
-    //! Marking complete evidence stale changes its freshness flag without replacing completeness.
-    //! Fixed observation timestamps and sequences make the acquisition metadata explicit.
-    //! Assertions inspect the serialized state consumed by local diagnostics and reports.
-    //!
-    //! These cases construct coverage values rather than acquire or store a collection.
-    //! Store integration suites own membership replacement, ordering, and generation acceptance.
-    //! Engine suites own the decision to refresh evidence; this suite owns the value
-    //! representation. Keep these two independent contracts beside the small implementation
-    //! they exercise.
+    //! Coverage JSON representation: complete-empty versus missing, and staleness.
 
     use serde_json::json;
 
