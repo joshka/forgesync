@@ -153,7 +153,44 @@ async fn default_sync_reports_startup_on_stderr_and_keeps_summary_on_stdout() {
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("sync: preparing acquisition (Ctrl-C to cancel)"));
+    assert!(
+        !stderr.contains('\u{1b}'),
+        "redirected progress stays plain"
+    );
     assert!(!String::from_utf8_lossy(&output.stdout).contains("preparing acquisition"));
+    remove_archive(&path);
+}
+
+#[tokio::test]
+async fn json_sync_with_json_logs_keeps_both_streams_structured() {
+    let path = temporary_archive_path();
+    let archive = Archive::create(&path).await.expect("create empty archive");
+    archive.close().await;
+
+    let output = forgesync()
+        .args([
+            "--json",
+            "--log-format",
+            "json",
+            "-v",
+            "sync",
+            "--all",
+            "--archive",
+        ])
+        .arg(&path)
+        .output()
+        .expect("run sync with structured diagnostics");
+
+    assert!(output.status.success());
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).expect("result JSON");
+    assert_eq!(result["command"], "sync");
+    let stderr = String::from_utf8(output.stderr).expect("diagnostics are UTF-8");
+    assert!(stderr.contains("Forgesync command started"));
+    assert!(!stderr.contains("preparing acquisition"));
+    assert!(!stderr.contains('\u{1b}'));
+    for line in stderr.lines() {
+        serde_json::from_str::<serde_json::Value>(line).expect("each diagnostic is JSON");
+    }
     remove_archive(&path);
 }
 

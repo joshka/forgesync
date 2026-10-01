@@ -79,6 +79,8 @@ workflows; engine operations retain ownership of interrupted reports and durable
 
 CLI `command/progress` owns the bounded advisory channel and stderr task shared by sync and retry.
 It closes local delivery before draining and aborts the task when its command owner is dropped.
+Interactive acquisition spans use tracing-indicatif to coordinate the spinner and diagnostic writer;
+closing the span clears the display. Redirected stderr uses periodic plain snapshots.
 `command/retry` owns durable failure selection and closes its archive before rendering any outcome.
 Engine `runs/planning` interprets recorded scope, resolves failure repositories, and merges and
 orders minimal retry requests without provider I/O; `runs` executes those requests through sync.

@@ -42,17 +42,20 @@ isolated `work/tracing-colors` workspace passes: 31 CLI contract tests, 542 work
 29 suites, nightly formatting, workspace Clippy, the CLI-only build, Rustdoc, and Markdown lint.
 The next action is PR review and workspace cleanup after merge; no implementation work remains.
 
-## Default acquisition progress follow-up
+## Indicatif acquisition progress follow-up
 
-Human `sync` and `run retry` output now reports startup before credential discovery and elapsed
-waiting with the latest available counters every two seconds on stderr. Default output coalesces
-snapshots; verbose output includes every delivered event. JSON suppresses human progress, and
-engine results remain authoritative for final output and exit status.
+Human `sync` and `run retry` use an indicatif spinner on interactive stderr, with elapsed time and
+current counters. The tracing-indicatif writer coordinates diagnostic logs above the display. Only
+acquisition spans create a spinner; provider spans stay hidden. Closing or aborting the reporter
+clears its display before final rendering. Redirected stderr retains periodic plain progress;
+JSON logs disable animation and JSON command output suppresses human progress.
 
-Validation passes: seven focused sync process cases, reporter lifecycle tests, workspace tests,
-workspace Clippy, nightly formatting, the CLI-only build, Rustdoc, and changed Markdown linting.
-The delayed credential-helper fixture proves elapsed waiting without contacting a provider.
-Next: review and merge this change, then remove its `work/sync-progress` jj workspace.
+Validation passes: 82 CLI unit tests, 34 executable CLI contract tests, CLI Clippy with all targets
+and features and warnings denied, nightly formatting, and changed Markdown linting. Five local
+pseudo-terminal smoke cases verify elapsed animation during credential waits, diagnostics with
+progress, structured JSON streams, JSON-log plain progress, and Ctrl-C cleanup with exit status 130.
+These terminal smoke cases use an isolated invalid-token credential helper without provider I/O.
+Next: review the progress display change.
 
 ## Registry and trusted release follow-up
 

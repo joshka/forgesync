@@ -569,11 +569,12 @@ Global options are `--archive`, `--config`, `--json`, `--color auto|always|never
 archive.
 
 Human `sync` and `run retry` commands show acquisition status on stderr by default, starting
-before credential discovery. Every two seconds they report elapsed time and the latest available
-job and item counts. Counts can remain unchanged during a long provider scan; the elapsed message
-means the command is still waiting, not that GitHub has responded. Use Ctrl-C to cancel, or `-v`
-to show every delivered progress event. `--json` suppresses these human status messages and keeps
-stdout reserved for the structured result.
+before credential discovery. Interactive terminals show a spinner with elapsed time and the latest
+job and item counts; diagnostic logs appear above it. Redirected stderr retains plain status lines
+every two seconds. Counts can remain unchanged during a long provider scan; elapsed time means the
+command is still waiting, not that GitHub has responded. Use Ctrl-C to cancel, or `-v` to show every
+delivered progress event. `--log-format json` disables animation. `--json` suppresses human progress
+and keeps stdout reserved for the structured result.
 
 Forgesync's selected scope excludes GitHub write-back, Gitcrawl import, full revision history,
 source-code indexing, generated summaries, cloud/portable distribution, and deep pull-request file,

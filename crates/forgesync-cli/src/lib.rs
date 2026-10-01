@@ -50,7 +50,7 @@ pub mod output;
 mod reports;
 
 use std::ffi::OsString;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
@@ -61,7 +61,12 @@ use config::ForgesyncConfig;
 use forgesync_engine::error::EngineError;
 use forgesync_store::error::StoreError;
 use serde::Serialize;
+use tracing_indicatif::IndicatifLayer;
+use tracing_indicatif::filter::IndicatifFilter;
+use tracing_subscriber::Layer;
 use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::output::JsonEnvelope;
 
@@ -82,7 +87,7 @@ where
     if let Some(status) = args.validate_process() {
         return status;
     }
-    initialize_tracing(args.verbose, args.log_format);
+    initialize_tracing(&args);
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         "Forgesync command started"
@@ -146,21 +151,42 @@ fn render_argument_error(error: clap::Error) -> ExitCode {
 }
 
 /// Installs process-owned diagnostics at the requested verbosity and encoding.
-fn initialize_tracing(verbose: u8, format: LogFormat) {
-    let max_level = match verbose {
+fn initialize_tracing(args: &CliArgs) {
+    let max_level = match args.verbose {
         0 => LevelFilter::WARN,
         1 => LevelFilter::INFO,
         2 => LevelFilter::DEBUG,
         _ => LevelFilter::TRACE,
     };
 
-    let result = match format {
+    let result = match args.log_format {
+        LogFormat::Text if !args.json && std::io::stderr().is_terminal() => {
+            initialize_progress_tracing(max_level)
+        }
         LogFormat::Text => initialize_text_tracing(max_level),
         LogFormat::Json => initialize_json_tracing(max_level),
     };
     if let Err(error) = result {
         eprintln!("could not initialize diagnostic logging: {error}");
     }
+}
+
+/// Coordinates human logs with opt-in acquisition spans on interactive stderr only.
+/// Other spans, including provider requests, never create progress bars. Filtering diagnostics
+/// independently keeps progress visible at default verbosity without enabling informational logs.
+fn initialize_progress_tracing(
+    max_level: LevelFilter,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let progress = IndicatifLayer::new();
+    let diagnostics = tracing_subscriber::fmt::layer()
+        .compact()
+        .with_writer(progress.get_stderr_writer())
+        .with_filter(max_level);
+    tracing_subscriber::registry()
+        .with(diagnostics)
+        .with(progress.with_filter(IndicatifFilter::new(false)))
+        .try_init()?;
+    Ok(())
 }
 
 /// Installs compact human diagnostics on stderr at the resolved process verbosity.
