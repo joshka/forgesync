@@ -1,16 +1,8 @@
-//! # Explain acquisition and refresh outcomes
+//! Sync and refresh summaries and the outcome-to-exit mapping.
 //!
-//! Sync and refresh summaries present counts, family failures, and stage statuses. Exit-code
-//! helpers derive process results from structured outcomes rather than scattered command-specific
-//! booleans.
-//!
-//! Partial success is expected when independent jobs fail. Reporting must preserve successful
-//! committed work and point to failures that can be inspected or retried.
-//!
-//! Refresh presentation follows `selected` stage order and appends the remaining-work list. A
-//! stage without a record is omitted; a record without a payload still shows its status and safe
-//! failure. Named payload formatters handle acquisition, embedding, and cluster counts, while the
-//! shared stage formatter keeps their status/detail/failure ordering consistent.
+//! Refresh presentation follows the report's `selected` stage order and appends remaining work. A
+//! stage without a record is omitted; a record without a payload still shows its status and
+//! failure.
 
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::refresh::{
@@ -21,6 +13,7 @@ use forgesync_engine::sync::SyncReport;
 
 use crate::error::Exit;
 
+/// Maps a workflow outcome to its process exit status.
 pub fn outcome_exit_code(outcome: &OperationOutcome) -> Exit {
     match outcome {
         OperationOutcome::Complete => Exit::Success,
@@ -30,7 +23,7 @@ pub fn outcome_exit_code(outcome: &OperationOutcome) -> Exit {
     }
 }
 
-/// Formats durable sync counts and partial outcomes for a terminal reader.
+/// One-line sync outcome with job and evidence counts.
 pub fn sync_summary(report: &SyncReport) -> String {
     let state = match report.outcome {
         OperationOutcome::Complete => "complete",
@@ -55,7 +48,7 @@ pub fn sync_summary(report: &SyncReport) -> String {
     )
 }
 
-/// Presents selected refresh stages and their independent outcomes.
+/// Shows each selected stage in order, then any remaining work.
 pub fn refresh_summary(report: &RefreshReport) -> String {
     let mut parts = report
         .selected
@@ -78,7 +71,7 @@ pub fn refresh_summary(report: &RefreshReport) -> String {
     )
 }
 
-/// Selects the stage's presentation, omitting absent stage records without fabricating an outcome.
+/// Formats one selected stage, or returns `None` when it has no record.
 fn refresh_stage_summary(report: &RefreshReport, selected: RefreshStageKind) -> Option<String> {
     match selected {
         RefreshStageKind::Sync => report
@@ -97,10 +90,7 @@ fn refresh_stage_summary(report: &RefreshReport, selected: RefreshStageKind) -> 
     }
 }
 
-/// Formats a stage's status, optional payload counts, and safe failure in the same order.
-///
-/// The stage already owns status/report/failure as one concept. A named payload formatter supplies
-/// family-specific counts without copying those fields into a second presentation state type.
+/// Formats a stage's status, optional payload counts, and failure in a consistent order.
 fn stage_summary<T>(name: &str, stage: &RefreshStage<T>, details: fn(&T) -> String) -> String {
     let mut part = format!("{name} {}", refresh_status_name(stage.status));
     if let Some(report) = &stage.report {
@@ -117,7 +107,6 @@ fn stage_summary<T>(name: &str, stage: &RefreshStage<T>, details: fn(&T) -> Stri
     part
 }
 
-/// Presents acquisition scope and completed jobs from the retained sync report.
 fn sync_details(report: &SyncReport) -> String {
     format!(
         "{} repositories, {}/{} jobs complete",
@@ -125,7 +114,6 @@ fn sync_details(report: &SyncReport) -> String {
     )
 }
 
-/// Presents document materialization and vector batch counts without replacing their failure rows.
 fn embedding_details(report: &RefreshEmbeddingReport) -> String {
     format!(
         "{} documents, {} chunks embedded, {} current, {} failed batches, {} document failures",
@@ -137,7 +125,7 @@ fn embedding_details(report: &RefreshEmbeddingReport) -> String {
     )
 }
 
-/// Counts generated groups only from repository reports that produced a generation.
+/// Counts groups only from repositories that produced a generation.
 fn cluster_details(repositories: &[RefreshClusterRepository]) -> String {
     let generated = repositories
         .iter()
@@ -150,7 +138,7 @@ fn cluster_details(repositories: &[RefreshClusterRepository]) -> String {
     )
 }
 
-/// Derives one display status from a multi-stage refresh report.
+/// Derives one display status from the refresh report's overall outcome.
 pub fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
     match report.outcome {
         OperationOutcome::Complete => RefreshStageStatus::Complete,
@@ -161,7 +149,6 @@ pub fn refresh_report_status(report: &RefreshReport) -> RefreshStageStatus {
     }
 }
 
-/// Returns the stable human label for a refresh stage.
 pub fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     match stage {
         RefreshStageKind::Sync => "sync",
@@ -170,7 +157,6 @@ pub fn refresh_stage_name(stage: RefreshStageKind) -> &'static str {
     }
 }
 
-/// Returns the stable human label for a refresh stage status.
 pub fn refresh_status_name(status: RefreshStageStatus) -> &'static str {
     match status {
         RefreshStageStatus::Complete => "complete",

@@ -1,16 +1,7 @@
-//! # Shared discussion filter arguments
+//! Filter arguments shared by thread listing and search.
 //!
-//! [`ThreadFilterArgs`] is the CLI-owned filter vocabulary shared by thread listing and search.
-//! Clap flattens these fields into each command's flags, preserving a single set of names,
-//! defaults, and basic numeric bounds. It does not own query text or retrieval mode.
-//!
-//! [`ThreadFilterArgs::into_filters`] converts parsed choices into engine request vocabulary.
-//! The conversion performs no archive lookup or provider I/O and leaves absent sort policy for
-//! the selected workflow to interpret. Engine validation still owns cross-field and SQLite offset
-//! constraints; direct Rust construction does not receive Clap's parsing checks.
-//!
-//! Keeping this owner at the CLI boundary avoids positional bundles of repository, kind, state,
-//! sort, limit, and offset while leaving the engine independent of Clap.
+//! The engine still validates cross-field and SQLite offset constraints; an absent sort is left for
+//! the selected workflow to choose.
 
 use clap::Args;
 use forgesync_core::content::ThreadKind;
@@ -19,7 +10,7 @@ use forgesync_engine::reference::RepositorySelector;
 
 use crate::command::values::{ThreadKindArg, ThreadSortArg, ThreadStateArg};
 
-/// Parsed scope, ordering, and page arguments for discussion browsing or search.
+/// Repository, kind, state, sort, and page arguments for listing or search.
 #[derive(Clone, Debug, Args)]
 pub struct ThreadFilterArgs {
     /// Limit results to one or more registered repositories.
@@ -47,7 +38,7 @@ pub struct ThreadFilterArgs {
 }
 
 impl ThreadFilterArgs {
-    /// Converts parsed values without resolving repositories or selecting a default sort.
+    /// Converts to engine filters; an absent sort stays absent for the workflow to choose.
     pub fn into_filters(self) -> ThreadFilters {
         ThreadFilters {
             repositories: self.repositories,

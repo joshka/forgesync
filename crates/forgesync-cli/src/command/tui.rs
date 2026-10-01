@@ -24,6 +24,7 @@ pub fn check_terminal() -> Result<(), CliError> {
     }
 }
 
+/// Opens the archive and prepares clients, then hands both to the TUI.
 pub async fn run_tui(path: &Path, verbose: u8) -> Result<Exit, CliError> {
     let archive = Archive::open_read_write(path).await?;
     let clients = async {

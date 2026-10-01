@@ -1,15 +1,4 @@
-//! # Human wording for selected timeline evidence
-//!
-//! `timeline_summary` dispatches each stored event to its named text projection. Discussion detail
-//! owns section headings and timestamps; this module formats only the evidence after that prefix.
-//! It does not load source content or define JSON fields.
-//!
-//! `ReviewThreadContext` keeps path, resolution, and outdated state together for both thread-state
-//! and thread-comment wording. These are source facts, not behavioral switches. Missing authors,
-//! reviewers, or paths receive the established human labels; absent review bodies add no suffix.
-//!
-//! Event payloads remain typed store projections. Formatting does not establish completeness or
-//! revision history. Source body text retains its existing spelling and line breaks.
+//! Human wording for timeline events, after the detail view's timestamp prefix.
 
 use forgesync_core::content::{Comment, Review};
 use forgesync_core::identity::ThreadId;
@@ -17,7 +6,7 @@ use forgesync_store::reads::ThreadTimelineEvent;
 
 use crate::reports::threads::review_state_name;
 
-/// Formats one selected event without controlling timestamps or surrounding section layout.
+/// Formats one event; the caller supplies the timestamp and section layout.
 pub fn timeline_summary(event: &ThreadTimelineEvent) -> String {
     match event {
         ThreadTimelineEvent::ThreadCreated { thread, title } => opened_summary(thread, title),
@@ -54,7 +43,7 @@ pub fn timeline_summary(event: &ThreadTimelineEvent) -> String {
     }
 }
 
-/// Shows the stable provider repository identity and current discussion title at creation.
+/// Labels creation with the provider-qualified discussion and its title.
 fn opened_summary(thread: &ThreadId, title: &str) -> String {
     format!(
         "{}#{} opened: {title}",
@@ -63,7 +52,6 @@ fn opened_summary(thread: &ThreadId, title: &str) -> String {
     )
 }
 
-/// Shows the same provider-qualified discussion label when closure evidence exists.
 fn closed_summary(thread: &ThreadId) -> String {
     format!(
         "{}#{} closed",
@@ -72,13 +60,13 @@ fn closed_summary(thread: &ThreadId) -> String {
     )
 }
 
-/// Retains source comment body and explicitly labels an unavailable author.
+/// Labels an unavailable author explicitly and keeps the source body.
 fn comment_summary(comment: &Comment) -> String {
     let author = comment.author.as_deref().unwrap_or("unknown author");
     format!("comment by {author}: {}", comment.body)
 }
 
-/// Describes reviewer identity, review state, and an optional source body.
+/// Describes the reviewer, review state, and optional body.
 fn review_summary(review: &Review) -> String {
     let reviewer = review
         .reviewer
@@ -98,16 +86,12 @@ fn review_summary(review: &Review) -> String {
 
 /// Source review-thread facts shared by thread-state and comment projections.
 struct ReviewThreadContext<'a> {
-    /// Provider path, absent when source context did not include one.
     path: Option<&'a str>,
-    /// Whether the selected review-thread snapshot was resolved.
     is_resolved: bool,
-    /// Whether the selected snapshot described an outdated code context.
     is_outdated: bool,
 }
 
 impl ReviewThreadContext<'_> {
-    /// Describes current thread state without inventing an occurrence time.
     fn summary(&self) -> String {
         format!(
             "review thread {}: {}{}",
@@ -117,7 +101,7 @@ impl ReviewThreadContext<'_> {
         )
     }
 
-    /// Attaches the same context to the selected review comment and source author/body.
+    /// Attaches the thread context to one review comment.
     fn comment_summary(&self, comment: &Comment) -> String {
         let author = comment.author.as_deref().unwrap_or("unknown author");
         format!(
@@ -129,12 +113,11 @@ impl ReviewThreadContext<'_> {
         )
     }
 
-    /// Labels absent code context explicitly instead of omitting its position in the wording.
+    /// Labels absent code context explicitly.
     fn path(&self) -> &str {
         self.path.unwrap_or("unknown path")
     }
 
-    /// Maps the recorded resolution fact to the established human label.
     fn resolution(&self) -> &'static str {
         if self.is_resolved {
             "resolved"
@@ -143,7 +126,6 @@ impl ReviewThreadContext<'_> {
         }
     }
 
-    /// Adds outdated context only when the selected source snapshot records it.
     fn outdated_suffix(&self) -> &'static str {
         if self.is_outdated { ", outdated" } else { "" }
     }
@@ -151,17 +133,6 @@ impl ReviewThreadContext<'_> {
 
 #[cfg(test)]
 mod tests {
-    //! # Review-thread context wording
-    //!
-    //! Direct context values supply path, resolution, and outdated source facts.
-    //! Resolved and outdated are independent, so both must remain visible when present.
-    //! Missing path is described explicitly without inventing an outdated flag.
-    //!
-    //! These exact summaries protect source-fact presentation rather than event sorting.
-    //! Timeline acquisition and coverage are outside the projection and tested elsewhere.
-    //! The cases contain no archive, provider, or helper workflow; each names its expected text.
-    //! Keeping them inline lets a reader compare wording with the context implementation.
-
     use crate::reports::timeline::ReviewThreadContext;
 
     #[test]

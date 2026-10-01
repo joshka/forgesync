@@ -19,6 +19,7 @@ use crate::output::Output;
 use crate::reports::clusters::cluster_build_summary;
 
 impl ClusterBuildArgs {
+    /// Builds clusters from stored vectors; incomplete vector coverage exits as partial.
     pub async fn run(
         self,
         path: &Path,
@@ -46,6 +47,7 @@ impl ClusterBuildArgs {
         Ok(output.report(&report, cluster_build_summary, exit))
     }
 
+    /// Applies identity overrides and builds the engine request without reading credentials.
     fn prepare(
         self,
         mut service: EmbeddingServiceConfig,

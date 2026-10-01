@@ -49,6 +49,7 @@ pub struct SyncScopeArgs {
 }
 
 impl SyncScopeArgs {
+    /// Converts to the engine acquisition scope.
     pub fn options(&self) -> RefreshSyncOptions {
         RefreshSyncOptions {
             scope: match self.state {
@@ -65,6 +66,7 @@ impl SyncScopeArgs {
 }
 
 impl SyncArgs {
+    /// Acquires the selected scope into a writable archive and renders the run report.
     pub async fn run(
         self,
         path: &Path,
@@ -98,6 +100,7 @@ impl SyncArgs {
         Ok(output.report(&report, sync_summary, outcome_exit_code(&report.outcome)))
     }
 
+    /// Converts parsed selection into the engine request without I/O.
     fn into_request(self) -> SyncRequest {
         let RefreshSyncOptions {
             scope,

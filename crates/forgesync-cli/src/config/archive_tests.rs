@@ -1,13 +1,4 @@
-//! # Archive path precedence and config-relative interpretation
-//!
-//! These cases use supplied paths instead of changing the parent process environment. They prove
-//! that the invocation override wins, a configured path remains available without an override,
-//! and relative TOML values are anchored exactly once by loading. Paths need not exist for
-//! selection.
-//!
-//! Empty settings fail before they can become a directory, while omitted settings remain eligible
-//! for platform defaults. Process cases cover automatic discovery, actual creation, local reads,
-//! and failure without implicit initialization. No database is opened in this module.
+//! Archive path precedence and config-relative interpretation.
 
 use std::path::{Path, PathBuf};
 

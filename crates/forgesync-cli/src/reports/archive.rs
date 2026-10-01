@@ -61,7 +61,7 @@ pub fn archive_status_summary(status: &ArchiveStatus) -> String {
     lines.join("\n")
 }
 
-/// Formats stable metadata after creating or opening an archive.
+/// Formats archive identity and creation metadata.
 pub fn archive_summary(info: &ArchiveInfo) -> String {
     format!(
         "Archive: {}\nID: {}\nFormat: {}\nSchema: {}\nCreated: {}\nSQLite: {}",
@@ -74,7 +74,7 @@ pub fn archive_summary(info: &ArchiveInfo) -> String {
     )
 }
 
-/// Explains applied migrations and the resulting archive version.
+/// Reports the resulting schema version and number of applied migrations.
 pub fn migration_summary(output: &MigrationOutput) -> String {
     let applied = output.migration.applied_migrations.len();
     format!(
@@ -85,7 +85,7 @@ pub fn migration_summary(output: &MigrationOutput) -> String {
     )
 }
 
-/// Formats integrity checks while preserving each failed capability.
+/// Shows overall health, each check, and the work and lease diagnostics.
 pub fn doctor_summary(report: &DoctorReport) -> String {
     let headline = if report.healthy {
         "Archive health: healthy"

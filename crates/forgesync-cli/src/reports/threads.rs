@@ -25,7 +25,6 @@ pub fn render_thread_detail(output: Output, detail: &ThreadDetail) -> Exit {
     output.success(&ThreadDetailOutput::from(detail), thread_detail_summary)
 }
 
-/// Returns the display name for a normalized discussion kind.
 pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     match kind {
         DiscussionKind::Issue => "issue",
@@ -33,9 +32,7 @@ pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
     }
 }
 
-/// Returns a familiar label or the retained unrecognized provider state.
-///
-/// The borrowed fallback preserves source vocabulary; it is not normalized or escaped here.
+/// Returns a familiar label, or the unrecognized provider state unchanged.
 pub fn source_state_name(state: &SourceState) -> &str {
     match state {
         SourceState::Open => "open",
@@ -44,9 +41,7 @@ pub fn source_state_name(state: &SourceState) -> &str {
     }
 }
 
-/// Returns a familiar review label or the retained unrecognized provider state.
-///
-/// Unknown values remain visible instead of being presented as a known review decision.
+/// Returns a familiar label, or the unrecognized provider state unchanged.
 pub fn review_state_name(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",
@@ -58,9 +53,7 @@ pub fn review_state_name(state: &ReviewState) -> &str {
     }
 }
 
-/// Formats stable host/provider coordinates, or an explicit missing-identity label.
-///
-/// This diagnostic representation is not an owner/name selector or a repository URL.
+/// Formats host/provider coordinates for diagnostics; not an owner/name selector or URL.
 pub fn repository_identity(repository: Option<&forgesync_core::identity::RepositoryId>) -> String {
     repository.map_or_else(
         || "unknown repository".to_owned(),
@@ -74,7 +67,6 @@ pub fn repository_identity(repository: Option<&forgesync_core::identity::Reposit
     )
 }
 
-/// Returns the display name of an evidence family.
 pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
         forgesync_core::coverage::EvidenceFamily::Threads => "threads",
@@ -85,9 +77,7 @@ pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static
     }
 }
 
-/// Returns the coverage variant label without its associated evidence or failure details.
-///
-/// Staleness is a separate coverage property and must be displayed by the caller when relevant.
+/// Names the coverage variant only; callers present staleness and failures separately.
 pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     match state {
         CoverageState::Missing => "missing",
@@ -99,10 +89,7 @@ pub fn coverage_state_name(state: &CoverageState) -> &'static str {
     }
 }
 
-/// Formats a UTC instant as RFC 3339, falling back to `invalid timestamp` on format failure.
-///
-/// The fallback keeps a human report renderable; callers needing typed formatting failures should
-/// use the timestamp API directly.
+/// Formats RFC 3339, falling back to `invalid timestamp` so a report stays renderable.
 pub fn format_timestamp(timestamp: UtcTimestamp) -> String {
     timestamp
         .format_rfc3339()

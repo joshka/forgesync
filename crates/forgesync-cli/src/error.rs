@@ -102,6 +102,7 @@ impl CliError {
         }
     }
 
+    /// Exit status for this failure; cancellation keeps the shell's 130 convention.
     pub fn exit(&self) -> Exit {
         match self {
             Self::Usage(_) | Self::InvalidArguments { .. } | Self::Config(_) => Exit::Usage,

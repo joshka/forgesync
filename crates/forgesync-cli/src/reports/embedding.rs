@@ -1,16 +1,6 @@
-//! # Explain embedding materialization results
+//! Embedding command output.
 //!
-//! Embedding output summarizes completed documents or chunks and failed batches. It translates a
-//! structured engine report into a short terminal account of derived-data work.
-//!
-//! A failure here does not invalidate archived GitHub observations. The summary should make
-//! partial completion and the next actionable scope visible without exposing service payloads.
-//!
-//! [`EmbeddingOutput`] attaches repository scope and configured service identity to the engine's
-//! stage result for command JSON and human output. The summary shows one representative failure,
-//! preferring the stage failure, then the first batch failure, then a document failure. Full
-//! failure collections remain in the structured output rather than being replaced by that short
-//! message.
+//! An embedding failure does not invalidate archived GitHub observations.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embeddings::EmbeddingReport;
@@ -20,33 +10,19 @@ use serde::Serialize;
 use crate::error::Exit;
 use crate::reports::sync::refresh_status_name;
 
-/// Command projection of embedding service identity, materialization, and batch outcomes.
-///
-/// Engine reports describe derived work; this DTO attaches the selected repository scope and
-/// configured service details for process output. Partial document or batch failures remain
-/// inspectable without changing archived GitHub observations. The summary and JSON serialization
-/// consume the same value after the command has closed its writable archive.
+/// The engine's embedding stage result with the repository scope and service identity attached.
 #[derive(Debug, Serialize)]
 pub struct EmbeddingOutput {
-    /// Host-qualified repository URLs in the command's deduplicated execution order.
     pub repositories: Vec<String>,
-    /// Document recipe used when materializing text for compatible vectors.
     pub recipe: DocumentRecipe,
-    /// Normalized embedding service endpoint identity reported by the client.
     pub endpoint: String,
-    /// Configured embedding model identity used for this operation.
     pub model: String,
-    /// Requested output dimensions; absent when the service chooses its native dimensions.
+    /// Absent when the service chooses its native dimensions.
     pub dimensions: Option<u32>,
-    /// Complete, partial, deferred, interrupted, or failed state of this selected stage.
     pub status: RefreshStageStatus,
-    /// Document/chunk totals and isolated batch failures from engine execution.
     pub report: EmbeddingReport,
-    /// Number of discussions whose derived documents were successfully materialized.
     pub documents_materialized: usize,
-    /// Isolated document materialization failures that did not hide other discussions' results.
     pub document_failures: Vec<RefreshDocumentFailure>,
-    /// Stage-wide safe failure when present; omitted from JSON when absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure: Option<RefreshStageFailure>,
 }
@@ -63,10 +39,6 @@ impl EmbeddingOutput {
 }
 
 impl EmbeddingOutput {
-    /// Explains completed derived work and one representative failure in human output.
-    ///
-    /// Full failure collections remain in JSON. This brief account does not replace them or imply
-    /// that a document/batch failure invalidates archived provider observations.
     pub fn summary(&self) -> String {
         let summary = format!(
             "Embedding {}: {} documents, {} chunks embedded, {} already current, {} failed batches, {} document failures using {} ({})",
@@ -85,9 +57,8 @@ impl EmbeddingOutput {
         }
     }
 
-    /// Selects stage failure first, then the first failed batch, then the first failed document.
-    ///
-    /// Priority follows the scope of the failure; it is independent of diagnostic message wording.
+    /// Stage failure first, then the first failed batch, then the first failed document; the full
+    /// collections remain in JSON.
     fn representative_failure(&self) -> Option<&str> {
         self.failure
             .as_ref()

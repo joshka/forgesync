@@ -59,6 +59,7 @@ impl Output {
         self.mode.is_json()
     }
 
+    /// Writes a successful result; see [`Output::report`].
     pub fn success<T: Serialize>(self, data: &T, human: impl FnOnce(&T) -> String) -> Exit {
         self.report(data, human, Exit::Success)
     }

@@ -29,6 +29,7 @@ pub enum ThreadCommand {
 }
 
 impl ThreadCommand {
+    /// Reads from a read-only archive and renders the result.
     pub async fn run(self, path: &Path, output: Output) -> Result<Exit, CliError> {
         match self {
             Self::List(args) => {

@@ -52,6 +52,7 @@ pub enum RunCommand {
     },
 }
 
+/// Parses a positive archive-local run ID.
 fn parse_run_id(value: &str) -> Result<RunId, String> {
     value
         .parse()
@@ -61,6 +62,7 @@ fn parse_run_id(value: &str) -> Result<RunId, String> {
 }
 
 impl RunCommand {
+    /// Lists or shows runs read-only, or retries unresolved failures with GitHub acquisition.
     pub async fn run(
         self,
         path: &Path,

@@ -25,6 +25,7 @@ pub mod archive;
 
 use archive::{ArchiveConfig, default_config_path};
 
+/// Archive, document, and embedding settings, with defaults for omitted fields.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ForgesyncConfig {
@@ -33,6 +34,7 @@ pub struct ForgesyncConfig {
     pub embeddings: EmbeddingServiceConfig,
 }
 
+/// Document recipe used to build retrieval text and select compatible vectors.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct DocumentsConfig {
@@ -199,6 +201,7 @@ impl ForgesyncConfig {
         }
     }
 
+    /// Reads and parses one required file, anchoring its archive path to the file.
     fn load_file(path: &Path) -> Result<Self, ConfigError> {
         let source = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
             path: path.to_path_buf(),
@@ -248,6 +251,7 @@ impl ConfigError {
     }
 }
 
+/// Allows HTTPS, or HTTP to a loopback host, without credentials, query, or fragment.
 fn valid_endpoint(endpoint: &Url) -> bool {
     let local_http =
         endpoint.scheme() == "http" && endpoint.host_str().is_some_and(is_loopback_host);

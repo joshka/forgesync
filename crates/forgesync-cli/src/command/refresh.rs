@@ -51,6 +51,7 @@ pub struct RefreshArgs {
 }
 
 impl RefreshArgs {
+    /// Runs sync and the selected analysis stages, then renders the stage report.
     pub async fn run(
         self,
         path: &Path,

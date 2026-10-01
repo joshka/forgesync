@@ -134,6 +134,7 @@ pub struct ClusterListArgs {
 }
 
 impl ClusterCommand {
+    /// Runs a cluster build, read, or local decision against the archive.
     pub async fn run(
         self,
         path: &Path,

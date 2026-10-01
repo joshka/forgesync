@@ -35,6 +35,8 @@ pub struct SearchArgs {
 }
 
 impl SearchArgs {
+    /// Rejects inapplicable fallback, prepares a query client for semantic modes, then searches
+    /// read-only.
     pub async fn run(
         self,
         path: &Path,
@@ -65,6 +67,7 @@ impl SearchArgs {
         Ok(render_search_page(output, &page))
     }
 
+    /// Converts parsed arguments into the engine request.
     fn request(self) -> SearchRequest {
         SearchRequest {
             query: self.query,

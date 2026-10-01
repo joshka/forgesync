@@ -31,6 +31,7 @@ pub enum ArchiveCommand {
 }
 
 impl ArchiveCommand {
+    /// Runs the selected lifecycle operation; only init and migrate change the archive.
     pub async fn run(self, path: &Path, output: Output) -> Result<Exit, CliError> {
         match self {
             Self::Init => {

@@ -49,6 +49,7 @@ pub struct EmbeddingIdentityArgs {
 }
 
 impl EmbeddingIdentityArgs {
+    /// Replaces the configured endpoint and model with any supplied values.
     pub fn apply(self, service: &mut EmbeddingServiceConfig) {
         if let Some(endpoint) = self.endpoint {
             service.endpoint = endpoint;
@@ -85,6 +86,7 @@ pub struct EmbeddingOverrides {
 }
 
 impl EmbeddingOverrides {
+    /// Replaces configured settings with any values supplied on the command line.
     pub fn apply(self, service: &mut EmbeddingServiceConfig) {
         self.identity.apply(service);
         if let Some(api_key_env) = self.api_key_env {
@@ -101,6 +103,7 @@ impl EmbeddingOverrides {
 }
 
 impl EmbedArgs {
+    /// Embeds the selected repositories into a writable archive and renders the stage report.
     pub async fn run(
         self,
         path: &Path,
@@ -163,6 +166,7 @@ fn repository_scope(repositories: Vec<RepositorySelector>) -> Vec<RepositorySele
     repositories
 }
 
+/// Resolved scope and client, prepared before the archive is opened.
 struct PreparedEmbedding {
     repositories: Vec<RepositorySelector>,
     client: EmbeddingClient,
