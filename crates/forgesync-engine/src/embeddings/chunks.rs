@@ -1,16 +1,8 @@
-//! # Deterministic model inputs and stored-chunk compatibility
+//! Deterministic model inputs and stored-chunk compatibility.
 //!
-//! `chunk_document` splits text at UTF-8-safe boundaries under the configured input byte budget.
-//! `DocumentChunk` carries its position, total count, content hash, and exact model input text.
-//! `compatible_chunks` compares these new inputs with the store's service-scoped chunk records and
-//! separates reusable vectors from pending inputs.
-//!
-//! Hashing includes a versioned domain and chunk position. Whitespace normalization and positional
-//! identity therefore affect reuse even when fragments look similar. Compatible stored vectors
-//! must also have the same total chunk count and configured dimensions when dimensions are
-//! explicit. The archive query already establishes document, recipe, endpoint, and model identity;
-//! this module owns the remaining per-chunk checks. It performs no provider calls or archive
-//! writes.
+//! Hashes include a versioned domain and chunk position, so identical text moved to another
+//! position is not reusable. The archive query already scopes stored chunks to document, recipe,
+//! endpoint, and model; this module owns the remaining per-chunk checks.
 
 use forgesync_store::embeddings::StoredEmbeddingChunk;
 use sha2::{Digest, Sha256};
@@ -81,13 +73,9 @@ pub struct CompatibleChunks {
 ///
 /// # Errors
 ///
-/// Budgets below four bytes return [`EngineError::EmbeddingWorkerFailed`], since they cannot
-/// accommodate every UTF-8 scalar. An unrepresentable chunk count or unusable boundary returns
-/// [`EngineError::InvalidEmbeddingInput`]. No model request or archive operation runs here.
+/// An unrepresentable chunk count or a budget too small for one character returns
+/// [`EngineError::InvalidEmbeddingInput`]. Client configuration guarantees at least four bytes.
 pub fn chunk_document(text: &str, max_bytes: usize) -> Result<Vec<DocumentChunk>, EngineError> {
-    if max_bytes < 4 {
-        return Err(EngineError::EmbeddingWorkerFailed);
-    }
     let mut remaining = text.trim();
     let mut chunks = Vec::new();
     while !remaining.is_empty() {

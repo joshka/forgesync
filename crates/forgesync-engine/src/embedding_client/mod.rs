@@ -1,18 +1,9 @@
-//! # External embedding-service adapter
-//!
-//! `EmbeddingClientConfig` describes the endpoint and model request settings; `EmbeddingClient`
-//! sends document text and returns checked vectors. This is the network boundary for derived
-//! embeddings, distinct from the GitHub source adapter.
-//!
-//! `response` validates shape, count, and dimensions before a vector can enter the archive.
-//! `error` classifies service and validation failures for reports. Workflow batching and
-//! persistence live in `embeddings`, so callers can reason separately about transport and document
-//! selection.
+//! OpenAI-compatible embedding-service adapter.
 //!
 //! Clones share connection pooling and concurrency slots. A batch holds its slot through retries;
-//! cancellation can interrupt both the queue and active work. The retry clock starts after slot
-//! acquisition, so the configured budget does not bound time spent waiting behind another batch.
-//! Archive leases belong to the embedding workflow, not this adapter.
+//! the retry budget starts after slot acquisition, so it does not bound time spent waiting behind
+//! another batch. An empty API key is reported per request (not at construction) so callers with
+//! keyword fallback can still degrade gracefully.
 
 mod error;
 mod response;
@@ -24,7 +15,7 @@ use std::time::{Duration, Instant};
 pub use error::EmbeddingClientError;
 use forgesync_core::embedding::EmbeddingVector;
 use reqwest::Url;
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue, USER_AGENT};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
@@ -190,7 +181,7 @@ impl EmbeddingClient {
         if inputs.is_empty() {
             return Ok(Vec::new());
         }
-        if self.api_key.trim().is_empty() {
+        if self.api_key.is_empty() {
             return Err(EmbeddingClientError::MissingApiKey);
         }
         self.validate_inputs(inputs)?;
@@ -281,7 +272,6 @@ impl EmbeddingClient {
             .post(self.endpoint.clone())
             .header(AUTHORIZATION, authorization)
             .header(CONTENT_TYPE, "application/json")
-            .header(USER_AGENT, "forgesync")
             .body(body)
             .send()
             .await
@@ -296,7 +286,7 @@ impl EmbeddingClient {
         let bytes = read_bounded_body(response, cancellation).await?;
         let response: EmbeddingResponse =
             serde_json::from_slice(&bytes).map_err(|_| EmbeddingClientError::InvalidResponse)?;
-        response.validate(inputs.len(), self.dimensions, &self.model)
+        response.validate(inputs.len(), self.dimensions)
     }
 
     /// Rejects empty or oversized inputs before consuming a request slot.

@@ -243,24 +243,15 @@ embedding workflow uses those values to schedule requests and persist vectors un
 chunk construction itself performs no provider or archive I/O. Nearby chunk and request-batch tests
 cover their separate contracts.
 
-Engine `embeddings/selection::EmbeddingSelection` owns source-version deduplication, service-scoped
-archive reads, and selected/reusable chunk accounting before writer lease acquisition. Pending
-`EmbeddingTask` values retain a shared full document with each chunk for later fenced persistence.
-The public coordinator consumes the selected report and tasks, then owns lease execution and
-release.
-
-Embedding execution now has three private owners beside selection and chunk identity. `batches`
-groups requests and retains input order through provider responses. `scheduling::BatchScheduler`
-owns pending work, concurrency, outcome dispatch, and worker draining. `execution::EmbeddingWriter`
-keeps the archive fence with its service identity, renews before each chunk write, and releases only
-after scheduling finishes cleanup. Provider failures remain report entries; worker/persistence
+Engine `embeddings` selects distinct document versions and reusable chunks before claiming the
+writer lease, then spawns one task per request batch (the client semaphore bounds concurrency) and
+persists responses as they arrive. Provider failures remain report entries; worker/persistence
 errors abort and drain outstanding requests before returning the original error.
 
-Cluster generation holds `clustering/lease::ClusterBuildLease` across vector loading, blocking
-analysis, and generation persistence. The owner renews the fence and keeps a child cancellation
-scope. Caller interruption or renewal failure cancels that child and awaits analysis cleanup before
-release; the original triggering failure is retained. Short local decision writes continue to use
-the release helpers without taking on the long-build renewal lifecycle.
+Private `lease::with_writer_lease` owns writer-fence acquisition, renewal polled alongside the
+workflow, cooperative draining on renewal failure, and release for sync runs, cluster builds and
+decisions, document materialization, and embeddings. The operation error takes precedence over a
+release error; a release failure after success is returned.
 
 CLI `command/cluster/build` implements preparation and execution on `ClusterBuildArgs`. Preparation
 combines parsed graph policy with canonical configured endpoint/model identity and recipe, without

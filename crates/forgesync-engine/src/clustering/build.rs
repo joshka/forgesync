@@ -1,16 +1,6 @@
-//! # Build and inspect a cluster generation
-//!
-//! `build_clusters` gathers eligible archived threads, computes candidates, and commits a
-//! generation through store methods. Its report separates completed work from failures so the
-//! caller can explain the outcome.
-//!
-//! `list_clusters` reads stored results rather than recomputing similarities. Candidate
-//! construction lives below in `candidates`; `snapshot` resolves current vector evidence and
-//! independent source/vector coverage counts. Generation persistence belongs to the store.
-//! The coordinator keeps snapshot loading, bounded graph work, and generation application in
-//! reading order, while `lease` retains renewal and cooperative cleanup across those phases.
+//! Build and inspect cluster generations.
 
-use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 use forgesync_store::archive::Archive;
 use forgesync_store::clusters::{
@@ -19,23 +9,19 @@ use forgesync_store::clusters::{
 };
 use forgesync_store::embeddings::EmbeddingSearchDocument;
 use forgesync_store::leases::ArchiveLeaseToken;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::candidates::build_cluster_candidates;
-use super::lease::ClusterBuildLease;
 use super::proposals::ClusterCandidate;
 use super::snapshot::ClusterSnapshot;
 use super::{ClusterBuildReport, ClusterBuildRequest, ClusterListRequest, ClusterOptions};
 use crate::clock::now_utc;
 use crate::error::EngineError;
+use crate::lease::with_writer_lease;
 use crate::query::{checked_page, resolve_repositories};
 
-/// Process-wide bound on simultaneous CPU-heavy graph builds.
-const CLUSTER_WORKER_LIMIT: usize = 1;
-
-/// Shared permits retained by blocking workers until graph construction actually ends.
-static CLUSTER_WORKER_SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
+/// Writer lease lifetime for generation builds and maintainer decisions.
+pub const CLUSTER_LEASE_DURATION: Duration = Duration::from_secs(180);
 
 /// Builds and persists deterministic clusters from current open discussions and stored vectors.
 ///
@@ -75,9 +61,15 @@ pub async fn build_clusters(
         return Err(EngineError::ClusteringCancelled);
     }
 
-    let lease = ClusterBuildLease::acquire(archive, cancellation).await?;
-    let operation = execute_cluster_build(archive, request, &lease.token, &lease.cancellation);
-    lease.complete(operation, cancellation).await
+    with_writer_lease(
+        archive,
+        CLUSTER_LEASE_DURATION,
+        cancellation,
+        async |lease, cancellation| {
+            execute_cluster_build(archive, request, lease, cancellation).await
+        },
+    )
+    .await
 }
 
 /// Reads one page of persisted clusters without contacting GitHub or mutating the archive.
@@ -160,39 +152,16 @@ fn cluster_input(cluster: ClusterCandidate) -> ClusterInput {
     }
 }
 
-/// Constructs candidate edges under configured similarity and memory bounds.
-///
-/// The process-wide permit bounds active graph workers, including builds in other archives.
-/// Cancellation while waiting returns without starting a worker. Once started, graph construction
-/// checks the cloned token and this adapter awaits its result. The worker retains its permit until
-/// it exits even if the awaiting future is dropped; the lease coordinator separately ensures normal
-/// cancellation drains the operation before releasing writer authority.
-///
-/// Documents, reference context, and options move together into the worker; no archive connection
-/// crosses that boundary. A join failure becomes `ClusterWorkerFailed`, while analysis errors
-/// retain their classification. The returned edge count precedes component-size pruning.
+/// Runs CPU-heavy graph construction on a blocking worker; analysis checks the cloned token.
 async fn build_cluster_candidates_bounded(
     documents: Vec<EmbeddingSearchDocument>,
     repository_full_name: String,
     options: ClusterOptions,
     cancellation: &CancellationToken,
 ) -> Result<(Vec<ClusterCandidate>, usize), EngineError> {
-    let slots = Arc::clone(
-        CLUSTER_WORKER_SLOTS.get_or_init(|| Arc::new(Semaphore::new(CLUSTER_WORKER_LIMIT))),
-    );
-    let permit = tokio::select! {
-        _ = cancellation.cancelled() => return Err(EngineError::ClusteringCancelled),
-        permit = slots.acquire_owned() => permit.map_err(|_| EngineError::ClusterWorkerFailed)?,
-    };
-    let worker_cancellation = cancellation.clone();
+    let cancellation = cancellation.clone();
     tokio::task::spawn_blocking(move || {
-        let _permit: OwnedSemaphorePermit = permit;
-        build_cluster_candidates(
-            documents,
-            &repository_full_name,
-            options,
-            &worker_cancellation,
-        )
+        build_cluster_candidates(documents, &repository_full_name, options, &cancellation)
     })
     .await
     .map_err(|_| EngineError::ClusterWorkerFailed)?

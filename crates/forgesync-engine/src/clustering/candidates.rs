@@ -35,7 +35,6 @@ pub fn build_cluster_candidates(
     options: ClusterOptions,
     cancellation: &CancellationToken,
 ) -> Result<(Vec<ClusterCandidate>, usize), EngineError> {
-    let options = options.validate()?;
     documents.sort_by(|left, right| stable_thread_id_cmp(&left.summary, &right.summary));
     if cancellation.is_cancelled() {
         return Err(EngineError::ClusteringCancelled);

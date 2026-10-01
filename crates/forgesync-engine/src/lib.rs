@@ -65,6 +65,7 @@ pub mod enumeration;
 pub mod error;
 pub mod exact_search;
 pub mod inspect;
+mod lease;
 mod provider_failure;
 mod query;
 pub mod reference;

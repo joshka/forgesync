@@ -14,6 +14,7 @@
 //! release; this module never holds a store transaction across provider I/O.
 
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_core::identity::GitHubHost;
@@ -27,12 +28,15 @@ use tokio_util::sync::CancellationToken;
 
 use crate::clock::now_utc;
 use crate::error::EngineError;
+use crate::lease::with_writer_lease;
 use crate::reference::RepositorySelector;
 use crate::sync::jobs::run_jobs;
-use crate::sync::lease::SyncLease;
 use crate::sync::scope::{ScopeUnit, SyncRunContext, units};
 use crate::sync::support::resolve_selectors;
 use crate::sync::{SyncProgress, SyncReport, SyncRequest};
+
+/// Writer lease lifetime, renewed every third of this interval.
+const LEASE_DURATION: Duration = Duration::from_secs(60);
 
 /// Runs a fenced, resumable sync and returns a durable partial or complete report.
 ///
@@ -49,27 +53,29 @@ pub async fn sync_repositories(
 
     let units = units(request.scope);
     let total_jobs = request.initial_jobs(unique_selectors.len(), units.len())?;
-    let lease = SyncLease::acquire(archive, cancellation).await?;
     let run_scope = request.run_scope(&unique_selectors);
-    let run_id = lease.start_run(request.parent_run, &run_scope).await?;
-
-    let operation = execute_and_finalize(
+    with_writer_lease(
         archive,
-        clients,
-        &unique_selectors,
-        &units,
-        SyncRunContext {
-            total_jobs,
-            include_comments: request.include_comments,
-            include_reviews: request.include_reviews,
-            include_review_threads: request.include_review_threads,
-            run_id,
-            lease: &lease.token,
-            cancellation: &lease.cancellation,
-            progress,
+        LEASE_DURATION,
+        cancellation,
+        async |lease, cancellation| {
+            let run_id = archive
+                .create_run(lease, request.parent_run, now_utc()?, &run_scope)
+                .await?;
+            let context = SyncRunContext {
+                total_jobs,
+                include_comments: request.include_comments,
+                include_reviews: request.include_reviews,
+                include_review_threads: request.include_review_threads,
+                run_id,
+                lease,
+                cancellation,
+                progress,
+            };
+            execute_and_finalize(archive, clients, &unique_selectors, &units, context).await
         },
-    );
-    lease.complete(operation).await
+    )
+    .await
 }
 
 impl SyncRequest {

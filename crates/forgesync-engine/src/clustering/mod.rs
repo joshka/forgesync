@@ -143,7 +143,6 @@ mod candidates;
 mod components;
 mod decisions;
 mod evidence;
-mod lease;
 mod proposals;
 mod references;
 mod snapshot;

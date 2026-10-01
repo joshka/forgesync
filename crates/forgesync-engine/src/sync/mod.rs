@@ -28,7 +28,6 @@ mod comments;
 mod coordinator;
 mod family_job;
 mod jobs;
-mod lease;
 mod metadata;
 mod pull_requests;
 mod repository_work;

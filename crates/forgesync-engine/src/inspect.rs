@@ -159,9 +159,20 @@ pub async fn show_thread(
         )
         .await?
         .ok_or_else(|| repository_missing(selected_repository))?;
-    let reference = ThreadReference::new(repository.id, selector.number());
+    thread_detail(
+        archive,
+        &ThreadReference::new(repository.id, selector.number()),
+    )
+    .await
+}
+
+/// Reads detail for an already resolved durable repository identity.
+pub(crate) async fn thread_detail(
+    archive: &Archive,
+    reference: &ThreadReference,
+) -> Result<ThreadDetail, EngineError> {
     archive
-        .thread_detail(&reference)
+        .thread_detail(reference)
         .await
         .map_err(|error| match error {
             StoreError::ThreadMissing => EngineError::ThreadMissing,
