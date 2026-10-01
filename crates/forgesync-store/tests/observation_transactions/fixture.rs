@@ -1,60 +1,25 @@
-//! # Observation integration setup and value construction
-//!
-//! Repository and thread constructors supply fixed checked identities without archive writes.
-//! Scenarios create the database and register that repository explicitly.
-//! Value helpers construct discussion payloads, independent clocks, completeness, and staging rows.
-//! Scenarios reserve every durable acquisition sequence before applying their evidence.
-//!
-//! Scenarios read retained discussion values through the public archive detail operation.
-//! Writable pools arrange trigger failures or corruption without creating or migrating databases.
-//! Helpers contain no scenario assertions or expected ordering calculations.
-//! Filename allocation separates concurrent cases; cleanup visits a fixed SQLite sidecar list.
-//! Scenario files own observation application, staging, completion, and the state they expect.
-
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+//! Observation scenario value builders; shared path, pool, and lease helpers live in `common`.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::identity::{
-    GitHubHost, ObservationSequence, ProviderId, RepositoryId, ThreadId, ThreadNumber,
-};
+use forgesync_core::identity::{ObservationSequence, ProviderId, RepositoryId, ThreadId};
 use forgesync_core::observation::{
     CollectionCompleteness, IncompleteReason, Observation, SourceClock,
 };
 use forgesync_core::provider_data::ProviderData;
-use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_store::observations::StagedItem;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
-/// Separates database filenames for concurrently executing cases in this process.
-static NEXT_ARCHIVE: AtomicUsize = AtomicUsize::new(0);
+pub use crate::common::{remove_archive, temporary_archive_path, timestamp, writable_pool};
 
 /// Constructs synthetic repository identity and metadata without creating or registering an
 /// archive.
 pub fn repository() -> Repository {
-    let repository_id = RepositoryId::new(
-        GitHubHost::parse("github.com").expect("host"),
-        ProviderId::new("repository-42").expect("repository provider ID"),
-    );
-    Repository {
-        id: repository_id.clone(),
-        owner: "example".to_owned(),
-        name: "project".to_owned(),
-        full_name: "example/project".to_owned(),
-        default_branch: Some("main".to_owned()),
-        updated_at: Some(timestamp("2026-09-20T10:00:00Z")),
-        provider_data: ProviderData::new(),
-    }
+    crate::common::repository("example", "project", "repository-42")
 }
 
 /// Constructs issue 101 under the supplied repository without writing a parent row.
 pub fn thread_id(repository_id: &RepositoryId) -> ThreadId {
-    ThreadId::new(
-        repository_id.clone(),
-        ProviderId::new("thread-101").expect("thread provider ID"),
-        ThreadNumber::new(101).expect("thread number"),
-    )
+    crate::common::thread_id(repository_id, "thread-101", 101)
 }
 
 /// Builds an open issue payload with caller-selected title and provider update time.
@@ -110,49 +75,5 @@ pub fn item(id: &str, payload: serde_json::Value) -> StagedItem<serde_json::Valu
     StagedItem {
         id: ProviderId::new(id).expect("provider item ID"),
         payload,
-    }
-}
-
-/// Parses a fixture timestamp, failing immediately if the scenario contains invalid setup.
-pub fn timestamp(value: &str) -> UtcTimestamp {
-    UtcTimestamp::parse(value).expect("valid timestamp")
-}
-
-/// Opens an existing database for scenario-specific trigger installation or corruption setup.
-///
-/// It does not create or migrate an archive. Scenarios may retain the pool to remove an injected
-/// trigger after an archive write, but never hold a SQL transaction across that write. Close the
-/// pool before deleting the database and its sidecars.
-pub async fn writable_pool(path: &PathBuf) -> sqlx::SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(
-            SqliteConnectOptions::new()
-                .filename(path)
-                .create_if_missing(false)
-                .foreign_keys(true),
-        )
-        .await
-        .expect("open trigger pool")
-}
-
-/// Allocates a process-local unique filename without creating or opening an archive.
-pub fn temporary_archive_path() -> PathBuf {
-    let sequence = NEXT_ARCHIVE.fetch_add(1, AtomicOrdering::Relaxed);
-    std::env::temp_dir().join(format!(
-        "forgesync-observations-{}-{sequence}.sqlite",
-        std::process::id()
-    ))
-}
-
-/// Removes the closed database and its possible WAL sidecars on a best-effort basis.
-///
-/// The fixed suffix loop is cleanup only; it does not select scenarios or compute expectations.
-pub fn remove_archive(path: &PathBuf) {
-    let _ = std::fs::remove_file(path);
-    for suffix in ["-wal", "-shm"] {
-        let mut sidecar = path.as_os_str().to_os_string();
-        sidecar.push(suffix);
-        let _ = std::fs::remove_file(PathBuf::from(sidecar));
     }
 }

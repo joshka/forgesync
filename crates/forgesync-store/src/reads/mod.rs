@@ -1,15 +1,4 @@
-//! # Offline thread projections
-//!
-//! `ThreadQuery` selects scope, state, sort, and pagination; `ThreadPage` and `ThreadSummary`
-//! return list results. `ThreadDetail` and timeline types assemble the discussion and its
-//! observations for show operations. Coverage summaries explain which resource families are
-//! complete or partial.
-//!
-//! `query` owns filtered list SQL, `detail` assembles a thread, and `coverage` reads evidence
-//! state; `summary` aggregates family coverage and archive totals. `timeline` owns source-time
-//! event ordering and payload projection. These are projections over the
-//! archive, not provider fetches. Engine inspection and search can use them without opening a
-//! network client or understanding SQL row layouts.
+//! Offline thread projections: filtered lists, details, timelines, and coverage totals.
 
 use std::num::NonZeroU32;
 

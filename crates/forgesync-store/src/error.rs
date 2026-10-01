@@ -7,43 +7,33 @@ use thiserror::Error;
 /// Typed lifecycle, contract, authority, and persistence failures from archive operations.
 #[derive(Debug, Error)]
 pub enum StoreError {
-    /// An archive already occupies the requested path.
     #[error("archive already exists: {0}")]
     AlreadyExists(PathBuf),
-    /// The requested archive path does not exist.
     #[error("archive does not exist: {0}")]
     MissingArchive(PathBuf),
-    /// The requested archive path is not a regular file.
     #[error("archive path is not a regular file: {0}")]
     NotAFile(PathBuf),
-    /// The database does not contain Forgesync archive metadata.
     #[error("archive metadata is missing")]
     MetadataMissing,
-    /// The archive was created by an unsupported format.
     #[error("unsupported archive format: {0}")]
     UnsupportedFormat(String),
-    /// The archive does not contain a successful migration history.
     #[error("archive migration history is missing")]
     MigrationHistoryMissing,
-    /// A migration did not finish successfully.
     #[error("archive migration {version} is marked as incomplete")]
     MigrationHistoryDirty {
         /// Migration left incomplete on disk.
         version: i64,
     },
-    /// The archive records a migration that this binary does not contain.
     #[error("archive migration {version} is not present in this binary")]
     MigrationVersionUnknown {
         /// Recorded migration absent from this binary.
         version: i64,
     },
-    /// The stored checksum for an applied migration differs from the embedded migration.
     #[error("archive migration {version} does not match the embedded migration")]
     MigrationChecksumMismatch {
         /// Migration whose stored checksum changed.
         version: i64,
     },
-    /// The archive must be explicitly migrated before it can be opened.
     #[error("archive schema version {current} requires migration to version {supported}")]
     MigrationRequired {
         /// Version currently stored on disk.
@@ -51,7 +41,6 @@ pub enum StoreError {
         /// Version supported by this binary.
         supported: i64,
     },
-    /// The archive schema is newer than this binary supports.
     #[error("archive schema version {found} is newer than supported version {supported}")]
     SchemaTooNew {
         /// Version found on disk.
@@ -59,34 +48,24 @@ pub enum StoreError {
         /// Newest version this binary supports.
         supported: i64,
     },
-    /// A stored or computed timestamp cannot be represented by core timestamp rules.
     #[error("archive timestamp is invalid")]
     InvalidTimestamp(#[source] forgesync_core::timestamp::TimestampError),
-    /// The system clock could not produce a supported archive timestamp.
     #[error("system clock is before the Unix epoch or outside the supported range")]
     ClockOutOfRange,
-    /// A mutation was requested through a read-only archive handle.
     #[error("archive is open read-only")]
     ReadOnlyArchive,
-    /// A provider repository identity has not been stored in this archive.
     #[error("repository is not present in the archive")]
     RepositoryMissing,
-    /// A provider discussion identity has not been stored in this archive.
     #[error("thread is not present in the archive")]
     ThreadMissing,
-    /// The family is not supported by the selected observation operation.
     #[error("unsupported observation family: {0}")]
     UnsupportedObservationFamily(String),
-    /// The observation family does not match the operation being applied.
     #[error("observation family does not match the operation")]
     ObservationFamilyMismatch,
-    /// A provider identity or observation sequence does not fit SQLite's integer range.
     #[error("observation identity or sequence is outside the SQLite integer range")]
     IntegerOutOfRange,
-    /// The provider supplied a source clock inconsistent with its declared state.
     #[error("source clock is invalid: {0}")]
     InvalidSourceClock(String),
-    /// Distinct malformed source clocks cannot be ordered safely.
     #[error("ambiguous malformed observation timestamps {incoming:?} and {current:?}")]
     AmbiguousObservationClocks {
         /// Malformed timestamp on the incoming observation.
@@ -94,22 +73,16 @@ pub enum StoreError {
         /// Malformed timestamp on the current observation.
         current: String,
     },
-    /// Two different payloads claim the same source generation and sequence.
     #[error("conflicting observations share source generation and sequence")]
     ConflictingObservation,
-    /// A collection generation was not reserved before staging or finalization.
     #[error("observation generation is not reserved")]
     ObservationGenerationMissing,
-    /// A delayed collection page belongs to a generation superseded by a newer reservation.
     #[error("observation generation was superseded by a newer reservation")]
     StaleObservationGeneration,
-    /// A repeated page number contained a different payload.
     #[error("replayed observation page conflicts with its previously staged payload")]
     StagedPageConflict,
-    /// The same provider item ID appeared with different payloads in one collection.
     #[error("staged collection contains conflicting values for one provider ID")]
     StagedItemConflict,
-    /// A completed collection did not stage the expected consecutive pages.
     #[error("complete collection expected {expected} pages but found {found}")]
     IncompletePageSet {
         /// Page count declared by the completed collection.
@@ -117,76 +90,53 @@ pub enum StoreError {
         /// Consecutive pages found in staging.
         found: u32,
     },
-    /// A completion result did not supply the page count required for atomic application.
     #[error("complete collection requires an expected page count")]
     MissingExpectedPageCount,
-    /// Review evidence was completed without identifying the pull-request head it describes.
     #[error("complete review evidence requires a pull-request head SHA")]
     MissingPullRequestHeadContext,
-    /// A pull-request head context was attached to a non-review evidence family.
     #[error("pull-request head context is not valid for this evidence family")]
     UnexpectedPullRequestHeadContext,
-    /// The collection completeness fields contradict the staged result.
     #[error("collection completeness does not match staged items or page count")]
     InvalidCollectionCompleteness,
-    /// A repository thread scan was replaced by a newer acquisition sequence.
     #[error("repository thread scan was superseded by a newer acquisition")]
     StaleRepositoryThreadScan,
-    /// No in-progress repository thread scan matches the supplied identity and sequence.
     #[error("repository thread scan is not in progress for this sequence")]
     RepositoryThreadScanMissing,
-    /// Repository scan data or required completion state is invalid.
     #[error("archive contains an invalid repository thread scan")]
     InvalidRepositoryThreadScan,
-    /// Another coordinated writer currently owns the archive write lease.
     #[error("another sync operation currently owns the archive lease")]
     ArchiveLeaseHeld,
-    /// The coordinated writer no longer owns an active archive write lease.
     #[error("archive write lease was lost or expired")]
     ArchiveLeaseLost,
-    /// The lease duration must retain at least one microsecond and fit expiry arithmetic.
     #[error("archive lease duration is invalid")]
     InvalidArchiveLeaseDuration,
-    /// A stored run, job, or outcome state is invalid.
     #[error("archive contains invalid sync run data")]
     InvalidRunData,
-    /// A derived retrieval document has an unsupported recipe or invalid content hash.
     #[error("retrieval document data is invalid")]
     InvalidDocument,
-    /// A stored or returned embedding has invalid identity, dimensions, or vector data.
     #[error("embedding data is invalid")]
     InvalidEmbedding,
-    /// The source document changed before the embedding could be persisted.
     #[error("embedding source document is no longer current")]
     DocumentNotCurrent,
-    /// The requested run is not present in this archive.
     #[error("sync run is not present in this archive")]
     RunMissing,
-    /// A stored run, job, or checkpoint count is invalid.
     #[error("archive contains an invalid sync count")]
     InvalidSyncCount,
-    /// The request scope is empty or contains only whitespace.
     #[error("observation request scope is required")]
     MissingRequestScope,
-    /// An archive payload, coverage state, or staging result could not be encoded or decoded.
     #[error("observation JSON is invalid: {0}")]
     Json(#[from] serde_json::Error),
-    /// A generated cluster input violates identity, membership, or score invariants.
     #[error("generated cluster data is invalid")]
     InvalidClusterGeneration,
-    /// A selected local cluster does not exist in this archive.
     #[error("cluster is not present in this archive")]
     ClusterMissing,
-    /// A selected thread is not a current member of the cluster.
     #[error("thread is not a current cluster member")]
     ClusterMemberMissing,
-    /// An advanced FTS5 query is malformed.
     #[error("advanced FTS5 search query is invalid")]
     InvalidSearchQuery,
-    /// Persisted archive data violates its stored representation; the payload is the stable code.
+    /// Persisted data violates its stored representation; the payload is the stable error code.
     #[error("archive contains invalid stored data ({0})")]
     Corrupt(&'static str),
-    /// An archive filesystem operation failed.
     #[error("archive filesystem operation failed for {path}: {source}")]
     Io {
         /// Path involved in the operation.
@@ -195,10 +145,8 @@ pub enum StoreError {
         #[source]
         source: std::io::Error,
     },
-    /// SQLite returned an error while operating on the archive.
     #[error("SQLite operation failed: {0}")]
     Database(#[from] sqlx::Error),
-    /// An embedded SQLite migration failed.
     #[error("archive migration failed: {0}")]
     Migration(#[from] sqlx::migrate::MigrateError),
 }

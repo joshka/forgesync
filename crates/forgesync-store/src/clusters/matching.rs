@@ -1,14 +1,8 @@
-//! # Retain durable cluster identity across generations
+//! Reusing durable cluster identity across generations by membership overlap.
 //!
-//! Existing active and excluded membership is loaded in durable row order, then compared with
-//! proposed membership. Removed members do not contribute evidence. Matching greedily assigns the
-//! strongest overlap first, using proportional overlap and stable row/index tie breaks.
-//!
-//! Each existing and generated group can participate in at most one assignment. The returned map
-//! relates generated positions to durable row IDs; unmatched proposals receive new membership keys
-//! during generation writes. Local decisions therefore remain associated with a reused identity.
-//! These operations read and calculate within the caller's transaction; they neither write nor
-//! commit. Prepared membership comes from `generation_input` after identity validation.
+//! The strongest overlap is assigned first (absolute, then proportional, then stable ID/position
+//! tie breaks), and each existing or generated cluster participates in at most one match, so local
+//! decisions stay attached to a reused identity. Removed members do not count as evidence.
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};

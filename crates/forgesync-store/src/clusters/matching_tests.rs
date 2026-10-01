@@ -1,15 +1,4 @@
-//! # Durable identity assignment from explicit membership
-//!
-//! These cases spell out existing and generated groups, then compare the full assignment map.
-//! They establish absolute-overlap priority, proportional ties, deterministic identity/index ties,
-//! unmatched proposals, and the one-to-one constraint on durable identity reuse.
-//!
-//! Static fixture constructors translate member lists into the two representations consumed by
-//! matching. They perform no matching, sorting, database setup, or assertions. Each scenario keeps
-//! its membership and expected assignment visible together without a behavioral test helper.
-//!
-//! Archive integration cases separately cover persistence and retained maintainer decisions. This
-//! suite isolates the assignment policy so SQL setup does not obscure evidence ordering.
+//! Durable identity assignment from explicit membership.
 
 use std::collections::HashMap;
 

@@ -49,12 +49,9 @@ results, and terminal ledger writes. `metadata` reserves and applies the head ob
 review acquisition.
 
 Within the store, `observations/apply` selects a canonical parent and applies its independently
-ordered evidence; `observations/thread_rows` owns the payload binding map and its private read/write
-representations. `StoredThreadObservation` keeps canonical content and complete-evidence positions
-independent. `ThreadPayloadUpdate` makes an optional evidence advance explicit.
-`families/application` checks reserved generations and applies complete membership or incomplete
-coverage inside the transaction opened by `families/finish`. These owners borrow the transaction and
-never commit it.
+ordered evidence, keeping canonical content and complete-evidence positions independent.
+`families/finish` checks the reserved generation and applies complete membership or incomplete
+coverage inside its own transaction.
 
 Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its stage
 methods preserve independent reports. TUI `query/operations` owns the writer task, its engine
@@ -121,29 +118,22 @@ scoring tests live beside their respective owners so fixtures and policy asserti
 
 ## Private store adapters
 
-`observation_sql` owns clock-column conversion, checked SQLite integers, canonical row lookup, and
-coverage persistence shared by parent observations, child families, and run records. Public domain
-inputs/results remain in `observations`. These helpers borrow the caller's connection; ordering,
-lease checks, and transaction commit remain with the archive operation.
+`sql` owns clock-column conversion, checked SQLite integers, repository/thread row lookup, family
+labels, bound repository/kind/state predicates, and coverage persistence shared by every store
+module. These helpers borrow the caller's connection; ordering, lease checks, and transaction commit
+remain with the archive operation.
 
 `coverage_projection` loads recorded completeness and current head context, then derives visible
-staleness without changing durable coverage. Thread reads, embedding eligibility, and cluster
-members import it directly. `query_sql` supplies bound repository/kind/state predicates shared by
-those reads; each query still owns aliases, joins, ordering, page windows, and decoding.
+staleness without changing durable coverage. Its `child_coverage_matches` rule is shared with the
+child-family reuse check in `families/query`, so displayed staleness and refetch decisions agree.
 
 Store `clock` owns checked process wall-clock conversion shared by archive creation, diagnostics,
-and lease expiry checks. It truncates to archive microseconds and rejects pre-epoch or overflowing
-values. It supplies observations only: transaction fences and observation sequences still establish
-writer validity and acquisition ordering.
+and lease expiry checks. It supplies observations only: transaction fences and observation sequences
+still establish writer validity and acquisition ordering.
 
-`health` keeps operator-facing check construction above named connection-local probes. Constraint
-and FTS execution borrow the acquired connection, while their coordinators attempt final cleanup
-before combining results. `diagnostics` keeps job/run/failure units distinct and reads known-family
-counts through its named projection; these separate reads do not establish a frozen snapshot.
-
-These private modules make implementation dependencies visible without adding SQL resources to
-public library APIs. Start in the workflow or public archive method, then follow its named adapter
-when changing column conversion or a genuinely shared selection rule.
+`health` reports integrity, foreign-key enforcement, FTS5 availability, and schema history without
+repairing anything. `diagnostics` keeps job/run/failure units distinct; its separate reads do not
+establish a frozen snapshot.
 
 ## Child-family transaction phases
 
@@ -152,15 +142,14 @@ Reservation, staging, and finalization share one ordering contract but own diffe
 scope at the acquisition boundary. Archive reservation accepts that declaration plus a separate
 writer token when fencing is required; construction alone performs no validation or write.
 `ChildFamilyPage` names one provisional member slice and page index within the accepted reservation.
-`ReservedGeneration` compares a proposed source clock and sequence, then writes a reservation and
-recoverable generation. `PageWrite` validates that generation, recognizes identical replay, and
-stores provisional pages with received counts. `FamilyApplication` promotes complete membership or
-records partial coverage. Each archive operation opens and commits its own transaction; these owners
-only borrow its connection.
+Reservation compares a proposed source clock and sequence, then writes a reservation and
+recoverable generation. Staging validates that generation, recognizes identical replay, and stores
+provisional pages while incrementing the received count. Finishing promotes complete membership or
+records partial coverage. Each archive operation opens and commits its own transaction.
 
-Reuse is a separate read. `MembershipExpectation` names the independent evidence available from the
-parent, and `FamilyFreshness` verifies source clock, review head when required, complete coverage,
-and canonical membership count. None of these reads promote staged pages or change coverage.
+Reuse is a separate read: `families/query` requires the same source clock, review head when
+required, complete coverage, and a canonical membership count matching that coverage. None of these
+reads promote staged pages or change coverage.
 
 ## Terminal picker and writer display state
 
@@ -292,23 +281,13 @@ store's raw cursor and one fixed build request identity. The generation coordina
 snapshot under its existing lease and projects candidate membership through a named store-input
 conversion.
 
-Store `clusters/generation_input` validates proposed membership before transaction creation, then
-resolves source identities inside the active transaction into sorted `PreparedCluster` rows. Local
-decisions share its discussion-row resolver. `generation_matching` loads existing active/excluded
-membership and assigns durable IDs by ordered overlap. Neither module commits or performs generation
-writes; `generation` retains the fenced transaction and its commit boundary.
-
-Durable matching uses `generation_matching::MembershipOverlap` to name shared count, union count,
-generated position, and existing row ID. Candidate enumeration, priority comparison, and greedy
-one-to-one assignment are separate local operations. Absolute overlap takes precedence over
-proportional overlap; exact fraction comparison and stable row/index tie breaks preserve repeatable
-identity reuse. Nearby static-membership cases cover assignment without SQL setup.
-
-Store `generation_apply::GenerationApplication` owns one run's repository identity, timestamp,
-coverage policy, seen cluster rows, and membership accounting. It orders cluster/member application,
-complete-scope retirement, and run finalization. `generation_rows` keeps the underlying SQL bind
-maps linear. `Archive::save_clusters_fenced` retains transaction creation, fencing, and the single
-commit; helpers never commit. Result conversion follows commit under the existing outcome contract.
+Store `clusters/generation` validates proposed membership before transaction creation, resolves
+source identities into sorted `PreparedCluster` rows, and writes the run, clusters, memberships, and
+complete-scope retirement under one fenced commit. `clusters/matching` loads existing active/excluded
+membership and assigns durable IDs by ordered overlap using `MembershipOverlap`: absolute overlap
+takes precedence over proportional overlap, with exact fraction comparison and stable row/index tie
+breaks for repeatable identity reuse. Nearby static-membership cases cover assignment without SQL
+setup.
 
 Search `fusion::HybridRanking` merges candidates by durable discussion identity, retaining the first
 summary and each source's rank evidence. `SemanticEvidence` binds semantic rank to its cosine
