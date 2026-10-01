@@ -38,7 +38,7 @@ impl EmbeddingResponse {
     /// # Errors
     ///
     /// Count/index failures return `InvalidResponse`. Width, numeric, or dimension failures
-    /// return `InvalidVector`; this method does not retry, call the service, or persist data.
+    /// return `InvalidVector`.
     pub fn validate(
         self,
         input_count: usize,

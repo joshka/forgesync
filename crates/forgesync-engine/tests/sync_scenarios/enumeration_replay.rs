@@ -1,17 +1,4 @@
-//! # Interrupted page replay retains committed discussions
-//!
-//! A delayed second page gives cancellation a deterministic point after the first page commits.
-//! Its responder notifies the scenario when that request arrives; no polling loop or
-//! request-history search is needed to discover the boundary. The task returns its archive for
-//! direct inspection.
-//!
-//! The interrupted report records one completed page and one pending job. A local detail read
-//! proves the first discussion exists before a new sync replays the pages. The completed run must
-//! preserve that entire discussion payload and add the second identity without duplicate rows.
-//!
-//! Requests and engine operations remain explicit. The initial and resumed phases stay together
-//! because replay preservation needs its committed baseline; checkpoint overlap and writer cleanup
-//! have independent sibling scenarios.
+//! Interrupted page replay retains committed discussions.
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -66,7 +66,6 @@ impl EmbeddingClientError {
     /// Returns the stable reporting category without private request/response details.
     ///
     /// All HTTP statuses share one category; the typed variant retains the numeric status.
-    /// This code is not a retry or fallback decision. Human display text is a separate contract.
     pub const fn code(self) -> &'static str {
         match self {
             Self::InvalidConfiguration => "embedding_config_invalid",

@@ -1,14 +1,4 @@
-//! # Pull-request review fixtures
-//!
-//! These builders describe pull request 18 and its independently acquired review families.
-//! The issue-list entry identifies a pull request; its REST metadata supplies head and merge
-//! context. Reviews and GraphQL review threads are mounted through separate endpoint installers.
-//!
-//! Source facts such as merged, resolved, and pagination status do not select engine behavior
-//! inside these helpers. They become explicit provider payload fields for the real workflow.
-//! Review nodes retain head commit identity, while review-thread pages retain cursor facts.
-//! Fixtures only construct payloads or configure the server; canonical membership assertions
-//! use local archive reads from `fixture_archive` after the scenario runs acquisition.
+//! Pull-request review fixtures.
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};

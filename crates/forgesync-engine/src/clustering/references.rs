@@ -1,14 +1,7 @@
-//! # Interpret explicit discussion references
+//! Interpret explicit discussion references as edge evidence independent of vectors.
 //!
-//! Thread mentions in titles and bodies can support a duplicate edge independently of vectors.
-//! References must name this repository and an available non-self target. Title mentions and early
-//! body mentions have stronger context; later body mentions need title-token overlap.
-//!
-//! The output maps ordered document-index pairs to reference confidence. `evidence` combines these
-//! scores with semantic similarity. This module does not choose graph components or persist groups.
-//! Stable input ordering belongs to `candidates`; mention matching is local and deterministic.
-//!
-//! Title tokens also provide the evidence guard against weak semantic matches.
+//! References must name this repository and a non-self target. Title and early body mentions are
+//! strong; later body mentions need title-token overlap.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;

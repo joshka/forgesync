@@ -1,18 +1,4 @@
-//! # Stale comment selection, partial retention, and successful retry
-//!
-//! This dependent regression follows two issues across four visible acquisition phases. Initial
-//! sync establishes complete comments; parent-only refresh makes the second issue stale; a
-//! later-page failure retains canonical membership; retry replaces that membership and resolves the
-//! failure.
-//!
-//! Zero-request mock expectations prove that the fresh sibling is skipped during both refresh and
-//! retry. Each real request and sync operation stays next to its result; local detail reads
-//! identify canonical bodies and completeness independently of the provider's partially staged
-//! collection.
-//!
-//! The longer linear scenario stays together because each phase constrains the next selection and
-//! failure-ledger transition. Empty-membership semantics and injected ledger failure have separate
-//! owners. Fixtures configure responses and construct clients/references without executing sync.
+//! Stale comment selection, partial retention, and successful retry.
 
 use forgesync_core::coverage::CoverageState;
 use forgesync_core::outcome::OperationOutcome;

@@ -1,10 +1,4 @@
-//! # Document recipe evidence
-//!
-//! These tests show which pieces of a thread enter each search-document recipe. Original-body and
-//! discussion recipes have different evidence boundaries, ordering, and bot-comment behavior.
-//! Stale child-family evidence is excluded because a newly observed parent does not make every
-//! child collection current. Read these examples before changing document text: a small ordering
-//! change affects later embeddings and search results.
+//! Document recipe evidence.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;

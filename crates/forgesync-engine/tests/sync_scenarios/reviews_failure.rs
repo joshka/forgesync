@@ -1,14 +1,4 @@
-//! # Review failure isolation
-//!
-//! A failed review refresh preserves unrelated comments and the last complete reviews.
-//! The initial acquisition establishes both families. A later provider failure must leave their
-//! canonical values intact while recording incomplete review evidence.
-//!
-//! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses and construct clients or references. Archive reads remain visible;
-//! no acquisition is hidden
-//! in a test helper. Source head, family selection, and expected canonical state remain explicit.
-//! This integration regression complements focused store ordering and finalization tests.
+//! Review failure isolation.
 
 use forgesync_core::content::ReviewState;
 use forgesync_core::coverage::CoverageState;

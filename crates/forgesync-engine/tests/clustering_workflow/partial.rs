@@ -1,16 +1,4 @@
-//! # Partial vector coverage preserves the prior cluster
-//!
-//! This dependent transition first publishes two current vectors and establishes a complete
-//! cluster. A newer parent observation for one member then invalidates its document's source
-//! coordinates. The next build sees two eligible discussions but only one current vector.
-//!
-//! The partial generation must retain the previous group identity, active lifecycle, and two-member
-//! membership instead of retiring a group that cannot be reconstructed from incomplete evidence.
-//! Earlier assertions remain in this scenario because they prove that the preserved group existed.
-//!
-//! Observation, fenced document/vector writes, build, and list calls remain explicit. Fixtures only
-//! construct payloads. Complete creation and unmatched vector namespaces have independent
-//! scenarios.
+//! Partial vector coverage preserves the prior cluster.
 
 use std::time::Duration;
 

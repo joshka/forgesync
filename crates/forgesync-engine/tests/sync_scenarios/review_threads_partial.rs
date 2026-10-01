@@ -1,14 +1,4 @@
-//! # Partial review-thread isolation
-//!
-//! A partial GraphQL collection cannot replace the last complete review-thread membership.
-//! The scenario first commits complete membership, then supplies a response whose continuation
-//! cannot be completed. Canonical members survive while coverage records the partial attempt.
-//!
-//! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses and construct clients or references. Archive reads remain visible;
-//! no acquisition is hidden
-//! in a test helper. Source head, family selection, and expected canonical state remain explicit.
-//! This integration regression complements focused store ordering and finalization tests.
+//! Partial review-thread isolation.
 
 use forgesync_core::coverage::CoverageState;
 use forgesync_core::outcome::OperationOutcome;

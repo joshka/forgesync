@@ -1,16 +1,4 @@
-//! # Document materialization scenarios
-//!
-//! This dependent regression follows enriched discussion text through initial materialization,
-//! identical repetition, a source timestamp-only change, and an edited comment. Content hashes and
-//! archive row identity stay stable for equivalent text; an actual reply edit changes the hash.
-//!
-//! Provider fixture values name parent and comment clocks separately. The fixture configures HTTP
-//! responses only; each sync and materialization operation stays visible in the scenario. The first
-//! archive read verifies persisted content independently of the builder/materializer comparison.
-//!
-//! The longer linear transition stays together because later hash comparisons need the original
-//! document as a baseline. Recipe rendering rules live in focused document unit suites; this case
-//! connects source acquisition, content identity, and persisted derived-document updates.
+//! Document materialization scenarios.
 
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_engine::documents::{build_thread_document, materialize_thread_document};

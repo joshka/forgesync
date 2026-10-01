@@ -1,13 +1,4 @@
-//! # Direct scenarios for sync run outcome accounting
-//!
-//! These tests exercise the in-memory policy without provider or database fixtures. Durable job
-//! writes are covered by the sync workflow integration suite; here the counters make each scenario
-//! visible beside the outcome assertion.
-//!
-//! Complete, partial, deferred, failed, and interrupted outcomes have different meanings for retry.
-//! In particular, interrupted terminal jobs remain pending work, and a later rate-limit failure
-//! must not replace the first diagnostic. Each test selects one policy boundary rather than hiding
-//! multiple scenarios behind a loop or setup helper.
+//! Direct scenarios for sync run outcome accounting.
 
 use forgesync_core::coverage::{DeferredReason, Failure, FailureKind};
 use forgesync_core::outcome::OperationOutcome;

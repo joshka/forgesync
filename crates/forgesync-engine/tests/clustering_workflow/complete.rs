@@ -1,17 +1,4 @@
-//! # Complete vector coverage creates a durable cluster
-//!
-//! Two open issues have matching current original-body documents and identical vectors. Every
-//! observation reservation and application is visible, followed by fenced document and chunk
-//! writes. The lease uses a fixed future window so preparation does not expire while the scenario
-//! runs.
-//!
-//! The engine receives an explicit repository, endpoint/model namespace, recipe, and default
-//! policy. A complete generation reports both eligible threads and vectors, then the public list
-//! operation confirms one active group with two members. No model service is contacted.
-//!
-//! Pure fixtures construct identities and content only. Partial preservation and namespace
-//! rejection have sibling scenarios; store suites cover human decisions and generation retirement
-//! directly.
+//! Complete vector coverage creates a durable cluster.
 
 use std::time::Duration;
 

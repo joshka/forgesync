@@ -1,17 +1,4 @@
-//! # Refresh stage scenarios
-//!
-//! These two cases distinguish sync-only refresh from refresh that also requests embeddings without
-//! a configured service. Both acquire the same empty repository through a real engine operation;
-//! model-service construction is unnecessary for sync-only work.
-//!
-//! The sync-only result selects exactly sync and has no embedding/cluster stages or pending work.
-//! When embedding is requested but unavailable, the complete sync report and its durable run
-//! survive, while embedding reports a specific failure and remains pending for later work.
-//!
-//! Requests name optional stages and service identity explicitly. Setup configures provider
-//! fixtures without invoking refresh; assertions distinguish selected, completed, failed, and
-//! remaining work. Stage sequencing is the shared policy owned by this small suite, so the two
-//! cases stay together.
+//! Refresh stage scenarios.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::outcome::OperationOutcome;

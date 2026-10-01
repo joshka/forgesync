@@ -1,17 +1,8 @@
-//! # Project bounded components into cluster proposals
+//! Project bounded components into cluster proposals.
 //!
-//! `format_clusters` receives stable document indexes and edges retained by `components`. It
-//! constructs `ClusterCandidate` and `ClusterMemberCandidate` values for the generation workflow.
-//! These values describe automatic analysis; the store later reconciles local maintainer decisions.
-//!
-//! `ClusterProjection` prepares retained degrees and direct edge weights once for all components.
-//! Its methods name the representative ranking and member-score rules instead of leaving those
-//! policies inside a large iterator closure. The representative has highest retained degree, then
-//! the lowest discussion number and stable identity. A transitive member without a direct edge to
-//! that representative has no score; this is distinct from a zero similarity score.
-//!
-//! Input indexes refer to one immutable document snapshot. This module neither acquires vectors nor
-//! modifies the archive, and it does not compute new pairwise similarities while projecting groups.
+//! The representative has the highest retained degree, then the lowest discussion number and
+//! stable identity. A transitive member without a direct edge to the representative has no score,
+//! which is distinct from a zero similarity score.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;

@@ -1,17 +1,4 @@
-//! # Explicit keyword fallback avoids a missing-key service request
-//!
-//! The archive has complete current vectors prepared through the authenticated fixture client.
-//! Retrieval requests hybrid mode with a second client whose key is unresolved and explicitly
-//! permits keyword fallback. This proves the fallback is about query acquisition, not absent
-//! vectors.
-//!
-//! The result reports requested hybrid mode, actual keyword mode, the missing-key reason, and the
-//! expected local discussion. The service call count remains at the five preparation requests;
-//! fallback must make no unauthenticated query-vector request.
-//!
-//! Archive setup and retrieval remain visible. The client fixture only constructs configuration;
-//! source acquisition, vector preparation, and assertions live here. Hybrid fusion and chunk retry
-//! have sibling owners so their failure behavior does not intervene in this scenario.
+//! Explicit keyword fallback avoids a missing-key service request.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

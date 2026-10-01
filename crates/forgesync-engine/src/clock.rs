@@ -1,16 +1,7 @@
-//! # Engine wall-clock acquisition
+//! Wall-clock acquisition in the domain's UTC microsecond representation.
 //!
-//! [`now_utc`] converts the process wall clock into the domain's UTC microsecond representation.
-//! Acquisition, document writes, lease coordination, and derived-analysis operations use the same
-//! conversion and failure classification rather than borrowing a helper from another workflow.
-//!
-//! This is wall time, not a monotonic ordering source. Observation sequences and store reservation
-//! rules own durable ordering; runtime timers own elapsed durations. Repeated calls can return the
-//! same timestamp or move backwards if the system clock changes.
-//!
-//! The private module exposes one ordinary public helper to sibling workflows. It reads no
-//! configuration and installs no process diagnostics. Pre-epoch or unrepresentable instants fail;
-//! sub-microsecond precision is discarded during conversion.
+//! This is wall time, not an ordering source: observation sequences own durable order, and calls
+//! can repeat or move backwards if the system clock changes.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

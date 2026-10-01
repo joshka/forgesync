@@ -1,13 +1,4 @@
-//! # Deterministic UTF-8 chunk contracts
-//!
-//! These cases exercise text splitting directly, without document acquisition or a service client.
-//! Repeated splitting must preserve boundaries, positional identity, and byte-budget constraints.
-//! Chunk hashes include their position, so identical text moved to another chunk is not reusable.
-//!
-//! The fixtures contain whitespace and a multibyte character to keep byte-versus-character behavior
-//! visible. Batch scheduling and database reuse are separate concerns in neighboring tests.
-//! Each operation returns explicit chunks; assertions inspect their text and identity rather than
-//! relying on a hidden scenario helper or provider fixture.
+//! Deterministic UTF-8 chunk contracts.
 
 use forgesync_core::embedding::EmbeddingVector;
 use forgesync_store::embeddings::StoredEmbeddingChunk;

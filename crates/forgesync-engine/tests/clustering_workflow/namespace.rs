@@ -1,15 +1,4 @@
-//! # Vector namespaces cannot be substituted during clustering
-//!
-//! The archive contains two current vectors under the configured fixture endpoint and model. A
-//! build requesting a different endpoint must reject unavailable vectors rather than reuse those
-//! embeddings or treat the repository as a valid empty candidate set.
-//!
-//! Archive creation, evidence application, fenced document/vector persistence, and the actual build
-//! are visible next to the exact error expectation. Namespace rejection requires no previous
-//! cluster generation; that unrelated operation stays in the complete and partial scenarios.
-//!
-//! Pure construction fixtures supply matching original-body documents. No embedding HTTP service is
-//! involved; this regression checks engine selection against persisted representation identity.
+//! Vector namespaces cannot be substituted during clustering.
 
 use std::time::Duration;
 

@@ -1,15 +1,4 @@
-//! # Refresh cluster outcome accounting
-//!
-//! These cases isolate aggregate status from archive traversal and candidate analysis. They
-//! establish empty-scope completion, incomplete-coverage partial success, failure isolation,
-//! interruption, and retention of the first diagnostic even when later work fails differently.
-//!
-//! Repository results retain their traversal order, while aggregate status follows the first
-//! diagnostic and successful-generation coverage. The first-failure rule is deliberate: a later
-//! cancellation does not overwrite an earlier primary failure.
-//!
-//! Fixtures construct static stage/report values only. Each test performs the relevant transitions
-//! explicitly, so no provider, database, asynchronous worker, or scenario loop hides the policy.
+//! Refresh cluster outcome accounting.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_store::clusters::ClusterGenerationResult;

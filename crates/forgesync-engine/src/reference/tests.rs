@@ -1,12 +1,4 @@
-//! # Selector grammar examples
-//!
-//! Each successful case names one accepted input shape and inspects its retained coordinates.
-//! Rejection cases use rstest to give malformed inputs independent scenario names. No archive,
-//! environment, or provider setup is needed: parsing establishes shape only.
-//!
-//! Case spelling, normalized hosts, discarded URL suffixes, and literal percent escapes are
-//! deliberate contracts. The equality case distinguishes display spelling from case-insensitive
-//! archive resolution. These tests sit beside the parser rather than a distant workflow suite.
+//! Selector grammar examples.
 
 use crate::reference::{ReferenceParseError, RepositorySelector, ThreadSelector};
 

@@ -1,13 +1,4 @@
-//! # REST discussion fixtures
-//!
-//! These constructors and endpoint installers describe owner/repo issue and comment responses.
-//! `clients_for` routes the selected host to the local mock server without credentials; it does
-//! not execute a workflow. Repository metadata and open issue collections are mounted separately.
-//!
-//! Payload builders keep provider identity, local discussion number, body, source time, and child
-//! counts available to scenarios. Mounting changes mock server behavior only, never archive state.
-//! Pagination and provider errors belong in the scenario when they are the behavior under test.
-//! Pull-request metadata and review payloads have a separate owner in `fixture_reviews`.
+//! REST discussion fixtures.
 use std::collections::HashMap;
 
 use forgesync_core::identity::GitHubHost;

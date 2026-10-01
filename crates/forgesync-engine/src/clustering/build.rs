@@ -25,25 +25,10 @@ pub const CLUSTER_LEASE_DURATION: Duration = Duration::from_secs(180);
 
 /// Builds and persists deterministic clusters from current open discussions and stored vectors.
 ///
-/// The archive lease fences the vector snapshot and generation write from concurrent archive
-/// mutations. Incomplete vector coverage produces a partial run, which cannot retire unseen
-/// clusters. This operation reads stored vectors and does not contact GitHub or a model service.
-/// Endpoint, model, and recipe must identify the vectors already materialized in the archive.
-///
-/// # Persistence and cancellation
-///
-/// A writer lease spans evidence loading and generation application. The store commits the
-/// generation transaction; earlier source observations and vectors are not rewritten. Cancellation
-/// is checked during paging and candidate analysis, then again before saving. Interruption or lease
-/// renewal failure signals a child token and waits for the build before releasing the fence.
-///
-/// # Errors
-///
-/// Invalid graph options or service identity fail before acquiring the lease. A nonempty open
-/// discussion scope without compatible vectors returns [`EngineError::ClusterVectorsUnavailable`].
-/// Inconsistent coverage, archive reads/writes, worker failure, and cancellation retain typed
-/// errors. Partial vector coverage is a successful report with `complete_coverage` false, rather
-/// than an error; such a generation cannot retire unseen clusters.
+/// Reads stored vectors only (no GitHub or model requests) under a writer lease spanning evidence
+/// loading and generation persistence. Partial vector coverage is a successful report with
+/// `complete_coverage` false; such a generation cannot retire unseen clusters. A nonempty scope
+/// without compatible vectors returns [`EngineError::ClusterVectorsUnavailable`].
 pub async fn build_clusters(
     archive: &Archive,
     request: &ClusterBuildRequest,
