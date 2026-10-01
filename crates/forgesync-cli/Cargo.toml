@@ -15,6 +15,7 @@ tui = ["dep:forgesync-tui"]
 [dependencies]
 clap.workspace = true
 etcetera.workspace = true
+indicatif.workspace = true
 forgesync-core = { version = "0.1.2", path = "../forgesync-core" }
 forgesync-engine = { version = "0.1.2", path = "../forgesync-engine" }
 forgesync-github = { version = "0.1.2", path = "../forgesync-github" }
@@ -27,6 +28,7 @@ toml.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
+tracing-indicatif.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
 
