@@ -1,16 +1,4 @@
-//! Convert fully acquired GraphQL review threads into domain evidence.
-//!
-//! The parent module completes nested comment pagination before calling this converter. It then
-//! checks provider IDs, line and file context, thread state, and comment identity before
-//! constructing `forgesync-core::content::ReviewThread` values.
-//!
-//! Normalization does not fetch another page or write the archive. It assumes that the caller has
-//! delivered the complete comment connection for one review thread; a partially paged connection
-//! must remain an acquisition failure, not a smaller apparently complete thread.
-//!
-//! Use this module when tracing a GraphQL field into normalized review evidence. The engine ties
-//! the result to a pull-request head, and the store decides whether that head-bound family can
-//! replace current membership.
+//! Convert fully paged GraphQL review threads into domain evidence.
 
 use forgesync_core::content::{Comment, ReviewThread};
 use forgesync_core::identity::{
@@ -23,24 +11,18 @@ use serde_json::Value;
 use crate::error::GitHubError;
 use crate::review_threads::wire::{GraphqlComment, GraphqlReviewThread};
 
-/// Converts a fully paged GraphQL thread into normalized review evidence.
+/// Converts a thread whose comment connection has already been fully paged.
 ///
-/// The acquisition adapter has already checked `provider_id` and collected every nested comment
-/// page. `node.comments` is not used to infer completeness here; `comment_nodes` supplies the
-/// finished connection. Missing resolution/outdated flags, negative source line numbers, or an
-/// invalid comment reject the whole result rather than returning a normalized subset.
-///
-/// `thread` supplies parent identity and `head_sha` labels the caller's selected pull-request head.
-/// Conversion does not fetch or verify that head. Unknown thread fields and source `startLine`
-/// remain in provider extensions; archive publication and head freshness belong to engine/store.
+/// Unknown thread fields and `startLine` are retained as provider data.
 pub fn normalize_review_thread(
     thread: &ThreadId,
     head_sha: &CommitSha,
     provider_id: ProviderId,
     node: GraphqlReviewThread,
-    comment_nodes: Vec<GraphqlComment>,
 ) -> Result<ReviewThread, GitHubError> {
-    let comments = comment_nodes
+    let comments = node
+        .comments
+        .nodes
         .into_iter()
         .map(|comment| normalize_comment(thread, comment))
         .collect::<Result<Vec<_>, _>>()?;
@@ -57,8 +39,8 @@ pub fn normalize_review_thread(
     Ok(ReviewThread {
         id: ReviewThreadId::new(thread.clone(), provider_id),
         head_sha: head_sha.clone(),
-        is_resolved: node.is_resolved.ok_or(GitHubError::InvalidProviderData)?,
-        is_outdated: node.is_outdated.ok_or(GitHubError::InvalidProviderData)?,
+        is_resolved: node.is_resolved,
+        is_outdated: node.is_outdated,
         path: node.path,
         line,
         comments,

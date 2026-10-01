@@ -1,18 +1,8 @@
 //! GraphQL review-thread acquisition with nested comment pagination.
 //!
-//! [`fetch_review_thread_page`] fetches one outer review-thread page. A thread on that page can
-//! itself have additional comment pages; this module finishes those nested connections before
-//! returning a normalized [`GraphqlReviewThreadPage`]. [`GraphqlCursor`] holds the outer
-//! continuation position.
-//!
-//! The caller supplies the repository, pull request, and current head SHA. The scope check
-//! prevents a thread from being attached to another repository. Cursor validation rejects a
-//! provider claim of more pages without a usable next cursor, and repeated nested cursors are
-//! treated as invalid pagination rather than an infinite loop.
-//!
-//! The engine records review threads as a head-bound evidence family. Returning one complete outer
-//! page does not mean the family is complete until every outer page has been acquired and applied.
-//! Transport owns the HTTP request; `normalize` owns GraphQL-to-domain conversion.
+//! A returned outer page has every nested comment connection fully paged, so callers can stage
+//! its threads without persisting partial nested state. Completing the outer family remains an
+//! engine/store decision.
 
 mod comments;
 mod normalize;
@@ -25,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
 use crate::resources::require_thread_scope;
-use crate::review_threads::comments::CommentPages;
+use crate::review_threads::comments::complete_comments;
 use crate::review_threads::normalize::normalize_review_thread;
 use crate::review_threads::request::{GraphqlRequest, REVIEW_THREADS_QUERY};
 use crate::review_threads::wire::{
@@ -34,64 +24,35 @@ use crate::review_threads::wire::{
 };
 use crate::transport::GitHubClient;
 
-/// Opaque continuation returned by a successful review-thread page request.
+/// Opaque provider continuation for the outer review-thread connection.
 ///
-/// Keep this value paired with the same repository and pull request when requesting another page.
-/// It preserves provider spelling and proves only that a nonempty continuation was supplied; it
-/// does not encode or independently validate the resource scope. Start acquisition with `None`
-/// rather than constructing a cursor from unrelated provider data.
+/// Keep it paired with the repository and pull request that produced it; it does not encode scope.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GraphqlCursor(
-    /// Provider-issued spelling retained unchanged for the next outer request.
-    String,
-);
+pub struct GraphqlCursor(String);
 
 impl GraphqlCursor {
-    /// Borrows the provider spelling without decoding or rewriting it.
-    ///
-    /// This is useful for diagnostics or request encoding. The spelling alone does not identify
-    /// the pull request to which the continuation belongs.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// One outer page whose review threads have fully acquired nested comment connections.
-///
-/// Preserve the returned order when staging observations. An empty vector is a successful empty
-/// page, whereas acquisition or normalization failure returns an error without this value. A
-/// terminal page completes the outer traversal only when all preceding pages also succeeded;
-/// this type does not grant archive replacement authority by itself.
+/// One outer page of review threads, each with its complete comment list.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GraphqlReviewThreadPage {
-    /// Review threads with complete nested comment lists.
     pub review_threads: Vec<ReviewThread>,
-    /// Cursor for the next outer review-thread page, when present.
     pub next_cursor: Option<GraphqlCursor>,
 }
 
 /// Fetches one page of current review-thread state, fully paging nested comments.
 ///
-/// The returned page is only successful when the outer connection and every nested comments
-/// connection have valid page metadata and all GraphQL responses have no partial errors. Callers
-/// can therefore stage its threads as one complete page without persisting partial nested state.
-///
-/// `repository` supplies the display owner/name used by GraphQL, and `thread` supplies the local
-/// pull-request number. Their stable repository identities must agree. The caller must select a
-/// client for the repository host and a pull-request thread: identity equality does not prove
-/// host routing, provider existence, or thread kind. Keep `after` paired with this same resource.
-///
-/// `head_sha` labels the normalized evidence with the head selected by the caller. This query does
-/// not fetch or verify that head, so the workflow owns detecting head changes and deciding whether
-/// the evidence can be applied. Acquisition writes no archive state.
+/// `repository` supplies the GraphQL owner/name and `thread` the pull-request number; their
+/// repository identities must agree. `head_sha` labels the evidence with the caller's selected
+/// head and is not verified against GitHub.
 ///
 /// # Errors
 ///
-/// Returns [`GitHubError::InvalidProviderData`] for a repository identity mismatch, missing
-/// required response data, or invalid normalized values. Invalid continuation metadata returns the
-/// relevant pagination error. Transport, retry exhaustion, cancellation, and GraphQL envelope
-/// failures retain their typed errors. Failure of any nested connection rejects the entire outer
-/// page; already fetched members are not returned as a partial success.
+/// Any GraphQL error entry (even with partial data), malformed payload, invalid continuation, or
+/// nested-page failure rejects the whole page; no partial members are returned.
 pub async fn fetch_review_thread_page(
     client: &GitHubClient,
     repository: &Repository,
@@ -113,32 +74,25 @@ pub async fn fetch_review_thread_page(
     };
     let response: GraphqlEnvelope<ReviewThreadsData> =
         request.execute(client, cancellation).await?;
-    let data = response.data.ok_or(GitHubError::InvalidProviderData)?;
-    let pull_request = data
-        .repository
+    let connection = response
+        .data
+        .and_then(|data| data.repository)
         .and_then(|repository| repository.pull_request)
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let connection = pull_request
-        .review_threads
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let page_info = connection
-        .page_info
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let nodes = connection.nodes.ok_or(GitHubError::InvalidProviderData)?;
-    let mut review_threads = Vec::with_capacity(nodes.len());
-    for node in nodes {
+        .ok_or(GitHubError::InvalidProviderData)?
+        .review_threads;
+    let mut review_threads = Vec::with_capacity(connection.nodes.len());
+    for node in connection.nodes {
         review_threads
             .push(complete_review_thread(client, thread, head_sha, node, cancellation).await?);
     }
-    let next_cursor = cursor_from_page_info(page_info)?;
+    let next_cursor =
+        next_cursor(&connection.page_info)?.map(|cursor| GraphqlCursor(cursor.to_owned()));
     Ok(GraphqlReviewThreadPage {
         review_threads,
         next_cursor,
     })
 }
 
-/// Finishes the nested comment connection before normalization. A partially paged review thread
-/// must not be presented downstream as a complete collection.
 async fn complete_review_thread(
     client: &GitHubClient,
     thread: &ThreadId,
@@ -148,32 +102,20 @@ async fn complete_review_thread(
 ) -> Result<ReviewThread, GitHubError> {
     let provider_id =
         ProviderId::new(node.id.clone()).map_err(|_| GitHubError::InvalidProviderData)?;
-    let connection = node
-        .comments
-        .take()
-        .ok_or(GitHubError::InvalidProviderData)?;
-    let pages = CommentPages::new(provider_id.clone(), connection)?;
-    let comment_nodes = pages.complete(client, cancellation).await?;
-
-    normalize_review_thread(thread, head_sha, provider_id, node, comment_nodes)
+    complete_comments(client, &provider_id, &mut node.comments, cancellation).await?;
+    normalize_review_thread(thread, head_sha, provider_id, node)
 }
 
 /// Requires a nonempty cursor when GraphQL says another page exists; otherwise pagination could
-/// silently stop with missing review threads.
-fn cursor_from_page_info(page_info: GraphqlPageInfo) -> Result<Option<GraphqlCursor>, GitHubError> {
-    let has_next_page = has_next_page(&page_info)?;
-    match (has_next_page, page_info.end_cursor) {
-        (true, Some(cursor)) if !cursor.is_empty() => Ok(Some(GraphqlCursor(cursor))),
-        (true, _) => Err(GitHubError::InvalidPaginationLink),
-        (false, _) => Ok(None),
+/// silently stop with missing members.
+fn next_cursor(page_info: &GraphqlPageInfo) -> Result<Option<&str>, GitHubError> {
+    if !page_info.has_next_page {
+        return Ok(None);
     }
-}
-
-/// Reads the provider's pagination flag while rejecting missing page metadata.
-fn has_next_page(page_info: &GraphqlPageInfo) -> Result<bool, GitHubError> {
-    page_info
-        .has_next_page
-        .ok_or(GitHubError::InvalidProviderData)
+    match page_info.end_cursor.as_deref() {
+        Some(cursor) if !cursor.is_empty() => Ok(Some(cursor)),
+        _ => Err(GitHubError::InvalidPaginationLink),
+    }
 }
 
 #[cfg(test)]
