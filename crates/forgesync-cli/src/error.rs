@@ -111,8 +111,7 @@ impl CliError {
                 status: RefreshStageStatus::Interrupted,
                 ..
             } => Exit::Interrupted,
-            // The engine exposes cancellation only through its stable code across several variants.
-            Self::Engine(error) if error.code() == "operation_cancelled" => Exit::Interrupted,
+            Self::Engine(error) if error.is_cancelled() => Exit::Interrupted,
             _ => Exit::Failure,
         }
     }
