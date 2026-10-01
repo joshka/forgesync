@@ -62,13 +62,14 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items = vec![ListItem::new("All repositories")];
     items.extend(
         app.repository_picker
-            .items
+            .rows
+            .data
             .iter()
             .map(|repository| ListItem::new(repository.full_name.clone())),
     );
-    if app.repository_picker.loading && app.repository_picker.items.is_empty() {
+    if app.repository_picker.rows.loading && app.repository_picker.rows.data.is_empty() {
         items = vec![ListItem::new("Loading repositories…")];
-    } else if let Some(error) = &app.repository_picker.error {
+    } else if let Some(error) = &app.repository_picker.rows.error {
         items = vec![ListItem::new(error.clone())];
     }
     let title = app
@@ -78,7 +79,7 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
         .map(|repository| format!("Repositories · {}", repository.full_name))
         .unwrap_or_else(|| "Repositories · all".to_owned());
     let mut state = ListState::default();
-    if app.repository_picker.error.is_none() {
+    if app.repository_picker.rows.error.is_none() {
         state.select(Some(
             app.repository_picker
                 .cursor
@@ -99,31 +100,32 @@ fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
 fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mut items: Vec<ListItem<'_>> = app
         .thread_list
-        .items
+        .rows
+        .data
         .iter()
         .map(|thread| {
             let number = thread.discussion.id.number().get();
             ListItem::new(format!("#{} {}", number, thread.discussion.title))
         })
         .collect();
-    if app.thread_list.loading && app.thread_list.items.is_empty() {
+    if app.thread_list.rows.loading && app.thread_list.rows.data.is_empty() {
         items.push(ListItem::new("Loading discussions…"));
-    } else if let Some(error) = &app.thread_list.error {
+    } else if let Some(error) = &app.thread_list.rows.error {
         items = vec![ListItem::new(error.clone())];
-    } else if app.thread_list.items.is_empty() {
+    } else if app.thread_list.rows.data.is_empty() {
         items.push(ListItem::new("No discussions"));
     }
     let title = format!(
         "Discussions · {}{}",
-        app.thread_list.items.len(),
-        if app.thread_list.loading {
+        app.thread_list.rows.data.len(),
+        if app.thread_list.rows.loading {
             " · loading"
         } else {
             ""
         }
     );
     let mut state = ListState::default();
-    if app.thread_list.error.is_none() && !app.thread_list.items.is_empty() {
+    if app.thread_list.rows.error.is_none() && !app.thread_list.rows.data.is_empty() {
         state.select(app.thread_list.selected);
     }
     frame.render_stateful_widget(

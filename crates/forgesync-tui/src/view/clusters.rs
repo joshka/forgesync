@@ -27,10 +27,16 @@ use crate::view::{PaneEmphasis, selected_style};
 
 /// Draws the cluster list and its current selection.
 pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut items: Vec<ListItem<'_>> = app.cluster_list.items.iter().map(cluster_item).collect();
-    if app.cluster_list.loading && items.is_empty() {
+    let mut items: Vec<ListItem<'_>> = app
+        .cluster_list
+        .rows
+        .data
+        .iter()
+        .map(cluster_item)
+        .collect();
+    if app.cluster_list.rows.loading && items.is_empty() {
         items.push(ListItem::new("Loading clusters…"));
-    } else if let Some(error) = &app.cluster_list.error {
+    } else if let Some(error) = &app.cluster_list.rows.error {
         items = vec![ListItem::new(error.clone())];
     } else if items.is_empty() {
         items.push(ListItem::new(
@@ -38,7 +44,7 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
         ));
     }
     let mut state = ListState::default();
-    if app.cluster_list.error.is_none() && !app.cluster_list.items.is_empty() {
+    if app.cluster_list.rows.error.is_none() && !app.cluster_list.rows.data.is_empty() {
         state.select(Some(app.cluster_list.selected));
     }
     frame.render_stateful_widget(
@@ -52,11 +58,13 @@ pub fn draw_clusters(frame: &mut Frame<'_>, area: Rect, app: &App) {
 
 /// Draws one cluster and its member decisions.
 pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut lines = if app.cluster_detail_pane.loading && app.cluster_detail_pane.data.is_none() {
+    let mut lines = if app.cluster_detail_pane.detail.loading
+        && app.cluster_detail_pane.detail.data.is_none()
+    {
         vec![Line::from("Loading cluster neighbors…")]
-    } else if let Some(error) = &app.cluster_detail_pane.error {
+    } else if let Some(error) = &app.cluster_detail_pane.detail.error {
         vec![Line::from(error.clone())]
-    } else if let Some(detail) = &app.cluster_detail_pane.data {
+    } else if let Some(detail) = &app.cluster_detail_pane.detail.data {
         let view = ClusterDetailView {
             detail,
             selected_member: app.cluster_detail_pane.selected_member,
@@ -67,7 +75,7 @@ pub fn draw_cluster_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
             "Select a cluster to inspect its members and neighbor scores.",
         )]
     };
-    if app.cluster_detail_pane.loading && app.cluster_detail_pane.data.is_some() {
+    if app.cluster_detail_pane.detail.loading && app.cluster_detail_pane.detail.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(

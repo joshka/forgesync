@@ -30,16 +30,16 @@ use crate::view::{PaneEmphasis, family_name};
 /// Draws archive-wide coverage and health, marking cached refreshes and current read failures.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let block = PaneEmphasis::Strong.block("Archive coverage and health");
-    let mut lines = if app.coverage_panel.loading && app.coverage_panel.data.is_none() {
+    let mut lines = if app.coverage.loading && app.coverage.data.is_none() {
         vec![Line::from("Loading archive coverage…")]
-    } else if let Some(error) = &app.coverage_panel.error {
+    } else if let Some(error) = &app.coverage.error {
         vec![Line::from(error.clone())]
-    } else if let Some(status) = &app.coverage_panel.data {
+    } else if let Some(status) = &app.coverage.data {
         CoverageView { status }.lines()
     } else {
         vec![Line::from("Press c to load coverage.")]
     };
-    if app.coverage_panel.loading && app.coverage_panel.data.is_some() {
+    if app.coverage.loading && app.coverage.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(

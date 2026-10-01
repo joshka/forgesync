@@ -23,6 +23,8 @@ use ratatui::style::Color;
 use ratatui::widgets::Widget;
 
 use super::draw;
+use crate::app::loadable::Loadable;
+use crate::app::panels::{ClusterDetailPane, ClusterList, RepositoryPicker, ThreadList};
 use crate::app::{App, Focus, Screen};
 use crate::view::PaneEmphasis;
 
@@ -64,7 +66,7 @@ fn resizing_clamps_detail_scroll_to_visible_content() {
     let backend = TestBackend::new(50, 14);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = sample_app();
-    app.detail_pane.state = crate::app::detail::DetailState::Ready(Box::new(sample_detail()));
+    app.detail_pane.detail = Loadable::loaded(Some(Box::new(sample_detail())));
     app.focus = crate::app::Focus::Detail;
     app.detail_pane.scroll = u16::MAX;
     terminal
@@ -111,15 +113,15 @@ fn maintainer_view_renders_at_terminal_size(
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = App {
         screen,
-        cluster_list: crate::app::clusters::ClusterList {
-            items: vec![cluster.clone()],
+        cluster_list: ClusterList {
+            rows: Loadable::loaded(vec![cluster.clone()]),
             ..Default::default()
         },
-        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
-            data: Some(ClusterDetail {
+        cluster_detail_pane: ClusterDetailPane {
+            detail: Loadable::loaded(Some(ClusterDetail {
                 cluster,
                 members: Vec::new(),
-            }),
+            })),
             ..Default::default()
         },
         ..App::default()
@@ -135,12 +137,12 @@ fn maintainer_view_renders_at_terminal_size(
 fn sample_app() -> App {
     let summary = sample_summary();
     let mut app = App {
-        repository_picker: crate::app::repositories::RepositoryPicker {
-            items: vec![summary.repository.clone()],
+        repository_picker: RepositoryPicker {
+            rows: Loadable::loaded(vec![summary.repository.clone()]),
             ..Default::default()
         },
-        thread_list: crate::app::threads::ThreadList {
-            items: vec![summary.clone()],
+        thread_list: ThreadList {
+            rows: Loadable::loaded(vec![summary.clone()]),
             selected: Some(0),
             ..Default::default()
         },

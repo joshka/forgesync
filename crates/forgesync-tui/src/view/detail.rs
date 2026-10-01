@@ -22,11 +22,12 @@ use crate::view::timeline::timeline_line;
 
 /// Builds the ordered summary and timeline lines for one discussion.
 pub fn detail_lines(app: &App) -> Vec<Line<'static>> {
-    let Some(detail) = app.detail_pane.content() else {
-        let text = if app.detail_pane.is_loading() {
+    let pane = &app.detail_pane.detail;
+    let Some(detail) = pane.data.as_deref() else {
+        let text = if pane.loading {
             "Loading selected discussion…"
-        } else if let Some(error) = app.detail_pane.error() {
-            return vec![Line::from(error.to_owned())];
+        } else if let Some(error) = &pane.error {
+            return vec![Line::from(error.clone())];
         } else {
             "Select a discussion and press Enter to inspect it."
         };

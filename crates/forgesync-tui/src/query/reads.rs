@@ -17,7 +17,6 @@ use forgesync_store::reads::ThreadPage;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
-use crate::app::threads::ThreadReply;
 use crate::query::failures::recent_failures;
 use crate::query::{QueryDispatch, Read};
 
@@ -29,7 +28,7 @@ impl QueryDispatch<'_> {
         let archive = Arc::clone(self.archive);
         let task: Pin<Box<dyn Future<Output = QueryMessage> + Send>> = match read {
             Read::Repositories => {
-                let generation = app.repository_picker.begin();
+                let generation = app.repository_picker.rows.begin();
                 Box::pin(async move {
                     let result = list_repositories(&archive).await.map_err(display);
                     QueryMessage::Repositories { generation, result }
@@ -46,11 +45,11 @@ impl QueryDispatch<'_> {
                         .await
                         .map(Box::new)
                         .map_err(display);
-                    QueryMessage::Threads(ThreadReply {
+                    QueryMessage::Threads {
                         generation,
                         offset,
                         result,
-                    })
+                    }
                 })
             }
             Read::Detail(selector) => {
@@ -64,7 +63,7 @@ impl QueryDispatch<'_> {
                 })
             }
             Read::Coverage => {
-                let generation = app.coverage_panel.begin();
+                let generation = app.coverage.begin();
                 Box::pin(async move {
                     let result = archive_status(&archive)
                         .await
@@ -74,14 +73,14 @@ impl QueryDispatch<'_> {
                 })
             }
             Read::Failures => {
-                let generation = app.failure_list.begin();
+                let generation = app.failure_list.runs.begin();
                 Box::pin(async move {
                     let result = recent_failures(&archive).await;
                     QueryMessage::Failures { generation, result }
                 })
             }
             Read::Clusters { repositories } => {
-                let generation = app.cluster_list.begin();
+                let generation = app.cluster_list.rows.begin();
                 Box::pin(async move {
                     let request = ClusterListRequest {
                         repositories,

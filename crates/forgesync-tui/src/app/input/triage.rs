@@ -22,7 +22,6 @@
 //! module. Rendering is separate from both submission and result application.
 
 use crossterm::event::KeyCode;
-use forgesync_core::identity::RunId;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 
 use crate::app::{App, move_index};
@@ -42,19 +41,19 @@ impl App {
     /// Requests retry only when the selected ledger row contains a valid durable run identity.
     fn retry_selected_run(&self) -> Vec<QueryAction> {
         self.failure_list
-            .items
+            .runs
+            .data
             .get(self.failure_list.selected)
-            .and_then(|run| RunId::new(run.id).ok())
-            .map(|run_id| vec![QueryAction::Operation(Operation::Retry(run_id))])
+            .map(|run| vec![QueryAction::Operation(Operation::Retry(run.id))])
             .unwrap_or_default()
     }
 
     /// Keeps failure selection within the loaded ledger; empty lists remain unselected at zero.
     fn move_failure_selection(&mut self, direction: i8) -> Vec<QueryAction> {
-        if direction > 0 && self.failure_list.items.is_empty() {
+        if direction > 0 && self.failure_list.runs.data.is_empty() {
             return Vec::new();
         }
-        let last = self.failure_list.items.len().saturating_sub(1);
+        let last = self.failure_list.runs.data.len().saturating_sub(1);
         self.failure_list.selected = move_index(self.failure_list.selected, last, direction);
         Vec::new()
     }
@@ -73,7 +72,8 @@ impl App {
     /// Toggles dismissal based on the currently loaded summary, without optimistic local mutation.
     fn toggle_selected_cluster(&self) -> Vec<QueryAction> {
         self.cluster_list
-            .items
+            .rows
+            .data
             .get(self.cluster_list.selected)
             .map(|cluster| {
                 let action = if cluster.dismissed {
@@ -88,17 +88,18 @@ impl App {
 
     /// Moves within the loaded cluster page without starting a detail query.
     fn move_cluster_selection(&mut self, direction: i8) -> Vec<QueryAction> {
-        if direction > 0 && self.cluster_list.items.is_empty() {
+        if direction > 0 && self.cluster_list.rows.data.is_empty() {
             return Vec::new();
         }
-        let last = self.cluster_list.items.len().saturating_sub(1);
+        let last = self.cluster_list.rows.data.len().saturating_sub(1);
         self.cluster_list.selected = move_index(self.cluster_list.selected, last, direction);
         Vec::new()
     }
 
     fn open_selected_cluster(&mut self) -> Vec<QueryAction> {
         self.cluster_list
-            .items
+            .rows
+            .data
             .get(self.cluster_list.selected)
             .map(|cluster| vec![QueryAction::Read(Read::ClusterDetail(cluster.id))])
             .unwrap_or_default()
@@ -118,6 +119,7 @@ impl App {
     /// Requests dismissal or restoration for the cluster whose detail is currently displayed.
     fn toggle_open_cluster(&self) -> Vec<QueryAction> {
         self.cluster_detail_pane
+            .detail
             .data
             .as_ref()
             .map(|detail| {
@@ -140,6 +142,7 @@ impl App {
         if direction > 0
             && self
                 .cluster_detail_pane
+                .detail
                 .data
                 .as_ref()
                 .is_none_or(|detail| detail.members.is_empty())
@@ -148,6 +151,7 @@ impl App {
         }
         let last = self
             .cluster_detail_pane
+            .detail
             .data
             .as_ref()
             .map_or(0, |detail| detail.members.len().saturating_sub(1));
@@ -158,7 +162,7 @@ impl App {
 
     /// Builds a local maintainer action for the currently selected cluster member.
     fn cluster_member_action(&self, code: KeyCode) -> Vec<QueryAction> {
-        let Some(detail) = &self.cluster_detail_pane.data else {
+        let Some(detail) = &self.cluster_detail_pane.detail.data else {
             return Vec::new();
         };
         let Some(member) = detail.members.get(self.cluster_detail_pane.selected_member) else {
@@ -199,7 +203,8 @@ mod tests {
     use crossterm::event::KeyCode;
 
     use crate::app::App;
-    use crate::app::clusters::ClusterDetailPane;
+    use crate::app::loadable::Loadable;
+    use crate::app::panels::ClusterDetailPane;
     use crate::app::test_data::sample_cluster_detail;
     use crate::query::{Operation, QueryAction};
 
@@ -209,7 +214,7 @@ mod tests {
         detail.cluster.dismissed = true;
         let app = App {
             cluster_detail_pane: ClusterDetailPane {
-                data: Some(detail),
+                detail: Loadable::loaded(Some(detail)),
                 ..Default::default()
             },
             ..Default::default()
@@ -227,7 +232,7 @@ mod tests {
     fn include_key_requests_inclusion_of_the_loaded_member() {
         let app = App {
             cluster_detail_pane: ClusterDetailPane {
-                data: Some(sample_cluster_detail()),
+                detail: Loadable::loaded(Some(sample_cluster_detail())),
                 ..Default::default()
             },
             ..Default::default()

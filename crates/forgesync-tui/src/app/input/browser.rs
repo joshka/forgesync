@@ -128,20 +128,20 @@ impl App {
     fn navigate_repositories(&mut self, movement: Movement) {
         self.repository_picker.cursor = movement.position(
             self.repository_picker.cursor,
-            self.repository_picker.items.len(),
+            self.repository_picker.rows.data.len(),
         );
     }
 
     /// Invalidates loaded detail when a thread selection changes, even within one page.
     fn navigate_threads(&mut self, movement: Movement) {
-        if self.thread_list.items.is_empty() {
+        if self.thread_list.rows.data.is_empty() {
             // Preserve Home/End scrolling when the thread list has no selection.
             if matches!(movement, Movement::Start | Movement::End) {
                 self.navigate_detail(movement);
             }
             return;
         }
-        let maximum = self.thread_list.items.len() - 1;
+        let maximum = self.thread_list.rows.data.len() - 1;
         let current = self.thread_list.selected.unwrap_or(0);
         self.thread_list.selected = Some(movement.position(current, maximum));
         self.detail_pane.invalidate();
@@ -169,7 +169,7 @@ impl App {
             .repository_picker
             .cursor
             .checked_sub(1)
-            .and_then(|index| self.repository_picker.items.get(index))
+            .and_then(|index| self.repository_picker.rows.data.get(index))
             .cloned();
         if selected == self.repository_picker.applied {
             return Vec::new();
@@ -186,7 +186,7 @@ impl App {
         let Some(summary) = self
             .thread_list
             .selected
-            .and_then(|index| self.thread_list.items.get(index))
+            .and_then(|index| self.thread_list.rows.data.get(index))
         else {
             return Vec::new();
         };
