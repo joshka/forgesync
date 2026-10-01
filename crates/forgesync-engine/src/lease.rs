@@ -56,6 +56,7 @@ async fn maintain<T>(
     }
 }
 
+/// Heartbeats the fence every third of `duration`; resolves only with the first renewal error.
 async fn renew_until_failure(
     archive: &Archive,
     token: &ArchiveLeaseToken,

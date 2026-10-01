@@ -85,6 +85,7 @@ pub async fn set_canonical_cluster_member(
     .await
 }
 
+/// Resolves a member selector to its durable thread identity.
 async fn selected_thread(
     archive: &Archive,
     reference: &ThreadSelector,

@@ -27,26 +27,14 @@ offline read, start at the engine request, inspect the store query, then the CLI
 presentation. The engine accepts an opened archive; the store alone decides transaction and
 observation ordering. GitHub code does not open the archive.
 
-Within engine sync, `review_collection` owns the durable lifecycle shared by reviews and review
-threads. `ReviewSync` selects the family and prepares against a metadata result; preparation either
-finishes immediately or yields a reserved, head-aware `ReviewCollection`. The collection owns
-staging counts and consuming completion/failure operations. `reviews` follows REST page links, while
-`review_threads` owns GraphQL cursor traversal and cycle detection. Provider traversal and archive
-finalization can therefore be read independently without repeating their shared policy.
-
-The sync root defines the public request, progress, and report vocabulary. `sync/coordinator` owns
-request preparation, durable scope serialization, job execution, and terminal run projection.
-`sync/scope` defines shared run capabilities, independent enumeration units, and thread-family
-attribution/results. Collectors import those definitions directly; failure recording belongs to the
-thread scope and progress publication to the run context. `sync/lease` owns writer-fence
-acquisition, renewal, cancellation draining, and release. Run-wide sync counters and outcome policy
-live in `sync/accounting`, beside direct complete, partial, deferred, failed, and interrupted
-scenarios. Repository sync uses `jobs` for lookup and scope traversal, `thread_job` for durable
-parent scans, and `repository_work` for immutable services and selected scope. `comment_job` owns
-repository-wide comment accounting; `comments` owns a reserved per-discussion collection.
-`pull_requests` owns selected metadata/review jobs, and `family_job` holds their IDs, accumulated
-results, and terminal ledger writes. `metadata` reserves and applies the head observation before
-review acquisition.
+The engine sync root defines the public request, progress, and report vocabulary plus the persisted
+`RunScope`. `sync/coordinator` validates selection, creates the run under the writer lease, visits
+repositories, and projects the terminal report. `sync/repository` owns one repository's flow:
+lookup, the parent scan per thread-state unit, the comment job, and pull-request metadata/review
+jobs, all started and finished through one job path. `sync/families` owns `FamilyCollection`, the
+reserve/stage/complete-or-fail lifecycle shared by comments, metadata, reviews, and review threads;
+only page traversal differs per family. `sync/accounting` owns job and run counters and outcome
+policy.
 
 Within the store, `observations/apply` selects a canonical parent and applies its independently
 ordered evidence, keeping canonical content and complete-evidence positions independent.

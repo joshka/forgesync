@@ -217,6 +217,7 @@ async fn execute(
     result
 }
 
+/// Persists each finished batch until all workers finish, cancellation, or a fatal error.
 async fn collect(
     archive: &Archive,
     lease: &ArchiveLeaseToken,

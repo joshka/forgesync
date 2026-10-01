@@ -1,47 +1,27 @@
-//! # Acquire GitHub discussion evidence into an archive
+//! Acquire GitHub discussion evidence into an archive.
 //!
-//! `SyncRequest` selects repositories, thread scope, and evidence families; `SyncReport` and
-//! progress types expose completed, partial, and failed work. The engine receives an already
-//! opened archive and explicit cancellation. It uses the GitHub adapter for transport and
-//! normalization, then the store for ordered observations.
-//!
-//! `coordinator` validates selection and owns run finalization; `scope` defines shared acquisition
-//! identities and family results. `lease` maintains the writer fence through cooperative
-//! cancellation and cleanup. `accounting` owns run-wide counters and outcome selection; `jobs`
-//! coordinates thread work. `comments`, `reviews`, and `review_threads` own independently paginated
-//! child families; `pull_requests` and `metadata` handle pull-request-specific evidence.
-//! `review_collection` owns the reserved lifecycle shared by review families, while their provider
-//! collectors own page traversal. `support` resolves selectors and records scoped failures. An
-//! incomplete child collection must not replace prior complete membership. Per-job failure
-//! isolation lets one discussion fail while other work still commits.
+//! One run visits each selected repository in order: a parent thread scan per thread-state unit,
+//! then the selected child families (comments, pull-request metadata, reviews, review threads).
+//! Each child family is reserved and staged independently per discussion; an incomplete
+//! collection never replaces prior complete membership, and one discussion's failure does not
+//! discard sibling work.
 
 use forgesync_core::identity::RunId;
 use forgesync_core::outcome::OperationOutcome;
 use forgesync_store::runs::{RunRecord, SyncJobRecord};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::reference::RepositorySelector;
 
 mod accounting;
-mod comment_job;
-mod comments;
 mod coordinator;
-mod family_job;
-mod jobs;
-mod metadata;
-mod pull_requests;
-mod repository_work;
-mod review_collection;
-mod review_threads;
-mod reviews;
-mod scope;
-mod support;
-mod thread_job;
+mod families;
+mod repository;
 
 pub use coordinator::sync_repositories;
 
 /// Thread scope requested for one sync run.
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncThreadScope {
     /// Fetch open threads and run the durable closed-thread sweep.
@@ -158,4 +138,24 @@ pub struct SyncReport {
     pub review_threads_seen: u64,
     /// Terminal outcome persisted on the run.
     pub outcome: OperationOutcome,
+}
+
+/// Original request scope persisted on a run and read back for retry planning.
+#[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub(crate) struct RunScope {
+    /// Normalized repository URLs selected by the run.
+    pub repositories: Vec<String>,
+    /// Whether the run selected all registered repositories.
+    pub all: bool,
+    pub thread_scope: SyncThreadScope,
+    pub include_comments: bool,
+    pub include_reviews: bool,
+    pub include_review_threads: bool,
+}
+
+impl RunScope {
+    /// Decodes a persisted scope; unreadable data enables no additional acquisition.
+    pub fn decode(value: &serde_json::Value) -> Self {
+        Self::deserialize(value).unwrap_or_default()
+    }
 }

@@ -144,6 +144,7 @@ impl EmbeddingStage<'_> {
         documents
     }
 
+    /// Renders one discussion from its stored detail and persists the document under `lease`.
     async fn materialize_one(
         &self,
         lease: &ArchiveLeaseToken,
