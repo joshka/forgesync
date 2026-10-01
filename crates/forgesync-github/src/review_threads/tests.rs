@@ -77,7 +77,6 @@ async fn review_thread_pages_include_complete_nested_comments_and_resolution_sta
                     "path": "src/archive.rs",
                     "line": 42,
                     "startLine": 40,
-                    "viewerCanResolve": true,
                     "comments": {
                         "nodes": [review_comment("PRRC_fixture_1", "2026-09-19T16:00:00Z")],
                         "pageInfo": {"hasNextPage": true, "endCursor": "comment-cursor-1"}

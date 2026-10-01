@@ -14,8 +14,6 @@
 //! provider data. A new resource family also needs engine acquisition and store coverage handling;
 //! adding a DTO alone does not make the archive complete.
 
-use std::collections::BTreeMap;
-
 use forgesync_core::content::{
     BranchRef, Comment, Discussion, PullRequestMetadata, Repository, Review, ReviewState,
     ReviewerIdentity, SourceState, ThreadKind,
@@ -46,7 +44,7 @@ pub fn normalize_repository(
     let full_name = repository
         .full_name
         .unwrap_or_else(|| format!("{owner}/{}", repository.name));
-    let mut provider_data = provider_data(repository.extra);
+    let mut provider_data = ProviderData::from(repository.extra);
     provider_data.insert(
         "owner",
         serde_json::to_value(&repository.owner).map_err(json_error)?,
@@ -122,7 +120,7 @@ impl RestIssue {
     /// along with user and pull-request markers, while leaving scalar discussion fields available
     /// for domain construction. No archive write or completeness decision occurs here.
     fn take_provider_data(&mut self) -> Result<ProviderData, GitHubError> {
-        let mut retained = provider_data(std::mem::take(&mut self.extra));
+        let mut retained = ProviderData::from(std::mem::take(&mut self.extra));
         if let Some(user) = self.user.take() {
             retained.insert("user", serde_json::to_value(user).map_err(json_error)?);
         }
@@ -161,7 +159,7 @@ pub fn normalize_comment(thread: &ThreadId, comment: RestComment) -> Result<Comm
         .and_then(|user| user.get("login"))
         .and_then(Value::as_str)
         .map(str::to_owned);
-    let mut provider_data = provider_data(comment.extra);
+    let mut provider_data = ProviderData::from(comment.extra);
     if let Some(user) = comment.user {
         provider_data.insert("user", user);
     }
@@ -185,7 +183,7 @@ pub fn normalize_pull_request(
     let head_source = serde_json::to_value(&pull_request.head).map_err(json_error)?;
     let base = normalize_branch_ref(repository.id.host(), pull_request.base)?;
     let head = normalize_branch_ref(repository.id.host(), pull_request.head)?;
-    let mut provider_data = provider_data(pull_request.extra);
+    let mut provider_data = ProviderData::from(pull_request.extra);
     provider_data.insert("base_source", base_source);
     provider_data.insert("head_source", head_source);
 
@@ -232,7 +230,7 @@ pub fn normalize_review(thread: &ThreadId, review: RestReview) -> Result<Review,
         .transpose()
         .map_err(|_| GitHubError::InvalidProviderData)?;
     let reviewer = review.user.as_ref().and_then(normalize_reviewer);
-    let mut provider_data = provider_data(review.extra);
+    let mut provider_data = ProviderData::from(review.extra);
     if let Some(user) = review.user {
         provider_data.insert("user", user);
     }
@@ -287,15 +285,6 @@ pub fn normalize_review_state(state: &str) -> ReviewState {
 /// Rejects provider timestamps outside the archive's UTC representation.
 pub fn parse_timestamp(value: String) -> Result<UtcTimestamp, GitHubError> {
     UtcTimestamp::parse(&value).map_err(|_| GitHubError::InvalidProviderData)
-}
-
-/// Retains unmapped provider fields alongside normalized domain values.
-pub fn provider_data(extra: BTreeMap<String, Value>) -> ProviderData {
-    let mut provider_data = ProviderData::new();
-    for (name, value) in extra {
-        provider_data.insert(name, value);
-    }
-    provider_data
 }
 
 /// Hides raw provider payloads when converting a JSON decoding failure.

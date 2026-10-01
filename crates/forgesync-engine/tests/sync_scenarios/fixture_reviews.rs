@@ -101,7 +101,7 @@ pub fn review_thread_page(
 
 /// Builds a review thread with explicit identity/resolution and a complete empty comment page.
 ///
-/// Location and viewer capabilities are fixed incidental metadata. Resolution is an observed fact,
+/// Location is fixed incidental metadata. Resolution is an observed fact,
 /// not an instruction to change the archived discussion.
 pub fn review_thread(id: &str, is_resolved: bool) -> serde_json::Value {
     json!({
@@ -111,7 +111,6 @@ pub fn review_thread(id: &str, is_resolved: bool) -> serde_json::Value {
         "path": "src/lib.rs",
         "line": 42,
         "startLine": null,
-        "viewerCanResolve": true,
         "comments": {
             "nodes": [],
             "pageInfo": {"hasNextPage": false, "endCursor": null}

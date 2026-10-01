@@ -30,9 +30,7 @@ pub fn normalize_review_thread(
         .line
         .map(|line| u64::try_from(line).map_err(|_| GitHubError::InvalidProviderData))
         .transpose()?;
-    let mut provider_data =
-        ProviderData::from_value(Value::Object(node.extra.into_iter().collect()))
-            .map_err(|_| GitHubError::InvalidProviderData)?;
+    let mut provider_data = ProviderData::from(node.extra);
     if let Some(start_line) = node.start_line {
         provider_data.insert("startLine", Value::from(start_line));
     }
@@ -50,9 +48,7 @@ pub fn normalize_review_thread(
 
 /// Converts a GraphQL review comment without losing provider identity.
 fn normalize_comment(thread: &ThreadId, comment: GraphqlComment) -> Result<Comment, GitHubError> {
-    let mut provider_data =
-        ProviderData::from_value(Value::Object(comment.extra.into_iter().collect()))
-            .map_err(|_| GitHubError::InvalidProviderData)?;
+    let mut provider_data = ProviderData::from(comment.extra);
     if let Some(database_id) = comment.database_id {
         provider_data.insert("databaseId", Value::from(database_id));
     }

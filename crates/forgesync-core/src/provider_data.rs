@@ -78,3 +78,9 @@ impl ProviderData {
         &self.0
     }
 }
+
+impl From<BTreeMap<String, Value>> for ProviderData {
+    fn from(fields: BTreeMap<String, Value>) -> Self {
+        Self(fields)
+    }
+}

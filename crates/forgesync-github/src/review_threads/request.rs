@@ -25,7 +25,6 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
       reviewThreads(first: 100, after: $cursor) {
         nodes {
           id isResolved isOutdated path line startLine
-          viewerCanResolve viewerCanUnresolve viewerCanReply
           comments(first: 100) {
             nodes {
               id databaseId body
