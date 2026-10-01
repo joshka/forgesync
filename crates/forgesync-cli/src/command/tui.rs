@@ -1,84 +1,50 @@
-//! # Launch the terminal browser
+//! Launch the terminal browser.
 //!
-//! [`run_tui`] is the process adapter between CLI startup and `forgesync_tui`. It rejects JSON
-//! output and requires interactive standard input and output before opening an existing archive
-//! for writes. Opening does not create or migrate that archive; write access supports the actions
-//! that the browser exposes through engine operations.
-//!
-//! Startup reads registered repositories and prepares GitHub clients for their hosts. Client
-//! setup can discover credentials, including through a subprocess, but does not acquire discussion
-//! evidence. Its cancellation token covers that setup phase. The TUI owns cancellation for its
-//! subsequent interactive workflows.
-//!
-//! Failures before handoff close the opened archive before returning a CLI diagnostic. Successful
-//! setup transfers the archive and clients to the TUI, which owns navigation, drawing, actions,
-//! terminal restoration, and archive shutdown. This adapter translates the returned result into a
-//! shell exit status; it does not manage browser state or draw a frame.
+//! Startup prepares GitHub clients for every registered repository's host, which can discover
+//! credentials but acquires no evidence. The archive and clients are then handed to the TUI, which
+//! owns cancellation, terminal restoration, and archive shutdown.
 
 use std::io::IsTerminal;
-use std::process::ExitCode;
+use std::path::Path;
 
 use forgesync_engine::reference::RepositorySelector;
 use forgesync_store::archive::Archive;
+use forgesync_tui::TuiError;
+use tokio_util::sync::CancellationToken;
 
-use crate::command::github::{github_clients_for_selectors, render_github_client_setup_error};
-use crate::{OutputMode, render_error, render_store_error, usage_error};
+use crate::command::github::github_clients_for_selectors;
+use crate::error::{CliError, Exit};
 
-/// Starts the interactive browser after checking terminal and archive prerequisites.
-pub async fn run_tui(path: &std::path::Path, json: OutputMode, verbose: u8) -> ExitCode {
-    if let Some(status) = validate_terminal(json) {
-        return status;
+/// Rejects noninteractive streams before configuration or archive access.
+pub fn check_terminal() -> Result<(), CliError> {
+    if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
+        Ok(())
+    } else {
+        Err(TuiError::NotTerminal.into())
     }
-    launch(path, verbose).await
 }
 
-/// Rejects incompatible output or noninteractive streams before configuration and archive access.
-/// Returns the rendered process status; a valid interactive invocation proceeds without effects.
-pub fn validate_terminal(json: OutputMode) -> Option<ExitCode> {
-    if json.is_json() {
-        return Some(usage_error(
-            "--json is not supported by the interactive tui command",
-        ));
+/// Opens the archive and prepares clients, then hands both to the TUI.
+pub async fn run_tui(path: &Path, verbose: u8) -> Result<Exit, CliError> {
+    let archive = Archive::open_read_write(path).await?;
+    let clients = async {
+        let selectors = archive
+            .list_repositories()
+            .await?
+            .iter()
+            .map(RepositorySelector::from_repository)
+            .collect::<Vec<_>>();
+        github_clients_for_selectors(&selectors, verbose, &CancellationToken::new()).await
     }
-    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
-        return Some(render_error(
-            OutputMode::Text,
-            "tui",
-            "tui_requires_terminal",
-            "the tui command requires an interactive terminal",
-        ));
-    }
-    None
-}
-
-/// Opens the selected archive and prepares host clients before transferring ownership to the TUI.
-async fn launch(path: &std::path::Path, verbose: u8) -> ExitCode {
-    let archive = match Archive::open_read_write(path).await {
-        Ok(archive) => archive,
-        Err(error) => return render_store_error(OutputMode::Text, "tui", error),
-    };
-    let registered = match archive.list_repositories().await {
-        Ok(registered) => registered,
+    .await;
+    match clients {
+        Ok(clients) => {
+            forgesync_tui::run(archive, clients).await?;
+            Ok(Exit::Success)
+        }
         Err(error) => {
             archive.close().await;
-            return render_store_error(OutputMode::Text, "tui", error);
+            Err(error)
         }
-    };
-    let selectors = registered
-        .iter()
-        .map(RepositorySelector::from_repository)
-        .collect::<Vec<_>>();
-    let cancellation = tokio_util::sync::CancellationToken::new();
-    let clients = match github_clients_for_selectors(&selectors, verbose, &cancellation).await {
-        Ok(clients) => clients,
-        Err(error) => {
-            archive.close().await;
-            return render_github_client_setup_error(OutputMode::Text, "tui", error);
-        }
-    };
-    let result = forgesync_tui::run(archive, clients).await;
-    match result {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => render_error(OutputMode::Text, "tui", error.code(), &error.to_string()),
     }
 }

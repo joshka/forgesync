@@ -1,10 +1,5 @@
-//! # GitHub resource normalization
-//!
-//! Fixture-backed cases show how REST repository and discussion responses become stable domain
-//! identities. They also cover enterprise base paths and pagination links, where a seemingly
-//! harmless URL join can lose provider scope. Read these cases with `resources` and `transport`
-//! before changing URL construction or DTO mapping. The expected values represent the boundary
-//! between provider payloads and normalized core data.
+//! REST acquisition and normalization against fixture payloads, including enterprise base paths
+//! and pagination links.
 
 use std::path::Path;
 
@@ -19,14 +14,12 @@ use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::resources::{
-    fetch_issue_comment_page, fetch_pull_request_metadata, fetch_pull_request_review_page,
-    fetch_repository, fetch_thread_page,
+    ThreadListState, fetch_issue_comment_page, fetch_pull_request_metadata,
+    fetch_pull_request_review_page, fetch_repository, fetch_thread_page_in_scope,
 };
 use crate::transport::{GitHubClient, GitHubClientConfig};
 
-/// Loads a synthetic provider payload by its catalog filename without normalizing it.
-///
-/// Call sites show any scenario-specific mutations before the payload reaches the mock server.
+/// Loads a synthetic provider payload from `fixtures/github`.
 fn fixture(name: &str) -> serde_json::Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/github")
@@ -95,24 +88,28 @@ async fn repository_and_thread_rest_responses_normalize_stable_provider_identity
         Some(&json!("R_fixture_41"))
     );
 
-    let page = fetch_thread_page(&client, &repository, None, &CancellationToken::new())
-        .await
-        .unwrap();
-    assert_eq!(page.discussions.len(), 2);
-    assert_eq!(page.discussions[0].id.number().get(), 17);
-    assert_eq!(page.discussions[0].kind, ThreadKind::Issue);
-    assert_eq!(page.discussions[1].kind, ThreadKind::PullRequest);
-    assert_eq!(page.discussions[1].labels, ["feature"]);
-    assert_eq!(page.discussions[1].assignees, ["sample-reviewer"]);
+    let page = fetch_thread_page_in_scope(
+        &client,
+        &repository,
+        None,
+        ThreadListState::All,
+        None,
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(page.items.len(), 2);
+    assert_eq!(page.items[0].id.number().get(), 17);
+    assert_eq!(page.items[0].kind, ThreadKind::Issue);
+    assert_eq!(page.items[1].kind, ThreadKind::PullRequest);
+    assert_eq!(page.items[1].labels, ["feature"]);
+    assert_eq!(page.items[1].assignees, ["sample-reviewer"]);
     assert_eq!(
-        page.discussions[1].provider_data.get("node_id"),
+        page.items[1].provider_data.get("node_id"),
         Some(&json!("PR_fixture_1802"))
     );
     assert_eq!(
-        page.discussions[1]
-            .provider_data
-            .get("labels_source")
-            .unwrap()[0]["color"],
+        page.items[1].provider_data.get("labels_source").unwrap()[0]["color"],
         "abcdef"
     );
 }
@@ -144,10 +141,17 @@ async fn thread_page_retains_enterprise_base_path_and_next_link() {
         updated_at: Some(UtcTimestamp::parse("2026-09-20T12:00:00Z").unwrap()),
         provider_data: ProviderData::new(),
     };
-    let page = fetch_thread_page(&client, &repository, None, &CancellationToken::new())
-        .await
-        .unwrap();
-    assert_eq!(page.discussions.len(), 1);
+    let page = fetch_thread_page_in_scope(
+        &client,
+        &repository,
+        None,
+        ThreadListState::All,
+        None,
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(page.items.len(), 1);
     let expected_next = Url::parse(&format!(
         "{}/api/v3/repos/fixture-lab/archive-demo/issues?page=2",
         server.uri()
@@ -230,13 +234,13 @@ async fn issue_comment_pages_normalize_identity_and_preserve_unknown_fields() {
     )
     .await
     .expect("first comment page");
-    assert_eq!(first.comments.len(), 1);
-    assert_eq!(first.comments[0].id.thread(), &thread);
-    assert_eq!(first.comments[0].id.provider_id().as_str(), "3001");
-    assert_eq!(first.comments[0].body, "first response");
-    assert_eq!(first.comments[0].author.as_deref(), Some("reviewer"));
+    assert_eq!(first.items.len(), 1);
+    assert_eq!(first.items[0].id.thread(), &thread);
+    assert_eq!(first.items[0].id.provider_id().as_str(), "3001");
+    assert_eq!(first.items[0].body, "first response");
+    assert_eq!(first.items[0].author.as_deref(), Some("reviewer"));
     assert_eq!(
-        first.comments[0].provider_data.get("author_association"),
+        first.items[0].provider_data.get("author_association"),
         Some(&json!("CONTRIBUTOR"))
     );
     assert!(first.next_page.is_some());
@@ -250,14 +254,14 @@ async fn issue_comment_pages_normalize_identity_and_preserve_unknown_fields() {
     )
     .await
     .expect("second comment page");
-    assert_eq!(second.comments.len(), 1);
-    assert_eq!(second.comments[0].id.provider_id().as_str(), "3002");
-    assert_eq!(second.comments[0].id.thread(), &thread);
-    assert_eq!(second.comments[0].body, "second response");
-    assert_eq!(second.comments[0].author, None);
-    assert_eq!(second.comments[0].updated_at, None);
+    assert_eq!(second.items.len(), 1);
+    assert_eq!(second.items[0].id.provider_id().as_str(), "3002");
+    assert_eq!(second.items[0].id.thread(), &thread);
+    assert_eq!(second.items[0].body, "second response");
+    assert_eq!(second.items[0].author, None);
+    assert_eq!(second.items[0].updated_at, None);
     assert_eq!(
-        second.comments[0].provider_data.get("node_id"),
+        second.items[0].provider_data.get("node_id"),
         Some(&json!("IC_fixture_3002"))
     );
     assert!(second.next_page.is_none());
@@ -395,18 +399,15 @@ async fn pull_request_metadata_and_reviews_keep_head_and_reviewer_provenance() {
     let first = fetch_pull_request_review_page(&client, &repository, &thread, None, &cancellation)
         .await
         .expect("first review page");
-    assert_eq!(first.reviews.len(), 1);
-    assert_eq!(first.reviews[0].id.thread(), &thread);
-    assert_eq!(first.reviews[0].state, ReviewState::Approved);
-    let reviewer = first.reviews[0]
-        .reviewer
-        .as_ref()
-        .expect("reviewer identity");
+    assert_eq!(first.items.len(), 1);
+    assert_eq!(first.items[0].id.thread(), &thread);
+    assert_eq!(first.items[0].state, ReviewState::Approved);
+    let reviewer = first.items[0].reviewer.as_ref().expect("reviewer identity");
     assert_eq!(reviewer.provider_id.as_ref().unwrap().as_str(), "51");
     assert_eq!(reviewer.login.as_deref(), Some("reviewer"));
     assert_eq!(reviewer.provider_data.get("type"), Some(&json!("User")));
     assert_eq!(
-        first.reviews[0].provider_data.get("author_association"),
+        first.items[0].provider_data.get("author_association"),
         Some(&json!("MEMBER"))
     );
     assert!(first.next_page.is_some());
@@ -420,9 +421,9 @@ async fn pull_request_metadata_and_reviews_keep_head_and_reviewer_provenance() {
     )
     .await
     .expect("second review page");
-    assert_eq!(second.reviews.len(), 1);
-    assert_eq!(second.reviews[0].state, ReviewState::Pending);
-    assert!(second.reviews[0].reviewer.is_none());
-    assert!(second.reviews[0].commit_sha.is_none());
+    assert_eq!(second.items.len(), 1);
+    assert_eq!(second.items[0].state, ReviewState::Pending);
+    assert!(second.items[0].reviewer.is_none());
+    assert!(second.items[0].commit_sha.is_none());
     assert!(second.next_page.is_none());
 }

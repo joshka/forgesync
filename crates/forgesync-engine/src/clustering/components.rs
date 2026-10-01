@@ -1,15 +1,5 @@
-//! # Turn selected edges into bounded components
-//!
-//! `bounded_components` applies cluster-size limits to deterministic edges using union-find.
-//! `proposals` chooses representatives and constructs member projections after grouping. A rejected
-//! union cannot grow a component beyond the configured maximum.
-//!
-//! `evidence` decides which edges qualify; this module decides how qualifying edges form groups.
-//! The input document order and edge order are already stable. Representatives use retained degree
-//! and deterministic identity ties in that neighboring module. The store reconciles proposals with
-//! local decisions.
-//!
-//! These pure transformations never modify archive state or source observations.
+//! Turn selected edges into size-bounded components with union-find; a union that would exceed
+//! the maximum component size is rejected.
 
 use std::collections::HashMap;
 
@@ -21,15 +11,9 @@ use crate::scoring::stable_thread_id_cmp;
 
 /// Builds connected groups without exceeding the configured size.
 ///
-/// The caller supplies validated options and edges whose endpoints index `documents`. Edge order
-/// decides which unions are admitted when the size limit prevents retaining every relationship;
-/// candidate construction establishes that order before calling this helper. An edge within an
-/// already joined component remains retained for representative degree and direct-score evidence.
-///
-/// Returns every component, including singletons, with stable identity-ordered members and larger
-/// components first. Equal sizes use stable identity ties. Minimum-size filtering belongs to
-/// proposal projection rather than this grouping phase. Empty documents and edges return empty
-/// outputs; invalid endpoint indexes are a caller error and can panic.
+/// Edge order decides which unions are admitted when the size limit prevents retaining every
+/// relationship. An edge within an already joined component is still retained for representative
+/// evidence. Returns every component, singletons included, largest first with identity ties.
 pub fn bounded_components(
     documents: &[EmbeddingSearchDocument],
     edges: &[CandidateEdge],

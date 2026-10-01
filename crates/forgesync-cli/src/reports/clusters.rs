@@ -1,15 +1,7 @@
-//! # Explain cluster generations and triage
+//! Cluster generation, list, detail, and decision summaries.
 //!
-//! These summaries present build counts, list pages, cluster detail, and recorded maintainer
-//! decisions. Their input types come from the engine and store projections, not raw SQL.
-//!
-//! A generated suggestion and a local decision have different meanings. Terminal wording should
-//! preserve that distinction so a reader knows whether they are seeing analysis output or an
-//! explicit choice.
-//!
-//! [`ClusterDecisionOutput`] identifies a successfully recorded action for command JSON and human
-//! confirmation. Build/page/detail functions consume their engine/store reports directly. They
-//! format local evidence and decisions without sending GitHub write-back or recomputing clusters.
+//! A generated suggestion and a local maintainer decision have different meanings; wording keeps
+//! them distinguishable.
 
 use forgesync_engine::clustering::ClusterBuildReport;
 use forgesync_store::clusters::{
@@ -21,13 +13,12 @@ use serde::Serialize;
 /// Recorded local maintainer action, separate from a generated cluster suggestion.
 #[derive(Debug, Serialize)]
 pub struct ClusterDecisionOutput {
-    /// Archive-local cluster identity affected by the successful decision.
     pub cluster_id: u64,
-    /// Stable action label chosen by the command, such as dismiss, restore, or exclude.
+    /// Past-tense action label, such as `dismissed` or `member_excluded`.
     pub action: &'static str,
 }
 
-/// Summarizes the generated cluster count and coverage for human output.
+/// Summarizes generated groups and whether vector coverage was complete.
 pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     let coverage = if report.generation.complete_coverage {
         "complete"
@@ -46,7 +37,7 @@ pub fn cluster_build_summary(report: &ClusterBuildReport) -> String {
     )
 }
 
-/// Formats one page of cluster summaries for terminal inspection.
+/// Lists one page of clusters, with a continuation hint when more exist.
 pub fn cluster_page_summary(page: &ClusterPage) -> String {
     if page.items.is_empty() {
         return "No clusters found".to_owned();
@@ -60,7 +51,7 @@ pub fn cluster_page_summary(page: &ClusterPage) -> String {
     lines.join("\n")
 }
 
-/// Formats a cluster and its member decisions without mutating them.
+/// Shows one cluster heading followed by its members and their local decisions.
 pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     let mut lines = vec![cluster_heading(&detail.cluster)];
     if detail.cluster.dismissed {
@@ -77,7 +68,7 @@ pub fn cluster_detail_summary(detail: &ClusterDetail) -> String {
     lines.join("\n")
 }
 
-/// Shows lifecycle, dismissal, and inclusion counts as distinct facts in one list row.
+/// Shows lifecycle, dismissal, and member counts as distinct facts in one row.
 fn cluster_row(cluster: &ClusterSummary) -> String {
     let lifecycle = lifecycle_name(cluster.lifecycle);
     let dismissed = if cluster.dismissed { ", dismissed" } else { "" };
@@ -92,7 +83,7 @@ fn cluster_row(cluster: &ClusterSummary) -> String {
     )
 }
 
-/// Identifies the cluster and effective representative before its current member decisions.
+/// Identifies the cluster and its effective representative.
 fn cluster_heading(cluster: &ClusterSummary) -> String {
     let lifecycle = lifecycle_name(cluster.lifecycle);
     let representative = cluster.representative.as_ref().map_or_else(
@@ -106,7 +97,7 @@ fn cluster_heading(cluster: &ClusterSummary) -> String {
     )
 }
 
-/// Presents membership role independently of its active/excluded/removed state.
+/// Shows one member with its role and inclusion state.
 fn member_row(member: &ClusterMember) -> String {
     let role = member_role_name(member.role);
     let state = member_state_name(member.state);
@@ -118,7 +109,7 @@ fn member_row(member: &ClusterMember) -> String {
     )
 }
 
-/// Names generation lifecycle without conflating it with local dismissal.
+/// Generation lifecycle, which is independent of local dismissal.
 fn lifecycle_name(lifecycle: ClusterLifecycle) -> &'static str {
     match lifecycle {
         ClusterLifecycle::Active => "active",
@@ -135,7 +126,7 @@ fn member_role_name(role: ClusterMemberRole) -> &'static str {
     }
 }
 
-/// Keeps inclusion-state labels independent of representative/canonical role.
+/// Inclusion state, which is independent of the member's role.
 fn member_state_name(state: ClusterMemberState) -> &'static str {
     match state {
         ClusterMemberState::Active => "active",
@@ -144,25 +135,13 @@ fn member_state_name(state: ClusterMemberState) -> &'static str {
     }
 }
 
-/// Confirms the local maintainer action recorded for a cluster.
+/// Confirms the local decision recorded for a cluster.
 pub fn cluster_decision_summary(output: &ClusterDecisionOutput) -> String {
     format!("Cluster #{}: {}", output.cluster_id, output.action)
 }
 
 #[cfg(test)]
 mod tests {
-    //! # Empty clusters and decision acknowledgment projections
-    //!
-    //! These cases construct an empty stored page and a command acknowledgment directly.
-    //! An empty page has explicit no-results wording; a decision retains local cluster ID and
-    //! action. Whole-value JSON comparison protects those acknowledgment fields from accidental
-    //! changes.
-    //!
-    //! This projection does not apply the decision or verify that the target exists.
-    //! Command process cases establish mutation/error dispatch; store tests establish persistence.
-    //! Static values isolate representation from graph construction and provider acquisition.
-    //! The two small contracts stay inline beside their presentation owner.
-
     #[test]
     fn empty_page_uses_the_existing_no_clusters_message() {
         let page = forgesync_store::clusters::ClusterPage {

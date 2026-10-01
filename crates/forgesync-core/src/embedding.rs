@@ -1,14 +1,7 @@
 //! Validated vectors at the boundary of semantic retrieval.
 //!
-//! [`EmbeddingVector`] owns finite, nonempty, nonzero-norm `f32` components. Construct it with
-//! [`EmbeddingVector::new`] after receiving service output, optionally checking the model's
-//! expected dimension. The little-endian methods encode the archive representation and validate it
-//! again on read. [`EmbeddingVectorError`] distinguishes malformed dimensions, numeric values, and
-//! bytes.
-//!
-//! The vector does not carry a model name or document recipe. The engine and store pair it with
-//! that metadata before exact similarity comparison, so vectors from incompatible spaces are not
-//! mixed. Validation here keeps later search math from silently ranking NaN or empty inputs.
+//! The vector does not carry a model name or document recipe; the engine and store pair it with
+//! that metadata so vectors from incompatible spaces are not mixed.
 //!
 //! ```
 //! use forgesync_core::embedding::EmbeddingVector;
@@ -19,41 +12,18 @@
 
 use thiserror::Error;
 
-/// A validated finite, non-zero-norm embedding vector.
-///
-/// Construct this from service output before storing it or computing similarity. The expected
-/// dimension is optional when decoding an existing vector, but should be supplied when a model
-/// declares one.
-///
-/// # Examples
-///
-/// ```
-/// use forgesync_core::embedding::EmbeddingVector;
-///
-/// let vector = EmbeddingVector::new(vec![0.5, -0.25], Some(2))?;
-/// assert_eq!(vector.dimensions(), 2);
-/// assert_eq!(vector.values(), &[0.5, -0.25]);
-/// # Ok::<(), forgesync_core::embedding::EmbeddingVectorError>(())
-/// ```
+/// A validated nonempty, finite, non-zero-norm embedding vector.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EmbeddingVector {
-    /// Finite model-order components with validated nonempty dimension and nonzero squared norm.
     values: Vec<f32>,
 }
 
 impl EmbeddingVector {
-    /// Validates a model vector and, when supplied, its expected dimension.
-    ///
-    /// Empty, non-finite, zero-norm, and dimension-mismatched vectors are rejected. The input
-    /// order is preserved; this method does not normalize the vector's length. Components remain
-    /// unchanged, including finite magnitudes larger or smaller than unit length.
+    /// Validates a model vector, without normalizing it, and its expected dimension when supplied.
     ///
     /// # Errors
     ///
-    /// Validation checks representable/nonempty dimension first, then the optional expected
-    /// dimension, then finite components and nonzero norm. When multiple conditions are invalid,
-    /// the first applicable check determines the error. Matching dimensions alone does not prove
-    /// that two vectors belong to the same service/model space.
+    /// Checks dimension range, expected dimension, finiteness, then norm; the first failure wins.
     pub fn new(
         values: Vec<f32>,
         expected_dimensions: Option<u32>,
@@ -85,17 +55,12 @@ impl EmbeddingVector {
         Ok(Self { values })
     }
 
-    /// Decodes exactly `dimensions` little-endian IEEE 754 `f32` components and validates them.
-    ///
-    /// The byte count must equal four times a nonzero dimension. Decoding preserves component order
-    /// and magnitude; it does not normalize vectors or check service/model compatibility metadata.
-    /// That metadata belongs to the store/engine record carrying this value.
+    /// Decodes exactly `dimensions` little-endian `f32` components and validates them.
     ///
     /// # Errors
     ///
-    /// Returns [`EmbeddingVectorError::InvalidEncoding`] for zero dimensions, an unrepresentable
-    /// byte count, or a length mismatch. Decoded non-finite or zero-norm values produce the same
-    /// validation errors as [`Self::new`].
+    /// Returns [`EmbeddingVectorError::InvalidEncoding`] for zero dimensions or a length mismatch,
+    /// and otherwise the same validation errors as [`Self::new`].
     pub fn from_little_endian(bytes: &[u8], dimensions: u32) -> Result<Self, EmbeddingVectorError> {
         let expected_bytes = usize::try_from(dimensions)
             .ok()
@@ -113,27 +78,15 @@ impl EmbeddingVector {
         Self::new(values, Some(dimensions))
     }
 
-    /// Returns the validated nonzero component count in the archive's dimension unit.
-    ///
-    /// This describes shape only; it does not identify the model or prove compatibility with
-    /// another vector of the same dimension.
     pub fn dimensions(&self) -> u32 {
         u32::try_from(self.values.len()).expect("validated vector dimensions fit u32")
     }
 
-    /// Borrows the original finite components in model order without normalization.
-    ///
-    /// The immutable slice preserves constructor validation. Similarity calculations may use
-    /// magnitude-independent cosine math, but this value does not store unit-length components.
     pub fn values(&self) -> &[f32] {
         &self.values
     }
 
-    /// Encodes model-order components as consecutive little-endian IEEE 754 `f32` bytes.
-    ///
-    /// The returned buffer contains exactly four bytes per component, without a header or dimension
-    /// prefix. Store the dimension and compatibility metadata alongside it; decoding requires the
-    /// explicit dimension and revalidates numeric content.
+    /// Encodes components as little-endian `f32` bytes with no header or dimension prefix.
     pub fn to_little_endian(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(self.values.len() * 4);
         for value in &self.values {
@@ -146,44 +99,23 @@ impl EmbeddingVector {
 /// A vector value failed dimension, numeric, or storage validation.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum EmbeddingVectorError {
-    /// An embedding response contained no components.
     #[error("embedding vector is empty")]
     Empty,
-    /// The number of components cannot be represented by the archive format.
     #[error("embedding vector dimension is out of range")]
     DimensionOutOfRange,
-    /// The vector has a different dimension than the configured model dimension.
     #[error("embedding vector has {actual} dimensions; expected {expected}")]
-    WrongDimensions {
-        /// Configured or otherwise required dimensions.
-        expected: u32,
-        /// Returned dimensions.
-        actual: u32,
-    },
-    /// The vector contains NaN or an infinite component.
+    WrongDimensions { expected: u32, actual: u32 },
     #[error("embedding vector contains a non-finite component")]
     NonFinite,
-    /// The vector has no direction because all components are zero.
     #[error("embedding vector has zero norm")]
     ZeroNorm,
-    /// The persisted bytes do not match the declared dimensions.
     #[error("embedding vector bytes do not match the declared dimensions")]
     InvalidEncoding,
 }
 
 #[cfg(test)]
 mod tests {
-    //! # Validated vector and archive encoding boundaries
-    //!
-    //! The round-trip case fixes the vector's dimensions and little-endian byte representation.
-    //! Named model-input cases distinguish empty, mismatched, zero-norm, and nonfinite vectors.
-    //! Named archive-input cases reject zero dimensions, truncated components, and trailing bytes.
-    //! Each rejection compares the specific typed error rather than accepting any failure.
-    //!
-    //! Inputs are local values with no model service or SQLite setup. Engine tests own request
-    //! retries and model-response handling; store tests own persisted vector compatibility.
-    //! This suite establishes the core value and codec contracts those boundaries depend on.
-    //! Small direct cases stay near the implementation and need no workflow fixture.
+    //! Vector validation errors and the little-endian archive codec.
 
     use crate::embedding::{EmbeddingVector, EmbeddingVectorError};
 

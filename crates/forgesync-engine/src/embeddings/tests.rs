@@ -1,22 +1,13 @@
-//! # Embedding request batch limits
-//!
-//! Named cases check input-count and UTF-8 byte limits independently and together using static
-//! tasks. The source document fixture supplies normalized identity and text without provider or
-//! archive I/O. Request batching groups already selected chunks; it does not choose cache
-//! compatibility or regenerate their content hashes.
-//!
-//! Each expected batch size exposes one count/byte boundary without nested assertion logic.
-//! Document chunking has its own nearby cases under `chunks`, while integration scenarios establish
-//! retained successful batches and retry. Scheduling cancellation and writer-fence behavior remain
-//! workflow contracts.
+//! Request batch limits and worker draining.
 
 use std::sync::Arc;
 
 use rstest::rstest;
+use tokio::sync::oneshot;
+use tokio::task::JoinSet;
 
-use crate::embeddings::batches::make_batches;
 use crate::embeddings::chunks::DocumentChunk;
-use crate::embeddings::selection::EmbeddingTask;
+use crate::embeddings::{BatchResponse, EmbeddingTask, drain, make_batches};
 
 #[rstest]
 #[case::input_count(2, 40, &[2, 2, 1])]
@@ -37,15 +28,12 @@ fn request_batches_obey_count_and_combined_byte_limits(
     ];
 
     let batches = make_batches(tasks, max_inputs, max_bytes);
-    let counts = batches
-        .iter()
-        .map(|batch| batch.tasks.len())
-        .collect::<Vec<_>>();
+    let counts = batches.iter().map(Vec::len).collect::<Vec<_>>();
 
     assert_eq!(counts, expected_counts);
     let positions = batches
         .iter()
-        .flat_map(|batch| batch.tasks.iter().map(|task| task.chunk.index))
+        .flat_map(|batch| batch.iter().map(|task| task.chunk.index))
         .collect::<Vec<_>>();
     assert_eq!(positions, [0, 1, 2, 3, 4]);
 }
@@ -61,10 +49,28 @@ fn aggregate_limit_counts_utf8_bytes_rather_than_characters() {
     let batches = make_batches(vec![first, second], 2, 4);
 
     assert_eq!(batches.len(), 2);
-    assert_eq!(batches[0].tasks.len(), 1);
-    assert_eq!(batches[0].tasks[0].chunk.text, "🦀");
-    assert_eq!(batches[1].tasks.len(), 1);
-    assert_eq!(batches[1].tasks[0].chunk.text, "🐙");
+    assert_eq!(batches[0].len(), 1);
+    assert_eq!(batches[0][0].chunk.text, "🦀");
+    assert_eq!(batches[1].len(), 1);
+    assert_eq!(batches[1][0].chunk.text, "🐙");
+}
+
+#[tokio::test]
+async fn drain_waits_for_pending_workers_to_drop_their_resources() {
+    let mut workers = JoinSet::<BatchResponse>::new();
+    let (resource, mut released) = oneshot::channel::<()>();
+    workers.spawn(async move {
+        let _resource = resource;
+        std::future::pending().await
+    });
+
+    drain(&mut workers).await;
+
+    assert!(workers.is_empty());
+    assert_eq!(
+        released.try_recv(),
+        Err(oneshot::error::TryRecvError::Closed)
+    );
 }
 
 /// Constructs one four-byte input with an explicit position in the five-chunk fixture.

@@ -4,7 +4,6 @@
 //! The store chooses canonical acquired evidence while retaining incomplete attempts independently.
 //! `parent_high_water` covers independent source/evidence selection; `parent_integrity` covers
 //! replay and rejected conflicts.
-//! `ordering` covers direct clock and acquisition-sequence comparisons without a database.
 //! The `child_*` suites isolate replay, partial/empty attempts, head snapshots, and supersession.
 //! `rollback_comments` and `rollback_review_threads` isolate their atomic publication contracts.
 //!
@@ -13,10 +12,10 @@
 //! Scenario imports name that owner directly rather than depending on root imports.
 //! Provider traversal and workflow scheduling remain engine integration responsibilities.
 
+mod common;
+
 #[path = "observation_transactions/fixture.rs"]
 mod fixture;
-#[path = "observation_transactions/ordering.rs"]
-mod ordering;
 
 #[path = "observation_transactions/child_empty_attempt.rs"]
 mod child_empty_attempt;

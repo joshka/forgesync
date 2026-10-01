@@ -1,24 +1,11 @@
 #![forbid(unsafe_code)]
 
-//! # Interactive local archive browser
+//! Interactive terminal browser for a local Forgesync archive.
 //!
-//! The TUI opens a terminal session around an already selected archive and lets a user browse
-//! threads, coverage, failures, and duplicate clusters. It depends on engine and core concepts,
-//! not CLI command modules. The CLI launches it and handles process concerns; this crate owns
-//! interaction and drawing.
-//!
-//! `app` holds navigation state and processes input, `query` runs archive operations without
-//! blocking the event loop, and `view` draws the current screen. The `run` entry point coordinates
-//! terminal setup, events, and cleanup. `TuiError` carries failures to the caller for user-facing
-//! reporting.
-//!
-//! # Launch and own the terminal session
-//!
-//! [`run`] consumes an opened archive and restores the terminal before returning. It also stops its
-//! background read and writer tasks and closes the handle. Call it from a Tokio runtime with
-//! standard input and output connected to a terminal. The returned [`TuiError`] belongs to the
-//! caller's process error policy; this crate does not install a tracing subscriber or select an
-//! exit code.
+//! Browsing, search, coverage, failures, and cluster inspection read the archive locally. Sync,
+//! refresh, and retry contact GitHub through the supplied clients; cluster decisions write only
+//! local state. [`run`] restores the terminal, stops background tasks, and closes the archive
+//! before returning. It installs no tracing subscriber and chooses no exit code.
 //!
 //! ```no_run
 //! use std::collections::HashMap;
@@ -32,18 +19,6 @@
 //! # Ok(())
 //! # }
 //! ```
-//!
-//! # Follow an interaction
-//!
-//! The private `app` module maps keys to typed actions and owns screen state. `query` schedules
-//! work, forwards progress, and tags results with a generation. `app` discards results from
-//! superseded requests before updating state. `view` renders that state and never starts archive
-//! operations. Local reads remain responsive while a writer runs; quitting requests cancellation
-//! and waits for its cleanup instead of abandoning a durable operation.
-//!
-//! The default browser is local, while explicit sync and refresh actions may contact configured
-//! providers. Local cluster decisions update the archive and never write to GitHub. The CLI's `tui`
-//! feature controls whether the launcher is included; this crate itself owns the terminal behavior.
 
 mod app;
 mod event_loop;
@@ -63,11 +38,10 @@ use tokio::runtime::Handle;
 use crate::event_loop::EventLoop;
 use crate::query::tasks::QueryTasks;
 
-/// Runs the interactive archive browser and closes its archive handle on exit.
+/// Runs the browser until the user quits, then closes the archive.
 ///
-/// Supply clients keyed by their validated GitHub host. An empty map still permits local browsing;
-/// provider-backed actions require a matching client. This function returns
-/// [`TuiError::NotTerminal`] when standard input or output is redirected.
+/// An empty client map still permits local browsing. Returns [`TuiError::NotTerminal`] when
+/// standard input or output is redirected.
 pub async fn run(
     archive: Archive,
     github_clients: HashMap<GitHubHost, GitHubClient>,
@@ -103,16 +77,12 @@ pub async fn run(
     terminal_result.map_err(TuiError::Terminal)
 }
 
-/// An error starting or running the terminal browser.
 #[derive(Debug, Error)]
 pub enum TuiError {
-    /// The browser needs an interactive stdin and stdout.
     #[error("the tui command requires an interactive terminal")]
     NotTerminal,
-    /// No Tokio runtime is active to run background archive queries.
     #[error("the tui command needs an active Tokio runtime")]
     RuntimeUnavailable,
-    /// Terminal setup, input, drawing, or restoration failed.
     #[error("terminal I/O failed: {0}")]
     Terminal(#[from] io::Error),
 }

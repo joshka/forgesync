@@ -1,17 +1,4 @@
-//! # Cluster candidate policy
-//!
-//! These tests document safeguards in the candidate graph: repository-scoped
-//! references, fanout, and maximum component size. The exact
-//! fixture relationships matter because transitive grouping can make a plausible pair produce an
-//! implausible cluster. Read these alongside `candidates` before changing thresholds or union
-//! behavior; a new candidate rule should have a small example that explains the intended grouping.
-//!
-//! Documents are construction-only projections with supplied vectors and body references.
-//! Graph operations run directly; fixtures do not select expected edges or persist generations.
-//! Member identities accompany size expectations so unrelated discussions cannot substitute for
-//! intended neighbors. Repeated construction checks determinism of the same bounded policy.
-//! Pairwise title/kind thresholds live in `threshold_tests`; projection lives in `proposal_tests`.
-//! Writer fencing and local decision reconciliation are separate workflow/store contracts.
+//! Cluster candidate policy.
 
 use forgesync_core::content::ThreadKind;
 use tokio_util::sync::CancellationToken;

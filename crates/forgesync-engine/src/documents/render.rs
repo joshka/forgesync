@@ -1,15 +1,7 @@
-//! # Render recipe-defined retrieval text
+//! Render recipe-defined retrieval text.
 //!
-//! [`build_document`] converts local detail into readable retrieval and deduplication text.
-//! This leaf performs no reads, writes, or service calls. The parent owns materialization;
-//! core owns recipe identity and hashing.
-//!
-//! Enriched text includes only complete, nonstale child evidence. Helpers retain stable ordering,
-//! attribution, bot filtering, and review-thread context. Supplied detail relationships are trusted
-//! rather than revalidated. Empty bodies are omitted and missing author/path values receive labels.
-//!
-//! Public recipe scenarios remain in the nearby document test module. Changing assembly changes
-//! content hashes and later embeddings, so ordering and whitespace are observable contracts.
+//! Changing assembly changes content hashes and later embeddings, so ordering and whitespace are
+//! observable contracts. Supplied detail relationships are trusted rather than revalidated.
 
 use forgesync_core::content::{Comment, Review, ReviewState, ReviewThread, ThreadKind};
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};

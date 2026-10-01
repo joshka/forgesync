@@ -1,16 +1,4 @@
-//! # Complete empty membership and failed empty acquisition remain distinct
-//!
-//! Initial sync publishes one comment for each of two issues. The next workflow receives a complete
-//! empty collection for the first issue and a provider failure for the second, so one run contains
-//! both successful deletion and failed acquisition.
-//!
-//! The first canonical collection becomes empty with complete zero-item coverage. The second keeps
-//! its original comment with incomplete zero-received coverage. Explicit initial detail reads prove
-//! the retained and removed values existed before this mixed outcome.
-//!
-//! Keeping these sibling outcomes in one scenario establishes failure isolation within the same
-//! operation. Requests, provider expectations, sync calls, reads, and cleanup remain visible; retry
-//! and failure-ledger persistence have separate regression owners.
+//! Complete empty membership and failed empty acquisition remain distinct.
 
 use forgesync_core::coverage::CoverageState;
 use forgesync_core::outcome::OperationOutcome;

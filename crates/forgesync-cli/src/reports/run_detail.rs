@@ -1,25 +1,14 @@
-//! # Explain one durable run's jobs and failures
+//! One run's identity, jobs, and failures in store row order.
 //!
-//! `run_detail_summary` presents a loaded store projection in identity, job, and failure order.
-//! It does not retry, resolve, or infer coverage from a run outcome. The broader run-list and retry
-//! summaries remain in `reports::runs`, alongside their shared status-label queries.
-//!
-//! `run_heading` identifies the attempt and its parent, start time, and selected record counts.
-//! Job rows retain repository/family/scope and committed item/page totals. Failure rows retain
-//! their target and safe diagnostic, including failures without an assigned family. A resolved
-//! marker describes the ledger's recorded resolution, rather than hiding historical failures from
-//! detail.
-//!
-//! Traversal preserves the store's row order. Empty failures receive an explicit `None` line;
-//! empty jobs keep the heading alone. Missing parent, missing family, and invalid timestamp each
-//! retain their existing distinct fallback. The command owns JSON and process-result policy.
+//! A resolved failure stays visible in detail, marked with its recorded resolution.
 
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_store::runs::{RunDetail, RunFailureRecord, SyncJobRecord};
 
 use crate::reports::runs::{run_status_name, sync_job_status_name};
-use crate::reports::threads::family_name;
+use crate::reports::threads::format_timestamp;
 
-/// Shows the attempt followed by its ordered job and failure projections.
+/// Shows the run heading, then its jobs and failures in store order.
 pub fn run_detail_summary(detail: &RunDetail) -> String {
     let mut lines = vec![run_heading(detail), "Jobs:".to_owned()];
     lines.extend(detail.jobs.iter().map(job_row));
@@ -31,14 +20,10 @@ pub fn run_detail_summary(detail: &RunDetail) -> String {
     lines.join("\n")
 }
 
-/// Identifies one attempt and counts its loaded ledger records, without inferring evidence
-/// coverage.
+/// Identifies the run, its parent and start time, and its record counts.
 fn run_heading(detail: &RunDetail) -> String {
     let run = &detail.run;
-    let started = run
-        .started_at
-        .format_rfc3339()
-        .unwrap_or_else(|_| "invalid timestamp".to_owned());
+    let started = format_timestamp(run.started_at);
     let parent = run
         .parent_id
         .map(|parent| parent.get().to_string())
@@ -54,12 +39,12 @@ fn run_heading(detail: &RunDetail) -> String {
     )
 }
 
-/// Shows committed work for a repository/family/scope without flattening its durable state.
+/// Shows one job's repository, family, scope, and committed page and item totals.
 fn job_row(job: &SyncJobRecord) -> String {
     format!(
         "  {} {} [{}]: {} ({} items, {} pages)",
         job.repository.full_name,
-        family_name(job.family),
+        job.family.as_str(),
         job.scope_key,
         sync_job_status_name(job.status),
         job.items_committed,
@@ -67,9 +52,12 @@ fn job_row(job: &SyncJobRecord) -> String {
     )
 }
 
-/// Keeps safe failure text and optional recorded resolution visible for one ledger scope.
+/// Shows one failure's target and safe diagnostic, marking any recorded resolution.
 fn failure_row(failure: &RunFailureRecord) -> String {
-    let family = failure.family.map(family_name).unwrap_or("unassigned");
+    let family = failure
+        .family
+        .map(EvidenceFamily::as_str)
+        .unwrap_or("unassigned");
     let resolution = if failure.resolved_at.is_some() {
         " (resolved)"
     } else {
@@ -83,17 +71,6 @@ fn failure_row(failure: &RunFailureRecord) -> String {
 
 #[cfg(test)]
 mod tests {
-    //! # Empty attempt detail remains visible
-    //!
-    //! The fixed run record supplies identity, timestamps, terminal status, and no parent.
-    //! Empty job and failure collections must still produce both ledger headings and an explicit
-    //! no-failures line. The test compares the complete summary in its intended reading order.
-    //!
-    //! A complete run status is supplied data, not inferred from empty collections or coverage.
-    //! No archive or retry operation runs here; store/engine suites establish real ledger content.
-    //! Fixed time avoids generated diagnostics obscuring changes to the detail projection.
-    //! The construction stays in this scenario because no shared fixture behavior is needed.
-
     use forgesync_core::identity::RunId;
     use forgesync_core::timestamp::UtcTimestamp;
     use forgesync_store::runs::{RunDetail, RunRecord, RunStatus};

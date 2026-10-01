@@ -1,16 +1,4 @@
-//! # Failure-ledger writes preserve the original provider failure
-//!
-//! Comment acquisition returns HTTP 404, then a SQLite trigger rejects recording that failure.
-//! The engine must return its failure-ledger error with the classified provider failure and the
-//! concrete store error, rather than replacing the original diagnostic with the write failure.
-//!
-//! The raw connection cannot create an archive. Trigger installation and the actual sync operation
-//! are visible beside the error-code, typed source-chain, and diagnostic assertions. The trigger
-//! affects only comment failure insertion, making the expected abort precise.
-//!
-//! This regression concerns two simultaneous failure causes; successful acquisition and partial
-//! membership replacement have sibling scenarios. Fixtures configure responses and construct the
-//! client, while archive creation, injected fault, closure, and cleanup remain explicit.
+//! Failure-ledger writes preserve the original provider failure.
 
 use forgesync_core::coverage::FailureKind;
 use forgesync_engine::error::EngineError;

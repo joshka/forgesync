@@ -1,38 +1,29 @@
-//! # Search the local archive
+//! Search the local archive.
 //!
-//! `SearchArgs` selects query text, repository scope, mode, ranking, and output shape. Its run
-//! method creates an engine search request and renders a page of hits with provenance.
-//!
-//! Keyword and advanced FTS reads remain offline. Semantic and hybrid modes use an explicitly
-//! configured service to embed the query, then compare it with stored discussion vectors. No mode
-//! fetches GitHub data or writes to the archive.
-//!
-//! Preparation validates fallback policy before service setup. `PreparedSearch` couples the
-//! engine request with its selected recipe and optional client; execution owns the read-only
-//! archive and closes it before rendering either a page or an error.
+//! Keyword and advanced FTS reads stay offline. Semantic and hybrid modes send the query text to
+//! the configured embedding service and compare it with stored discussion vectors. No mode fetches
+//! GitHub data or writes to the archive.
 
-use std::process::ExitCode;
+use std::path::Path;
 
 use clap::{ArgAction, Args};
-use forgesync_core::document::DocumentRecipe;
-use forgesync_engine::embedding_client::EmbeddingClient;
 use forgesync_engine::search::{SearchMode, SearchRequest, retrieve_threads};
 use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 
-use super::embedding_service::EmbeddingSetupError;
-use super::interruption::CommandInterruption;
+use super::with_archive;
 use crate::command::thread_filters::ThreadFilterArgs;
 use crate::command::values::SearchModeArg;
-use crate::config::EmbeddingServiceConfig;
+use crate::config::ForgesyncConfig;
+use crate::error::{CliError, Exit};
+use crate::output::Output;
 use crate::reports::threads::render_search_page;
-use crate::{OutputMode, render_engine_error, render_error_with_status, render_store_error};
 
 /// Search archived discussions with local keyword or optional semantic ranking.
 #[derive(Clone, Debug, Args)]
 pub struct SearchArgs {
     /// Search text sent to the selected local or semantic retrieval mode.
     pub query: String,
-    /// Shared repository, discussion, ordering, and page filters.
     #[command(flatten)]
     pub filters: ThreadFilterArgs,
     /// Choose keyword, semantic, hybrid, or explicit FTS5 retrieval.
@@ -44,121 +35,50 @@ pub struct SearchArgs {
 }
 
 impl SearchArgs {
-    /// Validates search policy, prepares query embedding when needed, and renders a result page.
-    ///
-    /// Invalid fallback policy is a usage error even if the archive or service is unavailable.
-    /// Service setup does not send a request; the engine sends it during semantic retrieval.
+    /// Rejects inapplicable fallback, prepares a query client for semantic modes, then searches
+    /// read-only.
     pub async fn run(
         self,
-        path: &std::path::Path,
-        json: OutputMode,
-        service: EmbeddingServiceConfig,
-        recipe: DocumentRecipe,
-    ) -> ExitCode {
+        path: &Path,
+        output: Output,
+        config: ForgesyncConfig,
+        cancellation: &CancellationToken,
+    ) -> Result<Exit, CliError> {
         let request = self.request();
-        if request.allow_keyword_fallback && !requires_embedding(request.mode) {
-            return invalid_fallback(json);
+        let semantic = matches!(request.mode, SearchMode::Semantic | SearchMode::Hybrid);
+        if request.allow_keyword_fallback && !semantic {
+            return Err(CliError::InvalidArguments {
+                code: "search_fallback_mode_invalid",
+                message: "--keyword-fallback requires --mode semantic or --mode hybrid",
+            });
         }
-        let client = match query_client(request.mode, &service) {
-            Ok(client) => client,
-            Err(error) => return render_setup_error(json, error),
-        };
-        let search = PreparedSearch {
-            request,
-            recipe,
-            client,
-        };
-        search.run(path, json).await
+        let client = semantic.then(|| config.embeddings.client()).transpose()?;
+        let page = with_archive(Archive::open_read_only(path), async |archive| {
+            retrieve_threads(
+                archive,
+                &request,
+                config.documents.recipe,
+                client.as_ref(),
+                cancellation,
+            )
+            .await
+        })
+        .await?;
+        Ok(render_search_page(output, &page))
     }
 
-    /// Converts process arguments to the engine's retrieval and filtering contract.
+    /// Converts parsed arguments into the engine request.
     fn request(self) -> SearchRequest {
-        let mode = match self.mode {
-            SearchModeArg::Keyword => SearchMode::Keyword,
-            SearchModeArg::AdvancedFts => SearchMode::AdvancedFts,
-            SearchModeArg::Semantic => SearchMode::Semantic,
-            SearchModeArg::Hybrid => SearchMode::Hybrid,
-        };
-        let filters = self.filters.into_filters();
         SearchRequest {
             query: self.query,
-            mode,
-            filters,
+            mode: match self.mode {
+                SearchModeArg::Keyword => SearchMode::Keyword,
+                SearchModeArg::AdvancedFts => SearchMode::AdvancedFts,
+                SearchModeArg::Semantic => SearchMode::Semantic,
+                SearchModeArg::Hybrid => SearchMode::Hybrid,
+            },
+            filters: self.filters.into_filters(),
             allow_keyword_fallback: self.keyword_fallback,
-        }
-    }
-}
-
-/// Reports fallback policy that cannot apply to the selected local-only retrieval mode.
-fn invalid_fallback(json: OutputMode) -> ExitCode {
-    render_error_with_status(
-        json,
-        "search",
-        "search_fallback_mode_invalid",
-        "--keyword-fallback requires --mode semantic or --mode hybrid",
-        ExitCode::from(2),
-    )
-}
-
-/// Prepares a client only for modes that must acquire a query vector.
-fn query_client(
-    mode: SearchMode,
-    service: &EmbeddingServiceConfig,
-) -> Result<Option<EmbeddingClient>, EmbeddingSetupError> {
-    if requires_embedding(mode) {
-        service.client().map(Some)
-    } else {
-        Ok(None)
-    }
-}
-
-/// Identifies retrieval modes whose query representation comes from the embedding service.
-fn requires_embedding(mode: SearchMode) -> bool {
-    matches!(mode, SearchMode::Semantic | SearchMode::Hybrid)
-}
-
-/// Preserves usage versus transport initialization failure in search's process exit status.
-fn render_setup_error(json: OutputMode, error: EmbeddingSetupError) -> ExitCode {
-    let status = match &error {
-        EmbeddingSetupError::Configuration(_) => ExitCode::from(2),
-        EmbeddingSetupError::Client(_) => ExitCode::FAILURE,
-    };
-    render_error_with_status(json, "search", error.code(), &error.to_string(), status)
-}
-
-/// Validated retrieval inputs and the optional query-vector transport they require.
-///
-/// This command-local owner keeps service preparation outside archive execution. It borrows no
-/// open archive, so setup failures cannot leave a connection pool waiting to be closed.
-struct PreparedSearch {
-    /// Query, repository filters, pagination, and fallback policy passed to the engine.
-    request: SearchRequest,
-    /// Stored document recipe used to select compatible vectors.
-    recipe: DocumentRecipe,
-    /// Query embedding client; absent for keyword and advanced FTS retrieval.
-    client: Option<EmbeddingClient>,
-}
-
-impl PreparedSearch {
-    /// Opens read-only access, retrieves with cancellation, then closes before rendering.
-    async fn run(self, path: &std::path::Path, json: OutputMode) -> ExitCode {
-        let interruption = CommandInterruption::new();
-        let archive = match Archive::open_read_only(path).await {
-            Ok(archive) => archive,
-            Err(error) => return render_store_error(json, "search", error),
-        };
-        let result = retrieve_threads(
-            &archive,
-            &self.request,
-            self.recipe,
-            self.client.as_ref(),
-            interruption.cancellation(),
-        )
-        .await;
-        archive.close().await;
-        match result {
-            Ok(page) => render_search_page(json, &page),
-            Err(error) => render_engine_error(json, "search", error),
         }
     }
 }

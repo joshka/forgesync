@@ -1,15 +1,4 @@
-//! # Failed run creation releases its writer fence
-//!
-//! A request naming a nonexistent parent run fails before provider acquisition. The error must be a
-//! database foreign-key violation, not an unrelated store failure that happens to leave no run.
-//! The external cancellation token remains usable and no durable run row is created.
-//!
-//! Reacquisition uses the Unix epoch: that timestamp cannot expire a leaked lease acquired at the
-//! current clock. A successful acquisition therefore proves release rather than lease timeout.
-//! The acquired test fence is explicitly released before archive closure and cleanup.
-//!
-//! Request construction, the real engine call, error inspection, local reads, and lease operations
-//! remain visible. Provider fixtures are unnecessary because this boundary precedes acquisition.
+//! Failed run creation releases its writer fence.
 
 use std::collections::HashMap;
 use std::time::Duration;

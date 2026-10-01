@@ -1,18 +1,8 @@
 //! Versioned text derived from a discussion for local retrieval.
 //!
-//! [`DocumentRecipe`] selects which normalized evidence contributes to searchable text.
-//! [`Document`] keeps the resulting text, content hash, and source context together. The engine
-//! constructs it from a stored thread detail; the store persists it separately from the underlying
-//! discussion.
-//!
 //! A recipe version matters because a text-construction change can make old stored embeddings
-//! stale even when the provider discussion has not changed. A document is derived state, not a
-//! replacement for a discussion observation. Embedding compatibility also depends on the model
-//! identity and chunk rules in [`crate::embedding`].
-//!
-//! Use the recipe when materializing or selecting retrieval inputs. Keep rules for which sections
-//! enter the text in `forgesync-engine::documents`; this module defines the value and its
-//! versioned identity rather than fetching child resources.
+//! stale even when the provider discussion has not changed. The rules for which sections enter the
+//! text live in `forgesync-engine::documents`.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -47,17 +37,12 @@ impl DocumentRecipe {
 /// Deterministic retrieval input with the identity and recipe that produced it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Document {
-    /// Stable source discussion identity, including its host-qualified repository identity.
     pub source_identity: ThreadId,
-    /// Recipe used to select source fields.
     pub recipe: DocumentRecipe,
-    /// Version of the recipe's text contract.
     pub recipe_version: u32,
     /// SHA-256 over recipe, version, source identity, title, and document text.
     pub content_hash: String,
-    /// Normalized source title for display and filtering.
     pub title: String,
-    /// Complete deterministic input text.
     pub text: String,
     /// Whitespace-normalized, lower-case text for deduplication and similarity checks.
     pub dedupe_text: String,
@@ -68,15 +53,8 @@ pub struct Document {
 impl Document {
     /// Packages already rendered retrieval text with the current recipe version and content hash.
     ///
-    /// The engine owns recipe rendering. This constructor preserves `title`, `text`, and
-    /// `dedupe_text` as supplied; it does not normalize whitespace, lowercase deduplication text,
-    /// fetch source evidence, or verify that rendered sections agree with the chosen recipe.
-    ///
-    /// The hash covers source identity, recipe/version, title, and text. Deduplication text and the
-    /// source timestamp are deliberately excluded: a source-clock-only change leaves retrieval
-    /// identity stable. Because fields are public, a value received or modified after construction
-    /// still needs store-boundary validation before persistence. Construction computes the initial
-    /// hash from the same fields returned to the caller.
+    /// Deduplication text and the source timestamp are excluded from the hash so a
+    /// source-clock-only change leaves retrieval identity stable.
     pub fn new(
         source_identity: ThreadId,
         recipe: DocumentRecipe,
@@ -99,17 +77,7 @@ impl Document {
         document
     }
 
-    /// Recomputes the expected hash from the document's current identity, recipe, title, and text.
-    ///
-    /// Compare this result with [`Self::content_hash`] when validating an external or modified
-    /// document. Calling this query changes no field and does not validate recipe support,
-    /// deduplication normalization, or source-clock consistency. The store applies its broader
-    /// validation rules separately.
-    ///
-    /// The SHA-256 input uses length-prefixed fields and a fixed format marker; adjacent title/text
-    /// values cannot collide merely by shifting their boundary. The result is lowercase
-    /// hexadecimal. Recipe version and every stable source identity component participate in
-    /// this computation.
+    /// Recomputes the lowercase-hex SHA-256 over length-prefixed identity, recipe, title, and text.
     pub fn expected_content_hash(&self) -> String {
         let mut hasher = Sha256::new();
         add_field(&mut hasher, b"forgesync-document-v1");

@@ -1,25 +1,5 @@
-//! # Draw the current app screen
-//!
-//! The top-level `draw` function chooses a screen renderer from `App` state. `browser` draws
-//! repository and discussion navigation, `coverage` and `failures` expose evidence and work
-//! status, and `clusters` draws duplicate triage views.
-//!
-//! View functions format already loaded data. They should not start queries or change durable
-//! decisions. This keeps a frame deterministic for a given app state and lets input and data
-//! loading remain independently understandable.
-//!
-//! [`draw`] reserves header and footer rows around the active screen body. Browser and cluster
-//! renderers choose compact or split layouts based on available width; specialized leaves project
-//! loaded detail, timeline, coverage, and failure values into readable sections. Shared helpers
-//! provide panel borders and selection styles rather than owning acquisition or navigation policy.
-//!
-//! The mutable app borrow supports Ratatui's widget selection/render state. Rendering may update
-//! that presentation state, but does not apply repository scope, initiate queries, or persist local
-//! decisions. Pending, empty, failed, and ready data are interpreted from the app's existing state.
-//! The footer reflects available controls and current status; it does not authorize an operation.
-//!
-//! The event loop owns frame timing and terminal lifecycle. Input produces actions, query workers
-//! acquire results, and app reply handlers update loaded state before another frame is drawn.
+//! Drawing. Renderers format already loaded app state and never start queries; the mutable borrow
+//! is only for list scroll state and clamping the detail scroll.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -27,7 +7,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
-use crate::app::{App, Focus, Screen};
+use crate::app::{App, Screen};
 
 mod browser;
 mod clusters;
@@ -41,10 +21,10 @@ use clusters::{draw_cluster_detail, draw_clusters};
 use coverage::draw_coverage;
 use failures::draw_failures;
 
-/// Switches panes to a vertical layout below the width needed for two readable columns.
+/// Below this width, panes stack vertically.
 const COMPACT_WIDTH: u16 = 100;
 
-/// Selects the active screen renderer and keeps header and footer visible.
+/// Draws the header, the active screen, and the footer.
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
@@ -65,7 +45,6 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     draw_footer(frame, sections[2], app);
 }
 
-/// Shows the active screen and submitted search scope.
 fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let view = match app.screen {
         Screen::Browser => "Browse",
@@ -87,18 +66,18 @@ fn draw_header(frame: &mut Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(Paragraph::new(line), area);
 }
 
-/// Shows operation progress, status, or key hints according to current state.
+/// Footer precedence: search draft, running writer, status line, then key hints.
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let text = if app.searching {
         format!(" Search: {}▏  Enter search · Esc cancel", app.search_input)
-    } else if app.operation.busy() {
-        let label = app.operation.label().unwrap_or("action");
-        let cancel_hint = app
-            .status
-            .as_deref()
-            .filter(|status| status.starts_with("Cancellation requested"))
-            .unwrap_or("q cancel");
-        if let Some(progress) = app.operation.progress() {
+    } else if let Some(operation) = &app.operation {
+        let label = operation.label;
+        let cancel_hint = if operation.cancelling {
+            "Cancellation requested; waiting for the active action…"
+        } else {
+            "q cancel"
+        };
+        if let Some(progress) = &operation.progress {
             format!(
                 " {label} · {:?} · {}/{} jobs · {} threads · {} comments · {} · {cancel_hint}",
                 progress.status,
@@ -128,45 +107,19 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-/// Border emphasis chosen by a renderer before constructing its pane.
-///
-/// Browser panes derive emphasis from keyboard focus; maintainer screens can emphasize both
-/// related panes. This is a visual cue, not query state, selection, or writer authorization.
-enum PaneEmphasis {
-    /// Cyan border for a focused browser pane or an emphasized maintainer projection.
-    Strong,
-    /// Dark gray border for a browser pane outside the current keyboard focus.
-    Muted,
+/// A titled pane border; emphasized panes (the focused one) are cyan.
+fn pane(title: &str, emphasized: bool) -> Block<'_> {
+    let color = if emphasized {
+        Color::Cyan
+    } else {
+        Color::DarkGray
+    };
+    Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(color))
 }
 
-impl PaneEmphasis {
-    /// Chooses the browser cue without changing current keyboard focus.
-    fn for_focus(current: Focus, pane: Focus) -> Self {
-        if current == pane {
-            Self::Strong
-        } else {
-            Self::Muted
-        }
-    }
-
-    /// Constructs the shared titled border using this explicit presentation choice.
-    fn block(self, title: &str) -> Block<'_> {
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .border_style(Style::default().fg(self.border_color()))
-    }
-
-    /// Returns the existing border palette, independent of row selection highlighting.
-    fn border_color(self) -> Color {
-        match self {
-            Self::Strong => Color::Cyan,
-            Self::Muted => Color::DarkGray,
-        }
-    }
-}
-
-/// Returns the highlight style used for the active row.
 fn selected_style() -> Style {
     Style::default()
         .fg(Color::White)
@@ -174,7 +127,7 @@ fn selected_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
-/// Returns the terminal label for an evidence family.
+// Core's `EvidenceFamily` has no `as_str`; the CLI keeps its own copy of these labels.
 fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
     match family {
         forgesync_core::coverage::EvidenceFamily::Threads => "threads",

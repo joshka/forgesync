@@ -1,9 +1,4 @@
-//! # Process runtime capabilities
-//!
-//! These synchronous tests enter the runtime used by `run_from`, rather than an independently
-//! configured async test runtime. They check Ctrl-C registration without sending a signal and
-//! execute this test harness as a harmless subprocess with captured output. No credential lookup
-//! or provider request is made. CLI process suites separately establish command dispatch/output.
+//! The `run_from` runtime supports Ctrl-C registration and subprocess I/O.
 
 use std::future::Future;
 use std::task::{Context, Poll, Waker};

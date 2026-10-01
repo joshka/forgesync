@@ -1,20 +1,4 @@
-//! # Embedding protocol and validation
-//!
-//! These tests cover ordered vector responses, malformed indexes or values, and a credential-
-//! bearing redirect. They use a local server or response fixture to show the adapter behavior at
-//! the HTTP boundary. A successful status is not enough: the response must match the requested
-//! inputs before the engine stores vectors. Preserve the redirect case when changing client
-//! configuration because authentication must not be forwarded to a different destination.
-//!
-//! The retry case declares a one-shot server failure followed by a successful response. Direct
-//! backoff cases establish budget rejection and cancellation without making a provider request.
-//! The protocol scenario matches the full JSON request, including input order, and checks the
-//! returned vector count before comparing indexed values. Redirect assertions inspect both source
-//! and destination request histories so rejection is tied to one actual source attempt.
-//!
-//! Configuration fixtures only construct settings. Request execution, retry policy overrides, and
-//! mock expectations stay beside the operation and result. Response-shape rejection has its own
-//! named fixture suite; these transport cases do not duplicate its validation matrix.
+//! Embedding protocol, retry, and redirect behavior at the HTTP boundary.
 
 use std::time::{Duration, Instant};
 

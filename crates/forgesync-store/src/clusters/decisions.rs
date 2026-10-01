@@ -1,46 +1,23 @@
-//! # Persist local cluster triage
+//! Local maintainer decisions on generated clusters.
 //!
-//! These `Archive` methods record dismissal, restoration, membership changes, and canonical-thread
-//! choices. A decision changes the local triage view of an existing generation; it does not edit
-//! GitHub or rewrite the source discussion.
-//!
-//! Decision events preserve the maintainer's action so later cluster reads can distinguish an
-//! automatic proposal from an explicit choice. ID conversion and validation stay beside the write
-//! path because malformed or out-of-range identifiers must fail before SQL receives them.
-//!
-//! Every successful decision commits state and its audit event in one fenced transaction. A
-//! failed fence, unknown target, SQL write, or event insertion returns an error without committing
-//! this decision. Repeated valid actions still append events; these APIs do not suppress history
-//! merely because the visible state already matches the requested choice.
-//!
-//! Dismissal and exclusion reasons are limited to 2,048 UTF-8 bytes before trimming; persisted
-//! reasons discard surrounding whitespace. Invalid reason length returns
-//! `InvalidClusterGeneration`. Missing cluster IDs return `ClusterMissing`; removed,
-//! foreign-repository, or unknown members return `ClusterMemberMissing`. A member must be active to
-//! become canonical.
-//!
-//! Detail reads are observations, not write authority. These operations independently validate
-//! writer fencing and target membership. Canonical selection changes the display choice while
-//! preserving the generated representative, allowing future generations to retain their own policy.
+//! Each decision commits its state change and audit event in one fenced transaction. Repeated
+//! valid actions still append events. Decisions never edit GitHub or source discussions, and
+//! canonical selection keeps the generated representative for future generations.
 
 use forgesync_core::identity::ThreadId;
 use forgesync_core::timestamp::UtcTimestamp;
 use sqlx::SqliteConnection;
 
 use crate::archive::Archive;
-use crate::clusters::canonical::CanonicalSelection;
-use crate::clusters::cluster_decision::{ClusterDecision, ClusterDecisionWrite};
-use crate::clusters::generation_input::thread_row_id;
-use crate::clusters::member_decision::{MemberDecision, MemberDecisionWrite};
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
+use crate::sql::to_sql_integer;
+
+/// Longest accepted dismissal or exclusion reason, in UTF-8 bytes before trimming.
+const MAX_REASON_BYTES: usize = 2048;
 
 impl Archive {
-    /// Dismisses a generated cluster as a local maintainer decision.
-    ///
-    /// Records the trimmed reason and action time with a `dismissed` audit event. Generated
-    /// membership, lifecycle, and representative remain intact. An oversized reason is rejected
-    /// before writable-archive and lease checks; state and event commit together.
+    /// Dismisses a generated cluster with a trimmed reason, keeping its membership intact.
     pub async fn dismiss_cluster_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -48,58 +25,64 @@ impl Archive {
         reason: &str,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
-        self.set_cluster_decision(token, id, ClusterDecision::Dismiss, reason, at)
-            .await
+        let reason = checked_reason(reason)?;
+        let cluster_id = checked_cluster_id(id)?;
+        let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
+        let mut transaction = writer.begin().await?;
+        require_active_archive_lease(&mut transaction, token).await?;
+        let result = sqlx::query(
+            "UPDATE clusters SET dismissed_at_us = ?, dismissal_reason = ?, updated_at_us = ? WHERE id = ?",
+        )
+        .bind(at.unix_microseconds())
+        .bind(reason)
+        .bind(at.unix_microseconds())
+        .bind(cluster_id)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() != 1 {
+            return Err(StoreError::ClusterMissing);
+        }
+        insert_cluster_event(
+            &mut transaction,
+            cluster_id,
+            None,
+            "dismissed",
+            None,
+            reason,
+            at,
+        )
+        .await?;
+        transaction.commit().await?;
+        Ok(())
     }
 
-    /// Restores a locally dismissed generated cluster.
-    ///
-    /// Clears dismissal time and reason and appends a `restored` event. Restoration does not
-    /// reactivate a retired generation or regenerate membership; those are separate operations.
-    /// Repeating restoration still records the valid maintainer action.
+    /// Clears a local dismissal; it does not reactivate a retired generation.
     pub async fn restore_cluster_fenced(
         &self,
         token: &ArchiveLeaseToken,
         id: u64,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
-        self.set_cluster_decision(token, id, ClusterDecision::Restore, "", at)
-            .await
-    }
-
-    /// Records a local cluster decision without changing generated membership.
-    async fn set_cluster_decision(
-        &self,
-        token: &ArchiveLeaseToken,
-        id: u64,
-        decision: ClusterDecision,
-        reason: &str,
-        at: UtcTimestamp,
-    ) -> Result<(), StoreError> {
-        if reason.len() > 2048 {
-            return Err(StoreError::InvalidClusterGeneration);
-        }
         let cluster_id = checked_cluster_id(id)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let decision = ClusterDecisionWrite {
-            cluster_id,
-            decision,
-            reason,
-            at,
-        };
-        decision.apply(&mut transaction).await?;
+        let result = sqlx::query(
+            "UPDATE clusters SET dismissed_at_us = NULL, dismissal_reason = '', updated_at_us = ? WHERE id = ?",
+        )
+        .bind(at.unix_microseconds())
+        .bind(cluster_id)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() != 1 {
+            return Err(StoreError::ClusterMissing);
+        }
+        insert_cluster_event(&mut transaction, cluster_id, None, "restored", None, "", at).await?;
         transaction.commit().await?;
         Ok(())
     }
 
-    /// Excludes one current generated member as a local decision.
-    ///
-    /// Persists exclusion across future generations and marks current membership excluded. If
-    /// this member is canonical, clears that choice in the same transaction. The trimmed reason
-    /// and `member_excluded` event are committed with the state changes; source evidence is
-    /// retained.
+    /// Excludes a current member across future generations, clearing it if it was canonical.
     pub async fn exclude_cluster_member_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -108,15 +91,11 @@ impl Archive {
         reason: &str,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
-        self.set_member_decision(token, id, thread, MemberDecision::Exclude, reason, at)
+        self.set_member_excluded(token, id, thread, true, reason, at)
             .await
     }
 
-    /// Includes one previously excluded generated member.
-    ///
-    /// Persists inclusion and restores active membership with a `member_included` audit event.
-    /// Inclusion does not select this member as canonical or restore a canonical choice cleared
-    /// by exclusion. Removed or unknown members cannot be restored through this operation.
+    /// Restores a previously excluded member without making it canonical.
     pub async fn include_cluster_member_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -124,46 +103,78 @@ impl Archive {
         thread: &ThreadId,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
-        self.set_member_decision(token, id, thread, MemberDecision::Include, "", at)
+        self.set_member_excluded(token, id, thread, false, "", at)
             .await
     }
 
-    /// Records an include or exclude decision for one current member.
-    async fn set_member_decision(
+    /// Records a durable include/exclude decision, updates current membership state, and audits it.
+    async fn set_member_excluded(
         &self,
         token: &ArchiveLeaseToken,
         id: u64,
         thread: &ThreadId,
-        decision: MemberDecision,
+        excluded: bool,
         reason: &str,
         at: UtcTimestamp,
     ) -> Result<(), StoreError> {
-        if reason.len() > 2048 {
-            return Err(StoreError::InvalidClusterGeneration);
-        }
+        let reason = checked_reason(reason)?;
         let cluster_id = checked_cluster_id(id)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let member_id = current_cluster_member_id(&mut transaction, cluster_id, thread).await?;
-        let write = MemberDecisionWrite {
+        let (member_id, _) = current_cluster_member(&mut transaction, cluster_id, thread).await?;
+        sqlx::query(
+            "INSERT INTO cluster_member_decisions (cluster_id, thread_id, excluded, reason, updated_at_us) VALUES (?, ?, ?, ?, ?) ON CONFLICT (cluster_id, thread_id) DO UPDATE SET excluded = excluded.excluded, reason = excluded.reason, updated_at_us = excluded.updated_at_us",
+        )
+        .bind(cluster_id)
+        .bind(member_id)
+        .bind(i64::from(excluded))
+        .bind(reason)
+        .bind(at.unix_microseconds())
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "UPDATE cluster_memberships SET state = ?, updated_at_us = ? WHERE cluster_id = ? AND thread_id = ?",
+        )
+        .bind(if excluded { "excluded" } else { "active" })
+        .bind(at.unix_microseconds())
+        .bind(cluster_id)
+        .bind(member_id)
+        .execute(&mut *transaction)
+        .await?;
+        if excluded {
+            sqlx::query(
+                "UPDATE clusters SET canonical_thread_id = NULL, updated_at_us = ? WHERE id = ? AND canonical_thread_id = ?",
+            )
+            .bind(at.unix_microseconds())
+            .bind(cluster_id)
+            .bind(member_id)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        let event = if excluded {
+            "member_excluded"
+        } else {
+            "member_included"
+        };
+        insert_cluster_event(
+            &mut transaction,
             cluster_id,
-            member_id,
-            decision,
+            None,
+            event,
+            Some(member_id),
             reason,
             at,
-        };
-        write.apply(&mut transaction).await?;
+        )
+        .await?;
         transaction.commit().await?;
         Ok(())
     }
 
-    /// Sets the canonical member while preserving the generated representative for future runs.
+    /// Sets an active member as the local canonical discussion, keeping the generated
+    /// representative.
     ///
-    /// Requires current active membership in the selected cluster. The canonical choice and
-    /// `canonical_set` event commit together; excluded/removed members return
-    /// `ClusterMemberMissing`. A later generation or local exclusion may invalidate the choice,
-    /// so prior inspection does not bypass membership or fencing validation here.
+    /// Excluded or removed members return [`StoreError::ClusterMemberMissing`].
     pub async fn set_cluster_canonical_fenced(
         &self,
         token: &ArchiveLeaseToken,
@@ -175,26 +186,40 @@ impl Archive {
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
-        let member_id = current_cluster_member_id(&mut transaction, cluster_id, thread).await?;
-        let selection = CanonicalSelection {
+        let (member_id, state) =
+            current_cluster_member(&mut transaction, cluster_id, thread).await?;
+        if state != "active" {
+            return Err(StoreError::ClusterMemberMissing);
+        }
+        let result = sqlx::query(
+            "UPDATE clusters SET canonical_thread_id = ?, updated_at_us = ? WHERE id = ?",
+        )
+        .bind(member_id)
+        .bind(at.unix_microseconds())
+        .bind(cluster_id)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() != 1 {
+            return Err(StoreError::ClusterMissing);
+        }
+        insert_cluster_event(
+            &mut transaction,
             cluster_id,
-            member_id,
+            None,
+            "canonical_set",
+            Some(member_id),
+            "",
             at,
-        };
-        selection.apply(&mut transaction).await?;
+        )
+        .await?;
         transaction.commit().await?;
         Ok(())
     }
 }
 
-/// Appends a durable audit event for a local maintainer action.
+/// Appends a cluster audit event inside the caller's transaction.
 ///
-/// Decision and generation writers call this inside the same transaction as their state changes.
-/// `run_id` associates generated events with a build; local decisions can omit it. `thread_id`
-/// identifies member-specific actions, while cluster-wide actions omit that target.
-/// The caller validates identity, event spelling, reason policy, and writer authority. This adapter
-/// binds those SQL columns without trimming or suppressing repeated actions, and never commits.
-/// Database failure propagates so the caller can roll back both state and its required audit event.
+/// `run_id` ties generated events to a build; `thread_id` identifies member-specific actions.
 pub async fn insert_cluster_event(
     connection: &mut SqliteConnection,
     cluster_id: i64,
@@ -218,43 +243,43 @@ pub async fn insert_cluster_event(
     Ok(())
 }
 
-/// Rejects a decision targeting a removed or unknown cluster member.
-async fn current_cluster_member_id(
+/// Resolves a non-removed member's thread row and membership state in one query.
+///
+/// Returns `ClusterMissing` for an unknown cluster, `ThreadMissing` for an unknown thread in the
+/// cluster's repository, and `ClusterMemberMissing` for a foreign, removed, or non-member thread.
+async fn current_cluster_member(
     connection: &mut SqliteConnection,
     cluster_id: i64,
     thread: &ThreadId,
-) -> Result<i64, StoreError> {
-    let cluster_repository: Option<(String, String)> = sqlx::query_as(
-        "SELECT r.host, r.provider_id FROM clusters c JOIN repositories r ON r.id = c.repository_id WHERE c.id = ?",
+) -> Result<(i64, String), StoreError> {
+    let row: Option<(bool, Option<i64>, Option<String>)> = sqlx::query_as(
+        "SELECT r.host = ? AND r.provider_id = ?, t.id, m.state FROM clusters c JOIN repositories r ON r.id = c.repository_id LEFT JOIN threads t ON t.repository_id = c.repository_id AND t.provider_id = ? AND t.number = ? LEFT JOIN cluster_memberships m ON m.cluster_id = c.id AND m.thread_id = t.id WHERE c.id = ?",
     )
+    .bind(thread.repository().host().as_str())
+    .bind(thread.repository().provider_id().as_str())
+    .bind(thread.provider_id().as_str())
+    .bind(to_sql_integer(thread.number().get())?)
     .bind(cluster_id)
     .fetch_optional(&mut *connection)
     .await?;
-    let (host, repository_provider_id) = cluster_repository.ok_or(StoreError::ClusterMissing)?;
-    if host != thread.repository().host().as_str()
-        || repository_provider_id != thread.repository().provider_id().as_str()
-    {
-        return Err(StoreError::ClusterMemberMissing);
+    match row {
+        None => Err(StoreError::ClusterMissing),
+        Some((false, _, _)) => Err(StoreError::ClusterMemberMissing),
+        Some((true, None, _)) => Err(StoreError::ThreadMissing),
+        Some((true, Some(thread_id), Some(state))) if state != "removed" => Ok((thread_id, state)),
+        Some((true, Some(_), _)) => Err(StoreError::ClusterMemberMissing),
     }
-    let repository_id: i64 = sqlx::query_scalar("SELECT repository_id FROM clusters WHERE id = ?")
-        .bind(cluster_id)
-        .fetch_one(&mut *connection)
-        .await?;
-    let thread_id = thread_row_id(connection, repository_id, thread).await?;
-    let membership: Option<String> = sqlx::query_scalar(
-        "SELECT state FROM cluster_memberships WHERE cluster_id = ? AND thread_id = ?",
-    )
-    .bind(cluster_id)
-    .bind(thread_id)
-    .fetch_optional(&mut *connection)
-    .await?;
-    if membership.is_none_or(|state| state == "removed") {
-        return Err(StoreError::ClusterMemberMissing);
-    }
-    Ok(thread_id)
 }
 
-/// Checks an archive-local cluster ID before binding it to SQLite.
+/// Validates reason length and returns the trimmed reason that is persisted.
+fn checked_reason(reason: &str) -> Result<&str, StoreError> {
+    if reason.len() > MAX_REASON_BYTES {
+        return Err(StoreError::InvalidClusterGeneration);
+    }
+    Ok(reason.trim())
+}
+
+/// Checks a public cluster ID before binding it to SQLite.
 pub fn checked_cluster_id(id: u64) -> Result<i64, StoreError> {
     i64::try_from(id)
         .ok()

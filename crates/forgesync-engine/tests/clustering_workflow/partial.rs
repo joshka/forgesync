@@ -1,23 +1,10 @@
-//! # Partial vector coverage preserves the prior cluster
-//!
-//! This dependent transition first publishes two current vectors and establishes a complete
-//! cluster. A newer parent observation for one member then invalidates its document's source
-//! coordinates. The next build sees two eligible discussions but only one current vector.
-//!
-//! The partial generation must retain the previous group identity, active lifecycle, and two-member
-//! membership instead of retiring a group that cannot be reconstructed from incomplete evidence.
-//! Earlier assertions remain in this scenario because they prove that the preserved group existed.
-//!
-//! Observation, fenced document/vector writes, build, and list calls remain explicit. Fixtures only
-//! construct payloads. Complete creation and unmatched vector namespaces have independent
-//! scenarios.
+//! Partial vector coverage preserves the prior cluster.
 
 use std::time::Duration;
 
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_engine::clustering::{
     ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters, list_clusters,
 };
@@ -49,16 +36,13 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(first_updated)
         .await
         .expect("reserve first observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(first_updated),
-        first_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: first_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -66,16 +50,13 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(second_updated)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(second_updated),
-        second_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: second_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";
@@ -163,16 +144,13 @@ async fn partial_vector_coverage_preserves_the_previous_cluster() {
         .reserve_observation_sequence(newer_update)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(newer_update),
-        newer_update,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: newer_update,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
 

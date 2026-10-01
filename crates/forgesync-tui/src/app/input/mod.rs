@@ -1,37 +1,20 @@
-//! # Route key events to the active screen
+//! Key routing.
 //!
-//! The input dispatcher reads the current `App` screen and focus, then sends a key to the relevant
-//! browser or triage handler. Shared navigation and exit behavior stays at this level.
-//!
-//! `browser` owns thread navigation; `triage` owns cluster and decision interactions. A handler
-//! returns [`QueryAction`] values for the event loop to dispatch, while drawing remains in `view`.
-//!
-//! [`App::handle_key`] has explicit precedence: Control-C, active search editing, global screen
-//! and workflow keys, Escape, then the active screen's handler. While editing a search draft,
-//! ordinary character keys belong to that draft rather than global commands. Submission trims
-//! the draft and requests the first page; cancellation preserves the previously applied query.
-//!
-//! Local transitions happen synchronously, but handlers do not await archive or provider work.
-//! Returned actions describe intent; query scheduling and generation-tagged replies determine
-//! completion. Repository-scoped actions use the applied repository identity, which can differ
-//! from the currently highlighted picker row.
-//!
-//! Quitting while a writer is active requests cancellation and keeps the terminal open until
-//! work reports completion. With no active writer it sets the quit flag. This boundary does not
-//! release archive leases or close transport itself; workflow and event-loop owners perform that
-//! cleanup. Coverage has no screen-specific keys beyond these shared controls.
+//! Precedence: Control-C, the search draft while editing, global keys, Escape, then the active
+//! screen. Handlers change local state synchronously and return actions; they never await I/O.
+//! Repository-scoped actions use the applied repository, not the highlighted picker row.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_engine::reference::RepositorySelector;
 
 use crate::app::{App, Focus, Screen};
-use crate::query::requests::QueryAction;
+use crate::query::{Operation, QueryAction, Read};
 
 mod browser;
 mod triage;
 
 impl App {
-    /// Routes a key to the active screen while honoring global exit and search controls.
+    /// Routes a key by the precedence above and returns the work it requests.
     pub fn handle_key(&mut self, key: KeyEvent) -> Vec<QueryAction> {
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             return self.request_quit();
@@ -54,7 +37,7 @@ impl App {
         }
     }
 
-    /// Handles keys that have the same meaning on every screen.
+    /// Handles keys that mean the same on every screen; `None` for screen-specific keys.
     fn handle_global_key(&mut self, code: KeyCode) -> Option<Vec<QueryAction>> {
         let actions = match code {
             KeyCode::Char('q') => self.request_quit(),
@@ -69,44 +52,44 @@ impl App {
         Some(actions)
     }
 
-    /// Requests coverage and clears unrelated status before displaying its screen.
+    /// Shows coverage and reloads it, clearing the status line.
     fn show_coverage(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Coverage;
         self.status = None;
-        vec![QueryAction::Coverage]
+        vec![QueryAction::Read(Read::Coverage)]
     }
 
-    /// Requests the durable failure ledger for the failure screen.
+    /// Shows recent failed runs and reloads them, clearing the status line.
     fn show_failures(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Failures;
         self.status = None;
-        vec![QueryAction::Failures]
+        vec![QueryAction::Read(Read::Failures)]
     }
 
-    /// Requests clusters within the applied browser scope.
+    /// Shows clusters for the applied scope and reloads them, clearing the status line.
     fn show_clusters(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Clusters;
         self.status = None;
-        vec![QueryAction::Clusters {
+        vec![QueryAction::Read(Read::Clusters {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
-    /// Starts acquisition using the applied repository filter rather than the picker highlight.
+    /// Syncs the applied repository, or every registered repository when none is applied.
     fn sync_scope(&self) -> Vec<QueryAction> {
-        vec![QueryAction::Sync {
+        vec![QueryAction::Operation(Operation::Sync {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
-    /// Starts the composed refresh workflow using the same scope as browsing.
+    /// Refreshes the applied repository, or every registered repository when none is applied.
     fn refresh_scope(&self) -> Vec<QueryAction> {
-        vec![QueryAction::Refresh {
+        vec![QueryAction::Operation(Operation::Refresh {
             repositories: self.repository_scope(),
-        }]
+        })]
     }
 
-    /// Opens a local query draft; editing does not request archive or provider work.
+    /// Opens the search draft on the browser, prefilled with the applied query.
     fn edit_search(&mut self) -> Vec<QueryAction> {
         self.screen = Screen::Browser;
         self.searching = true;
@@ -114,7 +97,8 @@ impl App {
         Vec::new()
     }
 
-    /// Returns to the browser or closes a transient view without losing its scope.
+    /// Escape: cluster detail returns to the list and other screens to the browser; on the
+    /// browser it clears an applied search, then moves focus from detail back to the list.
     fn leave_current_view(&mut self) -> Vec<QueryAction> {
         if self.screen == Screen::ClusterDetail {
             self.screen = Screen::Clusters;
@@ -129,7 +113,7 @@ impl App {
         Vec::new()
     }
 
-    /// Edits the pending search query until submission or cancellation.
+    /// Edits the search draft; results change only when it is submitted.
     fn handle_search_key(&mut self, code: KeyCode) -> Vec<QueryAction> {
         match code {
             KeyCode::Esc => self.cancel_search(),
@@ -140,14 +124,14 @@ impl App {
         }
     }
 
-    /// Discards the draft while retaining the applied search query and page.
+    /// Discards the draft and keeps the applied query.
     fn cancel_search(&mut self) -> Vec<QueryAction> {
         self.searching = false;
         self.search_input.clear();
         Vec::new()
     }
 
-    /// Applies a trimmed draft and requests the first page, with empty text clearing the filter.
+    /// Applies the trimmed draft; empty text clears the filter.
     fn submit_search(&mut self) -> Vec<QueryAction> {
         self.searching = false;
         let query = self.search_input.trim().to_owned();
@@ -156,30 +140,27 @@ impl App {
         vec![self.thread_action(self.search_query.clone(), 0)]
     }
 
-    /// Removes one Unicode scalar from the pending draft without changing results.
     fn erase_search_character(&mut self) -> Vec<QueryAction> {
         self.search_input.pop();
         Vec::new()
     }
 
-    /// Extends the pending draft without requesting results until submission.
     fn append_search_character(&mut self, character: char) -> Vec<QueryAction> {
         self.search_input.push(character);
         Vec::new()
     }
 
-    /// Builds a thread query from the applied repository filter. A highlighted but unapplied
-    /// repository does not change the query scope.
+    /// A thread read scoped to the applied repository.
     pub fn thread_action(&self, query: Option<String>, offset: u64) -> QueryAction {
         let repositories = self.repository_scope();
-        QueryAction::Threads {
+        QueryAction::Read(Read::Threads {
             query,
             repositories,
             offset,
-        }
+        })
     }
 
-    /// Returns the applied repository filter for actions that need the same scope as browsing.
+    /// The applied repository as a selector list; empty selects every repository.
     pub fn repository_scope(&self) -> Vec<RepositorySelector> {
         self.repository_picker
             .applied
@@ -189,10 +170,10 @@ impl App {
             .collect()
     }
 
-    /// Cancels an active writer before allowing the terminal to close.
+    /// Quitting with a running writer requests cancellation and waits for its result instead.
     fn request_quit(&mut self) -> Vec<QueryAction> {
-        if self.operation.busy() {
-            self.status = Some("Cancellation requested; waiting for the active action…".to_owned());
+        if let Some(operation) = &mut self.operation {
+            operation.cancelling = true;
             vec![QueryAction::CancelOperation]
         } else {
             self.quit = true;

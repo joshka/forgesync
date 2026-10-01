@@ -1,20 +1,10 @@
-//! # Present an archived discussion in meaningful sections
+//! Human thread detail in sections: source, coverage, pull-request context, then timeline.
 //!
-//! `ThreadDetailOutput` supplies borrowed source and evidence projections. Its section methods
-//! build source, coverage, pull-request metadata, and timeline lines independently. Their order
-//! puts evidence limits before content that readers might otherwise assume is complete.
-//!
-//! `threads` owns entry-point rendering and JSON selection. This module owns human detail text;
-//! it neither loads the archive nor changes JSON DTOs. Timeline text describes current evidence,
-//! not a complete source revision history. Formatting helpers remain shared with list reports.
-//!
-//! CLI output regressions cover these labels and the distinction between missing and empty data.
+//! Coverage precedes content that readers might otherwise assume is complete. The timeline
+//! describes current evidence, not revision history.
 
 use crate::output::ThreadDetailOutput;
-use crate::reports::threads::{
-    coverage_state_name, discussion_kind_name, family_name, format_timestamp, repository_identity,
-    source_state_name,
-};
+use crate::reports::threads::{discussion_kind_name, format_timestamp, repository_identity};
 use crate::reports::timeline::timeline_summary;
 
 /// Formats source content, coverage, pull-request context, and timeline in that order.
@@ -27,7 +17,7 @@ pub fn thread_detail_summary(detail: &ThreadDetailOutput<'_>) -> String {
 }
 
 impl ThreadDetailOutput<'_> {
-    /// Shows source identity and body independently of acquired child evidence.
+    /// Source identity, state, and body, independent of acquired child evidence.
     fn source_lines(&self) -> Vec<String> {
         let thread = self.summary.thread;
         let mut lines = vec![format!(
@@ -37,7 +27,7 @@ impl ThreadDetailOutput<'_> {
             thread.id.number().get(),
             thread.title,
             discussion_kind_name(thread.kind),
-            source_state_name(&thread.state),
+            thread.state.as_str(),
             format_timestamp(thread.updated_at)
         )];
         if let Some(url) = &thread.html_url {
@@ -49,7 +39,7 @@ impl ThreadDetailOutput<'_> {
         }
         lines
     }
-    /// Explains missing or stale family evidence before presenting it.
+    /// Per-family coverage, including staleness, before the evidence it qualifies.
     fn coverage_lines(&self) -> Vec<String> {
         let mut lines = Vec::new();
         lines.push(String::new());
@@ -57,14 +47,14 @@ impl ThreadDetailOutput<'_> {
         lines.extend(self.summary.coverage.iter().map(|coverage| {
             format!(
                 "  {}: {}{}",
-                family_name(coverage.family()),
-                coverage_state_name(coverage.state()),
+                coverage.family().as_str(),
+                coverage.state().as_str(),
                 if coverage.is_stale() { " (stale)" } else { "" }
             )
         }));
         lines
     }
-    /// Shows current pull-request branch and head context.
+    /// Current pull-request branch and head context, when present.
     fn metadata_lines(&self) -> Vec<String> {
         let mut lines = Vec::new();
         for item in self.pull_request_metadata {
@@ -84,7 +74,7 @@ impl ThreadDetailOutput<'_> {
 
         lines
     }
-    /// Shows only current chronological evidence; this is not revision history.
+    /// Current chronological evidence; not a revision history.
     fn timeline_lines(&self) -> Vec<String> {
         let mut lines = Vec::new();
         if !self.timeline.is_empty() {

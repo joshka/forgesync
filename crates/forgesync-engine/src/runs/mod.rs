@@ -1,15 +1,7 @@
-//! # Inspect and retry recorded workflow work
+//! Inspect durable runs and retry their unresolved failures.
 //!
-//! `RetryScope`, `RetryPlan`, and `RetryReport` describe which failed jobs can be attempted again
-//! and what happened on retry. List and show operations read the durable run ledger from the
-//! archive.
-//!
-//! Retry uses recorded failure scope and current archive state rather than guessing from missing
-//! content. The new attempt is a workflow with its own report; prior successes and failures remain
-//! inspectable. The store owns ledger persistence, while this module decides what the engine
-//! should run again. `planning` resolves failed targets, restores recorded scope, and combines
-//! selected families before execution. It keeps ledger interpretation separate from acquisition;
-//! `run_retry` consumes that plan through the regular fenced sync workflow.
+//! Retry uses recorded failure scope rather than guessing from missing content; each retry is a
+//! new sync run with its own report, and prior outcomes remain inspectable.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::identity::RunId;

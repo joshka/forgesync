@@ -1,24 +1,15 @@
-//! # Current archived vector evidence for one generation
+//! Current archived vector evidence for one generation.
 //!
-//! `ClusterSnapshot` resolves one repository, counts its eligible open discussions, and loads the
-//! current compatible document vectors. The build coordinator loads it while holding its writer
-//! fence, before starting CPU-heavy candidate analysis. This module performs archive reads only.
-//!
-//! Eligible-thread and compatible-vector counts remain distinct: incomplete coverage can produce
+//! Eligible-thread and compatible-vector counts stay distinct: incomplete coverage can produce
 //! useful clusters but cannot authorize retirement of unseen groups. No compatible vectors for a
-//! nonempty eligible scope is an error rather than an empty successful generation. An empty scope
-//! is complete. More vector documents than eligible threads is rejected as inconsistent evidence.
-//!
-//! Thread counting uses offset pages; vector loading follows the store's raw document cursor.
-//! Each loop checks cancellation before reading its next page. Endpoint, model, recipe, and open
-//! state are fixed throughout traversal, so counts describe one analysis scope.
+//! nonempty eligible scope is an error; more vector documents than eligible threads is rejected as
+//! inconsistent evidence.
 
 use std::num::NonZeroU32;
 
 use forgesync_core::identity::RepositoryId;
 use forgesync_store::archive::Archive;
 use forgesync_store::embeddings::{EmbeddingDocumentQuery, EmbeddingSearchDocument};
-use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 use tokio_util::sync::CancellationToken;
 
@@ -27,7 +18,7 @@ use crate::error::EngineError;
 use crate::query::resolve_repositories;
 
 /// Shared page budget for counting eligible threads and loading compatible vectors.
-const CLUSTER_PAGE_SIZE: u32 = 500;
+const CLUSTER_PAGE: NonZeroU32 = NonZeroU32::new(500).unwrap();
 
 /// Repository-scoped source evidence and independent coverage counts before graph analysis.
 pub struct ClusterSnapshot {
@@ -57,8 +48,7 @@ impl ClusterSnapshot {
             .ok_or(EngineError::InvalidClusterInput)?;
         let eligible_threads = count_open_threads(archive, &repositories, cancellation).await?;
         let documents = load_vectors(archive, &repositories, request, cancellation).await?;
-        let vector_threads =
-            u64::try_from(documents.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
+        let vector_threads = documents.len() as u64;
         if vector_threads > eligible_threads {
             return Err(EngineError::InvalidClusterInput);
         }
@@ -97,7 +87,7 @@ async fn count_open_threads(
     let mut total = 0_u64;
     loop {
         if cancellation.is_cancelled() {
-            return Err(EngineError::ClusteringCancelled);
+            return Err(EngineError::Cancelled);
         }
         let query = ThreadQuery {
             repositories: repositories.to_vec(),
@@ -106,14 +96,11 @@ async fn count_open_threads(
             match_expression: None,
             updated_since: None,
             sort: ThreadSort::Created,
-            limit: page_limit(),
+            limit: CLUSTER_PAGE,
             offset,
         };
         let page = archive.query_threads(&query).await?;
-        let count = u64::try_from(page.items.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-        total = total
-            .checked_add(count)
-            .ok_or(StoreError::IntegerOutOfRange)?;
+        total += page.items.len() as u64;
         let Some(next_offset) = page.next_offset else {
             return Ok(total);
         };
@@ -132,7 +119,7 @@ async fn load_vectors(
     let mut documents = Vec::new();
     loop {
         if cancellation.is_cancelled() {
-            return Err(EngineError::ClusteringCancelled);
+            return Err(EngineError::Cancelled);
         }
         let query = EmbeddingDocumentQuery {
             repositories,
@@ -142,7 +129,7 @@ async fn load_vectors(
             model: request.model.trim(),
             recipe: request.recipe,
             after_document_id,
-            limit: page_limit(),
+            limit: CLUSTER_PAGE,
         };
         let page = archive.embedding_search_page(&query).await?;
         documents.extend(page.items);
@@ -151,9 +138,4 @@ async fn load_vectors(
         };
         after_document_id = Some(next_document_id);
     }
-}
-
-/// Constructs the nonzero archive page budget shared by both evidence traversals.
-fn page_limit() -> NonZeroU32 {
-    NonZeroU32::new(CLUSTER_PAGE_SIZE).expect("cluster page size is non-zero")
 }

@@ -1,16 +1,4 @@
-//! # Cluster scenario construction and database lifetime
-//!
-//! These fixtures build a repository, checked discussion identities, normalized issues, and
-//! matching original-body documents. Title numbering comes from the checked identity, preventing
-//! disagreement between the source payload and requested thread. The update timestamp is chosen by
-//! each scenario.
-//!
-//! Construction performs no archive operations and computes no expected cluster results. Scenarios
-//! reserve and apply observations, acquire and release fences, and persist vectors themselves.
-//! Fixed source clocks make current-versus-stale representation selection reproducible.
-//!
-//! Filename allocation and closed-database cleanup are infrastructure helpers. The cleanup suffix
-//! loop covers WAL sidecars only; it neither executes scenarios nor derives expected outcomes.
+//! Cluster scenario construction and database lifetime.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

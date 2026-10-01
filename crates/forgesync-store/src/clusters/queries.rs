@@ -1,51 +1,33 @@
-//! # Read clusters for inspection and triage
+//! Cluster list and detail reads.
 //!
-//! These `Archive` methods assemble cluster summaries, membership, and details from stored
-//! generations and local decisions. They return projection types declared in the parent module,
-//! leaving SQL row shapes private.
-//!
-//! Use this path for offline list/show operations in the engine, CLI, and TUI. Queries must
-//! reflect member roles and lifecycle state; callers should not reconstruct those semantics by
-//! joining raw tables themselves.
-//!
-//! Summary SQL chooses an effective representative from active members: the local canonical
-//! choice wins, followed by the generated representative, then the lowest thread number. A cluster
-//! without active members has no effective representative. Titles remain generation-derived.
-//!
-//! List order is descending active membership count followed by stable cluster ID. Detail members
-//! are ordered by thread number and archive row ID; excluded members remain visible, while removed
-//! members are omitted. Canonical, representative, and related roles are separate from member
-//! state.
-//!
-//! Summary, membership, and coverage are separate reads. Concurrent writers may advance between
-//! them, so detail is an inspection projection rather than a frozen generation snapshot.
+//! The effective representative prefers an active local canonical member, then the generated
+//! representative, then the lowest active thread number. Detail members are ordered by number;
+//! excluded members stay visible while removed ones are omitted. Summary, members, and coverage are
+//! separate reads, so detail is not a frozen snapshot.
+
+use std::collections::HashMap;
 
 use forgesync_core::content::Repository;
-use forgesync_core::identity::{RepositoryId, ThreadNumber, ThreadReference};
-use forgesync_core::timestamp::UtcTimestamp;
+use forgesync_core::coverage::EvidenceFamily;
+use forgesync_core::identity::{ThreadNumber, ThreadReference};
+use sqlx::sqlite::SqliteRow;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::archive::Archive;
 use crate::clusters::decisions::checked_cluster_id;
-use crate::clusters::members::{MemberRoles, load_members};
 use crate::clusters::{
-    ClusterDetail, ClusterLifecycle, ClusterListQuery, ClusterPage, ClusterSummary,
+    ClusterDetail, ClusterLifecycle, ClusterListQuery, ClusterMember, ClusterMemberRole,
+    ClusterMemberState, ClusterPage, ClusterSummary,
 };
+use crate::coverage_projection::{StoredCoverage, coverage_for_kind, load_thread_coverage};
 use crate::error::StoreError;
+use crate::reads::ThreadSummary;
+use crate::sql::{count_from_sql, push_repository_scope, timestamp_from_sql, to_sql_integer};
 
 impl Archive {
-    /// Lists durable generated clusters without contacting GitHub or mutating the archive.
+    /// Lists generated clusters by descending active-member count, then ID.
     ///
-    /// Repository scope is optional. Retired clusters are omitted unless requested; dismissal is
-    /// an independent local state and does not itself remove a cluster from this list. Results use
-    /// active-member count followed by stable ID, fetching one extra row for continuation
-    /// detection.
-    ///
-    /// # Errors
-    ///
-    /// Rejects page sizes above 1,000 and offsets outside SQLite's signed range. Invalid persisted
-    /// identities, counts, timestamps, lifecycle labels, payloads, and SQL failures return typed
-    /// archive errors; no query changes membership or local decisions.
+    /// Retired clusters are omitted unless requested; dismissal does not remove a cluster here.
     pub async fn list_clusters(
         &self,
         query: &ClusterListQuery<'_>,
@@ -58,12 +40,12 @@ impl Archive {
         if !query.include_retired {
             statement.push(" AND cg.status = 'active'");
         }
-        push_cluster_repository_filter(&mut statement, query.repositories);
+        push_repository_scope(&mut statement, query.repositories);
         statement
             .push(" ORDER BY active_member_count DESC, cg.id LIMIT ")
             .push_bind(i64::from(limit) + 1)
             .push(" OFFSET ")
-            .push_bind(i64::try_from(query.offset).map_err(|_| StoreError::IntegerOutOfRange)?);
+            .push_bind(to_sql_integer(query.offset)?);
         let rows = statement.build().fetch_all(&self.reader).await?;
         let mut items = rows
             .into_iter()
@@ -81,20 +63,7 @@ impl Archive {
         Ok(ClusterPage { items, next_offset })
     }
 
-    /// Shows a cluster and current or locally excluded generated members.
-    ///
-    /// Removed members are omitted. Each selected member includes its canonical discussion and
-    /// explicit evidence coverage. Local canonical selection takes precedence over representative
-    /// role; exclusions are reported as member state rather than dropping the discussion.
-    ///
-    /// Summary, member rows, and coverage are acquired separately. A concurrent generation or
-    /// decision can advance between those reads; callers must not treat this view as a transaction
-    /// snapshot or use it as authority to bypass validation in a later decision operation.
-    ///
-    /// # Errors
-    ///
-    /// Invalid or absent cluster IDs return `ClusterMissing`. Malformed stored rows and SQL
-    /// failures abort projection without changing archive state.
+    /// Shows a cluster with its active and locally excluded members.
     pub async fn cluster_detail(&self, id: u64) -> Result<ClusterDetail, StoreError> {
         let cluster_id = checked_cluster_id(id)?;
         let mut statement = QueryBuilder::<Sqlite>::new(cluster_summary_select());
@@ -110,7 +79,21 @@ impl Archive {
             canonical_thread_id,
             representative: cluster.representative.as_ref().map(ThreadReference::number),
         };
-        let members = load_members(&self.reader, cluster_id, roles).await?;
+        let rows = sqlx::query(
+            "SELECT cm.thread_id, cm.state, cm.score_to_representative, t.payload_json AS discussion_json, r.payload_json AS repository_json FROM cluster_memberships cm JOIN threads t ON t.id = cm.thread_id JOIN repositories r ON r.id = t.repository_id WHERE cm.cluster_id = ? AND cm.state IN ('active', 'excluded') ORDER BY t.number, t.id",
+        )
+        .bind(cluster_id)
+        .fetch_all(&self.reader)
+        .await?;
+        let thread_ids = rows
+            .iter()
+            .map(|row| row.try_get::<i64, _>("thread_id"))
+            .collect::<Result<Vec<_>, _>>()?;
+        let coverage = load_thread_coverage(&self.reader, &thread_ids).await?;
+        let members = rows
+            .into_iter()
+            .map(|row| cluster_member(row, &roles, &coverage))
+            .collect::<Result<_, _>>()?;
         Ok(ClusterDetail { cluster, members })
     }
 }
@@ -120,54 +103,25 @@ fn cluster_summary_select() -> &'static str {
     "SELECT cg.id, r.payload_json AS repository_json, cg.title, cg.status, cg.dismissed_at_us, cg.dismissal_reason, cg.last_run_id, cg.updated_at_us, cg.canonical_thread_id, cg.representative_thread_id, COALESCE((SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.thread_id = cg.canonical_thread_id AND cm.state = 'active'), (SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.thread_id = cg.representative_thread_id AND cm.state = 'active'), (SELECT t.number FROM threads t JOIN cluster_memberships cm ON cm.thread_id = t.id WHERE cm.cluster_id = cg.id AND cm.state = 'active' ORDER BY t.number, t.id LIMIT 1)) AS representative_number, (SELECT COUNT(*) FROM cluster_memberships cm WHERE cm.cluster_id = cg.id AND cm.state = 'active') AS active_member_count, (SELECT COUNT(*) FROM cluster_memberships cm WHERE cm.cluster_id = cg.id AND cm.state = 'excluded') AS excluded_member_count FROM clusters cg JOIN repositories r ON r.id = cg.repository_id WHERE 1 = 1"
 }
 
-/// Adds bound repository scope to a cluster query.
-fn push_cluster_repository_filter(
-    statement: &mut QueryBuilder<Sqlite>,
-    repositories: &[RepositoryId],
-) {
-    if repositories.is_empty() {
-        return;
-    }
-    statement.push(" AND (");
-    for (index, repository) in repositories.iter().enumerate() {
-        if index > 0 {
-            statement.push(" OR ");
-        }
-        statement
-            .push("(r.host = ")
-            .push_bind(repository.host().as_str())
-            .push(" AND r.provider_id = ")
-            .push_bind(repository.provider_id().as_str())
-            .push(")");
-    }
-    statement.push(")");
-}
-
 /// Converts a SQL projection to a typed cluster summary.
-fn cluster_summary_from_row(row: sqlx::sqlite::SqliteRow) -> Result<ClusterSummary, StoreError> {
+fn cluster_summary_from_row(row: SqliteRow) -> Result<ClusterSummary, StoreError> {
     let repository: Repository =
         serde_json::from_str(&row.try_get::<String, _>("repository_json")?)?;
     let representative_number: Option<i64> = row.try_get("representative_number")?;
     let representative = representative_number
         .map(|number| -> Result<ThreadReference, StoreError> {
-            let number = u64::try_from(number).map_err(|_| StoreError::InvalidStoredCount)?;
-            let number = ThreadNumber::new(number).map_err(|_| StoreError::InvalidStoredCount)?;
+            let number = ThreadNumber::new(count_from_sql(number)?)
+                .map_err(|_| StoreError::Corrupt("archive_count_invalid"))?;
             Ok(ThreadReference::new(repository.id.clone(), number))
         })
         .transpose()?;
-    let id =
-        u64::try_from(row.try_get::<i64, _>("id")?).map_err(|_| StoreError::InvalidStoredCount)?;
+    let id = count_from_sql(row.try_get("id")?)?;
     let last_run_id = row
         .try_get::<Option<i64>, _>("last_run_id")?
-        .map(|id| u64::try_from(id).map_err(|_| StoreError::InvalidStoredCount))
+        .map(count_from_sql)
         .transpose()?;
-    let updated_at = UtcTimestamp::from_unix_microseconds(row.try_get("updated_at_us")?)
-        .map_err(StoreError::InvalidCreatedAt)?;
-    let lifecycle = match row.try_get::<String, _>("status")?.as_str() {
-        "active" => ClusterLifecycle::Active,
-        "retired" => ClusterLifecycle::Retired,
-        _ => return Err(StoreError::InvalidClusterGeneration),
-    };
+    let updated_at = timestamp_from_sql(row.try_get("updated_at_us")?)?;
+    let lifecycle: ClusterLifecycle = row.try_get("status")?;
     let dismissed = row.try_get::<Option<i64>, _>("dismissed_at_us")?.is_some();
     let dismissal_reason: String = row.try_get("dismissal_reason")?;
     Ok(ClusterSummary {
@@ -178,11 +132,92 @@ fn cluster_summary_from_row(row: sqlx::sqlite::SqliteRow) -> Result<ClusterSumma
         dismissed,
         dismissal_reason: dismissed.then_some(dismissal_reason),
         representative,
-        active_member_count: u64::try_from(row.try_get::<i64, _>("active_member_count")?)
-            .map_err(|_| StoreError::InvalidStoredCount)?,
-        excluded_member_count: u64::try_from(row.try_get::<i64, _>("excluded_member_count")?)
-            .map_err(|_| StoreError::InvalidStoredCount)?,
+        active_member_count: count_from_sql(row.try_get("active_member_count")?)?,
+        excluded_member_count: count_from_sql(row.try_get("excluded_member_count")?)?,
         last_run_id,
         updated_at,
     })
+}
+
+/// Role coordinates selected by the cluster-summary read.
+struct MemberRoles {
+    /// Local canonical choice expressed as an archive thread row ID.
+    canonical_thread_id: Option<i64>,
+    /// Effective display representative expressed as a repository thread number.
+    representative: Option<ThreadNumber>,
+}
+
+/// Decodes one member row and attaches its coverage and effective role.
+fn cluster_member(
+    row: SqliteRow,
+    roles: &MemberRoles,
+    coverage: &HashMap<i64, HashMap<EvidenceFamily, StoredCoverage>>,
+) -> Result<ClusterMember, StoreError> {
+    let thread_id: i64 = row.try_get("thread_id")?;
+    let state: ClusterMemberState = row.try_get("state")?;
+    let discussion = serde_json::from_str(&row.try_get::<String, _>("discussion_json")?)?;
+    let repository = serde_json::from_str(&row.try_get::<String, _>("repository_json")?)?;
+    let summary = ThreadSummary {
+        coverage: coverage_for_kind(&discussion, coverage.get(&thread_id)),
+        discussion,
+        repository,
+    };
+    let role = roles.role(thread_id, summary.discussion.id.number());
+    Ok(ClusterMember {
+        summary,
+        role,
+        state,
+        score_to_representative: row.try_get("score_to_representative")?,
+    })
+}
+
+impl MemberRoles {
+    /// Applies canonical precedence without conflating archive IDs and repository numbers.
+    fn role(&self, thread_id: i64, number: ThreadNumber) -> ClusterMemberRole {
+        if self.canonical_thread_id == Some(thread_id) {
+            ClusterMemberRole::Canonical
+        } else if self.representative == Some(number) {
+            ClusterMemberRole::Representative
+        } else {
+            ClusterMemberRole::Related
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use forgesync_core::identity::ThreadNumber;
+
+    use crate::clusters::ClusterMemberRole;
+    use crate::clusters::queries::MemberRoles;
+
+    #[test]
+    fn canonical_role_wins_when_the_same_thread_is_the_representative() {
+        let number = ThreadNumber::new(17).expect("thread number");
+        let roles = MemberRoles {
+            canonical_thread_id: Some(41),
+            representative: Some(number),
+        };
+        assert_eq!(roles.role(41, number), ClusterMemberRole::Canonical);
+    }
+
+    #[test]
+    fn representative_uses_repository_number_not_archive_row_identity() {
+        let number = ThreadNumber::new(17).expect("thread number");
+        let roles = MemberRoles {
+            canonical_thread_id: None,
+            representative: Some(number),
+        };
+        assert_eq!(roles.role(41, number), ClusterMemberRole::Representative);
+    }
+
+    #[test]
+    fn a_member_without_a_selected_identity_is_related() {
+        let number = ThreadNumber::new(17).expect("thread number");
+        let roles = MemberRoles {
+            canonical_thread_id: None,
+            representative: None,
+        };
+        assert_eq!(roles.role(41, number), ClusterMemberRole::Related);
+    }
 }

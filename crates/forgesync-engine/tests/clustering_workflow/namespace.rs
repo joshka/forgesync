@@ -1,22 +1,10 @@
-//! # Vector namespaces cannot be substituted during clustering
-//!
-//! The archive contains two current vectors under the configured fixture endpoint and model. A
-//! build requesting a different endpoint must reject unavailable vectors rather than reuse those
-//! embeddings or treat the repository as a valid empty candidate set.
-//!
-//! Archive creation, evidence application, fenced document/vector persistence, and the actual build
-//! are visible next to the exact error expectation. Namespace rejection requires no previous
-//! cluster generation; that unrelated operation stays in the complete and partial scenarios.
-//!
-//! Pure construction fixtures supply matching original-body documents. No embedding HTTP service is
-//! involved; this regression checks engine selection against persisted representation identity.
+//! Vector namespaces cannot be substituted during clustering.
 
 use std::time::Duration;
 
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_engine::clustering::{ClusterBuildRequest, ClusterOptions, build_clusters};
 use forgesync_engine::error::EngineError;
 use forgesync_engine::reference::RepositorySelector;
@@ -46,16 +34,13 @@ async fn unmatched_endpoint_rejects_otherwise_current_vectors() {
         .reserve_observation_sequence(first_updated)
         .await
         .expect("reserve first observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(first_updated),
-        first_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: first_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -63,16 +48,13 @@ async fn unmatched_endpoint_rejects_otherwise_current_vectors() {
         .reserve_observation_sequence(second_updated)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(second_updated),
-        second_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: second_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";

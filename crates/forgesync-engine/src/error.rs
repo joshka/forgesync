@@ -1,24 +1,8 @@
-//! # Workflow failures at engine boundaries
+//! Workflow failures at engine boundaries.
 //!
-//! [`EngineError`] combines request validation, missing local targets, unavailable services,
-//! cancellation, worker failures, and errors from the provider, embedding, and store owners.
-//! Transparent variants retain their owning error's display/source behavior; the engine does not
-//! flatten every failure into a transport error or a generic retry instruction.
-//!
-//! Workflow reports carry partial success when work can continue. An error can instead prevent a
-//! request or stage from completing, but it does not prove that no durable work occurred. Earlier
-//! pages, batches, or stages can already be committed; cleanup can also fail after a successful
-//! write. Callers must interpret the operation's contract and any retained report before retrying.
-//!
-//! [`EngineError::code`] supplies process-facing classification independently of display wording.
-//! Callers present diagnostics and choose exit status; this module installs no subscriber and reads
-//! no process environment. Some classifications group related underlying failures, so codes alone
-//! are not a complete retry policy or source-completeness decision.
-//!
-//! Failure-ledger errors preserve both the original provider failure and the store error that
-//! prevented recording it. Display text and source chains remain diagnostics rather than public
-//! payloads: presentation owners must follow the project's credential and content logging rules.
-//! Adding a variant requires reviewing its classification and the workflows that can retain it.
+//! An error does not prove that no durable work occurred: earlier pages, batches, or stages can
+//! already be committed, and cleanup can fail after a successful write. [`EngineError::code`] is
+//! the stable process-facing classification, independent of display wording.
 
 use forgesync_core::coverage::Failure;
 use forgesync_github::error::{ApiFailureKind, GitHubError};
@@ -102,9 +86,9 @@ pub enum EngineError {
     /// No embedding client was supplied for semantic retrieval.
     #[error("semantic search requires a configured embedding service")]
     EmbeddingServiceUnavailable,
-    /// Semantic search was cancelled before ranking completed.
-    #[error("semantic search was cancelled")]
-    SearchCancelled,
+    /// The caller cancelled a search or clustering operation before it completed.
+    #[error("operation was cancelled")]
+    Cancelled,
     /// A bounded exact-ranking worker failed before returning its page.
     #[error("semantic ranking worker failed")]
     SearchWorkerFailed,
@@ -126,9 +110,6 @@ pub enum EngineError {
     /// A local decision does not target a current member of the selected cluster.
     #[error("cluster decision target is not a current member")]
     InvalidClusterDecision,
-    /// Cluster graph construction was cancelled.
-    #[error("clustering was cancelled")]
-    ClusteringCancelled,
     /// A bounded cluster graph worker ended before returning its result.
     #[error("cluster graph worker failed")]
     ClusterWorkerFailed,
@@ -153,6 +134,16 @@ pub enum EngineError {
 }
 
 impl EngineError {
+    /// Whether caller cancellation, rather than a failure, ended the operation.
+    pub fn is_cancelled(&self) -> bool {
+        matches!(
+            self,
+            Self::Cancelled
+                | Self::Embedding(EmbeddingClientError::Cancelled)
+                | Self::GitHub(GitHubError::Cancelled)
+        )
+    }
+
     /// Returns the stable machine-readable classification for process output.
     pub fn code(&self) -> &'static str {
         match self {
@@ -173,7 +164,7 @@ impl EngineError {
             Self::InvalidSearchFallbackMode => "search_fallback_mode_invalid",
             Self::SemanticVectorsUnavailable => "semantic_vectors_unavailable",
             Self::EmbeddingServiceUnavailable => "embedding_service_unavailable",
-            Self::SearchCancelled => "operation_cancelled",
+            Self::Cancelled => "operation_cancelled",
             Self::SearchWorkerFailed => "search_worker_failed",
             Self::SearchWindowTooLarge => "search_window_too_large",
             Self::ClusterVectorsUnavailable => "cluster_vectors_unavailable",
@@ -181,11 +172,9 @@ impl EngineError {
             Self::InvalidClusterInput => "cluster_input_invalid",
             Self::ClusterMissing => "cluster_missing",
             Self::InvalidClusterDecision => "cluster_decision_invalid",
-            Self::ClusteringCancelled => "operation_cancelled",
             Self::ClusterWorkerFailed => "cluster_worker_failed",
             Self::Embedding(EmbeddingClientError::Cancelled) => "operation_cancelled",
             Self::Embedding(error) => error.code(),
-            Self::Store(StoreError::InvalidSearchQuery) => "search_query_invalid",
             Self::Store(error) => error.code(),
             Self::GitHub(error) => github_error_code(error),
             Self::FailureLedger { .. } => "failure_ledger_write_failed",
@@ -194,9 +183,6 @@ impl EngineError {
 }
 
 /// Maps provider errors to process-output codes without applying retry or workflow policy.
-///
-/// Keeping the complete provider mapping together makes each variant explicit and avoids an
-/// unreachable fallback for variants classified earlier in the outer engine match.
 fn github_error_code(error: &GitHubError) -> &'static str {
     match error {
         GitHubError::Cancelled => "operation_cancelled",
@@ -218,7 +204,6 @@ fn github_error_code(error: &GitHubError) -> &'static str {
         GitHubError::InvalidJson => "github_response_invalid_json",
         GitHubError::GraphqlErrors { .. } => "github_graphql_errors",
         GitHubError::InvalidProviderData => "github_provider_data_invalid",
-        GitHubError::ConcurrencyUnavailable => "github_concurrency_unavailable",
         GitHubError::InvalidApiBaseUrl => "github_api_url_invalid",
         GitHubError::InvalidConfiguration => "github_configuration_invalid",
         GitHubError::ClientInitialization => "github_client_initialization_failed",

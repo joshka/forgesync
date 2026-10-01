@@ -1,15 +1,7 @@
-//! # Bounded windows for ranked retrieval
+//! Bounded windows for ranked retrieval.
 //!
-//! [`SearchWindow`] validates the requested offset and page size before candidate acquisition.
-//! Ranked search must collect every candidate preceding the requested page, plus one result to
-//! determine whether another page exists. A page size alone therefore cannot bound its work.
-//!
-//! The window retains both presentation coordinates and the acquisition limit, keeping their
-//! relationship explicit. Keyword-only search uses store pagination directly; semantic and hybrid
-//! retrieval use this window before embedding the query or reading candidate vectors.
-//!
-//! The maximum bounds total ranking work, not merely the number of results returned to a caller.
-//! Conversion and addition failures have the same public classification as an oversized window.
+//! Ranked search must collect every candidate before the requested page plus one more to detect a
+//! next page, so the maximum bounds total ranking work rather than the page size.
 
 use crate::error::EngineError;
 use crate::query::checked_page;

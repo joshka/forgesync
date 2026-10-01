@@ -14,8 +14,7 @@
 //! policy, provider acquisition, and schema backfill have separate owners.
 
 use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 
 use crate::fixture::{
@@ -45,16 +44,13 @@ async fn fts_index_replaces_removed_body_with_current_title() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 
@@ -77,16 +73,13 @@ async fn fts_index_replaces_removed_body_with_current_title() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let obsolete = archive

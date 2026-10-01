@@ -1,24 +1,10 @@
-//! # Complete vector coverage creates a durable cluster
-//!
-//! Two open issues have matching current original-body documents and identical vectors. Every
-//! observation reservation and application is visible, followed by fenced document and chunk
-//! writes. The lease uses a fixed future window so preparation does not expire while the scenario
-//! runs.
-//!
-//! The engine receives an explicit repository, endpoint/model namespace, recipe, and default
-//! policy. A complete generation reports both eligible threads and vectors, then the public list
-//! operation confirms one active group with two members. No model service is contacted.
-//!
-//! Pure fixtures construct identities and content only. Partial preservation and namespace
-//! rejection have sibling scenarios; store suites cover human decisions and generation retirement
-//! directly.
+//! Complete vector coverage creates a durable cluster.
 
 use std::time::Duration;
 
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
 use forgesync_core::embedding::EmbeddingVector;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_engine::clustering::{
     ClusterBuildRequest, ClusterListRequest, ClusterOptions, build_clusters, list_clusters,
 };
@@ -50,16 +36,13 @@ async fn complete_vector_coverage_creates_a_durable_cluster() {
         .reserve_observation_sequence(first_updated)
         .await
         .expect("reserve first observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(first_updated),
-        first_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: first_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply first observation");
     let content = discussion(&second, second_updated);
@@ -67,16 +50,13 @@ async fn complete_vector_coverage_creates_a_durable_cluster() {
         .reserve_observation_sequence(second_updated)
         .await
         .expect("reserve second observation sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(second_updated),
-        second_updated,
+    let observation = ThreadObservation {
+        discussion: content,
+        observed_at: second_updated,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply second observation");
     let endpoint = "https://embeddings.example/v1";

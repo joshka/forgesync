@@ -1,65 +1,85 @@
-//! # Build bounded failure-list projections from the run ledger
+//! Bounded failure-list projections from the run ledger.
 //!
-//! [`recent_failures`] reads the fifty newest run records and details at most twenty unfinished
-//! runs. These are presentation bounds, not a complete retry inventory: older failures remain in
-//! the archive and can still be inspected through the run commands. Completed runs do not consume
-//! the detail bound; the selected unfinished runs retain the store's newest-first order.
-//!
-//! Each detail read is isolated. A missing or unreadable run becomes a summary with its original
-//! identity and status, so another run's evidence remains available. Failure to read the initial
-//! list fails the projection as a whole. No provider requests or durable changes occur here.
-//!
-//! [`RunFailureSummary`] owns conversion of detailed jobs and unresolved failure rows into safe
-//! terminal entries. [`crate::query::reads`] attaches the panel generation and sends this
-//! projection to [`crate::app::failures::FailureList`], which owns cache retention and retry
-//! selection.
+//! These are presentation bounds, not a retry inventory: older failures stay in the archive and
+//! remain visible through the run commands.
 
+use forgesync_core::identity::RunId;
 use forgesync_engine::error::EngineError;
 use forgesync_engine::runs::{list_runs, show_run};
 use forgesync_store::archive::Archive;
-use forgesync_store::runs::{RunRecord, RunStatus};
+use forgesync_store::runs::{RunDetail, RunRecord, RunStatus, SyncJobStatus};
 
-use crate::app::failures::RunFailureSummary;
-
-/// Caps ledger candidates so opening the failure view does not scan all archive history.
 const RUNS_TO_SCAN: u32 = 50;
-/// Caps detail reads after completed runs have been removed from the candidate list.
+/// Applied after completed runs are removed, so they do not consume the bound.
 const RUNS_TO_DETAIL: usize = 20;
 
-/// Reads recent unfinished runs without letting an individual detail failure hide other runs.
+/// One unfinished run and its safe unresolved-work lines.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunFailureSummary {
+    pub id: RunId,
+    pub status: RunStatus,
+    pub entries: Vec<String>,
+}
+
+impl From<RunDetail> for RunFailureSummary {
+    /// Lists unfinished jobs, then unresolved failures, each in ledger order.
+    ///
+    /// A job and its failure row may both appear because they explain different evidence; the
+    /// engine reads the full ledger to decide what a retry covers.
+    fn from(detail: RunDetail) -> Self {
+        let jobs = detail
+            .jobs
+            .iter()
+            .filter(|job| job.status != SyncJobStatus::Complete)
+            .map(|job| {
+                format!(
+                    "{} / {:?}: {:?}",
+                    job.repository.full_name, job.family, job.status
+                )
+            });
+        let failures = detail
+            .failures
+            .iter()
+            .filter(|failure| failure.resolved_at.is_none())
+            .map(|failure| format!("{}: {}", failure.target, failure.failure.message));
+        Self {
+            id: detail.run.id,
+            status: detail.run.status,
+            entries: jobs.chain(failures).collect(),
+        }
+    }
+}
+
+/// Reads recent unfinished runs, newest first.
 ///
-/// A list failure returns a safe error for the whole panel. A detail failure is represented in
-/// that run's entries, retaining the run identity so its ledger can still be inspected or retried.
+/// Only a failure to list runs fails the whole read; an unreadable run detail becomes that run's
+/// only entry so other runs stay visible.
 pub async fn recent_failures(archive: &Archive) -> Result<Vec<RunFailureSummary>, String> {
     let runs = list_runs(archive, RUNS_TO_SCAN)
         .await
         .map_err(|error| error.to_string())?;
     let mut summaries = Vec::new();
     for run in unfinished_runs(runs) {
-        summaries.push(run_summary(archive, run).await);
+        let summary = match show_run(archive, run.id).await {
+            Ok(detail) => RunFailureSummary::from(detail),
+            Err(error) => unavailable_summary(run, error),
+        };
+        summaries.push(summary);
     }
     Ok(summaries)
 }
 
-/// Preserves newest-first ledger order while selecting a bounded unfinished subset.
+/// Unfinished runs in newest-first order, bounded after complete runs are skipped.
 fn unfinished_runs(runs: Vec<RunRecord>) -> impl Iterator<Item = RunRecord> {
     runs.into_iter()
         .filter(|run| run.status != RunStatus::Complete)
         .take(RUNS_TO_DETAIL)
 }
 
-/// Projects one run or reports its isolated detail failure under the original identity.
-async fn run_summary(archive: &Archive, run: RunRecord) -> RunFailureSummary {
-    match show_run(archive, run.id).await {
-        Ok(detail) => RunFailureSummary::from(detail),
-        Err(error) => unavailable_summary(run, error),
-    }
-}
-
-/// Keeps an unreadable ledger detail visible without manufacturing job or retry evidence.
+/// Keeps a run whose detail could not be read visible under its own identity.
 fn unavailable_summary(run: RunRecord, error: EngineError) -> RunFailureSummary {
     RunFailureSummary {
-        id: run.id.get(),
+        id: run.id,
         status: run.status,
         entries: vec![format!("Could not load run detail: {error}")],
     }

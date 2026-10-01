@@ -1,21 +1,4 @@
-//! # Draw archive-wide evidence coverage and health
-//!
-//! `draw_coverage` presents the loaded `ArchiveStatus`: discussion and repository counts, resource
-//! family completeness, schema history, writer lease, and unresolved durable work. This projection
-//! describes the archive, not only the currently selected discussion or browser page.
-//!
-//! Completeness comes from stored evidence and freshness rules rather than visible child counts.
-//! The screen helps readers distinguish absent content from acquisition that is missing or partial,
-//! and identify recorded work that needs inspection or retry.
-//!
-//! `app/coverage` owns the last successful projection and refresh generation. A pending initial
-//! read shows loading; a refresh with cached data keeps that projection and marks it as refreshing.
-//! Current errors take precedence over cached content. Query tasks perform read-only inspection;
-//! this renderer starts no work and does not decide whether an archive should sync or migrate.
-//!
-//! A borrowed `CoverageView` assembles identity, evidence, health, and lease sections from that one
-//! loaded projection. Section methods own wording and emphasis; `draw_coverage` owns loading/error
-//! precedence and placement in the frame.
+//! Archive-wide evidence coverage, local health, and the writer lease.
 
 use forgesync_store::reads::ArchiveStatus;
 use ratatui::Frame;
@@ -25,21 +8,20 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{PaneEmphasis, family_name};
+use crate::view::{family_name, pane};
 
-/// Draws archive-wide coverage and health, marking cached refreshes and current read failures.
 pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let block = PaneEmphasis::Strong.block("Archive coverage and health");
-    let mut lines = if app.coverage_panel.loading && app.coverage_panel.data.is_none() {
+    let block = pane("Archive coverage and health", true);
+    let mut lines = if app.coverage.loading && app.coverage.data.is_none() {
         vec![Line::from("Loading archive coverage…")]
-    } else if let Some(error) = &app.coverage_panel.error {
+    } else if let Some(error) = &app.coverage.error {
         vec![Line::from(error.clone())]
-    } else if let Some(status) = &app.coverage_panel.data {
+    } else if let Some(status) = &app.coverage.data {
         CoverageView { status }.lines()
     } else {
         vec![Line::from("Press c to load coverage.")]
     };
-    if app.coverage_panel.loading && app.coverage_panel.data.is_some() {
+    if app.coverage.loading && app.coverage.data.is_some() {
         lines.insert(0, Line::from("Refreshing…"));
     }
     frame.render_widget(
@@ -50,17 +32,12 @@ pub fn draw_coverage(frame: &mut Frame<'_>, area: Rect, app: &App) {
     );
 }
 
-/// Borrowed archive projection whose sections share one observed status.
-///
-/// This context owns presentation only. It keeps identity, evidence, and health formatting locally
-/// navigable without creating a second status model or acquiring fresh diagnostics while drawing.
+/// Sections of one loaded archive status.
 struct CoverageView<'a> {
-    /// Last successfully loaded status, retained by the coverage panel during refresh.
     status: &'a ArchiveStatus,
 }
 
 impl CoverageView<'_> {
-    /// Assembles archive identity, evidence, and local health in their terminal reading order.
     fn lines(&self) -> Vec<Line<'static>> {
         let mut lines = self.identity_lines();
         lines.extend(self.evidence_lines());
@@ -69,7 +46,6 @@ impl CoverageView<'_> {
         lines
     }
 
-    /// Identifies the archive and its discussion totals before showing per-family evidence.
     fn identity_lines(&self) -> Vec<Line<'static>> {
         let status = self.status;
         vec![
@@ -85,7 +61,7 @@ impl CoverageView<'_> {
         ]
     }
 
-    /// Preserves the store's family order and distinguishes incomplete from absent evidence.
+    /// Distinguishes incomplete from missing evidence per family.
     fn evidence_lines(&self) -> Vec<Line<'static>> {
         let mut lines = vec![
             Line::from(""),
@@ -104,7 +80,6 @@ impl CoverageView<'_> {
         lines
     }
 
-    /// Displays durable work independently of source-family completeness.
     fn health_lines(&self) -> Vec<Line<'static>> {
         let work = &self.status.diagnostics.work;
         vec![
@@ -120,10 +95,7 @@ impl CoverageView<'_> {
         ]
     }
 
-    /// Shows lease owner and expiry only while the observed lease is held.
-    ///
-    /// Availability is diagnostic information, not permission for a later write. Missing owner or
-    /// unformattable expiry remains explicit instead of implying that the lease is available.
+    /// A held lease with an unknown owner or expiry says so rather than looking available.
     fn lease_lines(&self) -> Vec<Line<'static>> {
         let lease = &self.status.diagnostics.lease;
         if !lease.held {
@@ -143,12 +115,6 @@ impl CoverageView<'_> {
 
 #[cfg(test)]
 mod tests {
-    //! Local health rendering preserves its heading, counters, and available-lease wording.
-    //!
-    //! An explicit new archive supplies real diagnostics rather than a parallel fixture model.
-    //! Store tests own diagnostic acquisition; this case protects its presentation as terminal
-    //! lines.
-
     use forgesync_store::archive::Archive;
     use ratatui::style::{Modifier, Style};
     use ratatui::text::Line;

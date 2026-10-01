@@ -1,17 +1,4 @@
-//! # Archive reference construction, coverage selection, and lifetime
-//!
-//! This module constructs references for the host-qualified fixture repository, provider ID 41.
-//! Scenarios read current thread detail directly rather than searching a bounded page of all
-//! threads and assuming that a discussion number is globally unique. It performs no archive reads
-//! or writes.
-//!
-//! Coverage selectors locate one already-read family record. They do not assert completeness or
-//! freshness; each scenario compares its own expected state beside the engine operation.
-//! Enumeration counts come from explicit archive-status reads in those scenarios.
-//!
-//! Unique paths, live lease-clock values, and best-effort closed-database cleanup are
-//! infrastructure helpers. Source content uses fixed clocks; leases need a time that agrees with
-//! competing writers. Cleanup tolerates WAL sidecars already removed by SQLite.
+//! Archive reference construction, coverage selection, and lifetime.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

@@ -16,6 +16,8 @@
 //! explicit ledger/lease reporting. `migration` owns current and rejected schema history.
 //! `fixture` supplies only filename, pool, and cleanup capabilities shared by those scenarios.
 
+mod common;
+
 #[path = "archive_lifecycle/access.rs"]
 mod access;
 #[path = "archive_lifecycle/diagnostics.rs"]

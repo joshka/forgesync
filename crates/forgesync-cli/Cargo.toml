@@ -13,7 +13,7 @@ default = ["tui"]
 tui = ["dep:forgesync-tui"]
 
 [dependencies]
-clap.workspace = true
+clap = { workspace = true, features = ["env"] }
 etcetera.workspace = true
 indicatif.workspace = true
 forgesync-core = { version = "0.1.2", path = "../forgesync-core" }

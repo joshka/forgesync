@@ -1,14 +1,4 @@
-//! # Constructed recipe evidence
-//!
-//! This fixture provides one pull request with title, body, labels, branch metadata, and children.
-//! Comment input order differs from source chronology so ordering tests can detect missing sorting.
-//! A bot comment carries explicit provider user metadata; review and inline-thread text are
-//! distinct. Every child family begins complete and fresh at a fixed acquisition coordinate.
-//!
-//! Tests may replace coverage to inspect eligibility independently from retained child payloads.
-//! Helpers only construct values: they never render documents, call providers, or write an archive.
-//! Fixed identities and times make expected content visible in the scenario assertions.
-//! Production acquisition and persistence invariants belong to their integration suites.
+//! Constructed recipe evidence.
 
 use forgesync_core::content::{
     BranchRef, Comment, PullRequestMetadata, Repository, Review, ReviewState, ReviewThread,

@@ -1,61 +1,80 @@
-//! # Read family completeness for a discussion
+//! Family coverage projection and the shared child-family freshness rule.
 //!
-//! These helpers load coverage records and map them into summaries by evidence family. The result
-//! lets a thread detail report what has been collected and what remains incomplete.
-//!
-//! Coverage is not inferred from child counts. Zero comments in a complete collection and zero
-//! stored comments after a failed collection mean different things; the explicit coverage row
-//! preserves that distinction for CLI and TUI readers.
-//!
-//! [`load_thread_coverage`] reads current pull-request metadata heads and recorded coverage/head
-//! context in separate queries. `StoredCoverage` keeps those facts distinct so projection can mark
-//! review evidence stale without overwriting the last complete collection. These reads are not a
-//! single snapshot, and stale marking is an inspection result rather than a persisted mutation.
-//!
-//! [`coverage_for_kind`] expands the applicable family catalog in fixed order, supplying missing
-//! states for absent rows. Issues omit pull-request-only families. Child evidence freshness uses
-//! parent source clocks, comment-count evidence, and current versus acquired review heads; a
-//! complete stored state can remain complete while being displayed as stale.
-//!
-//! List/detail, embedding eligibility, and aggregate reports use these helpers to interpret local
-//! evidence. They never infer complete membership from the presence of child rows and do not
-//! authorize replacement or reacquisition. Observation application owns durable coverage updates.
+//! Coverage is never inferred from child counts: zero comments in a complete collection and zero
+//! stored comments after a failed collection mean different things. A complete stored state can
+//! still be displayed as stale when the parent clock, comment count, or pull-request head moved.
 
 use std::collections::HashMap;
 
 use forgesync_core::content::{Discussion, PullRequestMetadata, ThreadKind};
 use forgesync_core::coverage::{Coverage, CoverageState, EvidenceFamily};
+use forgesync_core::observation::SourceClock;
+use sqlx::sqlite::SqliteRow;
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::error::StoreError;
+use crate::sql::{
+    ALL_FAMILIES, SourceClockColumns, is_pull_request_family, parse_family, push_bound_list,
+    source_clock_columns,
+};
 
-/// Recorded completeness and source/head coordinates retained for freshness projection.
-///
-/// This private-module row representation does not escape as public archive output.
+/// Recorded completeness with the source clock and review head it was acquired against.
 pub struct StoredCoverage {
-    /// Persisted completeness state before derived staleness.
-    state: CoverageState,
-    /// Persisted missing/valid/invalid source-clock discriminant.
-    source_clock_state: String,
-    /// Comparable source timestamp when the persisted clock is valid.
-    source_clock_us: Option<i64>,
-    /// Pull-request head associated with acquired review evidence.
-    snapshot_head_sha: Option<String>,
-    /// Head from the separately read current metadata membership.
-    current_head_sha: Option<String>,
+    pub state: CoverageState,
+    pub clock: SourceClockColumns,
+    /// Pull-request head recorded with complete review evidence.
+    pub head_sha: Option<String>,
+    /// Current pull-request head from metadata membership, for projection only.
+    pub current_head_sha: Option<String>,
 }
 
-/// Stable display catalog; issues omit pull-request-only families during projection.
-pub const ALL_FAMILIES: [EvidenceFamily; 5] = [
-    EvidenceFamily::Threads,
-    EvidenceFamily::Comments,
-    EvidenceFamily::PullRequestMetadata,
-    EvidenceFamily::Reviews,
-    EvidenceFamily::ReviewThreads,
-];
+impl StoredCoverage {
+    /// Decodes a `family_coverage` row joined with its head context as `head_sha`.
+    pub fn from_row(row: &SqliteRow) -> Result<Self, StoreError> {
+        Ok(Self {
+            state: serde_json::from_str(&row.try_get::<String, _>("state_json")?)?,
+            clock: SourceClockColumns {
+                state: match row.try_get::<String, _>("source_clock_state")?.as_str() {
+                    "missing" => "missing",
+                    "valid" => "valid",
+                    "invalid" => "invalid",
+                    _ => return Err(StoreError::Corrupt("archive_coverage_invalid")),
+                },
+                raw: row.try_get("source_clock_raw")?,
+                unix_microseconds: row.try_get("source_clock_us")?,
+            },
+            head_sha: row.try_get("head_sha")?,
+            current_head_sha: None,
+        })
+    }
+}
 
-/// Loads coverage with both the recorded review head and current PR head so callers can mark
-/// review evidence stale without rewriting the stored collection.
+/// The evidence, besides an identical source clock, that keeps child coverage current.
+#[derive(Clone, Copy)]
+pub enum ChildExpectation<'a> {
+    /// Parent-reported member count; an unknown count never matches complete coverage.
+    Count(Option<u64>),
+    /// Pull-request head that review evidence must have been acquired against.
+    Head(Option<&'a str>),
+}
+
+/// Whether stored child coverage still describes the expected source clock and count or head.
+pub fn child_coverage_matches(
+    stored: &StoredCoverage,
+    source: &SourceClockColumns,
+    expectation: ChildExpectation<'_>,
+) -> bool {
+    stored.clock == *source
+        && match expectation {
+            ChildExpectation::Count(expected) => match stored.state {
+                CoverageState::Complete { item_count, .. } => expected == Some(item_count),
+                _ => true,
+            },
+            ChildExpectation::Head(expected) => stored.head_sha.as_deref() == expected,
+        }
+}
+
+/// Loads coverage for the given threads, keyed by thread row and family.
 pub async fn load_thread_coverage(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
@@ -66,76 +85,50 @@ pub async fn load_thread_coverage(
     let current_heads = current_review_heads(pool, thread_ids).await?;
 
     let mut statement = QueryBuilder::<Sqlite>::new(
-        "SELECT c.thread_id, c.family, c.state_json, c.source_clock_state, c.source_clock_us, h.head_sha AS snapshot_head_sha FROM family_coverage c LEFT JOIN thread_family_head_contexts h ON h.thread_id = c.thread_id AND h.family = c.family WHERE c.thread_id IN (",
+        "SELECT c.thread_id, c.family, c.state_json, c.source_clock_state, c.source_clock_raw, c.source_clock_us, h.head_sha FROM family_coverage c LEFT JOIN thread_family_head_contexts h ON h.thread_id = c.thread_id AND h.family = c.family WHERE c.thread_id IN (",
     );
-    for (index, thread_id) in thread_ids.iter().enumerate() {
-        if index > 0 {
-            statement.push(", ");
-        }
-        statement.push_bind(thread_id);
-    }
+    push_bound_list(&mut statement, thread_ids);
     statement.push(")");
     let rows = statement.build().fetch_all(pool).await?;
-    let mut coverage = HashMap::with_capacity(thread_ids.len());
+    let mut coverage: HashMap<i64, HashMap<EvidenceFamily, StoredCoverage>> =
+        HashMap::with_capacity(thread_ids.len());
     for row in rows {
         let thread_id: i64 = row.try_get("thread_id")?;
-        let family: String = row.try_get("family")?;
-        let state_json: String = row.try_get("state_json")?;
-        let source_clock_state: String = row.try_get("source_clock_state")?;
-        let source_clock_us: Option<i64> = row.try_get("source_clock_us")?;
-        let snapshot_head_sha: Option<String> = row.try_get("snapshot_head_sha")?;
-        let family = parse_evidence_family(&family)?;
-        let state = serde_json::from_str(&state_json)?;
+        let family = parse_family(&row.try_get::<String, _>("family")?)
+            .ok_or(StoreError::Corrupt("archive_coverage_invalid"))?;
+        let mut stored = StoredCoverage::from_row(&row)?;
+        stored.current_head_sha = current_heads.get(&thread_id).cloned();
         coverage
             .entry(thread_id)
-            .or_insert_with(HashMap::new)
-            .insert(
-                family,
-                StoredCoverage {
-                    state,
-                    source_clock_state,
-                    source_clock_us,
-                    snapshot_head_sha,
-                    current_head_sha: current_heads.get(&thread_id).cloned(),
-                },
-            );
+            .or_default()
+            .insert(family, stored);
     }
     Ok(coverage)
 }
 
-/// Reads current pull-request heads used to interpret separately acquired review coverage.
-///
-/// Membership payloads supply current metadata only; this query neither reads acquisition head
-/// context nor establishes a shared snapshot with the subsequent coverage query. Parameters are
-/// bound, and malformed stored metadata returns a typed store error before projection continues.
+/// Reads current pull-request heads from metadata membership.
 async fn current_review_heads(
     pool: &sqlx::SqlitePool,
     thread_ids: &[i64],
 ) -> Result<HashMap<i64, String>, StoreError> {
-    let mut metadata_statement = QueryBuilder::<Sqlite>::new(
+    let mut statement = QueryBuilder::<Sqlite>::new(
         "SELECT thread_id, payload_json FROM thread_family_membership WHERE family = 'pull_request_metadata' AND thread_id IN (",
     );
-    for (index, thread_id) in thread_ids.iter().enumerate() {
-        if index > 0 {
-            metadata_statement.push(", ");
-        }
-        metadata_statement.push_bind(thread_id);
-    }
-    metadata_statement.push(")");
-    let metadata_rows = metadata_statement.build().fetch_all(pool).await?;
-    let mut current_heads = HashMap::with_capacity(metadata_rows.len());
-    for row in metadata_rows {
+    push_bound_list(&mut statement, thread_ids);
+    statement.push(")");
+    let rows = statement.build().fetch_all(pool).await?;
+    let mut current_heads = HashMap::with_capacity(rows.len());
+    for row in rows {
         let thread_id: i64 = row.try_get("thread_id")?;
-        let payload_json: String = row.try_get("payload_json")?;
-        let metadata: PullRequestMetadata = serde_json::from_str(&payload_json)?;
+        let metadata: PullRequestMetadata =
+            serde_json::from_str(&row.try_get::<String, _>("payload_json")?)?;
         current_heads.insert(thread_id, metadata.head.sha.as_str().to_owned());
     }
-
     Ok(current_heads)
 }
 
-/// Projects stored family coverage onto the families relevant to this discussion kind. Missing
-/// rows remain visible as missing evidence instead of disappearing from inspection output.
+/// Projects stored coverage onto the families relevant to this discussion kind, reporting absent
+/// rows as missing.
 pub fn coverage_for_kind(
     discussion: &Discussion,
     stored: Option<&HashMap<EvidenceFamily, StoredCoverage>>,
@@ -160,82 +153,30 @@ pub fn coverage_for_kind(
         .collect()
 }
 
-/// Marks child evidence stale when its parent update clock changes, or when comments no longer
-/// match the provider count or review evidence belongs to an earlier pull-request head.
+/// Marks recorded child evidence stale when it no longer matches the current parent discussion.
 fn is_stale(
     discussion: &Discussion,
     family: EvidenceFamily,
     stored: Option<&StoredCoverage>,
 ) -> bool {
-    if !matches!(
-        family,
-        EvidenceFamily::Comments | EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads
-    ) {
-        return false;
-    }
     let Some(stored) = stored else {
         return false;
     };
     if matches!(stored.state, CoverageState::Missing) {
         return false;
     }
-
-    let parent_clock_matches = stored.source_clock_state == "valid"
-        && stored.source_clock_us == Some(discussion.updated_at.unix_microseconds());
-    if !parent_clock_matches {
-        return true;
-    }
-    match family {
-        EvidenceFamily::Comments => match stored.state {
-            CoverageState::Complete { item_count, .. } => {
-                comment_count(discussion) != Some(item_count)
-            }
-            _ => false,
-        },
+    let expectation = match family {
+        EvidenceFamily::Comments => ChildExpectation::Count(
+            discussion
+                .provider_data
+                .get("comments")
+                .and_then(serde_json::Value::as_u64),
+        ),
         EvidenceFamily::Reviews | EvidenceFamily::ReviewThreads => {
-            stored.snapshot_head_sha != stored.current_head_sha
+            ChildExpectation::Head(stored.current_head_sha.as_deref())
         }
-        _ => false,
-    }
-}
-
-/// Reads the current source comment count for coverage display.
-fn comment_count(discussion: &Discussion) -> Option<u64> {
-    discussion
-        .provider_data
-        .get("comments")
-        .and_then(serde_json::Value::as_u64)
-}
-
-/// Excludes issue rows from pull-request-only coverage totals.
-pub fn is_pull_request_family(family: EvidenceFamily) -> bool {
-    matches!(
-        family,
-        EvidenceFamily::PullRequestMetadata
-            | EvidenceFamily::Reviews
-            | EvidenceFamily::ReviewThreads
-    )
-}
-
-/// Maps one family to its persisted archive label.
-pub fn evidence_family_name(family: EvidenceFamily) -> &'static str {
-    match family {
-        EvidenceFamily::Threads => "threads",
-        EvidenceFamily::Comments => "comments",
-        EvidenceFamily::PullRequestMetadata => "pull_request_metadata",
-        EvidenceFamily::Reviews => "reviews",
-        EvidenceFamily::ReviewThreads => "review_threads",
-    }
-}
-
-/// Rejects stored family labels unsupported by this binary.
-fn parse_evidence_family(value: &str) -> Result<EvidenceFamily, StoreError> {
-    match value {
-        "threads" => Ok(EvidenceFamily::Threads),
-        "comments" => Ok(EvidenceFamily::Comments),
-        "pull_request_metadata" => Ok(EvidenceFamily::PullRequestMetadata),
-        "reviews" => Ok(EvidenceFamily::Reviews),
-        "review_threads" => Ok(EvidenceFamily::ReviewThreads),
-        _ => Err(StoreError::InvalidStoredCoverage),
-    }
+        EvidenceFamily::Threads | EvidenceFamily::PullRequestMetadata => return false,
+    };
+    let source = source_clock_columns(&SourceClock::Valid(discussion.updated_at));
+    !child_coverage_matches(stored, &source, expectation)
 }

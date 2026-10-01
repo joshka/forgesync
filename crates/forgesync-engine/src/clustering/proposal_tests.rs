@@ -1,13 +1,4 @@
-//! # Representative and member-score projection scenarios
-//!
-//! These cases start from explicit retained edges rather than asking vector selection to create a
-//! particular graph. That keeps the projection contract visible: degree chooses representatives,
-//! identity breaks ties, and transitive-only membership has no invented direct score.
-//!
-//! The shared document fixture supplies static domain records without acquisition or assertions.
-//! Each test calls the projection once and names the expected representative or member weight.
-//! Graph eligibility and bounded union behavior are covered in the neighboring candidate suite.
-//! Store reconciliation of local decisions remains an integration concern outside this module.
+//! Representative and member-score projection scenarios.
 
 use forgesync_core::content::ThreadKind;
 

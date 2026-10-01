@@ -1,13 +1,4 @@
-//! # Terminal rendering bounds
-//!
-//! These tests render browser and maintainer screens at different terminal sizes and check
-//! scrolling after resize. They protect layout behavior that is difficult to infer from widget
-//! construction alone. Sample app data supplies a visible discussion and cluster state for the
-//! renderer. Add a focused size or state case when changing geometry, clipping, or selection cues
-//! so failures name the affected screen.
-//!
-//! Focus-cue cases render a standalone border and inspect its foreground color. They establish
-//! visual emphasis independently of navigation, asynchronous results, or writer authority.
+//! Rendering at narrow and wide sizes, focus borders, and detail scroll clamping.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::identity::{GitHubHost, ProviderId, RepositoryId, ThreadId, ThreadNumber};
@@ -20,11 +11,13 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
-use ratatui::widgets::Widget;
+use ratatui::widgets::{ListState, Widget};
 
 use super::draw;
+use crate::app::loadable::Loadable;
+use crate::app::panels::{ClusterDetailPane, ClusterList, RepositoryPicker, ThreadList};
 use crate::app::{App, Focus, Screen};
-use crate::view::PaneEmphasis;
+use crate::view::pane;
 
 #[rstest::rstest]
 #[case::repositories_focused(Focus::Repositories, Focus::Repositories, Color::Cyan)]
@@ -35,12 +28,12 @@ use crate::view::PaneEmphasis;
 #[case::detail_unfocused(Focus::Repositories, Focus::Detail, Color::DarkGray)]
 fn pane_border_preserves_the_focus_palette(
     #[case] current: Focus,
-    #[case] pane: Focus,
+    #[case] focus: Focus,
     #[case] expected: Color,
 ) {
     let area = Rect::new(0, 0, 8, 3);
     let mut buffer = Buffer::empty(area);
-    let block = PaneEmphasis::for_focus(current, pane).block("Pane");
+    let block = pane("Pane", current == focus);
 
     block.render(area, &mut buffer);
 
@@ -64,7 +57,7 @@ fn resizing_clamps_detail_scroll_to_visible_content() {
     let backend = TestBackend::new(50, 14);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = sample_app();
-    app.detail_pane.state = crate::app::detail::DetailState::Ready(Box::new(sample_detail()));
+    app.detail_pane.detail = Loadable::loaded(Some(Box::new(sample_detail())));
     app.focus = crate::app::Focus::Detail;
     app.detail_pane.scroll = u16::MAX;
     terminal
@@ -111,15 +104,15 @@ fn maintainer_view_renders_at_terminal_size(
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = App {
         screen,
-        cluster_list: crate::app::clusters::ClusterList {
-            items: vec![cluster.clone()],
+        cluster_list: ClusterList {
+            rows: Loadable::loaded(vec![cluster.clone()]),
             ..Default::default()
         },
-        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
-            data: Some(ClusterDetail {
+        cluster_detail_pane: ClusterDetailPane {
+            detail: Loadable::loaded(Some(ClusterDetail {
                 cluster,
                 members: Vec::new(),
-            }),
+            })),
             ..Default::default()
         },
         ..App::default()
@@ -129,29 +122,26 @@ fn maintainer_view_renders_at_terminal_size(
         .expect("draw maintainer view");
 }
 
-/// Browser state with one applied repository and selected discussion, without querying an archive.
-/// The picker cursor includes its all-repositories row, so the concrete repository occupies index
-/// one.
+/// Row one is the repository, after the synthetic all-repositories row.
 fn sample_app() -> App {
     let summary = sample_summary();
     let mut app = App {
-        repository_picker: crate::app::repositories::RepositoryPicker {
-            items: vec![summary.repository.clone()],
+        repository_picker: RepositoryPicker {
+            rows: Loadable::loaded(vec![summary.repository.clone()]),
             ..Default::default()
         },
-        thread_list: crate::app::threads::ThreadList {
-            items: vec![summary.clone()],
-            selected: Some(0),
+        thread_list: ThreadList {
+            rows: Loadable::loaded(vec![summary.clone()]),
+            state: ListState::default().with_selected(Some(0)),
             ..Default::default()
         },
         ..App::default()
     };
     app.repository_picker.applied = Some(summary.repository.clone());
-    app.repository_picker.cursor = 1;
+    app.repository_picker.state.select(Some(1));
     app
 }
 
-/// Detail for the fixed discussion with no child evidence or timeline, isolating body scrolling.
 fn sample_detail() -> ThreadDetail {
     ThreadDetail {
         summary: sample_summary(),
@@ -163,8 +153,6 @@ fn sample_detail() -> ThreadDetail {
     }
 }
 
-/// One open issue with fixed identities, source time, and body text for deterministic rendering.
-/// Construction supplies display content only; it establishes no acquisition or coverage state.
 fn sample_summary() -> ThreadSummary {
     let repository = Repository {
         id: RepositoryId::new(

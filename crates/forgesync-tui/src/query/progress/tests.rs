@@ -1,9 +1,3 @@
-//! # Progress lifetime and completion ordering
-//!
-//! These cases use bounded channels directly rather than a terminal fixture. They verify that
-//! buffered progress arrives before completion, drop closes the producer's receiver, and a closed
-//! UI destination permits finishing without changing the operation result.
-
 use std::time::Duration;
 
 use forgesync_core::identity::RunId;
@@ -17,7 +11,7 @@ use crate::query::progress::ProgressForwarder;
 #[tokio::test]
 async fn buffered_progress_precedes_terminal_result() {
     let (destination, mut messages) = mpsc::channel(4);
-    let forwarder = ProgressForwarder::start(7, destination.clone());
+    let forwarder = ProgressForwarder::start(destination.clone());
     let producer = forwarder.sender();
     let snapshot = sample_progress();
     producer
@@ -28,31 +22,22 @@ async fn buffered_progress_precedes_terminal_result() {
 
     forwarder.finish().await;
     destination
-        .send(QueryMessage::OperationFinished {
-            generation: 7,
-            result: Ok("Sync complete".to_owned()),
-        })
+        .send(QueryMessage::OperationFinished(Ok(
+            "Sync complete".to_owned()
+        )))
         .await
         .expect("completion accepted");
 
     let first = messages.recv().await.expect("progress delivered");
     let last = messages.recv().await.expect("completion delivered");
-    assert!(
-        matches!(first, QueryMessage::OperationProgress { generation: 7, progress } if progress == snapshot)
-    );
-    assert!(matches!(
-        last,
-        QueryMessage::OperationFinished {
-            generation: 7,
-            result: Ok(_)
-        }
-    ));
+    assert!(matches!(first, QueryMessage::OperationProgress(progress) if progress == snapshot));
+    assert!(matches!(last, QueryMessage::OperationFinished(Ok(_))));
 }
 
 #[tokio::test]
 async fn finishing_without_events_closes_the_owned_sender() {
     let (destination, _messages) = mpsc::channel(4);
-    let forwarder = ProgressForwarder::start(7, destination);
+    let forwarder = ProgressForwarder::start(destination);
 
     timeout(Duration::from_secs(5), forwarder.finish())
         .await
@@ -62,7 +47,7 @@ async fn finishing_without_events_closes_the_owned_sender() {
 #[tokio::test]
 async fn dropping_owner_closes_delivery_to_producer_clones() {
     let (destination, _messages) = mpsc::channel(4);
-    let forwarder = ProgressForwarder::start(7, destination);
+    let forwarder = ProgressForwarder::start(destination);
     let producer = forwarder.sender();
 
     drop(forwarder);
@@ -75,7 +60,7 @@ async fn dropping_owner_closes_delivery_to_producer_clones() {
 #[tokio::test]
 async fn closed_terminal_channel_does_not_prevent_finishing() {
     let (destination, messages) = mpsc::channel(4);
-    let forwarder = ProgressForwarder::start(7, destination);
+    let forwarder = ProgressForwarder::start(destination);
     let producer = forwarder.sender();
     drop(messages);
     producer

@@ -1,10 +1,4 @@
-//! # Interactive state transitions
-//!
-//! These tests demonstrate that keyboard input remains responsive while queries run, and stale
-//! results cannot overwrite a newer selection. They also cover search entry, repository picking,
-//! and targeting the selected cluster member. `App` is the state machine behind the view; these
-//! examples show its user-facing transitions without requiring a terminal renderer. Add a direct
-//! transition case when a new key changes navigation or launches work.
+//! Key handling and result application on the whole app, without a terminal.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use forgesync_core::content::Repository;
@@ -13,24 +7,20 @@ use forgesync_core::provider_data::ProviderData;
 use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
 use forgesync_engine::sync::{SyncProgress, SyncProgressStatus};
 use forgesync_store::reads::ThreadPage;
+use ratatui::widgets::ListState;
 
+use crate::app::loadable::Loadable;
 use crate::app::messages::QueryMessage;
-use crate::app::operation::{OperationDisplay, OperationState};
-use crate::app::repositories::RepositoryPicker;
-use crate::app::test_data::{sample_cluster_detail, sample_repository};
-use crate::app::threads::{ThreadList, ThreadReply};
+use crate::app::panels::{ClusterList, FailureList, RepositoryPicker};
+use crate::app::test_data::{loaded_cluster_detail_pane, sample_cluster_detail, sample_repository};
 use crate::app::{App, Focus, Screen};
-use crate::query::requests::QueryAction;
+use crate::query::failures::RunFailureSummary;
+use crate::query::{Operation, QueryAction, Read};
 
 #[test]
 fn keyboard_input_remains_available_while_queries_are_pending() {
-    let mut app = App {
-        thread_list: ThreadList {
-            loading: true,
-            ..ThreadList::default()
-        },
-        ..App::default()
-    };
+    let mut app = App::default();
+    app.thread_list.begin();
 
     app.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
     assert_eq!(app.focus, Focus::Threads);
@@ -40,27 +30,60 @@ fn keyboard_input_remains_available_while_queries_are_pending() {
 
 #[test]
 fn stale_thread_result_does_not_replace_current_query_state() {
-    let mut app = App {
-        thread_list: ThreadList {
-            generation: 2,
-            loading: true,
-            ..ThreadList::default()
-        },
-        ..App::default()
-    };
-    app.apply(QueryMessage::Threads(ThreadReply {
-        generation: 1,
-        offset: 0,
+    let mut app = App::default();
+    let stale = app.begin_threads();
+    app.begin_threads();
+    let row = sample_cluster_detail().members.remove(0).summary;
+
+    app.apply(QueryMessage::Threads {
+        generation: stale,
+        offset: 100,
         result: Ok(Box::new(ThreadPage {
-            items: Vec::new(),
-            next_offset: None,
+            items: vec![row],
+            next_offset: Some(200),
             coverage: Vec::new(),
         })),
-    }));
+    });
 
-    assert!(app.thread_list.loading);
-    assert_eq!(app.thread_list.generation, 2);
-    assert!(app.thread_list.items.is_empty());
+    assert!(app.thread_list.rows.loading);
+    assert!(app.thread_list.rows.data.is_empty());
+    assert_eq!(app.thread_list.offset, 0);
+}
+
+#[test]
+fn current_thread_page_selects_its_first_row_and_continuation() {
+    let mut app = App::default();
+    let generation = app.begin_threads();
+    let row = sample_cluster_detail().members.remove(0).summary;
+
+    app.apply(QueryMessage::Threads {
+        generation,
+        offset: 100,
+        result: Ok(Box::new(ThreadPage {
+            items: vec![row],
+            next_offset: Some(200),
+            coverage: Vec::new(),
+        })),
+    });
+
+    assert_eq!(app.thread_list.rows.data.len(), 1);
+    assert_eq!(app.thread_list.state.selected(), Some(0));
+    assert_eq!(app.thread_list.offset, 100);
+    assert_eq!(app.thread_list.next_offset, Some(200));
+}
+
+#[test]
+fn failed_read_reports_its_error_in_the_status_line() {
+    let mut app = App::default();
+    let generation = app.coverage.begin();
+
+    app.apply(QueryMessage::Coverage {
+        generation,
+        result: Err("read failed".to_owned()),
+    });
+
+    assert_eq!(app.coverage.error.as_deref(), Some("read failed"));
+    assert_eq!(app.status.as_deref(), Some("read failed"));
 }
 
 #[test]
@@ -85,11 +108,11 @@ fn search_keys_build_a_local_query_until_enter() {
     assert_eq!(app.search_query.as_deref(), Some("tui search"));
     assert_eq!(
         actions,
-        [QueryAction::Threads {
+        [QueryAction::Read(Read::Threads {
             query: Some("tui search".to_owned()),
             repositories: Vec::new(),
             offset: 0,
-        }]
+        })]
     );
 }
 
@@ -109,8 +132,8 @@ fn repository_picker_applies_the_highlighted_repository() {
     };
     let mut app = App {
         repository_picker: RepositoryPicker {
-            items: vec![repository],
-            cursor: 1,
+            rows: Loadable::loaded(vec![repository]),
+            state: ListState::default().with_selected(Some(1)),
             ..RepositoryPicker::default()
         },
         ..App::default()
@@ -131,11 +154,11 @@ fn repository_picker_applies_the_highlighted_repository() {
         .expect("repository selector");
     assert_eq!(
         actions,
-        [QueryAction::Threads {
+        [QueryAction::Read(Read::Threads {
             query: None,
             repositories: vec![repository],
             offset: 0,
-        }]
+        })]
     );
 }
 
@@ -156,10 +179,7 @@ fn opening_keyword_search_returns_to_the_browser() {
 fn exclude_targets_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
-        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
-            data: Some(sample_cluster_detail()),
-            ..Default::default()
-        },
+        cluster_detail_pane: loaded_cluster_detail_pane(sample_cluster_detail()),
         ..App::default()
     };
     let reference = "owner/repo#7"
@@ -170,7 +190,10 @@ fn exclude_targets_the_selected_cluster_member() {
 
     assert_eq!(
         actions,
-        [QueryAction::ExcludeClusterMember { id: 17, reference }]
+        [QueryAction::Operation(Operation::ExcludeClusterMember {
+            id: 17,
+            reference
+        })]
     );
 }
 
@@ -178,10 +201,7 @@ fn exclude_targets_the_selected_cluster_member() {
 fn canonical_targets_the_selected_cluster_member() {
     let mut app = App {
         screen: Screen::ClusterDetail,
-        cluster_detail_pane: crate::app::clusters::ClusterDetailPane {
-            data: Some(sample_cluster_detail()),
-            ..Default::default()
-        },
+        cluster_detail_pane: loaded_cluster_detail_pane(sample_cluster_detail()),
         ..App::default()
     };
     let reference = "owner/repo#7"
@@ -192,7 +212,9 @@ fn canonical_targets_the_selected_cluster_member() {
 
     assert_eq!(
         actions,
-        [QueryAction::SetCanonicalClusterMember { id: 17, reference }]
+        [QueryAction::Operation(
+            Operation::SetCanonicalClusterMember { id: 17, reference }
+        )]
     );
 }
 
@@ -201,7 +223,7 @@ fn sync_uses_the_applied_repository_scope() {
     let repository = sample_repository();
     let mut app = App {
         repository_picker: RepositoryPicker {
-            items: vec![repository.clone()],
+            rows: Loadable::loaded(vec![repository.clone()]),
             applied: Some(repository),
             ..RepositoryPicker::default()
         },
@@ -215,9 +237,9 @@ fn sync_uses_the_applied_repository_scope() {
 
     assert_eq!(
         actions,
-        [QueryAction::Sync {
+        [QueryAction::Operation(Operation::Sync {
             repositories: vec![repository]
-        }]
+        })]
     );
 }
 
@@ -226,7 +248,7 @@ fn refresh_uses_the_applied_repository_scope() {
     let repository = sample_repository();
     let mut app = App {
         repository_picker: RepositoryPicker {
-            items: vec![repository.clone()],
+            rows: Loadable::loaded(vec![repository.clone()]),
             applied: Some(repository),
             ..RepositoryPicker::default()
         },
@@ -240,9 +262,9 @@ fn refresh_uses_the_applied_repository_scope() {
 
     assert_eq!(
         actions,
-        [QueryAction::Refresh {
+        [QueryAction::Operation(Operation::Refresh {
             repositories: vec![repository]
-        }]
+        })]
     );
 }
 
@@ -251,29 +273,50 @@ fn dismissal_targets_the_selected_cluster() {
     let detail = sample_cluster_detail();
     let mut app = App {
         screen: Screen::Clusters,
-        cluster_list: crate::app::clusters::ClusterList {
-            items: vec![detail.cluster],
-            ..Default::default()
+        cluster_list: ClusterList {
+            rows: Loadable::loaded(vec![detail.cluster]),
+            state: ListState::default().with_selected(Some(0)),
         },
         ..App::default()
     };
 
     let actions = app.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
 
-    assert_eq!(actions, [QueryAction::DismissCluster { id: 17 }]);
+    assert_eq!(
+        actions,
+        [QueryAction::Operation(Operation::DismissCluster { id: 17 })]
+    );
+}
+
+#[test]
+fn enter_opens_the_selected_cluster_members() {
+    let detail = sample_cluster_detail();
+    let mut app = App {
+        screen: Screen::Clusters,
+        cluster_list: ClusterList {
+            rows: Loadable::loaded(vec![detail.cluster]),
+            state: ListState::default().with_selected(Some(0)),
+        },
+        ..App::default()
+    };
+
+    let actions = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+    assert_eq!(app.screen, Screen::ClusterDetail);
+    assert_eq!(actions, [QueryAction::Read(Read::ClusterDetail(17))]);
 }
 
 #[test]
 fn retry_targets_the_selected_failed_run() {
     let mut app = App {
         screen: Screen::Failures,
-        failure_list: crate::app::failures::FailureList {
-            items: vec![crate::app::failures::RunFailureSummary {
-                id: 23,
+        failure_list: FailureList {
+            rows: Loadable::loaded(vec![RunFailureSummary {
+                id: RunId::new(23).expect("run ID"),
                 status: forgesync_store::runs::RunStatus::Failed,
                 entries: vec!["owner/repo: threads failed".to_owned()],
-            }],
-            ..Default::default()
+            }]),
+            state: ListState::default().with_selected(Some(0)),
         },
         ..App::default()
     };
@@ -282,32 +325,43 @@ fn retry_targets_the_selected_failed_run() {
 
     assert_eq!(
         actions,
-        [QueryAction::Retry(RunId::new(23).expect("run ID"))]
+        [QueryAction::Operation(Operation::Retry(
+            RunId::new(23).expect("run ID")
+        ))]
+    );
+}
+
+#[test]
+fn second_writer_is_refused_while_one_runs() {
+    let mut app = App::default();
+
+    assert!(app.begin_operation("sync"));
+    assert!(!app.begin_operation("refresh"));
+
+    assert_eq!(
+        app.operation.as_ref().map(|operation| operation.label),
+        Some("sync")
     );
 }
 
 #[test]
 fn quit_cancels_active_action_and_failed_result_stays_visible() {
-    let mut app = App {
-        operation: OperationDisplay {
-            generation: 4,
-            state: OperationState::Running {
-                label: "sync".to_owned(),
-                progress: None,
-            },
-        },
-        ..App::default()
-    };
+    let mut app = App::default();
+    app.begin_operation("sync");
 
     let action = app.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
     assert!(matches!(action.as_slice(), [QueryAction::CancelOperation]));
     assert!(!app.quit);
+    assert!(
+        app.operation
+            .as_ref()
+            .is_some_and(|operation| operation.cancelling)
+    );
 
-    app.apply(QueryMessage::OperationFinished {
-        generation: 4,
-        result: Err("archive writer lease is held".to_owned()),
-    });
-    assert!(!app.operation.busy());
+    app.apply(QueryMessage::OperationFinished(Err(
+        "archive writer lease is held".to_owned(),
+    )));
+    assert!(app.operation.is_none());
     assert_eq!(
         app.status.as_deref(),
         Some("Failed: archive writer lease is held")
@@ -317,17 +371,7 @@ fn quit_cancels_active_action_and_failed_result_stays_visible() {
 }
 
 #[test]
-fn stale_operation_progress_cannot_replace_current_progress() {
-    let mut app = App {
-        operation: OperationDisplay {
-            generation: 3,
-            state: OperationState::Running {
-                label: "sync".to_owned(),
-                progress: None,
-            },
-        },
-        ..App::default()
-    };
+fn progress_updates_only_a_running_operation() {
     let progress = SyncProgress {
         run_id: RunId::new(1).expect("positive run ID"),
         completed_jobs: 1,
@@ -340,10 +384,13 @@ fn stale_operation_progress_cannot_replace_current_progress() {
         repository: Some("https://github.com/owner/repo".to_owned()),
         status: SyncProgressStatus::InProgress,
     };
+    let mut app = App::default();
 
-    app.apply(QueryMessage::OperationProgress {
-        generation: 2,
-        progress,
-    });
-    assert!(app.operation.progress().is_none());
+    app.apply(QueryMessage::OperationProgress(progress.clone()));
+    assert!(app.operation.is_none());
+
+    app.begin_operation("sync");
+    app.apply(QueryMessage::OperationProgress(progress.clone()));
+    let running = app.operation.as_ref().expect("running operation");
+    assert_eq!(running.progress.as_ref(), Some(&progress));
 }

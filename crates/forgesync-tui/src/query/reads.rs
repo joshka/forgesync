@@ -1,168 +1,186 @@
-//! # Load browser and triage projections
-//!
-//! Read starters fetch repositories, thread pages, detail, coverage, failures, clusters, and
-//! cluster detail through engine/store APIs. [`ThreadRead`] prepares the discussion scope and
-//! query; [`ThreadReply`] keeps its generation and offset attached to the resulting page.
-//!
-//! [`ReadDispatch`] borrows the archive, runtime, result sender, and task owner used by every read.
-//! Most starters begin pending panel state before spawning; cluster detail uses the generation
-//! already reserved by navigation. Each starter gives the background task owned
-//! archive/channel clones. A task never draws or changes navigation: its result is a typed message
-//! for the app to apply. If the event loop has closed its channel, result delivery is discarded;
-//! read tasks have no durable changes to roll back. Shutdown aborts outstanding reads through
-//! [`QueryTasks`], while panel generations reject obsolete results that arrive during normal use.
+//! Local archive reads. Each read begins its panel's generation before spawning.
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use forgesync_engine::clustering::{ClusterListRequest, list_clusters, show_cluster};
-use forgesync_engine::inspect::{archive_status, list_repositories, show_thread};
-use forgesync_engine::reference::{RepositorySelector, ThreadSelector};
+use forgesync_engine::error::EngineError;
+use forgesync_engine::inspect::{
+    ThreadFilters, ThreadListRequest, ThreadSort, ThreadStateFilter, archive_status,
+    list_repositories, list_threads, show_thread,
+};
+use forgesync_engine::reference::RepositorySelector;
+use forgesync_engine::search::{SearchMode, SearchRequest, search_threads};
 use forgesync_store::archive::Archive;
-use tokio::runtime::Handle;
-use tokio::sync::mpsc::Sender;
+use forgesync_store::reads::ThreadPage;
 
 use crate::app::App;
 use crate::app::messages::QueryMessage;
-use crate::app::threads::ThreadReply;
 use crate::query::failures::recent_failures;
-use crate::query::tasks::QueryTasks;
-use crate::query::thread_page::ThreadRead;
+use crate::query::{QueryDispatch, Read};
 
-/// Borrowed services needed to schedule local archive reads and return their results.
-///
-/// Panel state is passed only to the method that begins it. Provider clients are absent because
-/// these reads cannot acquire fresh GitHub data or create semantic query embeddings. The owner
-/// borrows the event loop's runtime and channel rather than installing either globally.
-pub struct ReadDispatch<'a> {
-    /// Opened archive shared with spawned reads; each task takes its own `Arc` clone.
-    pub archive: &'a Arc<Archive>,
-    /// Existing Tokio runtime on which read futures execute.
-    pub runtime: &'a Handle,
-    /// Bounded result channel consumed by the terminal event loop.
-    pub sender: &'a Sender<QueryMessage>,
-    /// Lifetime owner that retains, prunes, and aborts read tasks during shutdown.
-    pub tasks: &'a mut QueryTasks,
+/// Page size shared by discussion and cluster reads.
+const READ_LIMIT: u32 = 100;
+
+impl QueryDispatch<'_> {
+    /// Begins the read's panel generation, then spawns the read; its reply arrives as a
+    /// [`QueryMessage`].
+    pub(super) fn start_read(&mut self, read: Read, app: &mut App) {
+        let archive = Arc::clone(self.archive);
+        let task: Pin<Box<dyn Future<Output = QueryMessage> + Send>> = match read {
+            Read::Repositories => {
+                let generation = app.repository_picker.rows.begin();
+                Box::pin(async move {
+                    let result = list_repositories(&archive).await.map_err(display);
+                    QueryMessage::Repositories { generation, result }
+                })
+            }
+            Read::Threads {
+                query,
+                repositories,
+                offset,
+            } => {
+                let generation = app.begin_threads();
+                Box::pin(async move {
+                    let result = thread_page(&archive, query, repositories, offset)
+                        .await
+                        .map(Box::new)
+                        .map_err(display);
+                    QueryMessage::Threads {
+                        generation,
+                        offset,
+                        result,
+                    }
+                })
+            }
+            Read::Detail(selector) => {
+                let generation = app.detail_pane.begin();
+                Box::pin(async move {
+                    let result = show_thread(&archive, &selector)
+                        .await
+                        .map(Box::new)
+                        .map_err(display);
+                    QueryMessage::Detail { generation, result }
+                })
+            }
+            Read::Coverage => {
+                let generation = app.coverage.begin();
+                Box::pin(async move {
+                    let result = archive_status(&archive)
+                        .await
+                        .map(Box::new)
+                        .map_err(display);
+                    QueryMessage::Coverage { generation, result }
+                })
+            }
+            Read::Failures => {
+                let generation = app.failure_list.rows.begin();
+                Box::pin(async move {
+                    let result = recent_failures(&archive).await;
+                    QueryMessage::Failures { generation, result }
+                })
+            }
+            Read::Clusters { repositories } => {
+                let generation = app.cluster_list.rows.begin();
+                Box::pin(async move {
+                    let request = ClusterListRequest {
+                        repositories,
+                        include_retired: true,
+                        limit: READ_LIMIT,
+                        offset: 0,
+                    };
+                    let result = list_clusters(&archive, &request)
+                        .await
+                        .map(Box::new)
+                        .map_err(display);
+                    QueryMessage::Clusters { generation, result }
+                })
+            }
+            Read::ClusterDetail(id) => {
+                let generation = app.cluster_detail_pane.begin(id);
+                Box::pin(async move {
+                    let result = show_cluster(&archive, id)
+                        .await
+                        .map(Box::new)
+                        .map_err(display);
+                    QueryMessage::ClusterDetail { generation, result }
+                })
+            }
+        };
+        let sender = self.sender.clone();
+        // A closed channel means the session ended; reads have nothing to roll back.
+        self.tasks.push(self.runtime.spawn(async move {
+            let _ = sender.send(task.await).await;
+        }));
+    }
 }
 
-impl ReadDispatch<'_> {
-    /// Starts an archive-only repository read and tags its result with the current generation.
-    pub fn start_repositories(&mut self, app: &mut App) {
-        let generation = app.repository_picker.begin();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = list_repositories(&archive)
-                .await
-                .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::Repositories { generation, result })
-                .await;
-        }));
-    }
+/// Engine errors reach the UI as display strings.
+fn display(error: EngineError) -> String {
+    error.to_string()
+}
 
-    /// Starts a local discussion query for the selected repository and search scope.
-    pub fn start_threads(&mut self, request: ThreadRead, app: &mut App) {
-        let offset = request.offset;
-        let generation = app.begin_threads();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = request
-                .page(&archive)
-                .await
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::Threads(ThreadReply {
-                    generation,
-                    offset,
-                    result,
-                }))
-                .await;
-        }));
+/// Reads a discussion page, ranked by local keyword relevance when a query was submitted.
+async fn thread_page(
+    archive: &Archive,
+    query: Option<String>,
+    repositories: Vec<RepositorySelector>,
+    offset: u64,
+) -> Result<ThreadPage, EngineError> {
+    match query {
+        Some(query) => {
+            let request = SearchRequest {
+                query,
+                mode: SearchMode::Keyword,
+                filters: thread_filters(repositories, offset, ThreadSort::Relevance),
+                allow_keyword_fallback: false,
+            };
+            search_threads(archive, &request).await
+        }
+        None => {
+            let request = ThreadListRequest {
+                filters: thread_filters(repositories, offset, ThreadSort::Updated),
+            };
+            list_threads(archive, &request).await
+        }
     }
+}
 
-    /// Starts a local detail read for the selected discussion.
-    pub fn start_detail(&mut self, selector: ThreadSelector, app: &mut App) {
-        let generation = app.detail_pane.begin();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = show_thread(&archive, &selector)
-                .await
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::Detail { generation, result })
-                .await;
-        }));
+/// Filters shared by keyword and browse reads: every kind and state, one page.
+fn thread_filters(
+    repositories: Vec<RepositorySelector>,
+    offset: u64,
+    sort: ThreadSort,
+) -> ThreadFilters {
+    ThreadFilters {
+        repositories,
+        kind: None,
+        state: ThreadStateFilter::All,
+        sort: Some(sort),
+        limit: READ_LIMIT,
+        offset,
     }
+}
 
-    /// Starts a local archive coverage read without provider access.
-    pub fn start_coverage(&mut self, app: &mut App) {
-        let generation = app.coverage_panel.begin();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = archive_status(&archive)
-                .await
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::Coverage { generation, result })
-                .await;
-        }));
-    }
+#[cfg(test)]
+mod tests {
+    use forgesync_engine::inspect::{ThreadSort, ThreadStateFilter};
 
-    /// Starts the local durable-run failure summary read.
-    pub fn start_failures(&mut self, app: &mut App) {
-        let generation = app.failure_list.begin();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = recent_failures(&archive).await;
-            let _ = sender
-                .send(QueryMessage::Failures { generation, result })
-                .await;
-        }));
-    }
+    use super::thread_filters;
 
-    /// Starts a local cluster-list read for the selected repositories.
-    pub fn start_clusters(&mut self, repositories: Vec<RepositorySelector>, app: &mut App) {
-        let generation = app.cluster_list.begin();
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = list_clusters(
-                &archive,
-                &ClusterListRequest {
-                    repositories,
-                    include_retired: true,
-                    limit: 100,
-                    offset: 0,
-                },
-            )
-            .await
-            .map(Box::new)
-            .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::Clusters { generation, result })
-                .await;
-        }));
-    }
+    #[rstest::rstest]
+    #[case::keyword_relevance(ThreadSort::Relevance)]
+    #[case::ordinary_browsing(ThreadSort::Updated)]
+    fn page_filters_preserve_scope_and_bounds(#[case] sort: ThreadSort) {
+        let repositories = vec!["owner/repo".parse().expect("repository selector")];
 
-    /// Starts a local detail read for the selected cluster generation.
-    pub fn start_cluster_detail(&mut self, generation: u64, id: u64) {
-        let archive = Arc::clone(self.archive);
-        let sender = self.sender.clone();
-        self.tasks.push(self.runtime.spawn(async move {
-            let result = show_cluster(&archive, id)
-                .await
-                .map(Box::new)
-                .map_err(|error| error.to_string());
-            let _ = sender
-                .send(QueryMessage::ClusterDetail { generation, result })
-                .await;
-        }));
+        let filters = thread_filters(repositories.clone(), 200, sort);
+
+        assert_eq!(filters.repositories, repositories);
+        assert_eq!(filters.sort, Some(sort));
+        assert_eq!(filters.kind, None);
+        assert_eq!(filters.state, ThreadStateFilter::All);
+        assert_eq!((filters.limit, filters.offset), (100, 200));
     }
 }

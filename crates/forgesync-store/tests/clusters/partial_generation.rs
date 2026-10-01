@@ -12,9 +12,8 @@
 
 use std::time::Duration;
 
-use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::document::DocumentRecipe;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::clusters::{ClusterGenerationInput, ClusterLifecycle};
 
@@ -39,16 +38,13 @@ async fn partial_replacement_preserves_an_omitted_group() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve thread sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        discussion(&first),
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: discussion(&first),
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let observed_at = timestamp("2026-09-20T10:00:00Z");
@@ -56,16 +52,13 @@ async fn partial_replacement_preserves_an_omitted_group() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve thread sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        discussion(&second),
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: discussion(&second),
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let at = timestamp("2035-01-01T00:00:00Z");

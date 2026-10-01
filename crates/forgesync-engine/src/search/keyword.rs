@@ -1,26 +1,8 @@
-//! # Build and retrieve keyword candidates
+//! Build and retrieve keyword candidates.
 //!
-//! Keyword helpers turn user text into a safe full-text expression and request candidate threads
-//! from the archive. They also form result pages or a permitted fallback when semantic work cannot
-//! complete.
-//!
-//! The store owns bound SQL and full-text storage. This module owns search interpretation and the
-//! shape of keyword evidence used by `ranking`.
-//!
-//! [`keyword_expression`] treats punctuation as separators and quotes each surviving Unicode
-//! alphanumeric/underscore term. It deliberately does not expose FTS operators from user text.
-//! A punctuation-only query has no expression; the search coordinator decides how empty queries
-//! behave rather than sending invalid FTS syntax to SQLite.
-//!
-//! [`keyword_candidates`] starts at offset zero to collect the prefix needed by hybrid fusion,
-//! using at most 1,000 rows per read. It preserves local result order and attaches one-based
-//! keyword ranks instead of inventing comparable numeric scores. Empty or nonadvancing pages end
-//! retrieval defensively. Separate pages are separate reads, not a frozen database snapshot.
-//!
-//! [`keyword_result_page`] annotates an already paged store result. [`keyword_fallback_page`]
-//! instead pages a previously acquired prefix while retaining the semantic failure explanation.
-//! Neither helper decides whether fallback is permitted: that policy belongs to `ranking` and
-//! the search coordinator. Coverage travels with the candidates and proves no new acquisition.
+//! User text never exposes FTS operators: punctuation separates terms and each Unicode
+//! alphanumeric/underscore term is quoted. Keyword results carry one-based ranks rather than
+//! invented comparable scores.
 
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::{FamilyCoverageSummary, ThreadPage, ThreadSummary};
@@ -35,15 +17,7 @@ use crate::search::{
 
 /// Collects up to `count` keyword hits from the beginning of the local result order.
 ///
-/// Retains query, repository, and state filters but replaces page coordinates for prefix
-/// acquisition. Each successful page contributes one-based keyword provenance and no numeric
-/// score. Coverage is retained from the first nonempty coverage report; zero requested candidates
-/// perform no reads and return empty coverage. Reads across pages need not share a snapshot.
-///
-/// # Errors
-///
-/// Propagates search validation and store errors. An empty page or nonadvancing continuation ends
-/// collection instead of retrying forever; it can return fewer than `count` candidates.
+/// An empty page or nonadvancing continuation ends collection rather than retrying forever.
 pub async fn keyword_candidates(
     archive: &Archive,
     request: &SearchRequest,
@@ -79,9 +53,6 @@ fn candidate_page_request(request: &SearchRequest, remaining: usize, offset: u64
 }
 
 /// Keyword prefix and its reported coverage, retained for fusion or permitted fallback.
-///
-/// This private module's value owns accumulated hits rather than retrieval policy. It preserves
-/// page order and accepts coverage from the first page that supplies any coverage entries.
 pub struct KeywordCandidates {
     /// Ordered prefix with one-based keyword provenance and no numeric score.
     pub items: Vec<SearchHit>,
@@ -99,9 +70,6 @@ impl KeywordCandidates {
     }
 
     /// Appends one page and returns only a nonempty, forward-moving continuation.
-    ///
-    /// Members are retained even when continuation metadata cannot advance. This terminates
-    /// retrieval defensively without discarding the successful page or retrying its offset.
     fn append_page(&mut self, page: ThreadPage, offset: u64) -> Option<u64> {
         if self.coverage.is_empty() {
             self.coverage = page.coverage;
@@ -116,12 +84,8 @@ impl KeywordCandidates {
     }
 }
 
-/// Annotates an already paged keyword result without changing its order or continuation.
-///
-/// The request offset is the page's starting rank coordinate, so provenance is one-based across
-/// pages. Oversized ranks saturate at `u32::MAX`. Requested and effective modes remain separate to
-/// expose fallback: a supplied reason selects effective keyword mode. This does not authorize
-/// fallback.
+/// Annotates an already paged keyword result; ranks continue from the request offset, and a
+/// fallback reason marks the effective mode as keyword.
 pub fn keyword_result_page(
     request: &SearchRequest,
     page: ThreadPage,
@@ -163,12 +127,7 @@ fn keyword_hits(summaries: Vec<ThreadSummary>, offset: u64) -> Vec<SearchHit> {
         .collect()
 }
 
-/// Pages a keyword prefix while retaining the permitted semantic failure explanation.
-///
-/// The caller has already checked fallback policy. Candidate order, rank provenance, and coverage
-/// are preserved; the validated request coordinates select the slice through
-/// `ranking::result_page`. The effective mode is keyword even when the requested mode was semantic
-/// or hybrid.
+/// Pages an acquired keyword prefix as a fallback, retaining the semantic failure explanation.
 pub fn keyword_fallback_page(
     request: &SearchRequest,
     candidates: KeywordCandidates,
@@ -188,12 +147,9 @@ pub fn keyword_fallback_page(
     })
 }
 
-/// Quotes ordinary terms so user text cannot become FTS operators.
+/// Quotes ordinary terms so user text cannot become FTS operators (`OR`, wildcards, `NEAR`).
 ///
-/// Splits on every character except Unicode alphanumerics and underscores, discards empty pieces,
-/// and joins individually quoted terms with spaces. Case and term order are preserved. Returns
-/// `None` when no term survives. This is literal keyword interpretation rather than an FTS query
-/// parser: `OR`, wildcards, parentheses, and `NEAR` receive no special operator meaning.
+/// Returns `None` when no Unicode alphanumeric/underscore term survives.
 pub fn keyword_expression(query: &str) -> Option<String> {
     let terms: Vec<_> = query
         .split(|character: char| !character.is_alphanumeric() && character != '_')

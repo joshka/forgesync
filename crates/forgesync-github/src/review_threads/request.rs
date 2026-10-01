@@ -1,14 +1,4 @@
-//! # Send typed review-thread GraphQL operations
-//!
-//! `GraphqlRequest` pairs operation text and typed variables for the shared GraphQL POST path.
-//! Outer review-thread and nested comment queries select their exact provider fields here, beside
-//! the serialized request shape. Acquisition remains responsible for connection traversal and
-//! required response data; normalization remains responsible for checked domain content.
-//!
-//! Execution uses the configured transport's origin, body bounds, retry budget, and cancellation.
-//! A provider error envelope is rejected even when it contains usable partial data, so callers
-//! cannot mistake partial GraphQL success for complete nested membership. Safe errors retain an
-//! error count rather than raw provider text. This module writes no archive state.
+//! GraphQL operation text and execution for review threads.
 
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
@@ -17,7 +7,7 @@ use crate::error::GitHubError;
 use crate::review_threads::wire::GraphqlEnvelope;
 use crate::transport::GitHubClient;
 
-/// Outer thread page with its first nested comment page and required source context.
+/// Outer thread page with its first nested comment page.
 pub const REVIEW_THREADS_QUERY: &str = r#"
 query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
   repository(owner: $owner, name: $repo) {
@@ -25,7 +15,6 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
       reviewThreads(first: 100, after: $cursor) {
         nodes {
           id isResolved isOutdated path line startLine
-          viewerCanResolve viewerCanUnresolve viewerCanReply
           comments(first: 100) {
             nodes {
               id databaseId body
@@ -43,7 +32,8 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
 }
 "#;
 
-/// Further comments for one review-thread node, preserving the outer query’s comment fields.
+/// Further comments for one review-thread node; keep its comment fields in sync with the outer
+/// query.
 pub const REVIEW_THREAD_COMMENTS_QUERY: &str = r#"
 query($threadID: ID!, $cursor: String) {
   node(id: $threadID) {
@@ -62,21 +52,15 @@ query($threadID: ID!, $cursor: String) {
 }
 "#;
 
-/// Borrowed GraphQL operation and variables, serialized together for one bounded request.
 #[derive(Serialize)]
 pub struct GraphqlRequest<'a, V> {
-    /// Provider operation text; it does not select a transport destination.
     pub query: &'a str,
-    /// Typed operation coordinates retained in the serialized `variables` object.
     pub variables: &'a V,
 }
 
 impl<V: Serialize> GraphqlRequest<'_, V> {
-    /// Executes through the configured transport and rejects any partial-error envelope.
-    ///
-    /// Missing required data remains the acquisition caller's validation responsibility. Encoding,
-    /// transport, cancellation, and provider errors return typed failures; provider error messages
-    /// are not copied into diagnostics or logs.
+    /// Executes the operation and rejects any envelope with errors, even alongside partial data,
+    /// so partial GraphQL success is never mistaken for complete membership.
     pub async fn execute<T>(
         &self,
         client: &GitHubClient,
@@ -85,7 +69,7 @@ impl<V: Serialize> GraphqlRequest<'_, V> {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let url = client.graphql_endpoint_url()?;
+        let url = client.graphql_endpoint_url();
         let body = serde_json::to_vec(self).map_err(|_| GitHubError::InvalidProviderData)?;
         let response: GraphqlEnvelope<T> = client.post_json(&url, &body, cancellation).await?;
         if !response.errors.is_empty() {
@@ -99,8 +83,6 @@ impl<V: Serialize> GraphqlRequest<'_, V> {
 
 #[cfg(test)]
 mod tests {
-    //! Request encoding keeps operation text and typed coordinates in the two GraphQL fields.
-
     use crate::review_threads::request::GraphqlRequest;
     use crate::review_threads::wire::ReviewThreadsVariables;
 

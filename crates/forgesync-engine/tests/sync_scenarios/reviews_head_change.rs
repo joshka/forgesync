@@ -1,14 +1,4 @@
-//! # Review head freshness
-//!
-//! A changed pull-request head makes previously acquired reviews stale.
-//! The second acquisition selects parent metadata only. The scenario checks that old review
-//! membership remains available but cannot claim completeness for the new head.
-//!
-//! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses and construct clients or references. Archive reads remain visible;
-//! no acquisition is hidden
-//! in a test helper. Source head, family selection, and expected canonical state remain explicit.
-//! This integration regression complements focused store ordering and finalization tests.
+//! Review head freshness.
 
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::outcome::OperationOutcome;

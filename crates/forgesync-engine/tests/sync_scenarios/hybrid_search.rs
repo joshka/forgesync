@@ -1,17 +1,4 @@
-//! # Hybrid retrieval combines keyword and semantic evidence
-//!
-//! A real parent sync and explicit document write establish a matching title and current document.
-//! Five successful service requests prepare its complete vector set; the query then makes one
-//! further service request for its semantic representation.
-//!
-//! The result retains hybrid mode without fallback and identifies the expected thread with both
-//! provenance paths. Reciprocal-rank fusion combines two first-place contributions into the
-//! expected score. This test does not first manufacture a failed embedding batch to reach retrieval
-//! setup.
-//!
-//! Requests, fenced persistence, embedding preparation, and retrieval are explicit. The shared
-//! fixture configures client limits and supplies fixed vectors without performing archive work.
-//! Retry preservation and unauthenticated fallback remain independent sibling contracts.
+//! Hybrid retrieval combines keyword and semantic evidence.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

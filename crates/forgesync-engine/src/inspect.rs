@@ -1,64 +1,19 @@
-//! # Offline archive inspection requests
+//! Offline archive inspection requests.
 //!
-//! [`ThreadFilters`] expresses repository, kind, source-state, ordering, and pagination intent.
-//! [`ThreadListRequest`] applies those filters to ordinary browsing. Search also uses the filters,
-//! but chooses its own retrieval policy and default ordering. [`ThreadStateFilter`] and
-//! [`ThreadSort`] are engine vocabulary rather than SQL or CLI argument representations.
-//!
-//! [`archive_status`] and [`list_repositories`] expose local store projections. [`list_threads`]
-//! validates its page window, resolves display-name selectors to durable repository identities,
-//! and asks the store for a page. [`show_thread`] resolves one repository and discussion number
-//! before returning canonical content and selected child evidence. Missing local identities are
-//! errors rather than triggers for provider acquisition.
-//!
-//! Callers supply an already opened archive and retain responsibility for closing it. These
-//! operations do not create, migrate, refresh, discover credentials, or contact a provider. The
-//! store owns SQL, tie ordering, payload decoding, and coverage projection; engine adapters
-//! preserve typed failures while distinguishing a missing discussion from other store failures.
-//!
-//! Separate repository-resolution and projection reads are not one frozen database snapshot.
-//! Retained detail can contain stale or incomplete evidence, and status counts summarize the
-//! store's selected checks rather than proving freshness. Inspect coverage before relying on
-//! completeness. Internal query adapters are shared with search without becoming public inspection
-//! operations.
+//! These operations never create, migrate, refresh, or contact a provider; a missing local identity
+//! is an error, not a trigger for acquisition. Separate repository-resolution and projection reads
+//! are not one frozen snapshot, and retained detail can contain stale or incomplete evidence.
 
 use forgesync_core::content::{Repository, ThreadKind};
 use forgesync_core::identity::ThreadReference;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use forgesync_store::reads::{ArchiveStatus, ThreadDetail, ThreadPage, ThreadQuery};
-use serde::Serialize;
+pub use forgesync_store::reads::{ThreadSort, ThreadStateFilter};
 
 use crate::error::EngineError;
-use crate::query::{
-    checked_page, repository_missing, resolve_repositories, store_sort, store_state_filter,
-};
+use crate::query::{checked_page, repository_missing, resolve_repositories};
 use crate::reference::{RepositorySelector, ThreadSelector};
-
-/// Source-state filter for a local discussion query.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum ThreadStateFilter {
-    /// Include open, closed, and unrecognized source states.
-    #[default]
-    All,
-    /// Include only discussions whose source state is open.
-    Open,
-    /// Include only discussions whose source state is closed.
-    Closed,
-}
-
-/// Sort order for a local discussion query.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ThreadSort {
-    /// Rank full-text matches first; without a query, use update order.
-    #[default]
-    Relevance,
-    /// Sort by source update time, newest first.
-    Updated,
-    /// Sort by source creation time, newest first.
-    Created,
-}
 
 /// Repository, kind, state, sort, and pagination filters shared by local list operations.
 #[derive(Clone, Debug)]
@@ -130,10 +85,10 @@ pub async fn list_threads(
     let query = ThreadQuery {
         repositories,
         kind: request.filters.kind,
-        state: store_state_filter(request.filters.state),
+        state: request.filters.state,
         match_expression: None,
         updated_since: None,
-        sort: store_sort(request.filters.sort.unwrap_or(ThreadSort::Updated)),
+        sort: request.filters.sort.unwrap_or(ThreadSort::Updated),
         limit,
         offset,
     };
@@ -159,9 +114,20 @@ pub async fn show_thread(
         )
         .await?
         .ok_or_else(|| repository_missing(selected_repository))?;
-    let reference = ThreadReference::new(repository.id, selector.number());
+    thread_detail(
+        archive,
+        &ThreadReference::new(repository.id, selector.number()),
+    )
+    .await
+}
+
+/// Reads detail for an already resolved durable repository identity.
+pub(crate) async fn thread_detail(
+    archive: &Archive,
+    reference: &ThreadReference,
+) -> Result<ThreadDetail, EngineError> {
     archive
-        .thread_detail(&reference)
+        .thread_detail(reference)
         .await
         .map_err(|error| match error {
             StoreError::ThreadMissing => EngineError::ThreadMissing,

@@ -1,16 +1,4 @@
-//! # Failed closed sweeps retain their source watermark
-//!
-//! A complete empty closed sweep creates a checkpoint. The scenario then moves that checkpoint into
-//! the past using an explicit raw write to model a long offline interval and verifies that exactly
-//! one persisted row was adjusted. The raw connection cannot create a missing archive.
-//!
-//! A provider failure with the expected overlap `since` leaves the historical checkpoint intact.
-//! A successful retry uses the same overlap and advances beyond both historical and initial values.
-//! Checkpoint reads and optional presence checks have independent failure context.
-//!
-//! All requests, sync calls, fault setup, and assertions remain local to this linear transition.
-//! The engine computes scan boundaries; this regression checks publication/recovery semantics,
-//! while store checkpoint tests enforce transaction-level validation.
+//! Failed closed sweeps retain their source watermark.
 
 use forgesync_core::identity::GitHubHost;
 use forgesync_core::outcome::OperationOutcome;

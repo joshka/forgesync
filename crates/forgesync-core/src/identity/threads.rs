@@ -1,95 +1,51 @@
 //! Scoped identities for repositories, discussions, and child resources.
 //!
-//! [`RepositoryId`] combines host and provider repository ID. [`ThreadId`] adds the
-//! provider-issued discussion ID and a positive repository-local number. [`CommentId`],
-//! [`ReviewId`], and [`ReviewThreadId`] retain their supplied parent thread as part of equality and
-//! hashing. Construction binds checked parts; it does not verify the provider's parent relation.
-//!
-//! These values join normalized content to observations and archive rows. Provider normalization
-//! constructs them from checked response fields; the store converts them to SQL keys at its
-//! boundary. A repository path may change while its provider identity stays stable, so owner/name
-//! strings are not a substitute for [`RepositoryId`].
-//!
-//! Use the child-specific identity that matches the resource family. [`ThreadNumber`] is for
-//! display and selectors; [`ProviderId`] is the source identity behind a row.
+//! Child IDs retain their supplied parent thread as part of equality and hashing. A repository path
+//! may change while its provider identity stays stable, so owner/name strings are not a substitute
+//! for [`RepositoryId`].
 
 use std::num::NonZeroU64;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::identity::IdentityError;
 use crate::identity::host::GitHubHost;
 use crate::identity::provider::ProviderId;
 
-/// Positive issue or pull request number scoped to one repository.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ThreadNumber(
-    /// Positive repository-local display number, not an archive row or opaque provider identity.
-    NonZeroU64,
-);
+/// Positive issue or pull request number scoped to one repository; not a provider ID.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ThreadNumber(NonZeroU64);
 
 impl ThreadNumber {
     /// Checks positivity without selecting a repository or looking up a discussion.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`IdentityError::InvalidThreadNumber`] for zero. SQL range and record existence are
-    /// checked later by the store; a positive number alone has no global discussion identity.
     pub fn new(value: u64) -> Result<Self, IdentityError> {
         NonZeroU64::new(value)
             .map(Self)
-            .ok_or(IdentityError::InvalidThreadNumber)
+            .ok_or(IdentityError::NotPositive)
     }
 
-    /// Returns the underlying number.
     pub fn get(self) -> u64 {
         self.0.get()
-    }
-}
-
-impl Serialize for ThreadNumber {
-    /// Encodes the repository-local discussion number, separately from its opaque provider
-    /// identity.
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_u64(self.get())
-    }
-}
-
-impl<'de> Deserialize<'de> for ThreadNumber {
-    /// Rejects zero when decoding a discussion number, before repository lookup or provider use.
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = u64::deserialize(deserializer)?;
-        Self::new(value).map_err(serde::de::Error::custom)
     }
 }
 
 /// Host-qualified stable repository identity.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RepositoryId {
-    /// Checked authority that scopes the provider's repository ID.
     host: GitHubHost,
-    /// Stable provider repository ID, independent of owner/name display path.
     provider_id: ProviderId,
 }
 
 impl RepositoryId {
-    /// Creates a repository identity from checked host and provider IDs.
     pub fn new(host: GitHubHost, provider_id: ProviderId) -> Self {
         Self { host, provider_id }
     }
 
-    /// Returns the provider host.
     pub fn host(&self) -> &GitHubHost {
         &self.host
     }
 
-    /// Returns the stable provider ID.
     pub fn provider_id(&self) -> &ProviderId {
         &self.provider_id
     }
@@ -98,20 +54,13 @@ impl RepositoryId {
 /// Stable issue or pull request identity scoped to its repository.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ThreadId {
-    /// Stable repository scope included in equality and hashing.
     repository: RepositoryId,
-    /// Opaque discussion provider ID, independent of its visible number.
     provider_id: ProviderId,
-    /// Repository-local number, also included in this value's equality and hashing.
     number: ThreadNumber,
 }
 
 impl ThreadId {
-    /// Combines the checked repository, opaque discussion ID, and positive local number.
-    ///
-    /// All three parts participate in equality and hashing. Construction performs no lookup and
-    /// does not prove that the provider ID and number refer to the same discussion; normalization
-    /// and archive application validate their relationship.
+    /// Combines checked parts; all three participate in equality and hashing.
     pub fn new(repository: RepositoryId, provider_id: ProviderId, number: ThreadNumber) -> Self {
         Self {
             repository,
@@ -120,17 +69,14 @@ impl ThreadId {
         }
     }
 
-    /// Returns the containing repository identity.
     pub fn repository(&self) -> &RepositoryId {
         &self.repository
     }
 
-    /// Returns the stable provider ID.
     pub fn provider_id(&self) -> &ProviderId {
         &self.provider_id
     }
 
-    /// Returns the issue or pull request number.
     pub fn number(&self) -> ThreadNumber {
         self.number
     }
@@ -139,14 +85,11 @@ impl ThreadId {
 /// Stable comment identity scoped to a discussion.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CommentId {
-    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
-    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 
 impl CommentId {
-    /// Creates a comment identity with its parent thread and provider ID.
     pub fn new(thread: ThreadId, provider_id: ProviderId) -> Self {
         Self {
             thread,
@@ -154,12 +97,10 @@ impl CommentId {
         }
     }
 
-    /// Returns the parent discussion identity.
     pub fn thread(&self) -> &ThreadId {
         &self.thread
     }
 
-    /// Returns the stable provider ID.
     pub fn provider_id(&self) -> &ProviderId {
         &self.provider_id
     }
@@ -168,14 +109,11 @@ impl CommentId {
 /// Stable pull request review identity scoped to a discussion.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReviewId {
-    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
-    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 
 impl ReviewId {
-    /// Creates a review identity with its parent pull request and provider ID.
     pub fn new(thread: ThreadId, provider_id: ProviderId) -> Self {
         Self {
             thread,
@@ -183,12 +121,10 @@ impl ReviewId {
         }
     }
 
-    /// Returns the parent pull request identity.
     pub fn thread(&self) -> &ThreadId {
         &self.thread
     }
 
-    /// Returns the stable provider ID.
     pub fn provider_id(&self) -> &ProviderId {
         &self.provider_id
     }
@@ -197,14 +133,11 @@ impl ReviewId {
 /// Stable review-thread identity scoped to a pull request.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ReviewThreadId {
-    /// Supplied parent discussion included in equality and hashing.
     thread: ThreadId,
-    /// Opaque child provider ID within the explicit parent context.
     provider_id: ProviderId,
 }
 
 impl ReviewThreadId {
-    /// Creates a review-thread identity with its parent pull request and provider ID.
     pub fn new(thread: ThreadId, provider_id: ProviderId) -> Self {
         Self {
             thread,
@@ -212,12 +145,10 @@ impl ReviewThreadId {
         }
     }
 
-    /// Returns the parent pull request identity.
     pub fn thread(&self) -> &ThreadId {
         &self.thread
     }
 
-    /// Returns the stable provider ID.
     pub fn provider_id(&self) -> &ProviderId {
         &self.provider_id
     }

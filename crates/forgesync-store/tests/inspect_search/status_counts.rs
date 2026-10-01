@@ -13,7 +13,7 @@
 
 use forgesync_core::content::{SourceState, ThreadKind};
 use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::FamilyCoverageSummary;
 
@@ -50,16 +50,13 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -75,16 +72,13 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -100,16 +94,13 @@ async fn archive_status_counts_registered_repositories_and_thread_kinds() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 

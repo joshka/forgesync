@@ -1,18 +1,12 @@
-//! # Generate embeddings on explicit request
+//! Generate embeddings on explicit request.
 //!
-//! `EmbedArgs` carries repository scope and service settings for a derived-data operation. Its run
-//! method resolves the configured client, asks the engine to embed eligible documents, and renders
-//! completed and failed batches. `PreparedEmbedding` keeps the selected scope, service identity,
-//! recipe, and typed replacement policy together through acquisition and output projection.
-//! Configuration fails before an archive is opened; the command closes a successful open before
-//! rendering either a report or a missing-report diagnostic.
-//!
-//! Embedding service calls are distinct from GitHub acquisition. A local search reads stored
-//! vectors; this command is where a user chooses to produce new ones.
+//! This is where a user chooses to send discussion text to the embedding service; search and
+//! clustering read stored vectors.
 
 use std::collections::HashSet;
-use std::process::ExitCode;
+use std::path::Path;
 
+use clap::builder::RangedU64ValueParser;
 use clap::{ArgAction, Args};
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embedding_client::EmbeddingClient;
@@ -22,11 +16,13 @@ use forgesync_engine::refresh::{
     RefreshEmbeddingReport, RefreshStage, RefreshStageFailure, embed_repositories,
 };
 use forgesync_store::archive::Archive;
+use tokio_util::sync::CancellationToken;
 
-use super::embedding_service::EmbeddingSetupError;
-use crate::config::ForgesyncConfig;
+use super::with_archive;
+use crate::config::{EmbeddingServiceConfig, ForgesyncConfig};
+use crate::error::{CliError, Exit};
+use crate::output::Output;
 use crate::reports::embedding::EmbeddingOutput;
-use crate::{OutputMode, render_error_with_status, render_result, render_store_error};
 
 /// Build documents and store compatible embeddings for local discussions.
 #[derive(Clone, Debug, Args)]
@@ -37,12 +33,38 @@ pub struct EmbedArgs {
     /// Force provider requests even when current compatible vectors are stored.
     #[arg(long, action = ArgAction::SetTrue)]
     pub force: bool,
+    #[command(flatten)]
+    pub service: EmbeddingOverrides,
+}
+
+/// Endpoint and model overrides that identify an embedding service and its stored vectors.
+#[derive(Clone, Debug, Default, Args)]
+pub struct EmbeddingIdentityArgs {
     /// Override the configured OpenAI-compatible base endpoint.
     #[arg(long, value_name = "URL")]
     pub endpoint: Option<String>,
     /// Override the configured embedding model.
     #[arg(long, value_name = "MODEL")]
     pub model: Option<String>,
+}
+
+impl EmbeddingIdentityArgs {
+    /// Replaces the configured endpoint and model with any supplied values.
+    pub fn apply(self, service: &mut EmbeddingServiceConfig) {
+        if let Some(endpoint) = self.endpoint {
+            service.endpoint = endpoint;
+        }
+        if let Some(model) = self.model {
+            service.model = model;
+        }
+    }
+}
+
+/// Command-line overrides applied after file configuration.
+#[derive(Clone, Debug, Default, Args)]
+pub struct EmbeddingOverrides {
+    #[command(flatten)]
+    pub identity: EmbeddingIdentityArgs,
     /// Override the environment variable name containing the API key.
     #[arg(long, value_name = "NAME")]
     pub api_key_env: Option<String>,
@@ -50,120 +72,90 @@ pub struct EmbedArgs {
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..=65536))]
     pub dimensions: Option<u32>,
     /// Override the maximum UTF-8 bytes per input chunk.
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=300000))]
-    pub max_input_bytes: Option<u32>,
+    #[arg(long, value_parser = RangedU64ValueParser::<usize>::new().range(4..=300_000))]
+    pub max_input_bytes: Option<usize>,
     /// Override the maximum UTF-8 bytes in one request.
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=300000))]
-    pub max_batch_input_bytes: Option<u32>,
+    #[arg(long, value_parser = RangedU64ValueParser::<usize>::new().range(4..=300_000))]
+    pub max_batch_input_bytes: Option<usize>,
     /// Override the maximum inputs per request.
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=2048))]
-    pub batch_size: Option<u32>,
+    #[arg(long, value_parser = RangedU64ValueParser::<usize>::new().range(1..=2048))]
+    pub batch_size: Option<usize>,
     /// Override the maximum requests in flight for this service.
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=64))]
-    pub concurrency: Option<u32>,
+    #[arg(long, value_parser = RangedU64ValueParser::<usize>::new().range(1..=64))]
+    pub concurrency: Option<usize>,
+}
+
+impl EmbeddingOverrides {
+    /// Replaces configured settings with any values supplied on the command line.
+    pub fn apply(self, service: &mut EmbeddingServiceConfig) {
+        self.identity.apply(service);
+        if let Some(api_key_env) = self.api_key_env {
+            service.api_key_env = api_key_env;
+        }
+        service.dimensions = self.dimensions.or(service.dimensions);
+        service.max_input_bytes = self.max_input_bytes.unwrap_or(service.max_input_bytes);
+        service.max_batch_input_bytes = self
+            .max_batch_input_bytes
+            .unwrap_or(service.max_batch_input_bytes);
+        service.batch_size = self.batch_size.unwrap_or(service.batch_size);
+        service.concurrency = self.concurrency.unwrap_or(service.concurrency);
+    }
 }
 
 impl EmbedArgs {
-    /// Runs the selected embed workflow with process cancellation and result rendering.
+    /// Embeds the selected repositories into a writable archive and renders the stage report.
     pub async fn run(
         self,
-        path: &std::path::Path,
-        json: OutputMode,
+        path: &Path,
+        output: Output,
         verbose: u8,
         config: ForgesyncConfig,
-    ) -> ExitCode {
-        let interruption = super::interruption::CommandInterruption::new();
-        let cancellation = interruption.cancellation();
-        self.execute(path, json, verbose, config, cancellation)
-            .await
+        cancellation: &CancellationToken,
+    ) -> Result<Exit, CliError> {
+        let prepared = self.prepare(config)?;
+        let stage = with_archive(Archive::open_read_write(path), async |archive| {
+            if verbose > 0 && !output.is_json() {
+                eprintln!(
+                    "forgesync: embedding discussions in {} repository(s)",
+                    prepared.repositories.len()
+                );
+            }
+            Ok::<_, CliError>(
+                embed_repositories(
+                    archive,
+                    &prepared.repositories,
+                    &prepared.client,
+                    prepared.recipe,
+                    prepared.policy,
+                    cancellation,
+                )
+                .await,
+            )
+        })
+        .await?;
+        let report = prepared.output(stage)?;
+        Ok(output.report(&report, EmbeddingOutput::summary, report.exit_status()))
     }
 
-    /// Executes one prepared embed request against the selected archive.
-    async fn execute(
-        self,
-        path: &std::path::Path,
-        json: OutputMode,
-        verbose: u8,
-        config: ForgesyncConfig,
-        cancellation: &tokio_util::sync::CancellationToken,
-    ) -> ExitCode {
-        let prepared = match self.prepare(config) {
-            Ok(prepared) => prepared,
-            Err(error) => return render_configuration_error(json, error),
-        };
-        let archive = match Archive::open_read_write(path).await {
-            Ok(archive) => archive,
-            Err(error) => return render_store_error(json, "embed", error),
-        };
-        if verbose > 0 && !json.is_json() {
-            eprintln!(
-                "forgesync: embedding discussions in {} repository(s)",
-                prepared.repositories.len()
-            );
-        }
-        let result = prepared.run(&archive, cancellation).await;
-        archive.close().await;
-        match result {
-            Ok(output) => render_report(json, output),
-            Err(failure) => render_stage_failure(json, failure),
-        }
-    }
-
-    /// Resolves overrides and credentials before opening an archive, then fixes execution scope.
-    /// Repository deduplication and ordering are pure; model requests occur only in `run`.
-    fn prepare(self, config: ForgesyncConfig) -> Result<PreparedEmbedding, EmbeddingSetupError> {
-        let service = self.service(config.embeddings);
-        let client = service.client()?;
-        let repositories = repository_scope(self.repositories);
-        let policy = if self.force {
-            EmbeddingPolicy::Replace
-        } else {
-            EmbeddingPolicy::Missing
-        };
+    /// Resolves overrides and the client before any archive is opened.
+    fn prepare(self, config: ForgesyncConfig) -> Result<PreparedEmbedding, CliError> {
+        let mut service = config.embeddings;
+        self.service.apply(&mut service);
         Ok(PreparedEmbedding {
-            repositories,
-            client,
+            repositories: repository_scope(self.repositories),
+            client: service.client()?,
             recipe: config.documents.recipe,
-            policy,
+            policy: if self.force {
+                EmbeddingPolicy::Replace
+            } else {
+                EmbeddingPolicy::Missing
+            },
             dimensions: service.dimensions,
         })
     }
-
-    /// Applies command-line service overrides after file and environment config resolution.
-    fn service(
-        &self,
-        mut service: crate::config::EmbeddingServiceConfig,
-    ) -> crate::config::EmbeddingServiceConfig {
-        if let Some(endpoint) = self.endpoint.clone() {
-            service.endpoint = endpoint;
-        }
-        if let Some(model) = self.model.clone() {
-            service.model = model;
-        }
-        if let Some(api_key_env) = self.api_key_env.clone() {
-            service.api_key_env = api_key_env;
-        }
-        if let Some(dimensions) = self.dimensions {
-            service.dimensions = Some(dimensions);
-        }
-        if let Some(max_input_bytes) = self.max_input_bytes {
-            service.max_input_bytes = max_input_bytes as usize;
-        }
-        if let Some(max_batch_input_bytes) = self.max_batch_input_bytes {
-            service.max_batch_input_bytes = max_batch_input_bytes as usize;
-        }
-        if let Some(batch_size) = self.batch_size {
-            service.batch_size = batch_size as usize;
-        }
-        if let Some(concurrency) = self.concurrency {
-            service.concurrency = concurrency as usize;
-        }
-        service
-    }
 }
 
-/// Deduplicates selectors and orders their canonical URLs for repeatable execution and JSON scope.
-/// This pure preparation does not resolve repositories in the archive or contact their hosts.
+/// Deduplicates selectors and orders them by canonical URL for repeatable execution and output.
 fn repository_scope(repositories: Vec<RepositorySelector>) -> Vec<RepositorySelector> {
     let mut repositories = repositories
         .into_iter()
@@ -174,51 +166,29 @@ fn repository_scope(repositories: Vec<RepositorySelector>) -> Vec<RepositorySele
     repositories
 }
 
-/// Prepared repository selection and service capability used for acquisition and its output
-/// identity.
+/// Resolved scope and client, prepared before the archive is opened.
 struct PreparedEmbedding {
-    /// Unique host-qualified selectors ordered by URL for repeatable execution and presentation.
     repositories: Vec<RepositorySelector>,
-    /// Validated service client; its normalized identity also labels the resulting report.
     client: EmbeddingClient,
-    /// Document materialization recipe shared with vector compatibility selection.
     recipe: DocumentRecipe,
-    /// Typed cache/replacement policy converted once from the parsed command flag.
     policy: EmbeddingPolicy,
-    /// Configured output dimensions attached to the same client/request identity.
     dimensions: Option<u32>,
 }
 
 impl PreparedEmbedding {
-    /// Acquires documents/vectors and projects the result without rendering or closing the archive.
-    async fn run(
-        self,
-        archive: &Archive,
-        cancellation: &tokio_util::sync::CancellationToken,
-    ) -> Result<EmbeddingOutput, RefreshStageFailure> {
-        let stage = embed_repositories(
-            archive,
-            &self.repositories,
-            &self.client,
-            self.recipe,
-            self.policy,
-            cancellation,
-        )
-        .await;
-        self.output(stage)
-    }
-
-    /// Attaches the exact execution identity to a present report, retaining safe partial failures.
-    /// An absent report becomes a concrete diagnostic rather than an optional error value.
+    /// Attaches the execution identity to the stage report; a missing report is an error.
     fn output(
         self,
         stage: RefreshStage<RefreshEmbeddingReport>,
-    ) -> Result<EmbeddingOutput, RefreshStageFailure> {
+    ) -> Result<EmbeddingOutput, CliError> {
         let Some(report) = stage.report else {
-            return Err(stage.failure.unwrap_or(RefreshStageFailure {
-                code: "embedding_stage_failed",
-                message: "embedding stage did not produce a report".to_owned(),
-            }));
+            return Err(CliError::Stage {
+                status: stage.status,
+                failure: stage.failure.unwrap_or(RefreshStageFailure {
+                    code: "embedding_stage_failed",
+                    message: "embedding stage did not produce a report".to_owned(),
+                }),
+            });
         };
         Ok(EmbeddingOutput {
             repositories: self
@@ -236,39 +206,6 @@ impl PreparedEmbedding {
             document_failures: report.document_failures,
             failure: stage.failure,
         })
-    }
-}
-
-/// Presents invalid service configuration before archive creation or acquisition can begin.
-fn render_configuration_error(output: OutputMode, error: EmbeddingSetupError) -> ExitCode {
-    render_error_with_status(
-        output,
-        "embed",
-        error.code(),
-        &error.to_string(),
-        ExitCode::from(2),
-    )
-}
-
-/// Renders a report-bearing outcome after the command closes its writable archive.
-fn render_report(output: OutputMode, report: EmbeddingOutput) -> ExitCode {
-    let status = report.exit_status();
-    render_result(output, "embed", &report, EmbeddingOutput::summary, status)
-}
-
-/// Presents a stage that produced no report after archive cleanup, preserving cancellation status.
-fn render_stage_failure(output: OutputMode, failure: RefreshStageFailure) -> ExitCode {
-    let status = failure_exit_status(&failure);
-    render_error_with_status(output, "embed", failure.code, &failure.message, status)
-}
-
-/// Returns the established process status for a safe stage diagnostic without a report.
-/// Cancellation is identified by its stable code; all other missing-report failures are fatal.
-fn failure_exit_status(failure: &RefreshStageFailure) -> ExitCode {
-    if failure.code == "operation_cancelled" {
-        ExitCode::from(130)
-    } else {
-        ExitCode::FAILURE
     }
 }
 

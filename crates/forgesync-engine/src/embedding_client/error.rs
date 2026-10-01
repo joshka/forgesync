@@ -1,25 +1,7 @@
-//! # Typed embedding-service failures
+//! Sanitized embedding-service failures.
 //!
-//! `EmbeddingClientError` distinguishes request, response, and vector-validation problems. The
-//! workflow uses this information to report failed batches without treating malformed service
-//! output as a valid empty embedding.
-//!
-//! This error belongs at the adapter boundary. Engine-level reports can classify it, while the
-//! client keeps protocol details out of archive and search modules.
-//!
-//! Configuration/input failures reject local request preparation; transport/status failures
-//! describe an unsuccessful attempt; response/vector failures reject successful HTTP output before
-//! vectors escape the adapter. None of these variants contains credentials, input text, raw bodies,
-//! or a transport source chain. HTTP status retains only its numeric code.
-//!
-//! [`EmbeddingClientError::code`] is the structured reporting classification. Private retry policy
-//! permits network/timeout failures, 429, and server-error statuses, subject to the client's
-//! attempt and time budgets. It does not retry malformed output, invalid inputs, redirects, or
-//! cancellation. Retry eligibility is distinct from search's explicit keyword-fallback policy.
-//!
-//! `MissingApiKey` means the supplied key is empty, not that this library inspected environment.
-//! CLI credential resolution owns environment access. Domain vector failures collapse to one safe
-//! invalid-vector category; detailed numeric causes are not retained in this service error.
+//! No variant contains credentials, input text, raw bodies, or a transport source chain. Retry
+//! covers network/timeout failures, 429, and server errors within the client's budgets.
 
 use forgesync_core::embedding::EmbeddingVectorError;
 use thiserror::Error;
@@ -84,7 +66,6 @@ impl EmbeddingClientError {
     /// Returns the stable reporting category without private request/response details.
     ///
     /// All HTTP statuses share one category; the typed variant retains the numeric status.
-    /// This code is not a retry or fallback decision. Human display text is a separate contract.
     pub const fn code(self) -> &'static str {
         match self {
             Self::InvalidConfiguration => "embedding_config_invalid",

@@ -1,21 +1,4 @@
-//! # Draw recorded acquisition failures
-//!
-//! [`draw_failures`] presents the app's loaded recent-run projection and unresolved-work text for
-//! its selected run. Wide areas place list and detail side by side; compact areas stack them.
-//! Query and app owners select runs and prepare entry strings before rendering; this module does
-//! not filter the ledger, resolve targets, or infer source completeness from a run status.
-//!
-//! The list distinguishes loading without retained rows, a recorded load error, and an empty
-//! projection. Selection highlighting is suppressed for errors and empty data. Detail prefers a
-//! currently selected retained run, then a load error, then a selection hint, so a list error can
-//! coexist with previously loaded detail until app state replaces that projection.
-//!
-//! A run with no entry strings gets an explicit absence message. The view does not invent retry
-//! targets from that absence or claim that every family is complete. The underlying run/coverage
-//! relationship remains an engine and store concern.
-//!
-//! Rendering borrows app state and uses temporary widget selection state. Retry and refresh are
-//! separate input-driven workflows; drawing issues no archive reads, writes, or provider requests.
+//! Recent unfinished runs and the selected run's unresolved work.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -24,60 +7,63 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::view::{COMPACT_WIDTH, PaneEmphasis, selected_style};
+use crate::view::{COMPACT_WIDTH, pane, selected_style};
 
-/// Arranges the failed-run list and selected failure detail.
-pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    if area.width >= COMPACT_WIDTH {
-        let panes = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
-            .split(area);
-        draw_failure_list(frame, panes[0], app);
-        draw_failure_detail(frame, panes[1], app);
+pub fn draw_failures(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let (direction, constraints) = if area.width >= COMPACT_WIDTH {
+        (
+            Direction::Horizontal,
+            [Constraint::Percentage(35), Constraint::Percentage(65)],
+        )
     } else {
-        let panes = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
-            .split(area);
-        draw_failure_list(frame, panes[0], app);
-        draw_failure_detail(frame, panes[1], app);
-    }
+        (
+            Direction::Vertical,
+            [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)],
+        )
+    };
+    let panes = Layout::default()
+        .direction(direction)
+        .constraints(constraints)
+        .split(area);
+    draw_failure_list(frame, panes[0], app);
+    draw_failure_detail(frame, panes[1], app);
 }
 
-/// Draws non-complete runs and the current selection.
-fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut items = app
-        .failure_list
-        .items
-        .iter()
-        .map(|run| ListItem::new(format!("Run #{} · {:?}", run.id, run.status)))
-        .collect::<Vec<_>>();
-    if app.failure_list.loading && items.is_empty() {
-        items.push(ListItem::new("Loading recent runs…"));
-    } else if let Some(error) = &app.failure_list.error {
-        items = vec![ListItem::new(error.clone())];
-    } else if items.is_empty() {
-        items.push(ListItem::new("No incomplete or failed runs"));
-    }
-    let mut state = ListState::default();
-    if app.failure_list.error.is_none() && !app.failure_list.items.is_empty() {
-        state.select(Some(app.failure_list.selected));
-    }
-    frame.render_stateful_widget(
-        List::new(items)
-            .block(PaneEmphasis::Strong.block("Recent runs"))
-            .highlight_style(selected_style()),
-        area,
-        &mut state,
-    );
+/// Placeholder rows (loading, error, empty) are drawn without a highlight.
+fn draw_failure_list(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let list = &mut app.failure_list;
+    let rows = &list.rows;
+    let mut placeholder = ListState::default();
+    let (items, state) = if rows.loading && rows.data.is_empty() {
+        (
+            vec![ListItem::new("Loading recent runs…")],
+            &mut placeholder,
+        )
+    } else if let Some(error) = &rows.error {
+        (vec![ListItem::new(error.clone())], &mut placeholder)
+    } else if rows.data.is_empty() {
+        let empty = "No incomplete or failed runs";
+        (vec![ListItem::new(empty)], &mut placeholder)
+    } else {
+        let items = rows
+            .data
+            .iter()
+            .map(|run| ListItem::new(format!("Run #{} · {:?}", run.id.get(), run.status)))
+            .collect();
+        (items, &mut list.state)
+    };
+    let list = List::new(items)
+        .block(pane("Recent runs", true))
+        .highlight_style(selected_style());
+    frame.render_stateful_widget(list, area, state);
 }
 
-/// Draws unresolved failure entries for the selected run.
+/// A selected retained run is shown even while a refresh error is listed beside it.
 fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let lines = if let Some(run) = app.failure_list.items.get(app.failure_list.selected) {
+    let lines = if let Some(run) = app.failure_list.selected() {
+        let heading = format!("Run #{} · {:?}", run.id.get(), run.status);
         let mut lines = vec![
-            Line::from(format!("Run #{} · {:?}", run.id, run.status)).style(
+            Line::from(heading).style(
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
@@ -90,7 +76,7 @@ fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
             lines.extend(run.entries.iter().map(|entry| Line::from(entry.clone())));
         }
         lines
-    } else if let Some(error) = &app.failure_list.error {
+    } else if let Some(error) = &app.failure_list.rows.error {
         vec![Line::from(error.clone())]
     } else {
         vec![Line::from(
@@ -99,7 +85,7 @@ fn draw_failure_detail(frame: &mut Frame<'_>, area: Rect, app: &App) {
     };
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(PaneEmphasis::Strong.block("Unresolved work"))
+            .block(pane("Unresolved work", true))
             .wrap(Wrap { trim: false }),
         area,
     );

@@ -1,16 +1,7 @@
-//! # Project selected evidence into a stable discussion timeline
+//! Current source events ordered into a discussion timeline.
 //!
-//! `thread_timeline` combines parent creation/closure, comments, reviews, and review-thread
-//! evidence already selected by the archive. It does not infer collection completeness or acquire
-//! missing resources; discussion coverage is reported separately by the detail projection.
-//!
-//! Entry constructors keep each event's timestamp and payload together. Review-thread state has
-//! no occurrence timestamp, while its comments retain their source creation times. Parent state
-//! and review-thread context are copied into the corresponding events for presentation.
-//!
-//! Ordering uses known source times first, then stable event-kind/provider identity keys. Unknown
-//! timestamps follow dated events. Equal keys retain insertion order, preserving the established
-//! creation/closure behavior when a provider supplies equal timestamps.
+//! Known source times sort first, then stable event-kind/provider keys; undated events follow.
+//! Equal keys keep insertion order so creation precedes closure when timestamps tie.
 
 use forgesync_core::content::{Comment, Discussion, Review, ReviewThread};
 use forgesync_core::timestamp::UtcTimestamp;

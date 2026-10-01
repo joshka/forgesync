@@ -1,16 +1,7 @@
-//! # Embedding preparation, projection, and diagnostic contracts
+//! Embedding preparation, projection, and missing-report diagnostics.
 //!
-//! These cases exercise canonical repository scope and prepared output without provider requests
-//! or archive fixtures. Service clients use explicit static test keys through `client_config`,
-//! avoiding process credential discovery. The selected identity and partial report facts remain
-//! visible in each test rather than being supplied by a scenario helper.
-//!
-//! Missing-report diagnostics retain a concrete safe fallback. Cancellation classification uses
-//! its stable process code, not message wording. Report-bearing partial/deferred exit policy lives
-//! beside `EmbeddingOutput` and has its own named cases in the reports module. Together these tests
-//! distinguish absent acquisition results from useful partial results without parsing output text.
-
-use std::process::ExitCode;
+//! Service clients use explicit static test keys through `client_config`, avoiding process
+//! credential discovery.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embedding_client::EmbeddingClient;
@@ -20,27 +11,26 @@ use forgesync_engine::refresh::{
     RefreshStageStatus,
 };
 
-use crate::command::embed::{PreparedEmbedding, failure_exit_status, repository_scope};
+use crate::command::embed::{PreparedEmbedding, repository_scope};
 use crate::config::EmbeddingServiceConfig;
+use crate::error::{CliError, Exit};
 
-#[test]
-fn cancellation_code_preserves_shell_interruption_status() {
-    let failure = RefreshStageFailure {
-        code: "operation_cancelled",
-        message: "embedding acquisition stopped".to_owned(),
+#[rstest::rstest]
+#[case::interrupted(RefreshStageStatus::Interrupted, Exit::Interrupted)]
+#[case::failed(RefreshStageStatus::Failed, Exit::Failure)]
+fn missing_report_exit_follows_stage_status(
+    #[case] status: RefreshStageStatus,
+    #[case] expected: Exit,
+) {
+    let error = CliError::Stage {
+        status,
+        failure: RefreshStageFailure {
+            code: "operation_cancelled",
+            message: "embedding acquisition stopped".to_owned(),
+        },
     };
 
-    assert_eq!(failure_exit_status(&failure), ExitCode::from(130));
-}
-
-#[test]
-fn message_text_does_not_select_cancellation_policy() {
-    let failure = RefreshStageFailure {
-        code: "embedding_stage_failed",
-        message: "remote service mentioned cancellation".to_owned(),
-    };
-
-    assert_eq!(failure_exit_status(&failure), ExitCode::FAILURE);
+    assert_eq!(error.exit(), expected);
 }
 
 #[test]
@@ -78,9 +68,9 @@ fn absent_stage_report_has_a_concrete_fallback_diagnostic() {
         failure: None,
     };
 
-    let failure = prepared
-        .output(stage)
-        .expect_err("missing report diagnostic");
+    let Err(CliError::Stage { failure, .. }) = prepared.output(stage) else {
+        panic!("missing report diagnostic");
+    };
 
     assert_eq!(failure.code, "embedding_stage_failed");
     assert_eq!(failure.message, "embedding stage did not produce a report");

@@ -1,16 +1,4 @@
-//! # Retry scenarios
-//!
-//! The initial workflow records failures for multiple child families on one pull request. Retry
-//! planning selects only comments, so the next operation must leave reviews unresolved and make no
-//! review-provider request. The original attempt remains inspectable in the durable run ledger.
-//!
-//! The selected failure and scope counts are checked before indexed field assertions. The retry run
-//! names its original parent, and the stored comment failure points to that successful retry while
-//! the review failure stays unresolved. Local ledger reads have separate result/presence failures.
-//!
-//! Provider setup may construct responses and clients, but retry planning and execution remain in
-//! this linear scenario. The two phases stay together because family selection is defined by the
-//! original recorded failures; this suite does not reconstruct a synthetic retry plan.
+//! Retry scenarios.
 
 use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::outcome::OperationOutcome;

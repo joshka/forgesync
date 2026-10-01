@@ -1,14 +1,4 @@
-//! # Pairwise title and discussion-kind safeguards
-//!
-//! Two-document cases isolate title support from the separately configured cross-kind threshold.
-//! Moderate same-kind similarity needs shared title tokens; strong similarity can stand alone.
-//! Cross-kind cases use identical titles so only vector strength changes their acceptance.
-//! Minimum component size is two, making rejected edges produce no reported proposal.
-//!
-//! Every case constructs supplied vectors directly and invokes the real graph coordinator.
-//! The shared fixture performs no graph selection, model requests, or archive writes.
-//! Neighbor bounds, reference scoping, and cancellation have separate graph tests.
-//! Projection tests own representative selection and per-member evidence scores.
+//! Pairwise title and discussion-kind safeguards.
 
 use forgesync_core::content::ThreadKind;
 use tokio_util::sync::CancellationToken;

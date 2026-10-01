@@ -1,20 +1,4 @@
-//! # Focused sync scenarios
-//!
-//! These scenarios follow provider acquisition through engine coordination into durable archive
-//! state. Each evidence family and follow-on stage has its own scenario module: enumeration,
-//! comments, review failure/head freshness, review-thread membership/partial isolation, documents,
-//! embeddings, refresh, and retry.
-//!
-//! Shared setup has explicit owners: `fixture_issues` constructs REST discussion responses and
-//! local clients, `fixture_reviews` supplies pull-request head/review responses, and
-//! `fixture_archive` constructs references, selects already-read coverage, and owns database
-//! lifetime. `fixture_documents` names document source revisions. Scenarios import these owners
-//! directly. `fixture_embeddings` owns service response policy and pure client construction.
-//!
-//! The real workflow calls and their requests stay in each test; fixtures never run acquisition.
-//! Read the affected scenario to see family selection, failure setup, and canonical-state
-//! assertions. Document source setup configures HTTP responses; materialization stays in its
-//! scenario.
+//! Focused sync scenarios.
 
 mod closed_sweep;
 mod comments_empty;

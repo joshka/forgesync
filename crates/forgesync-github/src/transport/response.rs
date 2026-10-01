@@ -1,20 +1,10 @@
 //! Bound and classify HTTP responses before provider DTO decoding.
 //!
-//! Successful JSON and error bodies have explicit size limits. The bounded prefix used for failure
-//! classification avoids retaining arbitrary raw provider payloads. HTTP status, rate-limit hints,
-//! redirects, and transport errors become typed failure categories for the retry layer.
-//!
-//! A request slot is acquired with cancellation before network I/O. The transport checks a
-//! redirect target against the trusted origin rather than allowing the HTTP library to follow it
-//! and possibly send authorization elsewhere.
-//!
-//! `ResponseBody` retains bounded bytes and trusted pagination, then consumes itself to decode the
-//! successful payload. Invalid JSON is a terminal typed failure rather than a new request attempt.
-//!
-//! Resource modules consume the resulting typed value or error. They do not need to reason about
-//! body stream limits, semaphore permits, or retryable network failures.
+//! Successful and error bodies have explicit size limits; only a bounded error prefix is read for
+//! rate-limit classification, so arbitrary provider payloads are never retained.
 
-use reqwest::header::LOCATION;
+use std::error::Error as _;
+
 use reqwest::{Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -22,27 +12,16 @@ use tokio_util::sync::CancellationToken;
 
 use crate::error::GitHubError;
 use crate::transport::retry::{api_failure_kind, body_identifies_rate_limit, retry_after_hint};
-use crate::transport::{
-    BodyReadError, GitHubResponse, MAX_ERROR_BODY_BYTES, RequestFailure, TrustedOrigin,
-};
+use crate::transport::{BodyReadError, GitHubResponse, MAX_ERROR_BODY_BYTES, RequestFailure};
 
-/// A bounded successful body and its already validated pagination destination.
-///
-/// The request traversal validates status, body size, and next-page origin before constructing this
-/// value. Decoding consumes it so raw bytes do not escape alongside the typed provider payload.
+/// A bounded successful body and its next-page link.
 pub struct ResponseBody {
-    /// Current-page bytes collected within the successful-response size bound.
     pub body: Vec<u8>,
-    /// Trusted next-page destination derived from response headers, independent of JSON content.
     pub next_page: Option<Url>,
 }
 
 impl ResponseBody {
-    /// Decodes one successful page while retaining its validated pagination destination.
-    ///
-    /// Malformed JSON or a DTO shape mismatch returns `InvalidJson`; successful HTTP payload
-    /// decoding is terminal and is not retried by the request loop. This conversion performs
-    /// no additional network I/O and does not interpret provider family completeness.
+    /// Decodes one successful page. Invalid JSON or a DTO shape mismatch is terminal `InvalidJson`.
     pub fn decode<T: DeserializeOwned>(self) -> Result<GitHubResponse<T>, GitHubError> {
         let value = serde_json::from_slice(&self.body).map_err(|_| GitHubError::InvalidJson)?;
         Ok(GitHubResponse {
@@ -60,7 +39,7 @@ pub async fn acquire_request_slot(
     tokio::select! {
         _ = cancellation.cancelled() => Err(GitHubError::Cancelled),
         permit = slots.clone().acquire_owned() => {
-            permit.map_err(|_| GitHubError::ConcurrencyUnavailable)
+            Ok(permit.expect("the client never closes its request semaphore"))
         }
     }
 }
@@ -73,7 +52,9 @@ pub async fn classify_api_response(
 ) -> Result<ResponseBody, RequestFailure> {
     let headers = response.headers().clone();
     let retry_after = retry_after_hint(&headers);
-    let body = read_error_prefix(response).await.unwrap_or_default();
+    let body = read_body_prefix(response, MAX_ERROR_BODY_BYTES)
+        .await
+        .unwrap_or_default();
     let rate_limited = status == StatusCode::TOO_MANY_REQUESTS
         || (status == StatusCode::FORBIDDEN
             && (headers
@@ -90,24 +71,14 @@ pub async fn classify_api_response(
         || matches!(status.as_u16(), 500 | 502 | 503 | 504)
         || rate_limited;
     if retryable {
-        Err(RequestFailure {
-            error,
-            retryable: true,
-            retry_after,
-        })
+        Err(RequestFailure::retryable(error, retry_after))
     } else {
         Err(RequestFailure::terminal(error))
     }
 }
 
-/// Retains only a bounded diagnostic prefix of a failed provider response.
-pub async fn read_error_prefix(response: Response) -> Result<Vec<u8>, reqwest::Error> {
-    read_body_prefix(response, MAX_ERROR_BODY_BYTES).await
-}
-
 /// Bounds successful response bodies even when `Content-Length` is absent or untrustworthy.
-pub async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, BodyReadError> {
-    let mut response = response;
+pub async fn read_body(mut response: Response, limit: usize) -> Result<Vec<u8>, BodyReadError> {
     if response
         .content_length()
         .is_some_and(|length| length > u64::try_from(limit).unwrap_or(u64::MAX))
@@ -125,11 +96,7 @@ pub async fn read_body(response: Response, limit: usize) -> Result<Vec<u8>, Body
     Ok(bytes)
 }
 
-/// Reads a bounded prefix without exposing an unbounded provider payload.
-pub async fn read_body_prefix(
-    mut response: Response,
-    limit: usize,
-) -> Result<Vec<u8>, reqwest::Error> {
+async fn read_body_prefix(mut response: Response, limit: usize) -> Result<Vec<u8>, reqwest::Error> {
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await? {
         let room = limit.saturating_sub(bytes.len());
@@ -141,27 +108,18 @@ pub async fn read_body_prefix(
     Ok(bytes)
 }
 
-/// Resolves a redirect against the current URL and revalidates its trusted origin before the
-/// client can forward credentials to the destination.
-pub fn redirect_target(response: &Response, origin: &TrustedOrigin) -> Result<Url, GitHubError> {
-    let location = response
-        .headers()
-        .get(LOCATION)
-        .and_then(|value| value.to_str().ok());
-    let Some(location) = location else {
-        return Err(GitHubError::RedirectRejected);
-    };
-    let target = response
-        .url()
-        .join(location)
-        .map_err(|_| GitHubError::RedirectRejected)?;
-    origin.validate(&target)?;
-    Ok(target)
-}
-
 /// Maps reqwest failures to retryable or terminal provider categories.
+///
+/// A redirect stopped by the client's policy carries the [`GitHubError`] it chose.
 pub fn classify_transport_error(error: reqwest::Error) -> RequestFailure {
-    if error.is_timeout() {
+    if error.is_redirect() {
+        let stopped = error
+            .source()
+            .and_then(|source| source.downcast_ref::<GitHubError>())
+            .cloned()
+            .unwrap_or(GitHubError::RedirectRejected);
+        RequestFailure::terminal(stopped)
+    } else if error.is_timeout() {
         RequestFailure::retryable(GitHubError::Timeout, None)
     } else {
         RequestFailure::retryable(GitHubError::Network, None)

@@ -1,17 +1,7 @@
-//! # Classify GitHub failures for durable evidence
+//! Classify GitHub failures for durable evidence.
 //!
-//! [`github_failure`] converts provider-owned errors into the core failure vocabulary recorded
-//! by acquisition workflows. Enumeration and child-family sync use the same mapping so identical
-//! transport failures do not receive different ledger classifications depending on their caller.
-//!
-//! Authentication, permission, rate limiting, network, and invalid-data cases have specific kinds.
-//! Remaining protocol/setup errors use provider-response classification. Cancellation also maps
-//! there when converted, but workflow owners must interpret cancellation before choosing whether
-//! to record a failure. This helper is not a retry or cancellation policy.
-//!
-//! The diagnostic message comes from the typed provider display implementation; this adapter
-//! performs no additional redaction and never stores a raw response. Its private module boundary
-//! keeps classification policy internal while allowing ordinary public visibility for callers.
+//! Enumeration and child-family sync share this mapping so identical transport failures get the
+//! same ledger classification. Callers must handle cancellation before deciding to record one.
 
 use forgesync_core::coverage::{Failure, FailureKind};
 use forgesync_github::error::{ApiFailureKind, GitHubError};
@@ -42,7 +32,6 @@ pub fn github_failure(error: &GitHubError) -> Failure {
         | GitHubError::ResponseTooLarge
         | GitHubError::InvalidJson
         | GitHubError::GraphqlErrors { .. }
-        | GitHubError::ConcurrencyUnavailable
         | GitHubError::InvalidApiBaseUrl
         | GitHubError::InvalidConfiguration
         | GitHubError::ClientInitialization => FailureKind::ProviderResponse,

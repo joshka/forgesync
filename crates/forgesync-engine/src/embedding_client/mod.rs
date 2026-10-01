@@ -1,18 +1,9 @@
-//! # External embedding-service adapter
-//!
-//! `EmbeddingClientConfig` describes the endpoint and model request settings; `EmbeddingClient`
-//! sends document text and returns checked vectors. This is the network boundary for derived
-//! embeddings, distinct from the GitHub source adapter.
-//!
-//! `response` validates shape, count, and dimensions before a vector can enter the archive.
-//! `error` classifies service and validation failures for reports. Workflow batching and
-//! persistence live in `embeddings`, so callers can reason separately about transport and document
-//! selection.
+//! OpenAI-compatible embedding-service adapter.
 //!
 //! Clones share connection pooling and concurrency slots. A batch holds its slot through retries;
-//! cancellation can interrupt both the queue and active work. The retry clock starts after slot
-//! acquisition, so the configured budget does not bound time spent waiting behind another batch.
-//! Archive leases belong to the embedding workflow, not this adapter.
+//! the retry budget starts after slot acquisition, so it does not bound time spent waiting behind
+//! another batch. An empty API key is reported per request (not at construction) so callers with
+//! keyword fallback can still degrade gracefully.
 
 mod error;
 mod response;
@@ -24,7 +15,7 @@ use std::time::{Duration, Instant};
 pub use error::EmbeddingClientError;
 use forgesync_core::embedding::EmbeddingVector;
 use reqwest::Url;
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue, USER_AGENT};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
@@ -73,27 +64,18 @@ pub struct EmbeddingClient {
     http: reqwest::Client,
     /// Final POST URL, including the embeddings path appended to the configured base.
     endpoint: Url,
-    /// Credential-free base URL recorded in vector recipes, distinct from the POST URL.
+    /// Credential-free base URL recorded with stored vectors, distinct from the POST URL.
     endpoint_identity: String,
-    /// Trimmed model identifier sent to the service and recorded with stored vectors.
     model: String,
-    /// Shared secret used only to construct a sensitive authorization header.
     api_key: Arc<str>,
-    /// Requested output width; response validation enforces it when configured.
     dimensions: Option<u32>,
-    /// Individual input byte ceiling used by chunk selection and request validation.
     max_input_bytes: usize,
-    /// Aggregate input byte ceiling used by batching and request validation.
     max_batch_input_bytes: usize,
-    /// Configured input-count ceiling, additionally bounded by the adapter's hard limit.
     batch_size: usize,
-    /// Configured parallelism advertised to the scheduler, not currently available permits.
-    concurrency: usize,
-    /// Attempt and backoff budget measured only after acquiring a shared slot.
     total_budget: Duration,
-    /// Total allowed attempts, including the first request before any retry.
     max_attempts: u32,
-    /// Slots shared across clones; each active batch retains one through retry waits.
+    /// Slots shared across clones; this alone bounds concurrent requests, and each active batch
+    /// holds one through its retry waits.
     request_slots: Arc<Semaphore>,
 }
 
@@ -126,7 +108,6 @@ impl EmbeddingClient {
             max_input_bytes: config.max_input_bytes,
             max_batch_input_bytes: config.max_batch_input_bytes,
             batch_size: config.batch_size,
-            concurrency: config.concurrency,
             total_budget: config.total_budget,
             max_attempts: config.max_attempts,
             request_slots: Arc::new(Semaphore::new(config.concurrency)),
@@ -158,20 +139,12 @@ impl EmbeddingClient {
         self.batch_size
     }
 
-    /// Maximum parallel provider requests for this service.
-    pub fn concurrency(&self) -> usize {
-        self.concurrency
-    }
-
     /// Configured output dimension count, when known.
     pub const fn dimensions(&self) -> Option<u32> {
         self.dimensions
     }
 
     /// Budget for one batch's attempts and retry delays after acquiring its concurrency slot.
-    ///
-    /// Queue waiting is excluded. The embedding workflow uses this duration when sizing its writer
-    /// lease, but this value does not bound the entire workflow or its lease-holding time.
     pub const fn request_budget(&self) -> Duration {
         self.total_budget
     }
@@ -190,7 +163,7 @@ impl EmbeddingClient {
         if inputs.is_empty() {
             return Ok(Vec::new());
         }
-        if self.api_key.trim().is_empty() {
+        if self.api_key.is_empty() {
             return Err(EmbeddingClientError::MissingApiKey);
         }
         self.validate_inputs(inputs)?;
@@ -281,7 +254,6 @@ impl EmbeddingClient {
             .post(self.endpoint.clone())
             .header(AUTHORIZATION, authorization)
             .header(CONTENT_TYPE, "application/json")
-            .header(USER_AGENT, "forgesync")
             .body(body)
             .send()
             .await
@@ -296,7 +268,7 @@ impl EmbeddingClient {
         let bytes = read_bounded_body(response, cancellation).await?;
         let response: EmbeddingResponse =
             serde_json::from_slice(&bytes).map_err(|_| EmbeddingClientError::InvalidResponse)?;
-        response.validate(inputs.len(), self.dimensions, &self.model)
+        response.validate(inputs.len(), self.dimensions)
     }
 
     /// Rejects empty or oversized inputs before consuming a request slot.
@@ -323,20 +295,15 @@ impl EmbeddingClient {
     }
 }
 
-/// Borrowed wire payload for one OpenAI-compatible embedding request.
-///
-/// Batch policy and input validation precede construction. This type describes protocol fields
-/// only; credentials remain in a sensitive HTTP header and never enter the serialized JSON body.
+/// Wire payload for one OpenAI-compatible embedding request; the key travels only in a header.
 #[derive(Serialize)]
 struct EmbeddingRequest<'a> {
-    /// Configured provider model name, retained exactly in the request.
     model: &'a str,
-    /// Validated text inputs whose positions determine returned vector ordering.
+    /// Positions determine returned vector ordering.
     input: &'a [String],
-    /// Optional requested dimensions; absence omits the field for the provider default.
+    /// Absent means the provider default.
     #[serde(skip_serializing_if = "Option::is_none")]
     dimensions: Option<u32>,
-    /// Explicit float encoding, matching the checked numeric response decoder.
     encoding_format: &'static str,
 }
 

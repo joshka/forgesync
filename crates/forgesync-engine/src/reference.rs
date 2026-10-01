@@ -1,25 +1,10 @@
-//! # Parse user-facing repository and thread selectors
+//! Parse user-facing repository and thread selectors.
 //!
-//! `RepositorySelector` and `ThreadSelector` turn command input into checked lookup coordinates.
-//! Their parsing errors identify malformed or ambiguous references before a workflow starts
-//! provider or archive work.
-//!
-//! Selectors are user-facing requests, not provider DTOs or SQL keys. The CLI parses them once,
-//! then engine workflows resolve them through the appropriate archive or GitHub boundary.
-//!
-//! Repository selectors retain normalized host and supplied owner/name spelling; they carry no
-//! stable provider repository ID. Thread selectors add a checked positive repository-local number,
-//! not a provider node ID or issue-versus-pull-request kind. Parsing proves shape, not existence,
-//! permission, current naming, or provider parentage.
-//!
-//! Derived equality/hash compare retained fields, including owner/name case. Local archive lookup
-//! can use case-insensitive display matching even when two selectors are unequal. Resolve before
-//! using durable domain identity for storage or cross-operation deduplication.
-//!
-//! HTTPS input is parsed as host plus literal path segments. Query and fragment suffixes and
-//! trailing slashes are discarded; percent escapes are not decoded. Plain owner/name pairs are
-//! not outer-trimmed and use `github.com`. This is the application's selector grammar, not a
-//! general browser URL parser. No archive or network effects occur in this module.
+//! Parsing proves shape, not existence, permission, or current naming. Selectors keep the supplied
+//! owner/name spelling and carry no provider IDs, so resolve them before using durable identity for
+//! storage or deduplication. HTTPS input is host plus literal path segments: query, fragment, and
+//! trailing slashes are dropped and percent escapes are not decoded. Plain `owner/name` uses
+//! `github.com`.
 
 use std::str::FromStr;
 
@@ -30,8 +15,7 @@ use thiserror::Error;
 /// A repository name supplied to a local query.
 ///
 /// Parse an `owner/repository` pair for the default `github.com` host, or an HTTPS URL for an
-/// explicit host. This selector is resolved against archive content; parsing does not contact
-/// GitHub.
+/// explicit host.
 ///
 /// # Examples
 ///
@@ -56,9 +40,6 @@ pub struct RepositorySelector {
 
 impl RepositorySelector {
     /// Copies the normalized host and current display path from a repository record.
-    ///
-    /// Does not retain its stable provider ID or validate the record's public display fields.
-    /// This is a new lookup coordinate, so rename changes can make a later lookup differ.
     pub fn from_repository(repository: &Repository) -> Self {
         Self {
             host: repository.id.host().clone(),
@@ -83,9 +64,6 @@ impl RepositorySelector {
     }
 
     /// Formats the retained host/display path as HTTPS text for run scope and diagnostics.
-    ///
-    /// Does not percent-encode path segments or create a durable repository ID. Its spelling can
-    /// change after a rename; consumers must resolve the selector for durable identity.
     pub fn as_url(&self) -> String {
         format!(
             "https://{}/{}/{}",
@@ -99,9 +77,7 @@ impl RepositorySelector {
 impl FromStr for RepositorySelector {
     type Err = ReferenceParseError;
 
-    /// Parses a default-host repository pair or explicit HTTPS repository URL before resolution.
-    /// Malformed scope remains a typed parsing error; parsing performs no archive or provider
-    /// lookup.
+    /// Parses a default-host repository pair or explicit HTTPS repository URL.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let default_host =
             GitHubHost::parse("github.com").map_err(|_| ReferenceParseError::InvalidRepository)?;
@@ -125,8 +101,7 @@ impl FromStr for RepositorySelector {
 
 /// Checked repository display path and positive local number used to request a thread.
 ///
-/// Both issue and pull URLs produce this same shape; route spelling does not retain thread kind.
-/// Resolution determines the archived domain identity. Construction or parsing performs no lookup.
+/// Issue and pull URLs produce the same shape; route spelling does not retain thread kind.
 ///
 /// ```
 /// use forgesync_engine::reference::ThreadSelector;
@@ -146,9 +121,6 @@ pub struct ThreadSelector {
 
 impl ThreadSelector {
     /// Combines repository lookup coordinates with a checked positive thread number.
-    ///
-    /// Does not establish existence, thread kind, or provider parentage. The repository component
-    /// is a display selector rather than a resolved durable identity.
     pub fn new(repository: RepositorySelector, number: ThreadNumber) -> Self {
         Self { repository, number }
     }
@@ -167,8 +139,7 @@ impl ThreadSelector {
 impl FromStr for ThreadSelector {
     type Err = ReferenceParseError;
 
-    /// Parses a repository-qualified discussion number or issue/pull-request URL before lookup.
-    /// The checked positive number and repository selector remain separate from provider identity.
+    /// Parses a repository-qualified discussion number or issue/pull-request URL.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if value.contains("://") {
             return parse_thread_url(value);

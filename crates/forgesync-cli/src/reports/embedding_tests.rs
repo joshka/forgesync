@@ -1,32 +1,22 @@
-//! # Exit policy for report-bearing embedding stages
-//!
-//! Each named case supplies the authoritative stage state and expected process result. The output
-//! has an empty but present engine report, which distinguishes these cases from acquisition that
-//! fails before producing any report.
-//!
-//! Partial and deferred results preserve useful work and use the retryable result code. Interrupted
-//! work retains shell cancellation semantics, while complete and failed stages have ordinary
-//! success and failure results. No message parsing, provider fixture, or hidden scenario helper
-//! selects the expected policy; the state-to-result mapping is visible in the case table.
-
-use std::process::ExitCode;
+//! Exit status of report-bearing embedding stages.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_engine::embeddings::{EmbeddingBatchFailure, EmbeddingReport};
 use forgesync_engine::refresh::{RefreshDocumentFailure, RefreshStageFailure, RefreshStageStatus};
 use rstest::{fixture, rstest};
 
+use crate::error::Exit;
 use crate::reports::embedding::EmbeddingOutput;
 
 #[rstest]
-#[case::complete(RefreshStageStatus::Complete, ExitCode::SUCCESS)]
-#[case::partial(RefreshStageStatus::Partial, ExitCode::from(3))]
-#[case::deferred(RefreshStageStatus::Deferred, ExitCode::from(3))]
-#[case::interrupted(RefreshStageStatus::Interrupted, ExitCode::from(130))]
-#[case::failed(RefreshStageStatus::Failed, ExitCode::FAILURE)]
+#[case::complete(RefreshStageStatus::Complete, Exit::Success)]
+#[case::partial(RefreshStageStatus::Partial, Exit::Partial)]
+#[case::deferred(RefreshStageStatus::Deferred, Exit::Partial)]
+#[case::interrupted(RefreshStageStatus::Interrupted, Exit::Interrupted)]
+#[case::failed(RefreshStageStatus::Failed, Exit::Failure)]
 fn report_state_selects_exit_policy(
     #[case] status: RefreshStageStatus,
-    #[case] expected: ExitCode,
+    #[case] expected: Exit,
     mut output: EmbeddingOutput,
 ) {
     output.status = status;
@@ -95,10 +85,6 @@ fn document_failure_is_selected_without_stage_or_batch_failure(mut output: Embed
     assert!(output.summary().ends_with("; document unavailable"));
 }
 
-/// Constructs a present empty report with fixed service identity and no diagnostic failures.
-///
-/// Each scenario supplies its status or failures explicitly. Message selection is independent of
-/// status: this fixture does not infer an outcome from added diagnostics or perform any I/O.
 #[fixture]
 fn output() -> EmbeddingOutput {
     EmbeddingOutput {

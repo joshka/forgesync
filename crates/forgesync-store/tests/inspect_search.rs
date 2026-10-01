@@ -11,6 +11,8 @@
 //! Every sequence reservation, observation write, and search call remains visible in its scenario.
 //! Engine and CLI suites own request policy, derived ranking, and presentation.
 
+mod common;
+
 #[path = "inspect_search/detail.rs"]
 mod detail;
 #[path = "inspect_search/fixture.rs"]

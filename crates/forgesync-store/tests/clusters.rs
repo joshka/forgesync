@@ -11,6 +11,8 @@
 //! Engine tests own scoring and proposal construction; these cases own durable representation.
 //! Restoration has its own public-operation regression suite in `cluster_restoration.rs`.
 
+mod common;
+
 #[path = "clusters/canonical.rs"]
 mod canonical;
 #[path = "clusters/coverage.rs"]

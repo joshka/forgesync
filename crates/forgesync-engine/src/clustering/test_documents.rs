@@ -1,13 +1,4 @@
-//! # Static archived-document fixtures for clustering policy tests
-//!
-//! `document` creates one open discussion with a single checked embedding chunk. Its explicit
-//! inputs expose the fields that vary between graph scenarios: identity number, kind, title, body,
-//! and vector. Repository identity, acquisition time, coverage, and chunk metadata are fixed.
-//!
-//! Both graph-selection and proposal-projection tests use this fixture. It performs no provider or
-//! archive I/O, selects no behavior based on a test name, and supplies no assertions. The scenario
-//! remains visible at the caller; the fixture only avoids repeating normalized domain construction.
-//! Tests pass valid vector values because they exercise clustering policy rather than validation.
+//! Static archived-document fixtures for clustering policy tests.
 
 use forgesync_core::content::{Discussion, Repository, SourceState, ThreadKind};
 use forgesync_core::coverage::Coverage;

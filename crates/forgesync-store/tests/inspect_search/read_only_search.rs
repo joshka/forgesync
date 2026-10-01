@@ -14,8 +14,7 @@
 use std::num::NonZeroU32;
 
 use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::reads::{ThreadQuery, ThreadSort, ThreadStateFilter};
 
@@ -52,16 +51,13 @@ async fn search_through_read_only_archive_preserves_status() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -77,16 +73,13 @@ async fn search_through_read_only_archive_preserves_status() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     let content = discussion(
@@ -102,16 +95,13 @@ async fn search_through_read_only_archive_preserves_status() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
 
@@ -119,7 +109,6 @@ async fn search_through_read_only_archive_preserves_status() {
     let read_only = Archive::open_read_only(&path)
         .await
         .expect("open archive read-only");
-    assert!(read_only.is_read_only());
     let before = read_only
         .archive_status()
         .await

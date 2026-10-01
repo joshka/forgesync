@@ -1,83 +1,25 @@
-//! # Stage and validate paginated child evidence
-//!
-//! Staging stores fetched pages under a reserved family observation. Page-set helpers load them,
-//! count items, validate expected indexes, and merge members for finalization. Keeping those
-//! checks here lets `finish` work from a coherent set rather than trusting a caller's page count.
-//!
-//! A page is provisional until the whole collection is complete. Repeated or interrupted provider
-//! work must not expose staged rows as canonical child membership. The engine can record progress
-//! while preserving the last complete view.
-//!
-//! `PageWrite` holds the exact SQL generation key through validation, replay comparison, and
-//! insertion. The archive method owns commit. The page-set helpers below support finalization: a
-//! received-item count includes duplicate IDs, while merging determines unique canonical members.
-
-use std::collections::BTreeMap;
+//! Provisional child-family pages; they never become canonical membership until a complete finish
+//! validates the whole page set.
 
 use serde::Serialize;
-use sqlx::{Row, SqliteConnection};
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::families::{ChildFamilyPage, StagedPage};
+use crate::families::ChildFamilyPage;
+use crate::families::query::require_child_family;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::observation_sql::{
-    evidence_family_name, is_child_family, thread_row_id, to_sql_sequence,
-};
-use crate::observations::StagedItem;
+use crate::sql::{thread_row_id, to_sql_sequence};
 
 impl Archive {
-    /// Persists a provisional page without changing canonical child membership.
+    /// Persists a provisional page under the archive writer fence without changing canonical
+    /// membership.
     ///
-    /// Use the sequence returned by reservation and zero-based indexes from the provider traversal.
-    /// Finalization validates the declared page set before publishing membership. A replay succeeds
-    /// only when the same index has exactly the same serialized payload; conflicting payloads are
-    /// rejected instead of silently replacing earlier evidence.
-    ///
-    /// This operation updates the generation's received-item count in the same transaction as the
-    /// page write. An incomplete generation can accept further pages, but a completed, missing, or
-    /// superseded generation cannot. Provider I/O must happen before this call.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error for a read-only archive, unsupported family, unknown thread, stale or
-    /// missing generation, conflicting replay, serialization failure, or database failure. An
-    /// error does not expose provisional items as canonical membership.
-    pub async fn stage_child_family_page<T>(
-        &self,
-        page: ChildFamilyPage<'_, T>,
-    ) -> Result<(), StoreError>
-    where
-        T: Serialize,
-    {
-        self.stage_child_family_page_inner(page, None).await
-    }
-
-    /// Stages a page while verifying the caller still owns the archive writer fence.
-    ///
-    /// See [`Self::stage_child_family_page`] for indexing, replay, and generation rules. The fence
-    /// is checked inside the write transaction; losing ownership rejects the write before a page
-    /// or count can commit. Use the same fence for reservation and finalization.
-    ///
-    /// # Errors
-    ///
-    /// Returns the unfenced operation's errors and stale or expired lease errors.
+    /// Replaying a page index succeeds only with the identical serialized payload. A completed,
+    /// missing, or superseded generation rejects the page.
     pub async fn stage_child_family_page_fenced<T>(
         &self,
         page: ChildFamilyPage<'_, T>,
         token: &ArchiveLeaseToken,
-    ) -> Result<(), StoreError>
-    where
-        T: Serialize,
-    {
-        self.stage_child_family_page_inner(page, Some(token)).await
-    }
-
-    /// Stages one page without changing canonical complete membership.
-    async fn stage_child_family_page_inner<T>(
-        &self,
-        page: ChildFamilyPage<'_, T>,
-        token: Option<&ArchiveLeaseToken>,
     ) -> Result<(), StoreError>
     where
         T: Serialize,
@@ -89,208 +31,77 @@ impl Archive {
             page_index,
             items,
         } = page;
-        if !is_child_family(family) {
-            return Err(StoreError::UnsupportedObservationFamily(
-                evidence_family_name(family).to_owned(),
-            ));
-        }
+        require_child_family(family)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let family_name = evidence_family_name(family);
+        let family = family.as_str();
         let page_index = i64::from(page_index);
-        let payload_json = serde_json::to_string(items)?;
+        let sequence = to_sql_sequence(sequence)?;
+        let payload = serde_json::to_string(items)?;
+        let item_count = i64::try_from(items.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
         let mut transaction = writer.begin().await?;
-        if let Some(token) = token {
-            require_active_archive_lease(&mut transaction, token).await?;
-        }
-        let thread_row_id = thread_row_id(&mut transaction, thread).await?;
-        let page = PageWrite {
-            thread: thread_row_id,
-            family: family_name,
-            sequence: to_sql_sequence(sequence)?,
-            index: page_index,
-            payload: payload_json,
-        };
-        page.validate_generation(&mut transaction).await?;
-        if !page.is_replay(&mut transaction).await? {
-            page.persist(&mut transaction).await?;
-        }
-        transaction.commit().await?;
-        Ok(())
-    }
-}
+        require_active_archive_lease(&mut transaction, token).await?;
+        let thread = thread_row_id(&mut transaction, thread).await?;
 
-/// A serialized page belonging to one exact reserved SQL generation.
-///
-/// This owner keeps the generation key identical across validation, replay comparison, insertion,
-/// and count accounting. Its methods borrow the archive operation's transaction and cannot commit
-/// separately. The payload remains provisional until complete collection finalization.
-struct PageWrite {
-    /// Validated parent row forming the first part of the generation key.
-    thread: i64,
-    /// Selected child evidence family shared by reservation, staging, and finalization.
-    family: &'static str,
-    /// Checked SQL representation of the reserved archive-local ordering token.
-    sequence: i64,
-    /// Zero-based provider traversal page index, checked for a contiguous set at finalization.
-    index: i64,
-    /// Exact serialized item array; replay compares this text rather than semantic JSON equality.
-    payload: String,
-}
-
-impl PageWrite {
-    /// Rejects superseded, missing, or completed generations before inspecting any page payload.
-    async fn validate_generation(
-        &self,
-        connection: &mut SqliteConnection,
-    ) -> Result<(), StoreError> {
         let current_sequence: Option<i64> = sqlx::query_scalar(
             "SELECT sequence FROM thread_family_reservations WHERE thread_id = ? AND family = ?",
         )
-        .bind(self.thread)
-        .bind(self.family)
-        .fetch_optional(&mut *connection)
+        .bind(thread)
+        .bind(family)
+        .fetch_optional(&mut *transaction)
         .await?;
-        if current_sequence != Some(self.sequence) {
+        if current_sequence != Some(sequence) {
             return Err(StoreError::StaleObservationGeneration);
         }
         let generation_status: Option<String> = sqlx::query_scalar(
             "SELECT status FROM observation_generations WHERE thread_id = ? AND family = ? AND sequence = ?",
         )
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(self.sequence)
-        .fetch_optional(&mut *connection)
+        .bind(thread)
+        .bind(family)
+        .bind(sequence)
+        .fetch_optional(&mut *transaction)
         .await?;
         match generation_status.as_deref() {
-            None => Err(StoreError::ObservationGenerationMissing),
-            Some("complete") => Err(StoreError::StaleObservationGeneration),
-            Some("reserved" | "incomplete") => Ok(()),
-            Some(_) => Err(StoreError::ObservationGenerationMissing),
+            Some("reserved" | "incomplete") => {}
+            Some("complete") => return Err(StoreError::StaleObservationGeneration),
+            _ => return Err(StoreError::ObservationGenerationMissing),
         }
-    }
 
-    /// Recognizes identical replay and rejects a different payload at the same page index.
-    async fn is_replay(&self, connection: &mut SqliteConnection) -> Result<bool, StoreError> {
+        // Replay compares exact serialized text rather than semantic JSON equality.
         let existing_page: Option<String> = sqlx::query_scalar(
             "SELECT payload_json FROM observation_staging_pages WHERE thread_id = ? AND family = ? AND sequence = ? AND page_index = ?",
         )
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(self.sequence)
-        .bind(self.index)
-        .fetch_optional(&mut *connection)
+        .bind(thread)
+        .bind(family)
+        .bind(sequence)
+        .bind(page_index)
+        .fetch_optional(&mut *transaction)
         .await?;
-        if let Some(existing_page) = existing_page {
-            if existing_page != self.payload {
-                return Err(StoreError::StagedPageConflict);
+        match existing_page {
+            Some(existing) if existing != payload => return Err(StoreError::StagedPageConflict),
+            Some(_) => {}
+            None => {
+                sqlx::query(
+                    "INSERT INTO observation_staging_pages (thread_id, family, sequence, page_index, payload_json) VALUES (?, ?, ?, ?, ?)",
+                )
+                .bind(thread)
+                .bind(family)
+                .bind(sequence)
+                .bind(page_index)
+                .bind(&payload)
+                .execute(&mut *transaction)
+                .await?;
+                sqlx::query(
+                    "UPDATE observation_generations SET status = 'reserved', received_items = received_items + ? WHERE thread_id = ? AND family = ? AND sequence = ?",
+                )
+                .bind(item_count)
+                .bind(thread)
+                .bind(family)
+                .bind(sequence)
+                .execute(&mut *transaction)
+                .await?;
             }
-            return Ok(true);
         }
-
-        Ok(false)
-    }
-
-    /// Inserts the provisional page and updates its generation count in the same transaction.
-    async fn persist(&self, connection: &mut SqliteConnection) -> Result<(), StoreError> {
-        sqlx::query(
-            "INSERT INTO observation_staging_pages (thread_id, family, sequence, page_index, payload_json) VALUES (?, ?, ?, ?, ?)",
-        )
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(self.sequence)
-        .bind(self.index)
-        .bind(&self.payload)
-        .execute(&mut *connection)
-        .await?;
-        let staged_pages =
-            load_staged_pages(connection, self.thread, self.family, self.sequence).await?;
-        let staged_count = count_staged_items(&staged_pages)?;
-        sqlx::query(
-            "UPDATE observation_generations SET status = 'reserved', received_items = ? WHERE thread_id = ? AND family = ? AND sequence = ?",
-        )
-        .bind(i64::try_from(staged_count).map_err(|_| StoreError::IntegerOutOfRange)?)
-        .bind(self.thread)
-        .bind(self.family)
-        .bind(self.sequence)
-        .execute(&mut *connection)
-        .await?;
+        transaction.commit().await?;
         Ok(())
     }
-}
-
-/// Loads pages for the reserved generation in page-number order.
-pub async fn load_staged_pages(
-    connection: &mut SqliteConnection,
-    thread_row_id: i64,
-    family: &str,
-    sequence: i64,
-) -> Result<Vec<StagedPage>, StoreError> {
-    let rows = sqlx::query(
-        "SELECT page_index, payload_json FROM observation_staging_pages WHERE thread_id = ? AND family = ? AND sequence = ? ORDER BY page_index",
-    )
-    .bind(thread_row_id)
-    .bind(family)
-    .bind(sequence)
-    .fetch_all(&mut *connection)
-    .await?;
-    rows.into_iter()
-        .map(|row| {
-            let index: i64 = row.try_get("page_index")?;
-            let payload_json: String = row.try_get("payload_json")?;
-            Ok(StagedPage {
-                index,
-                items: serde_json::from_str(&payload_json)?,
-            })
-        })
-        .collect()
-}
-
-/// Counts received staged items, including repeated IDs across pages, before finalization.
-pub fn count_staged_items(pages: &[StagedPage]) -> Result<u64, StoreError> {
-    pages.iter().try_fold(0_u64, |count, page| {
-        let item_count =
-            u64::try_from(page.items.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-        count
-            .checked_add(item_count)
-            .ok_or(StoreError::IntegerOutOfRange)
-    })
-}
-
-/// Requires every declared page before a collection can become complete.
-pub fn validate_page_set(pages: &[StagedPage], expected_pages: u32) -> Result<(), StoreError> {
-    let found = u32::try_from(pages.len()).map_err(|_| StoreError::IntegerOutOfRange)?;
-    if found != expected_pages {
-        return Err(StoreError::IncompletePageSet {
-            expected: expected_pages,
-            found,
-        });
-    }
-    for (index, page) in pages.iter().enumerate() {
-        let expected_index = i64::try_from(index).map_err(|_| StoreError::IntegerOutOfRange)?;
-        if page.index != expected_index {
-            return Err(StoreError::IncompletePageSet {
-                expected: expected_pages,
-                found,
-            });
-        }
-    }
-    Ok(())
-}
-
-/// Rejects conflicting duplicate provider IDs within one generation.
-pub fn merge_staged_items(
-    pages: &[StagedPage],
-) -> Result<BTreeMap<String, StagedItem<serde_json::Value>>, StoreError> {
-    let mut items = BTreeMap::new();
-    for item in pages.iter().flat_map(|page| &page.items) {
-        let key = item.id.as_str().to_owned();
-        if let Some(existing) = items.get(&key) {
-            if existing != item {
-                return Err(StoreError::StagedItemConflict);
-            }
-        } else {
-            items.insert(key, item.clone());
-        }
-    }
-    Ok(items)
 }

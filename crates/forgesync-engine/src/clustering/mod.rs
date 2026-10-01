@@ -1,15 +1,7 @@
-//! # Duplicate-cluster analysis and triage requests
+//! Duplicate-cluster analysis and local triage decisions.
 //!
-//! `ClusterOptions` tunes candidate generation. `ClusterBuildRequest` selects the archive scope
-//! and `ClusterBuildReport` reports what was generated. List and detail requests support
-//! inspection of stored clusters.
-//!
-//! `candidates` validates stable input, `evidence` selects eligible relationships, `references`
-//! interprets explicit mentions, `components` applies bounded grouping, and `proposals` owns
-//! representative policy. `build` commits a derived generation, `decisions`
-//! applies local maintainer choices, and `lease` keeps competing operations from writing the same
-//! analysis concurrently. The store owns durable generations and decision events; this module owns
-//! analysis policy and workflow boundaries. Cluster actions affect the local archive only.
+//! The store owns durable generations and decision events; this module owns analysis policy and
+//! workflow boundaries. Cluster actions affect the local archive only.
 
 use forgesync_core::document::DocumentRecipe;
 use forgesync_store::clusters::ClusterGenerationResult;
@@ -143,7 +135,6 @@ mod candidates;
 mod components;
 mod decisions;
 mod evidence;
-mod lease;
 mod proposals;
 mod references;
 mod snapshot;

@@ -1,15 +1,4 @@
-//! # Document source revision fixtures
-//!
-//! `DocumentSource` names the three independent values varied during document materialization:
-//! parent update clock, comment update clock, and reply text. Named fields make timestamp-only and
-//! content-changing revisions readable without decoding positional string arguments.
-//!
-//! `mount` configures one fixed original-body issue and one comment on the local provider server.
-//! It delegates stable repository/list response setup to the shared REST fixture owner, while
-//! retaining this scenario's body and clock policy here.
-//!
-//! No archive reads, source acquisition, materialization, or expected-result calculations occur in
-//! this fixture. The scenario performs and asserts those operations itself.
+//! Document source revision fixtures.
 
 use serde_json::json;
 use wiremock::MockServer;

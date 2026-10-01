@@ -1,15 +1,4 @@
-//! # Cosine arithmetic scenarios
-//!
-//! Named directions, dimension mismatch, and large finite components establish the arithmetic
-//! contract directly. Tests construct validated vectors inline and compare explicit expected
-//! values or a named tolerance; they need no discussion fixtures or ranking policy.
-//!
-//! Axis cases use exact arithmetic results; diagonal and large-component cases use tolerances
-//! appropriate to their floating-point calculations. Construction rejects invalid vectors before
-//! similarity is called, keeping model-response validation outside these arithmetic scenarios.
-//! A dimension mismatch returns no score rather than inventing padding or truncation.
-//! Scoring tests own document chunk aggregation, ordering, filtering, and cancellation.
-//! These cases establish only pairwise similarity over already validated core vectors.
+//! Cosine arithmetic for axis, diagonal, mismatched, and large finite components.
 
 use forgesync_core::embedding::EmbeddingVector;
 

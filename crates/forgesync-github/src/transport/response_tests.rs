@@ -1,13 +1,4 @@
-//! # Successful response decoding
-//!
-//! These local cases isolate the conversion after status, body-size, and origin checks.
-//! A valid payload keeps its trusted pagination destination. Invalid syntax and mismatched
-//! DTO shape share the terminal `InvalidJson` category without exposing provider body text.
-//!
-//! The byte inputs are deliberately small and explicit; HTTP retry and origin validation
-//! remain covered by the client transport scenarios. These tests perform no network I/O.
-//! `ResponseBody` is an implementation owner inside the private response module, so these
-//! cases do not create a new public transport construction API.
+//! Successful response decoding after status, body-size, and origin checks.
 
 use reqwest::Url;
 

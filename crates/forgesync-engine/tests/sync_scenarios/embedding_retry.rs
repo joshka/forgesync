@@ -1,17 +1,4 @@
-//! # Retry fills missing chunks without changing committed vectors
-//!
-//! The scenario acquires one issue, stores an explicit five-chunk document under a writer fence,
-//! and calls a sequential single-input service fixture. Only the second HTTP call fails, leaving
-//! chunk indices zero, two, three, and four committed.
-//!
-//! After disabling that fixture failure, missing-only embedding must make one additional request.
-//! The final read compares every retained chunk's index, count, hash, and vector against its
-//! original value and checks the newly filled index one. Counts alone would not establish
-//! preservation.
-//!
-//! All acquisition, document writes, embedding operations, and local reads stay visible. Stateful
-//! responder policy and pure client construction have a shallow fixture owner. Hybrid retrieval and
-//! missing-key fallback have independent scenarios rather than extending this retry contract.
+//! Retry fills missing chunks without changing committed vectors.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

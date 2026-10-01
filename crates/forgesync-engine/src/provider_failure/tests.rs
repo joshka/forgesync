@@ -1,8 +1,4 @@
-//! # Provider classification scenarios
-//!
-//! Explicit typed inputs map to explicit domain categories. The cancellation case documents the
-//! fallback conversion, not permission for a workflow to record cancellation as a failed request.
-//! A separate diagnostic scenario verifies that the adapter preserves the typed display message.
+//! Provider classification scenarios.
 
 use forgesync_core::coverage::FailureKind;
 use forgesync_github::error::{ApiFailureKind, GitHubError};

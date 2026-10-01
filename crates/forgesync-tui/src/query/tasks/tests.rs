@@ -1,9 +1,3 @@
-//! # Query lifetime contracts
-//!
-//! These cases exercise the owner directly with controlled tasks. Cancellation is observed through
-//! the same token a writer receives; completed reads are pruned before a subsequent read is
-//! tracked. Shutdown waits for a cancelled writer rather than aborting its cleanup work.
-
 use std::time::Duration;
 
 use tokio::time::timeout;

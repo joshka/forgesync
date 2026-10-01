@@ -1,23 +1,4 @@
-//! # Draw repository and discussion browsing
-//!
-//! [`draw_browser`] arranges the repository picker, discussion page, and selected discussion detail
-//! using projections already loaded into [`App`]. Wide areas use three columns; compact areas use
-//! three stacked panes. This module owns layout, labels, selection highlighting, and focus cues,
-//! while input handlers and asynchronous query owners decide which projections to load.
-//!
-//! The repository pane distinguishes the picker cursor from the applied repository filter: the
-//! highlighted row can be a pending choice while its title describes the active scope. Discussion
-//! rows use the loaded page and its selection rather than querying the archive during drawing.
-//! Loading placeholders and errors come from app state; retained rows can remain visible during a
-//! refresh, and an error replaces list rows when the loading-placeholder condition does not apply.
-//!
-//! Detail text is assembled by the sibling detail module, including its loading and failure states.
-//! Drawing clamps the stored detail scroll to a bound derived from the current lines and pane
-//! height. This is a presentation-state mutation, not a durable archive write or navigation action;
-//! the line-based bound does not measure the extra terminal rows introduced by wrapping.
-//!
-//! Per-frame list widget state is temporary. No rendering helper performs provider I/O, archive
-//! reads, or acquisition, and displaying retained content does not certify current source coverage.
+//! Repository picker, discussion list, and selected discussion detail.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -26,130 +7,105 @@ use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::{App, Focus};
 use crate::view::detail::detail_lines;
-use crate::view::{COMPACT_WIDTH, PaneEmphasis, selected_style};
+use crate::view::{COMPACT_WIDTH, pane, selected_style};
 
-/// Arranges repository, discussion, and detail panes for the available width.
 pub fn draw_browser(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
-    if area.width >= COMPACT_WIDTH {
-        let columns = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
+    let (direction, constraints) = if area.width >= COMPACT_WIDTH {
+        (
+            Direction::Horizontal,
+            [
                 Constraint::Percentage(25),
                 Constraint::Percentage(35),
                 Constraint::Percentage(40),
-            ])
-            .split(area);
-        draw_repositories(frame, columns[0], app);
-        draw_threads(frame, columns[1], app);
-        draw_detail(frame, columns[2], app);
+            ],
+        )
     } else {
-        let rows = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(1, 3),
-            ])
-            .split(area);
-        draw_repositories(frame, rows[0], app);
-        draw_threads(frame, rows[1], app);
-        draw_detail(frame, rows[2], app);
-    }
+        (Direction::Vertical, [Constraint::Ratio(1, 3); 3])
+    };
+    let panes = Layout::default()
+        .direction(direction)
+        .constraints(constraints)
+        .split(area);
+    draw_repositories(frame, panes[0], app);
+    draw_threads(frame, panes[1], app);
+    draw_detail(frame, panes[2], app);
 }
 
-/// Draws registered repositories with the active picker selection.
-fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &App) {
+/// The title names the applied scope, which can differ from the highlighted row.
+fn draw_repositories(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let picker = &mut app.repository_picker;
     let mut items = vec![ListItem::new("All repositories")];
     items.extend(
-        app.repository_picker
-            .items
+        picker
+            .rows
+            .data
             .iter()
             .map(|repository| ListItem::new(repository.full_name.clone())),
     );
-    if app.repository_picker.loading && app.repository_picker.items.is_empty() {
+    let mut placeholder = ListState::default();
+    let mut state = &mut picker.state;
+    if picker.rows.loading && picker.rows.data.is_empty() {
         items = vec![ListItem::new("Loading repositories…")];
-    } else if let Some(error) = &app.repository_picker.error {
+    } else if let Some(error) = &picker.rows.error {
         items = vec![ListItem::new(error.clone())];
+        state = &mut placeholder;
     }
-    let title = app
-        .repository_picker
+    let title = picker
         .applied
         .as_ref()
         .map(|repository| format!("Repositories · {}", repository.full_name))
         .unwrap_or_else(|| "Repositories · all".to_owned());
-    let mut state = ListState::default();
-    if app.repository_picker.error.is_none() {
-        state.select(Some(
-            app.repository_picker
-                .cursor
-                .min(items.len().saturating_sub(1)),
-        ));
-    }
-    let block = PaneEmphasis::for_focus(app.focus, Focus::Repositories).block(&title);
-    frame.render_stateful_widget(
-        List::new(items)
-            .block(block)
-            .highlight_style(selected_style()),
-        area,
-        &mut state,
-    );
+    let list = List::new(items)
+        .block(pane(&title, app.focus == Focus::Repositories))
+        .highlight_style(selected_style());
+    frame.render_stateful_widget(list, area, state);
 }
 
-/// Draws the current discussion page and selected row.
-fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let mut items: Vec<ListItem<'_>> = app
-        .thread_list
-        .items
-        .iter()
-        .map(|thread| {
-            let number = thread.discussion.id.number().get();
-            ListItem::new(format!("#{} {}", number, thread.discussion.title))
-        })
-        .collect();
-    if app.thread_list.loading && app.thread_list.items.is_empty() {
-        items.push(ListItem::new("Loading discussions…"));
-    } else if let Some(error) = &app.thread_list.error {
-        items = vec![ListItem::new(error.clone())];
-    } else if app.thread_list.items.is_empty() {
-        items.push(ListItem::new("No discussions"));
-    }
-    let title = format!(
-        "Discussions · {}{}",
-        app.thread_list.items.len(),
-        if app.thread_list.loading {
-            " · loading"
-        } else {
-            ""
-        }
-    );
-    let mut state = ListState::default();
-    if app.thread_list.error.is_none() && !app.thread_list.items.is_empty() {
-        state.select(app.thread_list.selected);
-    }
-    frame.render_stateful_widget(
-        List::new(items)
-            .block(PaneEmphasis::for_focus(app.focus, Focus::Threads).block(&title))
-            .highlight_style(selected_style()),
-        area,
-        &mut state,
-    );
+/// Placeholder rows (loading, error, empty) are drawn without a highlight.
+fn draw_threads(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let threads = &mut app.thread_list;
+    let rows = &threads.rows;
+    let mut placeholder = ListState::default();
+    let (items, state) = if rows.loading && rows.data.is_empty() {
+        (
+            vec![ListItem::new("Loading discussions…")],
+            &mut placeholder,
+        )
+    } else if let Some(error) = &rows.error {
+        (vec![ListItem::new(error.clone())], &mut placeholder)
+    } else if rows.data.is_empty() {
+        (vec![ListItem::new("No discussions")], &mut placeholder)
+    } else {
+        let items = rows
+            .data
+            .iter()
+            .map(|thread| {
+                let number = thread.discussion.id.number().get();
+                ListItem::new(format!("#{} {}", number, thread.discussion.title))
+            })
+            .collect();
+        (items, &mut threads.state)
+    };
+    let loading = if rows.loading { " · loading" } else { "" };
+    let title = format!("Discussions · {}{loading}", rows.data.len());
+    let list = List::new(items)
+        .block(pane(&title, app.focus == Focus::Threads))
+        .highlight_style(selected_style());
+    frame.render_stateful_widget(list, area, state);
 }
 
-/// Draws selected discussion content or its loading and failure state.
+/// Clamps the stored scroll to the unwrapped line count, so wrapped lines can still overflow.
 fn draw_detail(frame: &mut Frame<'_>, area: Rect, app: &mut App) {
     let lines = detail_lines(app);
-    let block = PaneEmphasis::for_focus(app.focus, Focus::Detail).block("Discussion detail");
-    let inner_height = block.inner(area).height;
-    let max_scroll = lines.len().saturating_sub(usize::from(inner_height));
-    app.detail_pane.scroll = app
-        .detail_pane
-        .scroll
-        .min(u16::try_from(max_scroll).unwrap_or(u16::MAX));
-    frame.render_widget(
-        Paragraph::new(Text::from(lines))
-            .block(block)
-            .wrap(Wrap { trim: false })
-            .scroll((app.detail_pane.scroll, 0)),
-        area,
-    );
+    let block = pane("Discussion detail", app.focus == Focus::Detail);
+    let max_scroll = lines
+        .len()
+        .saturating_sub(usize::from(block.inner(area).height));
+    let scroll = &mut app.detail_pane.scroll;
+    *scroll = (*scroll).min(u16::try_from(max_scroll).unwrap_or(u16::MAX));
+    let paragraph = Paragraph::new(Text::from(lines))
+        .block(block)
+        .wrap(Wrap { trim: false })
+        .scroll((*scroll, 0));
+    frame.render_widget(paragraph, area);
 }

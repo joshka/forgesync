@@ -1,17 +1,8 @@
-//! # Internal ranked discussion candidates
-//!
-//! [`ScoredThread`] pairs a retained projection with its best comparable chunk score. Page scoring
-//! rejects documents with dimension-mismatched chunks and retains finite positive maxima. The
-//! public cosine arithmetic lives in `exact_search`; this module adds retrieval policy around it.
+//! Ranked discussion candidates and their shared ordering.
 //!
 //! Relevance ordering uses score, while explicit created/updated ordering uses source timestamps.
-//! Stable discussion identity breaks all primary ties. Page merging keeps a bounded prefix under
-//! the same policy without deduplicating repeated identities. Callers must use consistent policy
-//! and ensure vector model, recipe, freshness, and source eligibility before scoring.
-//!
-//! Search and clustering share identity ordering, but this module reads no archive and performs
-//! no provider requests. Cancellation is checked between documents. Ordinary public visibility is
-//! constrained by the private module boundary rather than exported as a public search API.
+//! Stable discussion identity breaks all primary ties, so search and fusion output never depends on
+//! retrieval or hash-map order.
 
 use std::cmp::Ordering;
 
@@ -24,89 +15,105 @@ use crate::error::EngineError;
 use crate::exact_search::cosine_similarity;
 
 /// A retained discussion paired with its best comparable chunk similarity.
-///
-/// Internal retrieval state; constructing this value does not establish vector eligibility.
 #[derive(Clone, Debug)]
 pub struct ScoredThread {
-    /// Discussion identity, content, and coverage used to build the result.
     pub summary: ThreadSummary,
-    /// Best chunk score; page scoring retains only finite positive values.
+    /// Best chunk score; scoring retains only finite positive values.
     pub score: f64,
 }
 
-/// Scores one bounded page using each document's best chunk, skipping documents with any
-/// dimension mismatch. Cancellation is checked between documents so a large scan can stop.
-pub fn score_embedding_page(
-    query: &EmbeddingVector,
-    documents: Vec<EmbeddingSearchDocument>,
+/// Bounded best-first ranking of documents against one query vector.
+pub struct TopScored {
+    query: EmbeddingVector,
     sort: ThreadSort,
     limit: usize,
-    cancellation: &CancellationToken,
-) -> Result<Vec<ScoredThread>, EngineError> {
-    let mut scored = Vec::with_capacity(documents.len().min(limit));
-    for document in documents {
-        if cancellation.is_cancelled() {
-            return Err(EngineError::SearchCancelled);
+    ranked: Vec<ScoredThread>,
+    /// Documents whose every chunk has the query dimension, independent of the result bound.
+    compatible: usize,
+}
+
+impl TopScored {
+    /// Starts an empty ranking that keeps at most `limit` winners under `sort`.
+    pub fn new(query: EmbeddingVector, sort: ThreadSort, limit: usize) -> Self {
+        Self {
+            query,
+            sort,
+            limit,
+            ranked: Vec::new(),
+            compatible: 0,
         }
-        if document
-            .chunks
-            .iter()
-            .any(|chunk| chunk.vector.dimensions() != query.dimensions())
-        {
-            continue;
-        }
-        let score = document
-            .chunks
-            .iter()
-            .filter_map(|chunk| cosine_similarity(query, &chunk.vector))
-            .fold(f64::NEG_INFINITY, f64::max);
-        if !score.is_finite() || score <= 0.0 {
-            continue;
-        }
-        scored.push(ScoredThread {
-            summary: document.summary,
-            score,
-        });
     }
-    sort_scored(&mut scored, sort);
-    scored.truncate(limit);
-    Ok(scored)
+
+    /// Scores each document by its best chunk, skipping documents with any dimension mismatch.
+    ///
+    /// Candidates are pruned to the bound only when twice the bound accumulates, so the whole
+    /// prefix is not re-sorted for every page.
+    pub fn add(
+        &mut self,
+        documents: Vec<EmbeddingSearchDocument>,
+        cancellation: &CancellationToken,
+    ) -> Result<(), EngineError> {
+        for document in documents {
+            if cancellation.is_cancelled() {
+                return Err(EngineError::Cancelled);
+            }
+            let dimensions = self.query.dimensions();
+            if document
+                .chunks
+                .iter()
+                .any(|chunk| chunk.vector.dimensions() != dimensions)
+            {
+                continue;
+            }
+            self.compatible += 1;
+            let score = document
+                .chunks
+                .iter()
+                .filter_map(|chunk| cosine_similarity(&self.query, &chunk.vector))
+                .fold(f64::NEG_INFINITY, f64::max);
+            if score.is_finite() && score > 0.0 {
+                self.ranked.push(ScoredThread {
+                    summary: document.summary,
+                    score,
+                });
+            }
+            if self.ranked.len() >= self.limit.saturating_mul(2).max(1) {
+                self.prune();
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the ordered winners and the number of dimension-compatible documents seen.
+    pub fn finish(mut self) -> (Vec<ScoredThread>, usize) {
+        self.prune();
+        (self.ranked, self.compatible)
+    }
+
+    /// Orders the retained candidates and drops those beyond the bound.
+    fn prune(&mut self) {
+        let sort = self.sort;
+        self.ranked.sort_by(|left, right| {
+            compare_ranked(sort, &left.summary, left.score, &right.summary, right.score)
+        });
+        self.ranked.truncate(self.limit);
+    }
 }
 
-/// Keeps only the best candidates after each page, bounding memory while preserving the final
-/// sort order across the entire document scan.
-pub fn merge_scored_pages(
-    current: &mut Vec<ScoredThread>,
-    page: Vec<ScoredThread>,
+/// Orders two scored discussions by the requested primary policy, then stable identity.
+pub fn compare_ranked(
     sort: ThreadSort,
-    limit: usize,
-) {
-    current.extend(page);
-    sort_scored(current, sort);
-    current.truncate(limit);
-}
-
-/// Orders candidates by the selected primary policy, then stable discussion identity.
-pub fn sort_scored(scored: &mut [ScoredThread], sort: ThreadSort) {
-    scored.sort_by(|left, right| compare_scored(left, right, sort));
-}
-
-/// Breaks equal primary scores or timestamps with deterministic archive discussion identity.
-fn compare_scored(left: &ScoredThread, right: &ScoredThread, sort: ThreadSort) -> Ordering {
+    left: &ThreadSummary,
+    left_score: f64,
+    right: &ThreadSummary,
+    right_score: f64,
+) -> Ordering {
     let primary = match sort {
-        ThreadSort::Relevance => right.score.total_cmp(&left.score),
-        ThreadSort::Updated => right
-            .summary
-            .discussion
-            .updated_at
-            .cmp(&left.summary.discussion.updated_at),
-        ThreadSort::Created => right
-            .summary
-            .discussion
-            .created_at
-            .cmp(&left.summary.discussion.created_at),
+        ThreadSort::Relevance => right_score.total_cmp(&left_score),
+        ThreadSort::Updated => right.discussion.updated_at.cmp(&left.discussion.updated_at),
+        ThreadSort::Created => right.discussion.created_at.cmp(&left.discussion.created_at),
     };
-    primary.then_with(|| stable_thread_id_cmp(&left.summary, &right.summary))
+    primary.then_with(|| stable_thread_id_cmp(left, right))
 }
 
 /// Compares archive discussion identities without depending on retrieval order.

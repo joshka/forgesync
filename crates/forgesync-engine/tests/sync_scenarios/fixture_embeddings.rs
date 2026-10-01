@@ -1,16 +1,4 @@
-//! # Embedding service response policy and client construction
-//!
-//! These fixtures supply a sequential single-input service: every successful request returns one
-//! fixed two-dimensional vector, while a caller-selected one-based call can fail with HTTP 503.
-//! Atomic counters make observed HTTP attempts and fault selection explicit to each scenario.
-//!
-//! A zero failure ordinal means no failure. Concurrency one and batch size one make the ordinal
-//! correspond to one chunk request in retry tests. Search scenarios leave failure disabled and use
-//! the same responder to count the additional query-vector request or prove its absence.
-//!
-//! `single_input_client` constructs configuration with ten-byte chunks, one attempt, fixture model,
-//! and the caller's resolved key. No archive reads, writes, source acquisition, or embeddings occur
-//! during construction; scenarios mount the responder and invoke real operations themselves.
+//! Embedding service response policy and client construction.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

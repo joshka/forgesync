@@ -30,6 +30,7 @@ use crate::fixture::{
 async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_context() {
     let path = temporary_archive_path();
     let archive = Archive::create(&path).await.expect("create archive");
+    let lease = crate::common::lease(&archive).await;
     let repository = repository();
     archive
         .upsert_repository(&repository)
@@ -45,71 +46,83 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         ..discussion(&thread_id, "2026-09-20T10:00:00Z", "thread")
     };
     archive
-        .apply_thread_observation(&thread_observation(
-            parent,
-            "2026-09-20T10:00:00Z",
-            "2026-09-20T10:00:00Z",
-            thread_sequence,
-            CollectionCompleteness::Complete,
-        ))
+        .apply_thread_observation(
+            &thread_observation(parent, "2026-09-20T10:00:00Z", thread_sequence),
+            None,
+        )
         .await
         .expect("apply parent");
 
     let head =
         CommitSha::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").expect("review-thread head SHA");
     let first = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:01Z"),
-            request_scope: "review threads",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:01Z"),
+                request_scope: "review threads",
+            },
+            &lease,
+        )
         .await
         .expect("reserve first review-thread snapshot");
     archive
-        .stage_child_family_page(ChildFamilyPage {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            sequence: first.sequence,
-            page_index: 0,
-            items: &[item("old", json!({"resolution":"open"}))],
-        })
+        .stage_child_family_page_fenced(
+            ChildFamilyPage {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                sequence: first.sequence,
+                page_index: 0,
+                items: &[item("old", json!({"resolution":"open"}))],
+            },
+            &lease,
+        )
         .await
         .expect("stage initial review thread");
     archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            sequence: first.sequence,
-            observed_at: timestamp("2026-09-20T10:00:02Z"),
-            completeness: &CollectionCompleteness::Complete,
-            expected_pages: Some(1),
-            head_sha: Some(&head),
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                sequence: first.sequence,
+                observed_at: timestamp("2026-09-20T10:00:02Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: Some(&head),
+            },
+            &lease,
+        )
         .await
         .expect("commit initial review-thread snapshot");
 
     let replacement_head = CommitSha::new("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         .expect("replacement review-thread head SHA");
     let next = archive
-        .reserve_child_family_observation(ChildFamilyRequest {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            source_clock: &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
-            started_at: timestamp("2026-09-20T10:00:03Z"),
-            request_scope: "review threads",
-        })
+        .reserve_child_family_observation_fenced(
+            ChildFamilyRequest {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                source_clock: &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
+                started_at: timestamp("2026-09-20T10:00:03Z"),
+                request_scope: "review threads",
+            },
+            &lease,
+        )
         .await
         .expect("reserve replacement review-thread snapshot");
     archive
-        .stage_child_family_page(ChildFamilyPage {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            sequence: next.sequence,
-            page_index: 0,
-            items: &[item("new", json!({"resolution":"resolved"}))],
-        })
+        .stage_child_family_page_fenced(
+            ChildFamilyPage {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                sequence: next.sequence,
+                page_index: 0,
+                items: &[item("new", json!({"resolution":"resolved"}))],
+            },
+            &lease,
+        )
         .await
         .expect("stage replacement review thread");
 
@@ -121,15 +134,18 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
     .await
     .expect("install test trigger");
     let error = archive
-        .finish_child_family_observation(ChildFamilyObservation {
-            thread: &thread_id,
-            family: EvidenceFamily::ReviewThreads,
-            sequence: next.sequence,
-            observed_at: timestamp("2026-09-20T10:00:04Z"),
-            completeness: &CollectionCompleteness::Complete,
-            expected_pages: Some(1),
-            head_sha: Some(&replacement_head),
-        })
+        .finish_child_family_observation_fenced(
+            ChildFamilyObservation {
+                thread: &thread_id,
+                family: EvidenceFamily::ReviewThreads,
+                sequence: next.sequence,
+                observed_at: timestamp("2026-09-20T10:00:04Z"),
+                completeness: &CollectionCompleteness::Complete,
+                expected_pages: Some(1),
+                head_sha: Some(&replacement_head),
+            },
+            &lease,
+        )
         .await
         .expect_err("review-thread coverage trigger aborts finalization");
     assert!(matches!(&error, StoreError::Database(_)));
@@ -156,7 +172,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .pull_request_family_is_current_for_head(
             &thread_id,
             EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &head,
         )
         .await
@@ -165,7 +181,7 @@ async fn failed_review_thread_snapshot_rolls_back_membership_coverage_and_head_c
         .pull_request_family_is_current_for_head(
             &thread_id,
             EvidenceFamily::ReviewThreads,
-            &SourceClock::from_raw(Some("2026-09-20T10:00:00Z")),
+            &SourceClock::Valid(timestamp("2026-09-20T10:00:00Z")),
             &replacement_head,
         )
         .await

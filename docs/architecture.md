@@ -27,38 +27,23 @@ offline read, start at the engine request, inspect the store query, then the CLI
 presentation. The engine accepts an opened archive; the store alone decides transaction and
 observation ordering. GitHub code does not open the archive.
 
-Within engine sync, `review_collection` owns the durable lifecycle shared by reviews and review
-threads. `ReviewSync` selects the family and prepares against a metadata result; preparation either
-finishes immediately or yields a reserved, head-aware `ReviewCollection`. The collection owns
-staging counts and consuming completion/failure operations. `reviews` follows REST page links, while
-`review_threads` owns GraphQL cursor traversal and cycle detection. Provider traversal and archive
-finalization can therefore be read independently without repeating their shared policy.
-
-The sync root defines the public request, progress, and report vocabulary. `sync/coordinator` owns
-request preparation, durable scope serialization, job execution, and terminal run projection.
-`sync/scope` defines shared run capabilities, independent enumeration units, and thread-family
-attribution/results. Collectors import those definitions directly; failure recording belongs to the
-thread scope and progress publication to the run context. `sync/lease` owns writer-fence
-acquisition, renewal, cancellation draining, and release. Run-wide sync counters and outcome policy
-live in `sync/accounting`, beside direct complete, partial, deferred, failed, and interrupted
-scenarios. Repository sync uses `jobs` for lookup and scope traversal, `thread_job` for durable
-parent scans, and `repository_work` for immutable services and selected scope. `comment_job` owns
-repository-wide comment accounting; `comments` owns a reserved per-discussion collection.
-`pull_requests` owns selected metadata/review jobs, and `family_job` holds their IDs, accumulated
-results, and terminal ledger writes. `metadata` reserves and applies the head observation before
-review acquisition.
+The engine sync root defines the public request, progress, and report vocabulary plus the persisted
+`RunScope`. `sync/coordinator` validates selection, creates the run under the writer lease, visits
+repositories, and projects the terminal report. `sync/repository` owns one repository's flow:
+lookup, the parent scan per thread-state unit, the comment job, and pull-request metadata/review
+jobs, all started and finished through one job path. `sync/families` owns `FamilyCollection`, the
+reserve/stage/complete-or-fail lifecycle shared by comments, metadata, reviews, and review threads;
+only page traversal differs per family. `sync/accounting` owns job and run counters and outcome
+policy.
 
 Within the store, `observations/apply` selects a canonical parent and applies its independently
-ordered evidence; `observations/thread_rows` owns the payload binding map and its private read/write
-representations. `StoredThreadObservation` keeps canonical content and complete-evidence positions
-independent. `ThreadPayloadUpdate` makes an optional evidence advance explicit.
-`families/application` checks reserved generations and applies complete membership or incomplete
-coverage inside the transaction opened by `families/finish`. These owners borrow the transaction and
-never commit it.
+ordered evidence, keeping canonical content and complete-evidence positions independent.
+`families/finish` checks the reserved generation and applies complete membership or incomplete
+coverage inside its own transaction.
 
 Refresh `coordinator` binds services and validated repository scope to `RefreshExecution`; its stage
-methods preserve independent reports. TUI `query/operations` owns task and message lifetimes, while
-`query/action` owns the selected action request and terminal status.
+methods preserve independent reports. TUI `query/operations` owns the writer task, its engine
+request, and its terminal status.
 
 Clustering `candidates` validates stable input, `evidence` selects sparse eligible edges,
 `references` interprets title/body mentions, and `components` applies bounded grouping and
@@ -69,13 +54,14 @@ Embedding `read` keeps raw candidate order, hydrates current evidence, and accep
 valid chunk groups. Raw candidates determine pagination even when every vector is rejected.
 
 GitHub transport `request` owns budgeted attempts and trusted redirect traversal; `client` owns
-construction and endpoint entry points. CLI `command/embedding_service` prepares configured clients
-without making provider requests, preserving configuration versus initialization failures.
-`config/archive` resolves the invocation override, single configured database, and user-data
-default. Config-relative paths are anchored during loading; library APIs still receive an explicit
-opened archive. `command/interruption` scopes the Ctrl-C listener and lends its token to command
-workflows; engine operations retain ownership of interrupted reports and durable cleanup. CLI
-`reports/detail` and TUI `view/detail` build named presentation sections from loaded projections.
+construction and endpoint entry points. CLI `config` validates embedding settings once and prepares
+configured clients without making provider requests. `config/archive` resolves the invocation
+override, single configured database, and user-data default. Config-relative paths are anchored
+during loading; library APIs still receive an explicit opened archive. CLI dispatch installs the
+Ctrl-C listener for interruptible commands and lends its token to their workflows; engine operations
+retain ownership of interrupted reports and durable cleanup. Commands return the single CLI `error`
+type, which dispatch renders once. CLI `reports/detail` and TUI `view/detail` build named
+presentation sections from loaded projections.
 
 CLI `command/progress` owns the bounded advisory channel and stderr task shared by sync and retry.
 It closes local delivery before draining and aborts the task when its command owner is dropped.
@@ -87,9 +73,7 @@ orders minimal retry requests without provider I/O; `runs` executes those reques
 
 The crates expose named concept modules rather than blanket root exports. The main sync, search,
 cluster, storage, GitHub transport, CLI command, and TUI rendering paths are grouped by behavior.
-The [maintainability plan](maintainability-plan.md) records the ownership migration, and the
-[source shape audit](source-shape-audit.md) records fixed and retained review dispositions. Use the
-module path as the first navigation clue, then read the adjacent tests.
+Use the module path as the first navigation clue, then read the adjacent tests.
 
 ## Local query boundaries
 
@@ -122,29 +106,22 @@ scoring tests live beside their respective owners so fixtures and policy asserti
 
 ## Private store adapters
 
-`observation_sql` owns clock-column conversion, checked SQLite integers, canonical row lookup, and
-coverage persistence shared by parent observations, child families, and run records. Public domain
-inputs/results remain in `observations`. These helpers borrow the caller's connection; ordering,
-lease checks, and transaction commit remain with the archive operation.
+`sql` owns clock-column conversion, checked SQLite integers, repository/thread row lookup, family
+labels, bound repository/kind/state predicates, and coverage persistence shared by every store
+module. These helpers borrow the caller's connection; ordering, lease checks, and transaction commit
+remain with the archive operation.
 
 `coverage_projection` loads recorded completeness and current head context, then derives visible
-staleness without changing durable coverage. Thread reads, embedding eligibility, and cluster
-members import it directly. `query_sql` supplies bound repository/kind/state predicates shared by
-those reads; each query still owns aliases, joins, ordering, page windows, and decoding.
+staleness without changing durable coverage. Its `child_coverage_matches` rule is shared with the
+child-family reuse check in `families/query`, so displayed staleness and refetch decisions agree.
 
 Store `clock` owns checked process wall-clock conversion shared by archive creation, diagnostics,
-and lease expiry checks. It truncates to archive microseconds and rejects pre-epoch or overflowing
-values. It supplies observations only: transaction fences and observation sequences still establish
-writer validity and acquisition ordering.
+and lease expiry checks. It supplies observations only: transaction fences and observation sequences
+still establish writer validity and acquisition ordering.
 
-`health` keeps operator-facing check construction above named connection-local probes. Constraint
-and FTS execution borrow the acquired connection, while their coordinators attempt final cleanup
-before combining results. `diagnostics` keeps job/run/failure units distinct and reads known-family
-counts through its named projection; these separate reads do not establish a frozen snapshot.
-
-These private modules make implementation dependencies visible without adding SQL resources to
-public library APIs. Start in the workflow or public archive method, then follow its named adapter
-when changing column conversion or a genuinely shared selection rule.
+`health` reports integrity, foreign-key enforcement, FTS5 availability, and schema history without
+repairing anything. `diagnostics` keeps job/run/failure units distinct; its separate reads do not
+establish a frozen snapshot.
 
 ## Child-family transaction phases
 
@@ -153,15 +130,14 @@ Reservation, staging, and finalization share one ordering contract but own diffe
 scope at the acquisition boundary. Archive reservation accepts that declaration plus a separate
 writer token when fencing is required; construction alone performs no validation or write.
 `ChildFamilyPage` names one provisional member slice and page index within the accepted reservation.
-`ReservedGeneration` compares a proposed source clock and sequence, then writes a reservation and
-recoverable generation. `PageWrite` validates that generation, recognizes identical replay, and
-stores provisional pages with received counts. `FamilyApplication` promotes complete membership or
-records partial coverage. Each archive operation opens and commits its own transaction; these owners
-only borrow its connection.
+Reservation compares a proposed source clock and sequence, then writes a reservation and
+recoverable generation. Staging validates that generation, recognizes identical replay, and stores
+provisional pages while incrementing the received count. Finishing promotes complete membership or
+records partial coverage. Each archive operation opens and commits its own transaction.
 
-Reuse is a separate read. `MembershipExpectation` names the independent evidence available from the
-parent, and `FamilyFreshness` verifies source clock, review head when required, complete coverage,
-and canonical membership count. None of these reads promote staged pages or change coverage.
+Reuse is a separate read: `families/query` requires the same source clock, review head when
+required, complete coverage, and a canonical membership count matching that coverage. None of these
+reads promote staged pages or change coverage.
 
 ## Terminal picker and writer display state
 
@@ -255,24 +231,15 @@ embedding workflow uses those values to schedule requests and persist vectors un
 chunk construction itself performs no provider or archive I/O. Nearby chunk and request-batch tests
 cover their separate contracts.
 
-Engine `embeddings/selection::EmbeddingSelection` owns source-version deduplication, service-scoped
-archive reads, and selected/reusable chunk accounting before writer lease acquisition. Pending
-`EmbeddingTask` values retain a shared full document with each chunk for later fenced persistence.
-The public coordinator consumes the selected report and tasks, then owns lease execution and
-release.
-
-Embedding execution now has three private owners beside selection and chunk identity. `batches`
-groups requests and retains input order through provider responses. `scheduling::BatchScheduler`
-owns pending work, concurrency, outcome dispatch, and worker draining. `execution::EmbeddingWriter`
-keeps the archive fence with its service identity, renews before each chunk write, and releases only
-after scheduling finishes cleanup. Provider failures remain report entries; worker/persistence
+Engine `embeddings` selects distinct document versions and reusable chunks before claiming the
+writer lease, then spawns one task per request batch (the client semaphore bounds concurrency) and
+persists responses as they arrive. Provider failures remain report entries; worker/persistence
 errors abort and drain outstanding requests before returning the original error.
 
-Cluster generation holds `clustering/lease::ClusterBuildLease` across vector loading, blocking
-analysis, and generation persistence. The owner renews the fence and keeps a child cancellation
-scope. Caller interruption or renewal failure cancels that child and awaits analysis cleanup before
-release; the original triggering failure is retained. Short local decision writes continue to use
-the release helpers without taking on the long-build renewal lifecycle.
+Private `lease::with_writer_lease` owns writer-fence acquisition, renewal polled alongside the
+workflow, cooperative draining on renewal failure, and release for sync runs, cluster builds and
+decisions, document materialization, and embeddings. The operation error takes precedence over a
+release error; a release failure after success is returned.
 
 CLI `command/cluster/build` implements preparation and execution on `ClusterBuildArgs`. Preparation
 combines parsed graph policy with canonical configured endpoint/model identity and recipe, without
@@ -293,23 +260,13 @@ store's raw cursor and one fixed build request identity. The generation coordina
 snapshot under its existing lease and projects candidate membership through a named store-input
 conversion.
 
-Store `clusters/generation_input` validates proposed membership before transaction creation, then
-resolves source identities inside the active transaction into sorted `PreparedCluster` rows. Local
-decisions share its discussion-row resolver. `generation_matching` loads existing active/excluded
-membership and assigns durable IDs by ordered overlap. Neither module commits or performs generation
-writes; `generation` retains the fenced transaction and its commit boundary.
-
-Durable matching uses `generation_matching::MembershipOverlap` to name shared count, union count,
-generated position, and existing row ID. Candidate enumeration, priority comparison, and greedy
-one-to-one assignment are separate local operations. Absolute overlap takes precedence over
-proportional overlap; exact fraction comparison and stable row/index tie breaks preserve repeatable
-identity reuse. Nearby static-membership cases cover assignment without SQL setup.
-
-Store `generation_apply::GenerationApplication` owns one run's repository identity, timestamp,
-coverage policy, seen cluster rows, and membership accounting. It orders cluster/member application,
-complete-scope retirement, and run finalization. `generation_rows` keeps the underlying SQL bind
-maps linear. `Archive::save_clusters_fenced` retains transaction creation, fencing, and the single
-commit; helpers never commit. Result conversion follows commit under the existing outcome contract.
+Store `clusters/generation` validates proposed membership before transaction creation, resolves
+source identities into sorted `PreparedCluster` rows, and writes the run, clusters, memberships, and
+complete-scope retirement under one fenced commit. `clusters/matching` loads existing active/excluded
+membership and assigns durable IDs by ordered overlap using `MembershipOverlap`: absolute overlap
+takes precedence over proportional overlap, with exact fraction comparison and stable row/index tie
+breaks for repeatable identity reuse. Nearby static-membership cases cover assignment without SQL
+setup.
 
 Search `fusion::HybridRanking` merges candidates by durable discussion identity, retaining the first
 summary and each source's rank evidence. `SemanticEvidence` binds semantic rank to its cosine

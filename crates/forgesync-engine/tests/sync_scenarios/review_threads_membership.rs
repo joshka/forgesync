@@ -1,14 +1,4 @@
-//! # Complete review-thread membership
-//!
-//! Complete snapshots can remove and later restore canonical review-thread membership.
-//! Three explicit acquisitions establish initial members, a complete empty collection, and a
-//! later restored member. Each transition must replace membership only after complete evidence.
-//!
-//! The real sync requests and operation calls stay in this scenario; fixture modules only
-//! configure provider responses and construct clients or references. Archive reads remain visible;
-//! no acquisition is hidden
-//! in a test helper. Source head, family selection, and expected canonical state remain explicit.
-//! This integration regression complements focused store ordering and finalization tests.
+//! Complete review-thread membership.
 
 use forgesync_core::coverage::CoverageState;
 use forgesync_core::outcome::OperationOutcome;

@@ -15,8 +15,7 @@
 //! the archive lifecycle suite; this scenario owns preservation of searchable content.
 
 use forgesync_core::content::{SourceState, ThreadKind};
-use forgesync_core::coverage::EvidenceFamily;
-use forgesync_core::observation::{CollectionCompleteness, Observation, SourceClock};
+use forgesync_core::observation::ThreadObservation;
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -48,16 +47,13 @@ async fn explicit_migration_builds_search_index_for_existing_threads() {
         .reserve_observation_sequence(observed_at)
         .await
         .expect("reserve sequence");
-    let observation = Observation::new(
-        EvidenceFamily::Threads,
-        content,
-        SourceClock::Valid(observed_at),
+    let observation = ThreadObservation {
+        discussion: content,
         observed_at,
         sequence,
-        CollectionCompleteness::Complete,
-    );
+    };
     archive
-        .apply_thread_observation(&observation)
+        .apply_thread_observation(&observation, None)
         .await
         .expect("apply thread observation");
     archive.close().await;

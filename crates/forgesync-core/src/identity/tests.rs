@@ -1,15 +1,4 @@
-//! # Domain identity construction
-//!
-//! These cases exercise normalization and rejection at the identity boundary. Host authority
-//! parsing must not admit paths, and provider or numeric IDs must reject values that cannot
-//! represent source identity. Other crates rely on these constructors before persisting or
-//! comparing observations. Keep boundary cases here so store and GitHub tests can use valid
-//! identities without repeating the parsing rules.
-//!
-//! Named cases distinguish accepted authority normalization from rejection. Provider text, numeric
-//! IDs, commit SHA normalization, and repository JSON round-trip have independent expectations.
-//! Deserialization checks JSON data classification and validation wording; JSON errors do not
-//! retain the original typed identity error as their source.
+//! Identity normalization and rejection at the construction and deserialization boundary.
 
 use serde_json::json;
 
@@ -62,15 +51,12 @@ fn provider_identity_rejects_invalid_text(#[case] input: &str) {
 
 #[test]
 fn zero_thread_number_is_rejected() {
-    assert_eq!(
-        ThreadNumber::new(0),
-        Err(IdentityError::InvalidThreadNumber)
-    );
+    assert_eq!(ThreadNumber::new(0), Err(IdentityError::NotPositive));
 }
 
 #[test]
 fn zero_run_id_is_rejected() {
-    assert_eq!(RunId::new(0), Err(IdentityError::InvalidRunId));
+    assert_eq!(RunId::new(0), Err(IdentityError::NotPositive));
 }
 
 #[test]
@@ -107,4 +93,12 @@ fn host_deserialization_enforces_authority_validation() {
             .to_string()
             .contains(&IdentityError::InvalidGitHubHost.to_string())
     );
+}
+
+#[test]
+fn identity_deserialization_rejects_invalid_values() {
+    assert!(serde_json::from_value::<RunId>(json!(0)).is_err());
+    assert!(serde_json::from_value::<ProviderId>(json!("bad id")).is_err());
+    let sha: CommitSha = serde_json::from_value(json!("A".repeat(40))).expect("full SHA-1");
+    assert_eq!(serde_json::to_value(sha).unwrap(), json!("a".repeat(40)));
 }

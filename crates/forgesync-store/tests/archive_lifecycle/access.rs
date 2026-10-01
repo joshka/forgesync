@@ -10,6 +10,8 @@
 //! Provider acquisition, source membership, and engine retry are outside this lifecycle suite.
 //! Failure assertions name the store variant or retained diagnostic facts under examination.
 
+use std::time::Duration;
+
 use forgesync_store::archive::Archive;
 use forgesync_store::error::StoreError;
 
@@ -22,7 +24,6 @@ async fn reopening_preserves_archive_identity_and_access_mode() {
     let archive_id = archive.info().archive_id.clone();
     let schema_version = archive.info().schema_version;
     assert_eq!(archive.info().format_id, "forgesync");
-    assert!(!archive.is_read_only());
 
     assert!(matches!(
         Archive::create(&path).await,
@@ -33,7 +34,12 @@ async fn reopening_preserves_archive_identity_and_access_mode() {
     let archive = Archive::open_read_only(&path)
         .await
         .expect("open archive read-only");
-    assert!(archive.is_read_only());
+    assert!(matches!(
+        archive
+            .acquire_archive_lease(archive.info().created_at, Duration::from_secs(1))
+            .await,
+        Err(StoreError::ReadOnlyArchive)
+    ));
     assert_eq!(archive.info().archive_id, archive_id);
     assert_eq!(archive.info().schema_version, schema_version);
 
@@ -42,7 +48,6 @@ async fn reopening_preserves_archive_identity_and_access_mode() {
     let archive = Archive::open_read_write(&path)
         .await
         .expect("open archive read-write");
-    assert!(!archive.is_read_only());
     archive.close().await;
 
     remove_archive(&path);
