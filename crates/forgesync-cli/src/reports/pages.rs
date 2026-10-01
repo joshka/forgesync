@@ -6,7 +6,7 @@
 use forgesync_store::reads::FamilyCoverageSummary;
 
 use crate::output::{SearchHitOutput, SearchPageOutput, ThreadPageOutput, ThreadSummaryOutput};
-use crate::reports::threads::{discussion_kind_name, family_name, source_state_name};
+use crate::reports::threads::discussion_kind_name;
 
 impl ThreadPageOutput<'_> {
     pub fn summary(&self) -> String {
@@ -27,7 +27,7 @@ impl ThreadSummaryOutput<'_> {
             self.repository.full_name,
             self.thread.id.number().get(),
             discussion_kind_name(self.thread.kind),
-            source_state_name(&self.thread.state),
+            self.thread.state.as_str(),
             self.thread.title
         )
     }
@@ -71,7 +71,7 @@ impl SearchHitOutput<'_> {
             self.repository.full_name,
             self.thread.id.number().get(),
             discussion_kind_name(self.thread.kind),
-            source_state_name(&self.thread.state),
+            self.thread.state.as_str(),
             self.thread.title
         )
     }
@@ -91,7 +91,7 @@ fn page_footer(coverage: &[FamilyCoverageSummary], next_offset: Option<u64>) -> 
 pub(super) fn coverage_line(coverage: &FamilyCoverageSummary) -> String {
     format!(
         "  {}: {} complete, {} incomplete, {} missing of {}",
-        family_name(coverage.family),
+        coverage.family.as_str(),
         coverage.complete,
         coverage.incomplete,
         coverage.missing,

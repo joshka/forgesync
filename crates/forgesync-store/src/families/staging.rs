@@ -8,7 +8,7 @@ use crate::error::StoreError;
 use crate::families::ChildFamilyPage;
 use crate::families::query::require_child_family;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
-use crate::sql::{family_name, thread_row_id, to_sql_sequence};
+use crate::sql::{thread_row_id, to_sql_sequence};
 
 impl Archive {
     /// Persists a provisional page under the archive writer fence without changing canonical
@@ -33,7 +33,7 @@ impl Archive {
         } = page;
         require_child_family(family)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
-        let family = family_name(family);
+        let family = family.as_str();
         let page_index = i64::from(page_index);
         let sequence = to_sql_sequence(sequence)?;
         let payload = serde_json::to_string(items)?;

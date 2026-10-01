@@ -14,7 +14,7 @@ use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::runs::{
     SyncJobCompletion, SyncJobStart, SyncJobStatus, checked_run_id, run_status, to_sql_id,
 };
-use crate::sql::{family_name, repository_row_id, to_sql_integer};
+use crate::sql::{repository_row_id, to_sql_integer};
 
 impl Archive {
     /// Inserts an in-progress run before acquisition, recording its requested scope as JSON.
@@ -67,7 +67,7 @@ impl Archive {
         )
         .bind(to_sql_id(run_id)?)
         .bind(repository_id)
-        .bind(family_name(family))
+        .bind(family.as_str())
         .bind(scope_key)
         .bind(started_at.unix_microseconds())
         .bind(started_at.unix_microseconds())

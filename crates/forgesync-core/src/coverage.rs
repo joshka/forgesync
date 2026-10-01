@@ -27,6 +27,19 @@ pub enum EvidenceFamily {
     ReviewThreads,
 }
 
+impl EvidenceFamily {
+    /// Returns the serde and archive spelling, such as `pull_request_metadata`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Threads => "threads",
+            Self::Comments => "comments",
+            Self::PullRequestMetadata => "pull_request_metadata",
+            Self::Reviews => "reviews",
+            Self::ReviewThreads => "review_threads",
+        }
+    }
+}
+
 /// Stable failure category retained in structured operation reports.
 ///
 /// Classification supports presentation and workflow-specific recovery decisions; it is not a
@@ -109,6 +122,17 @@ pub enum CoverageState {
         /// Number of items in the complete collection; zero means complete empty.
         item_count: u64,
     },
+}
+
+impl CoverageState {
+    /// Returns the serde status tag of this state.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Incomplete { .. } => "incomplete",
+            Self::Complete { .. } => "complete",
+        }
+    }
 }
 
 /// Per-family coverage state for a repository or discussion.
@@ -200,6 +224,19 @@ mod tests {
     use crate::coverage::{Coverage, CoverageState, EvidenceFamily};
     use crate::identity::ObservationSequence;
     use crate::timestamp::UtcTimestamp;
+
+    #[test]
+    fn family_names_match_serde_spelling() {
+        for family in [
+            EvidenceFamily::Threads,
+            EvidenceFamily::Comments,
+            EvidenceFamily::PullRequestMetadata,
+            EvidenceFamily::Reviews,
+            EvidenceFamily::ReviewThreads,
+        ] {
+            assert_eq!(serde_json::to_value(family).unwrap(), family.as_str());
+        }
+    }
 
     #[test]
     fn complete_empty_coverage_is_distinct_from_missing_coverage() {

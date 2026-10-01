@@ -6,7 +6,6 @@
 
 use std::cmp::Ordering;
 
-use forgesync_core::content::SourceState;
 use forgesync_core::coverage::{CoverageState, EvidenceFamily};
 use forgesync_core::identity::ObservationSequence;
 use forgesync_core::observation::{SourceClock, ThreadObservation};
@@ -20,7 +19,7 @@ use crate::observations::{ObservationDisposition, ThreadObservationResult};
 use crate::ordering::compare_observation_order;
 use crate::sql::{
     SourceClockColumns, repository_row_id, sequence_from_sql, source_clock_columns,
-    source_clock_from_columns, thread_kind_name, to_sql_integer, to_sql_sequence, write_coverage,
+    source_clock_from_columns, to_sql_integer, to_sql_sequence, write_coverage,
 };
 
 impl Archive {
@@ -175,15 +174,6 @@ async fn apply_thread(
     })
 }
 
-/// Maps a provider source state to its stored label.
-fn source_state_name(state: &SourceState) -> &str {
-    match state {
-        SourceState::Open => "open",
-        SourceState::Closed => "closed",
-        SourceState::Other(value) => value,
-    }
-}
-
 /// Loads current clocks and payload before deciding canonical replacement.
 async fn load_thread(
     connection: &mut SqliteConnection,
@@ -239,8 +229,8 @@ async fn insert_thread(
     .bind(repository_row_id)
     .bind(discussion.id.provider_id().as_str())
     .bind(to_sql_integer(discussion.id.number().get())?)
-    .bind(thread_kind_name(discussion.kind))
-    .bind(source_state_name(&discussion.state))
+    .bind(discussion.kind.as_str())
+    .bind(discussion.state.as_str())
     .bind(&discussion.title)
     .bind(&discussion.body)
     .bind(&discussion.html_url)
@@ -287,8 +277,8 @@ async fn update_thread(
     };
     let mut query = query
         .bind(to_sql_integer(discussion.id.number().get())?)
-        .bind(thread_kind_name(discussion.kind))
-        .bind(source_state_name(&discussion.state))
+        .bind(discussion.kind.as_str())
+        .bind(discussion.state.as_str())
         .bind(&discussion.title)
         .bind(&discussion.body)
         .bind(&discussion.html_url)

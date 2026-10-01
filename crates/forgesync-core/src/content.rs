@@ -41,6 +41,16 @@ pub enum ThreadKind {
     PullRequest,
 }
 
+impl ThreadKind {
+    /// Returns the serde and archive spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Issue => "issue",
+            Self::PullRequest => "pull_request",
+        }
+    }
+}
+
 /// Source-owned open or closed state.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -51,6 +61,17 @@ pub enum SourceState {
     Closed,
     /// An unrecognized source state preserved for forward compatibility.
     Other(String),
+}
+
+impl SourceState {
+    /// Returns `open`, `closed`, or the unrecognized provider state unchanged.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Open => "open",
+            Self::Closed => "closed",
+            Self::Other(value) => value,
+        }
+    }
 }
 
 /// A normalized GitHub repository record.

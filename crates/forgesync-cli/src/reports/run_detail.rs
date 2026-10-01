@@ -2,10 +2,11 @@
 //!
 //! A resolved failure stays visible in detail, marked with its recorded resolution.
 
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_store::runs::{RunDetail, RunFailureRecord, SyncJobRecord};
 
 use crate::reports::runs::{run_status_name, sync_job_status_name};
-use crate::reports::threads::{family_name, format_timestamp};
+use crate::reports::threads::format_timestamp;
 
 /// Shows the run heading, then its jobs and failures in store order.
 pub fn run_detail_summary(detail: &RunDetail) -> String {
@@ -43,7 +44,7 @@ fn job_row(job: &SyncJobRecord) -> String {
     format!(
         "  {} {} [{}]: {} ({} items, {} pages)",
         job.repository.full_name,
-        family_name(job.family),
+        job.family.as_str(),
         job.scope_key,
         sync_job_status_name(job.status),
         job.items_committed,
@@ -53,7 +54,10 @@ fn job_row(job: &SyncJobRecord) -> String {
 
 /// Shows one failure's target and safe diagnostic, marking any recorded resolution.
 fn failure_row(failure: &RunFailureRecord) -> String {
-    let family = failure.family.map(family_name).unwrap_or("unassigned");
+    let family = failure
+        .family
+        .map(EvidenceFamily::as_str)
+        .unwrap_or("unassigned");
     let resolution = if failure.resolved_at.is_some() {
         " (resolved)"
     } else {

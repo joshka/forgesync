@@ -3,13 +3,14 @@
 //! Retry/resolution of earlier failures always excludes entries created by the current run, so new
 //! failures from that same attempt are preserved. Retry marking is not idempotent.
 
+use forgesync_core::coverage::EvidenceFamily;
 use forgesync_core::timestamp::UtcTimestamp;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::runs::{ChildFamilyFailureScope, RunFailureInput, RunFailureScope, to_sql_id};
-use crate::sql::{family_name, repository_row_id, to_sql_integer};
+use crate::sql::{repository_row_id, to_sql_integer};
 
 impl Archive {
     /// Increments retry counts of earlier unresolved selector failures (rows without a
@@ -27,7 +28,7 @@ impl Archive {
         )
         .bind(to_sql_id(scope.run_id)?)
         .bind(scope.target)
-        .bind(family_name(scope.family))
+        .bind(scope.family.as_str())
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -54,7 +55,7 @@ impl Archive {
         .bind(resolved_at.unix_microseconds())
         .bind(to_sql_id(scope.run_id)?)
         .bind(scope.target)
-        .bind(family_name(scope.family))
+        .bind(scope.family.as_str())
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -97,7 +98,7 @@ impl Archive {
         )
         .bind(to_sql_id(failure.run_id)?)
         .bind(repository_id)
-        .bind(failure.family.map(family_name))
+        .bind(failure.family.map(EvidenceFamily::as_str))
         .bind(failure.target)
         .bind(failure.scope_key)
         .bind(failure_json)
@@ -131,7 +132,7 @@ impl Archive {
         .bind(repository_id)
         .bind(scope.thread.provider_id().as_str())
         .bind(to_sql_integer(scope.thread.number().get())?)
-        .bind(family_name(scope.family))
+        .bind(scope.family.as_str())
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)
@@ -164,7 +165,7 @@ impl Archive {
         .bind(repository_id)
         .bind(scope.thread.provider_id().as_str())
         .bind(to_sql_integer(scope.thread.number().get())?)
-        .bind(family_name(scope.family))
+        .bind(scope.family.as_str())
         .bind(scope.scope_key)
         .bind(to_sql_id(scope.run_id)?)
         .execute(&mut *transaction)

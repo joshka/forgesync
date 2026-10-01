@@ -92,7 +92,7 @@ async fn execute(
             };
             sync_repositories(archive, clients, &request, cancellation, Some(progress))
                 .await
-                .map(|report| format!("Sync {}", outcome_name(&report.outcome)))
+                .map(|report| format!("Sync {}", report.outcome.as_str()))
         }
         Operation::Refresh { repositories } => {
             let request = RefreshRequest {
@@ -118,7 +118,7 @@ async fn execute(
                 Some(progress),
             )
             .await
-            .map(|report| format!("Refresh {}", outcome_name(&report.outcome)))
+            .map(|report| format!("Refresh {}", report.outcome.as_str()))
         }
         Operation::Retry(run_id) => match plan_run_retry(archive, *run_id, &[]).await {
             Ok(plan) => run_retry(archive, clients, plan, cancellation, Some(progress))
@@ -194,16 +194,6 @@ async fn engine_error_message(archive: &Archive, error: EngineError) -> String {
 }
 
 // Core's `OperationOutcome` has no `as_str`; the CLI keeps its own copy of these labels.
-fn outcome_name(outcome: &OperationOutcome) -> &'static str {
-    match outcome {
-        OperationOutcome::Complete => "complete",
-        OperationOutcome::Partial { .. } => "partial",
-        OperationOutcome::Deferred { .. } => "deferred",
-        OperationOutcome::Failed { .. } => "failed",
-        OperationOutcome::Interrupted { .. } => "interrupted",
-    }
-}
-
 /// Reports the most significant outcome across the retried runs: all complete, any
 /// interrupted, all failed, all deferred, otherwise partial.
 fn retry_summary(report: &RetryReport) -> String {

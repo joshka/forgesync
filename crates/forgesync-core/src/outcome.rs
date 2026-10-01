@@ -50,6 +50,19 @@ pub enum OperationOutcome {
     },
 }
 
+impl OperationOutcome {
+    /// Returns the serde status tag of this outcome.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+            Self::Partial { .. } => "partial",
+            Self::Deferred { .. } => "deferred",
+            Self::Failed { .. } => "failed",
+            Self::Interrupted { .. } => "interrupted",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! # Terminal outcome JSON contracts
@@ -100,6 +113,7 @@ mod tests {
     ) {
         let encoded = serde_json::to_value(&outcome).expect("serialize outcome");
         assert_eq!(encoded, expected);
+        assert_eq!(encoded["status"], outcome.as_str());
         let decoded: OperationOutcome =
             serde_json::from_value(encoded).expect("deserialize outcome");
         assert_eq!(decoded, outcome);

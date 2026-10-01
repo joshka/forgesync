@@ -13,9 +13,7 @@ use crate::archive::Archive;
 use crate::coverage_projection::{ChildExpectation, StoredCoverage, child_coverage_matches};
 use crate::error::StoreError;
 use crate::observations::StagedItem;
-use crate::sql::{
-    count_from_sql, family_name, is_child_family, source_clock_columns, thread_row_id,
-};
+use crate::sql::{count_from_sql, is_child_family, source_clock_columns, thread_row_id};
 
 impl Archive {
     /// Returns the canonical complete membership for one thread family in provider-ID order.
@@ -98,7 +96,7 @@ impl Archive {
             "SELECT c.state_json, c.source_clock_state, c.source_clock_raw, c.source_clock_us, h.head_sha FROM family_coverage c LEFT JOIN thread_family_head_contexts h ON h.thread_id = c.thread_id AND h.family = c.family WHERE c.thread_id = ? AND c.family = ?",
         )
         .bind(thread_row_id)
-        .bind(family_name(family))
+        .bind(family.as_str())
         .fetch_optional(&mut *connection)
         .await?;
         let Some(row) = row else {
@@ -115,7 +113,7 @@ impl Archive {
             "SELECT COUNT(*) FROM thread_family_membership WHERE thread_id = ? AND family = ?",
         )
         .bind(thread_row_id)
-        .bind(family_name(family))
+        .bind(family.as_str())
         .fetch_one(&mut *connection)
         .await?;
         Ok(count_from_sql(members)? == item_count)
@@ -135,7 +133,7 @@ where
         "SELECT provider_id, payload_json FROM thread_family_membership WHERE thread_id = ? AND family = ? ORDER BY provider_id",
     )
     .bind(thread_row_id)
-    .bind(family_name(family))
+    .bind(family.as_str())
     .fetch_all(executor)
     .await?;
     rows.into_iter()
@@ -156,7 +154,7 @@ pub(crate) fn require_child_family(family: EvidenceFamily) -> Result<(), StoreEr
         Ok(())
     } else {
         Err(StoreError::UnsupportedObservationFamily(
-            family_name(family).to_owned(),
+            family.as_str().to_owned(),
         ))
     }
 }

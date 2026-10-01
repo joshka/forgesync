@@ -1,6 +1,6 @@
 //! Discussion detail lines, also used by the browser to bound scrolling.
 
-use forgesync_core::content::{SourceState, ThreadKind};
+use forgesync_core::content::ThreadKind;
 use forgesync_store::reads::ThreadDetail;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
@@ -42,11 +42,7 @@ impl DetailPresentation<'_> {
             ThreadKind::Issue => "Issue",
             ThreadKind::PullRequest => "Pull request",
         };
-        let state = match &discussion.state {
-            SourceState::Open => "open".to_owned(),
-            SourceState::Closed => "closed".to_owned(),
-            SourceState::Other(value) => value.clone(),
-        };
+        let state = discussion.state.as_str().to_owned();
         let mut lines = vec![
             Line::from(format!("{} #{}", kind, discussion.id.number().get())).style(
                 Style::default()

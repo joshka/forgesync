@@ -9,9 +9,7 @@ use sqlx::{QueryBuilder, Row, Sqlite};
 use crate::archive::Archive;
 use crate::error::StoreError;
 use crate::reads::{ArchiveStatus, FamilyCoverageSummary};
-use crate::sql::{
-    ALL_FAMILIES, count_from_sql, family_name, is_pull_request_family, push_repository_scope,
-};
+use crate::sql::{ALL_FAMILIES, count_from_sql, is_pull_request_family, push_repository_scope};
 
 impl Archive {
     /// Returns coverage counts for all families, optionally limited to resolved repositories.
@@ -25,7 +23,7 @@ impl Archive {
             .map(|family| {
                 format!(
                     "('{}', {})",
-                    family_name(family),
+                    family.as_str(),
                     u8::from(is_pull_request_family(family))
                 )
             })
@@ -51,7 +49,7 @@ impl Archive {
             let family: String = row.try_get("family")?;
             let summary = summaries
                 .iter_mut()
-                .find(|summary| family_name(summary.family) == family)
+                .find(|summary| summary.family.as_str() == family)
                 .ok_or(StoreError::Corrupt("archive_coverage_invalid"))?;
             let status: String = row.try_get("status")?;
             summary.record_count(&status, count_from_sql(row.try_get("item_count")?)?)?;

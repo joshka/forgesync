@@ -5,7 +5,7 @@ use forgesync_core::identity::ThreadId;
 
 use crate::archive::Archive;
 use crate::error::StoreError;
-use crate::sql::{family_name, thread_row_id};
+use crate::sql::thread_row_id;
 
 impl Archive {
     /// Reads the stored family state for an existing discussion; an absent row is `Missing`.
@@ -14,14 +14,13 @@ impl Archive {
         thread: &ThreadId,
         family: EvidenceFamily,
     ) -> Result<Coverage, StoreError> {
-        let family_name = family_name(family);
         let mut connection = self.reader.acquire().await?;
         let thread_row_id = thread_row_id(&mut connection, thread).await?;
         let state_json: Option<String> = sqlx::query_scalar(
             "SELECT state_json FROM family_coverage WHERE thread_id = ? AND family = ?",
         )
         .bind(thread_row_id)
-        .bind(family_name)
+        .bind(family.as_str())
         .fetch_optional(&mut *connection)
         .await?;
         let state = match state_json {

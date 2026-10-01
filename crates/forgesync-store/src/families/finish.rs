@@ -17,8 +17,8 @@ use crate::families::query::require_child_family;
 use crate::leases::{ArchiveLeaseToken, require_active_archive_lease};
 use crate::observations::{FamilyObservationResult, ObservationDisposition, StagedItem};
 use crate::sql::{
-    count_from_sql, family_name, source_clock_columns, source_clock_from_columns, thread_row_id,
-    to_sql_integer, to_sql_sequence, write_coverage,
+    count_from_sql, source_clock_columns, source_clock_from_columns, thread_row_id, to_sql_integer,
+    to_sql_sequence, write_coverage,
 };
 
 /// One staged page decoded for page-set validation and membership merging.
@@ -40,7 +40,7 @@ impl Archive {
         validate_observation(&observation)?;
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;
         let sequence = to_sql_sequence(observation.sequence)?;
-        let family = family_name(observation.family);
+        let family = observation.family.as_str();
         let mut transaction = writer.begin().await?;
         require_active_archive_lease(&mut transaction, token).await?;
         let thread = thread_row_id(&mut transaction, observation.thread).await?;

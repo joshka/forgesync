@@ -22,22 +22,11 @@ pub const ALL_FAMILIES: [EvidenceFamily; 5] = [
     EvidenceFamily::ReviewThreads,
 ];
 
-/// Maps a family to its stored label.
-pub fn family_name(family: EvidenceFamily) -> &'static str {
-    match family {
-        EvidenceFamily::Threads => "threads",
-        EvidenceFamily::Comments => "comments",
-        EvidenceFamily::PullRequestMetadata => "pull_request_metadata",
-        EvidenceFamily::Reviews => "reviews",
-        EvidenceFamily::ReviewThreads => "review_threads",
-    }
-}
-
 /// Parses a stored family label; callers choose the corruption code for their table.
 pub fn parse_family(value: &str) -> Option<EvidenceFamily> {
     ALL_FAMILIES
         .into_iter()
-        .find(|family| family_name(*family) == value)
+        .find(|family| family.as_str() == value)
 }
 
 /// Distinguishes independently paged children from parent discussion evidence.
@@ -53,14 +42,6 @@ pub fn is_pull_request_family(family: EvidenceFamily) -> bool {
             | EvidenceFamily::Reviews
             | EvidenceFamily::ReviewThreads
     )
-}
-
-/// Maps a discussion kind to its stored label.
-pub fn thread_kind_name(kind: ThreadKind) -> &'static str {
-    match kind {
-        ThreadKind::Issue => "issue",
-        ThreadKind::PullRequest => "pull_request",
-    }
 }
 
 /// Checks an unsigned value before binding it to SQLite's signed integer range.
@@ -165,9 +146,7 @@ pub fn push_discussion_filters(
     state: ThreadStateFilter,
 ) {
     if let Some(kind) = kind {
-        statement
-            .push(" AND t.kind = ")
-            .push_bind(thread_kind_name(kind));
+        statement.push(" AND t.kind = ").push_bind(kind.as_str());
     }
     match state {
         ThreadStateFilter::All => {}
@@ -261,7 +240,7 @@ pub async fn write_coverage(
         "INSERT INTO family_coverage (thread_id, family, status, source_clock_state, source_clock_raw, source_clock_us, observed_at_us, sequence, state_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (thread_id, family) DO UPDATE SET status = excluded.status, source_clock_state = excluded.source_clock_state, source_clock_raw = excluded.source_clock_raw, source_clock_us = excluded.source_clock_us, observed_at_us = excluded.observed_at_us, sequence = excluded.sequence, state_json = excluded.state_json",
     )
     .bind(thread_row_id)
-    .bind(family_name(family))
+    .bind(family.as_str())
     .bind(status)
     .bind(clock.state)
     .bind(&clock.raw)

@@ -1,10 +1,8 @@
 //! Discussion and search presentation, plus shared display vocabulary.
 //!
-//! Unknown provider state strings are preserved. Coverage labels name the state variant only;
-//! staleness and failure details must be presented separately when needed.
+//! Unknown provider state strings are preserved.
 
-use forgesync_core::content::{ReviewState, SourceState, ThreadKind as DiscussionKind};
-use forgesync_core::coverage::CoverageState;
+use forgesync_core::content::{ReviewState, ThreadKind as DiscussionKind};
 use forgesync_core::timestamp::UtcTimestamp;
 use forgesync_engine::search::SearchResultPage;
 use forgesync_store::reads::{ThreadDetail, ThreadPage};
@@ -33,15 +31,6 @@ pub fn discussion_kind_name(kind: DiscussionKind) -> &'static str {
 }
 
 /// Returns a familiar label, or the unrecognized provider state unchanged.
-pub fn source_state_name(state: &SourceState) -> &str {
-    match state {
-        SourceState::Open => "open",
-        SourceState::Closed => "closed",
-        SourceState::Other(value) => value,
-    }
-}
-
-/// Returns a familiar label, or the unrecognized provider state unchanged.
 pub fn review_state_name(state: &ReviewState) -> &str {
     match state {
         ReviewState::Approved => "approved",
@@ -65,25 +54,6 @@ pub fn repository_identity(repository: Option<&forgesync_core::identity::Reposit
             )
         },
     )
-}
-
-pub fn family_name(family: forgesync_core::coverage::EvidenceFamily) -> &'static str {
-    match family {
-        forgesync_core::coverage::EvidenceFamily::Threads => "threads",
-        forgesync_core::coverage::EvidenceFamily::Comments => "comments",
-        forgesync_core::coverage::EvidenceFamily::PullRequestMetadata => "pull_request_metadata",
-        forgesync_core::coverage::EvidenceFamily::Reviews => "reviews",
-        forgesync_core::coverage::EvidenceFamily::ReviewThreads => "review_threads",
-    }
-}
-
-/// Names the coverage variant only; callers present staleness and failures separately.
-pub fn coverage_state_name(state: &CoverageState) -> &'static str {
-    match state {
-        CoverageState::Missing => "missing",
-        CoverageState::Incomplete { .. } => "incomplete",
-        CoverageState::Complete { .. } => "complete",
-    }
 }
 
 /// Formats RFC 3339, falling back to `invalid timestamp` so a report stays renderable.

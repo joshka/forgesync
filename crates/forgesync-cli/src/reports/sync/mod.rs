@@ -25,13 +25,7 @@ pub fn outcome_exit_code(outcome: &OperationOutcome) -> Exit {
 
 /// One-line sync outcome with job and evidence counts.
 pub fn sync_summary(report: &SyncReport) -> String {
-    let state = match report.outcome {
-        OperationOutcome::Complete => "complete",
-        OperationOutcome::Partial { .. } => "partial",
-        OperationOutcome::Deferred { .. } => "deferred",
-        OperationOutcome::Interrupted { .. } => "interrupted",
-        OperationOutcome::Failed { .. } => "failed",
-    };
+    let state = report.outcome.as_str();
     format!(
         "Sync {state}: {} repositories, {}/{} jobs complete, {} failed, {} deferred, {} pages, {} threads, {} comments, {} PRs, {} reviews, {} review threads",
         report.repositories_selected,

@@ -4,10 +4,7 @@
 //! describes current evidence, not revision history.
 
 use crate::output::ThreadDetailOutput;
-use crate::reports::threads::{
-    coverage_state_name, discussion_kind_name, family_name, format_timestamp, repository_identity,
-    source_state_name,
-};
+use crate::reports::threads::{discussion_kind_name, format_timestamp, repository_identity};
 use crate::reports::timeline::timeline_summary;
 
 /// Formats source content, coverage, pull-request context, and timeline in that order.
@@ -30,7 +27,7 @@ impl ThreadDetailOutput<'_> {
             thread.id.number().get(),
             thread.title,
             discussion_kind_name(thread.kind),
-            source_state_name(&thread.state),
+            thread.state.as_str(),
             format_timestamp(thread.updated_at)
         )];
         if let Some(url) = &thread.html_url {
@@ -50,8 +47,8 @@ impl ThreadDetailOutput<'_> {
         lines.extend(self.summary.coverage.iter().map(|coverage| {
             format!(
                 "  {}: {}{}",
-                family_name(coverage.family()),
-                coverage_state_name(coverage.state()),
+                coverage.family().as_str(),
+                coverage.state().as_str(),
                 if coverage.is_stale() { " (stale)" } else { "" }
             )
         }));
