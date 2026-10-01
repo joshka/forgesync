@@ -83,9 +83,6 @@ pub fn coverage_state_name(state: &CoverageState) -> &'static str {
         CoverageState::Missing => "missing",
         CoverageState::Incomplete { .. } => "incomplete",
         CoverageState::Complete { .. } => "complete",
-        CoverageState::Unavailable { .. } => "unavailable",
-        CoverageState::Failed { .. } => "failed",
-        CoverageState::Deferred { .. } => "deferred",
     }
 }
 

@@ -49,8 +49,6 @@ pub enum CollectionCompleteness {
 pub enum IncompleteReason {
     /// A later REST or GraphQL page could not be acquired.
     Pagination,
-    /// GraphQL returned usable data with one or more errors.
-    ProviderPartialResponse,
     /// The operation was cancelled during acquisition.
     Cancelled,
     /// The retry budget ended before the provider wait elapsed.

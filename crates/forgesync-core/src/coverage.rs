@@ -1,19 +1,9 @@
 //! Evidence-family coverage and failures for partial acquisition.
 //!
-//! [`EvidenceFamily`] names independently acquired resources. [`CoverageState`] distinguishes
-//! complete membership from an incomplete, unavailable, or deferred collection. [`Coverage`] adds
-//! staleness, which can arise when parent context changes even though old child rows remain
-//! stored. [`Failure`] and its reason enums preserve actionable categories for reports and
-//! retries.
-//!
-//! The engine produces these values while acquiring pages; the store retains them beside canonical
-//! content. A complete empty collection is evidence that no members exist. A missing or incomplete
-//! collection cannot delete previously complete membership. Consumers should inspect coverage
-//! rather than infer it from an empty vector of comments or reviews.
-//!
-//! This module states the domain meaning of coverage. [`crate::observation`] carries the
-//! acquisition clock and completeness claim for one incoming result; the store decides whether
-//! that result can replace current membership.
+//! A complete empty collection is evidence that no members exist. A missing or incomplete
+//! collection cannot delete previously complete membership, so consumers inspect coverage rather
+//! than infer it from an empty vector of comments or reviews. Staleness is separate: retained
+//! complete evidence can belong to an earlier parent context.
 
 use serde::{Deserialize, Serialize};
 
@@ -58,8 +48,6 @@ pub enum FailureKind {
     ProviderResponse,
     /// The local archive could not commit or read the operation.
     Archive,
-    /// Another writer or expired lease prevented this operation from continuing.
-    LeaseLost,
     /// Normalized source data violated a domain constraint.
     InvalidData,
 }
@@ -83,18 +71,6 @@ pub struct Failure {
     pub message: String,
 }
 
-/// Reason why a selected family is inaccessible for the current archive identity.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UnavailableReason {
-    /// The current credential is not authorized to read the family.
-    PermissionDenied,
-    /// The selected family does not apply to this source resource.
-    NotApplicable,
-    /// The provider does not expose the requested evidence.
-    ProviderUnsupported,
-}
-
 /// Reason why work was intentionally left for a later run.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -103,10 +79,6 @@ pub enum DeferredReason {
     RateLimitBudget,
     /// The caller selected an offline operation.
     Offline,
-    /// The user did not select this optional family.
-    NotSelected,
-    /// The work is outside the selected archive scope.
-    OutOfScope,
 }
 
 /// Completeness and freshness state for one evidence family.
@@ -136,29 +108,6 @@ pub enum CoverageState {
         sequence: ObservationSequence,
         /// Number of items in the complete collection; zero means complete empty.
         item_count: u64,
-    },
-    /// The source was contacted but the family could not be read.
-    Unavailable {
-        /// Time when this unavailable result was observed.
-        observed_at: UtcTimestamp,
-        /// Acquisition sequence reserved before the request.
-        sequence: ObservationSequence,
-        /// Classified reason for the unavailable evidence.
-        reason: UnavailableReason,
-    },
-    /// An attempted read failed without producing a commit-ready collection.
-    Failed {
-        /// Time when the failed attempt was observed.
-        observed_at: UtcTimestamp,
-        /// Acquisition sequence reserved before the request.
-        sequence: ObservationSequence,
-        /// Safe failure summary.
-        failure: Failure,
-    },
-    /// The operation intentionally did not attempt this family.
-    Deferred {
-        /// Reason the family remains pending.
-        reason: DeferredReason,
     },
 }
 

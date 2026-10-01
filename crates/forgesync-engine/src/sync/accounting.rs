@@ -198,9 +198,7 @@ pub fn progress_status(status: SyncJobStatus) -> SyncProgressStatus {
         SyncJobStatus::Complete => SyncProgressStatus::Complete,
         SyncJobStatus::Interrupted => SyncProgressStatus::Interrupted,
         SyncJobStatus::Deferred => SyncProgressStatus::Deferred,
-        SyncJobStatus::Pending | SyncJobStatus::InProgress | SyncJobStatus::Failed => {
-            SyncProgressStatus::Failed
-        }
+        SyncJobStatus::InProgress | SyncJobStatus::Failed => SyncProgressStatus::Failed,
     }
 }
 

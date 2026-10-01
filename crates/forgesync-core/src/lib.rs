@@ -11,7 +11,7 @@
 //! - [`identity`] checks the names and numbers used to join records.
 //! - [`content`] describes current normalized discussions and related resources.
 //! - [`observation`] records when and how evidence was acquired; [`coverage`] says which resource
-//!   family was complete, incomplete, unavailable, or deferred.
+//!   family was complete or incomplete.
 //! - [`outcome`] describes the result of a workflow without turning partial success into an error
 //!   string. [`document`] and [`embedding`] hold derived retrieval inputs.
 //!

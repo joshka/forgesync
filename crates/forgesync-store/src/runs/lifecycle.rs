@@ -86,10 +86,7 @@ impl Archive {
         job_id: i64,
         completion: SyncJobCompletion<'_>,
     ) -> Result<(), StoreError> {
-        if matches!(
-            completion.status,
-            SyncJobStatus::Pending | SyncJobStatus::InProgress
-        ) {
+        if matches!(completion.status, SyncJobStatus::InProgress) {
             return Err(StoreError::InvalidRunData);
         }
         let writer = self.writer.as_ref().ok_or(StoreError::ReadOnlyArchive)?;

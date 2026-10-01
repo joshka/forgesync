@@ -54,7 +54,6 @@ pub fn run_status_name(status: RunStatus) -> &'static str {
 
 pub fn sync_job_status_name(status: SyncJobStatus) -> &'static str {
     match status {
-        SyncJobStatus::Pending => "pending",
         SyncJobStatus::InProgress => "in_progress",
         SyncJobStatus::Complete => "complete",
         SyncJobStatus::Failed => "failed",

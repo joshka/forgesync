@@ -38,8 +38,6 @@ pub enum RunStatus {
 #[serde(rename_all = "snake_case")]
 #[sqlx(rename_all = "snake_case")]
 pub enum SyncJobStatus {
-    /// Selected work is waiting to begin.
-    Pending,
     /// The job is actively acquiring or applying source data.
     InProgress,
     /// The selected family completed and committed.
