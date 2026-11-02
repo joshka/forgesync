@@ -10,6 +10,34 @@ changes listed below. The guidance that encouraged the bloat was rewritten: see 
 
 Next: review the stacked changes, publish them as a PR, and let CI run its compilation check.
 
+## Routine CI gate follow-up
+
+Routine CI adopts the combined lane recommended by the [CI cache experiment](ci-cache-experiment.md):
+one cached Linux job running workspace Clippy with warnings denied, the default-feature product
+build, and the credential-free binary smoke script. The job keeps its `check` name, so the release
+PR validation in the Release-plz workflow is unchanged. The experiment lane stays available in the
+manual Platform checks workflow. This addresses
+[the CI follow-up issue](https://github.com/joshka/forgesync/issues/1); workspace tests,
+formatting, Rustdoc, and the CLI-only build remain local checks because the measured test lane
+exceeds the warm budget.
+
+Local validation on 2026-11-02 passes the same three commands on `main`'s source: workspace Clippy
+with all targets and features, the default product build, and the smoke script. Actionlint and
+changed Markdown lint pass.
+
+Hosted evidence from [the PR](https://github.com/joshka/forgesync/pull/18) on 2026-11-02, after all
+experiment caches had been evicted: the cold
+[push run](https://github.com/joshka/forgesync/actions/runs/41451996007) took 148 seconds complete
+(136-second job: 60 seconds Clippy, 57 seconds build, under one second smoke, 7 seconds cache
+save) and the concurrent cold
+[pull-request run](https://github.com/joshka/forgesync/actions/runs/41452005538) took 186 seconds
+complete. Both saved a 497 MB `ci-v1` cache. The following documentation-only push hit that cache
+exactly: the warm [push run](https://github.com/joshka/forgesync/actions/runs/41452522778) took 43
+seconds complete (40-second job: 7 seconds restore, 7 seconds Clippy, 11 seconds build) and the warm
+[pull-request run](https://github.com/joshka/forgesync/actions/runs/41452530742) took 50 seconds
+complete. Both meet the 60-second warm budget measured by the experiment. Next: merge the PR so
+`main` warms the shared cache, then observe the first dependency-bump PR for lockfile-miss cost.
+
 This file describes current status; the [module map](architecture.md) explains the crate layout.
 Earlier milestone-by-milestone development logs are retained in jj history rather than repeated as
 current instructions.

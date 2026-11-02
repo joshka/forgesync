@@ -75,14 +75,26 @@ provider credential variables from the child environment, creates a temporary ar
 doctor probes including FTS5, and runs an offline keyword query. It makes no network request. See
 the [script reference](../scripts/README.md) for inputs, outputs, and failure behavior.
 
-## Temporary fast checks
+## Routine fast checks
 
-Routine CI runs `cargo check --workspace --all-targets --all-features --locked` on one Linux runner.
-This checks compilation, including test and example targets, without linking or running them. It is
-our temporary inexpensive gate while release latency takes priority. It cannot establish runtime
-correctness, platform compatibility, package installability, or that tests pass. Formatting, lint,
-test, and documentation gates are temporarily deferred; retain the local validation commands in
-AGENTS.md when making changes that need them.
+Routine CI runs one Linux job with a pinned [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)
+dependency cache: `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
+`cargo build -p forgesync --locked`, and `scripts/smoke_binary.py` against that debug binary. Clippy
+compiles every workspace target, including tests and examples, and denies lints. The build and
+smoke steps add actual linking, startup, isolated configuration, archive creation, SQLite/FTS5
+probes, and an offline query. The [CI cache experiment](ci-cache-experiment.md) measured this lane
+at 47 seconds for a complete warm workflow and about 140 seconds for a cold job; it is the selected
+gate while release latency takes priority.
+
+The cache holds registry data and dependency artifacts only; workspace crates are rebuilt from the
+checked-out source on every run. Its key covers the compiler, manifests, lockfile, and toolchain
+file, so dependency or toolchain changes pay a cold job once, and successful `main` runs warm the
+cache for later PRs. The same reusable workflow validates generated release PR branches.
+
+This gate cannot establish that tests pass, platform compatibility, formatting, Rustdoc, or the
+CLI-only feature build. Those checks remain deferred from routine CI because the measured full
+workspace test lane exceeds the 60-second warm budget; run the local validation commands in
+AGENTS.md when a change needs them.
 
 The manually dispatched **Platform checks** workflow retains native build, smoke, and packaging
 checks for Linux, Apple Silicon macOS, and Windows. Intel macOS is excluded. Run this workflow when

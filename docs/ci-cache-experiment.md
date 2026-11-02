@@ -2,10 +2,11 @@
 
 ## Decision and scope
 
-Keep routine CI and publication policy unchanged until the proposed gate is reviewed. A pinned
-Swatinem/rust-cache dependency cache makes Linux compilation, Clippy, documentation, and binary
-smoke individually inexpensive on warm runners. Full workspace tests exceed the 60-second warm
-budget. Native platform and release-asset builds remain manual.
+Routine CI now runs the recommended combined lane below: cached Linux Clippy, a default-feature
+product build, and the binary smoke script, under the `ci-v1` cache prefix. Publication policy is
+unchanged. A pinned Swatinem/rust-cache dependency cache makes Linux compilation, Clippy,
+documentation, and binary smoke individually inexpensive on warm runners. Full workspace tests
+exceed the 60-second warm budget. Native platform and release-asset builds remain manual.
 
 This investigation addresses [issue 1](https://github.com/joshka/forgesync/issues/1), using only the
 `ci-cache` jj workspace and personal bookmark `joshka/ci-cache-experiment`. The manual Platform
