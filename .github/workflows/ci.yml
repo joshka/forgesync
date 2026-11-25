@@ -16,10 +16,24 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
-      - name: Check compilation
-        run: cargo check --workspace --all-targets --all-features --locked
+      - name: Select pinned toolchain
+        run: rustup show active-toolchain
+      # Dependency artifacts only; workspace crates are always rebuilt from the checked-out source.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          prefix-key: ci-v1
+          key: fast
+          cache-bin: false
+      - name: Lint and compile all targets
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Build default product binary
+        run: cargo build -p forgesync --locked
+      - name: Smoke test without credentials
+        run: python3 scripts/smoke_binary.py target/debug/forgesync

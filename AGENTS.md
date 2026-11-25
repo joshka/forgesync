@@ -82,9 +82,10 @@ conventions. Comments explain what the code cannot, never restate it.
 - Optimize total wall-clock time to a completed change. Run cheap, focused local checks when they
   save overall time. Once publication is authorized, push a reviewable change promptly so CI starts
   early; do not wait for exhaustive local validation or every detail to be polished.
-- Inspect actual CI coverage before delegating validation. Routine CI currently runs only
-  `cargo check --workspace --all-targets --all-features --locked`; it does not execute tests,
-  Clippy, docs, or smoke checks. Use CI as the arbiter for expensive checks it actually runs.
+- Inspect actual CI coverage before delegating validation. Routine CI runs one cached Linux job:
+  workspace Clippy over all targets and features with warnings denied, a default-feature product
+  build, and the credential-free binary smoke script. It does not run tests, formatting, Rustdoc,
+  or the CLI-only build. Use CI as the arbiter for expensive checks it actually runs.
 - Select additional checks for the changed behavior and known failure modes. Run a quick regression
   reproducer locally when useful. Complete relevant checks missing from CI locally or through an
   explicit hosted run; they can follow PR publication unless an explicit gate requires otherwise.
@@ -97,8 +98,9 @@ conventions. Comments explain what the code cannot, never restate it.
 
 ## Release latency
 
-Routine hosted CI temporarily uses a single Linux compilation check. Native platform checks are
-manual and do not gate crate publication. Before adding automatic release gates, measure complete
-cold and warm workflow durations and explain the coverage gained. See
-[release guidance](docs/releasing.md) for the temporary policy, smoke-test expectations, and
-follow-up issue.
+Routine hosted CI is one cached Linux Clippy plus binary smoke job with a measured sub-minute warm
+workflow. Native platform checks are manual and do not gate crate publication. Before adding
+further automatic checks or release gates, measure complete cold and warm workflow durations and
+explain the coverage gained. See [release guidance](docs/releasing.md) for the routine policy,
+smoke-test expectations, and the [CI cache experiment](docs/ci-cache-experiment.md) that selected
+the current gate.
